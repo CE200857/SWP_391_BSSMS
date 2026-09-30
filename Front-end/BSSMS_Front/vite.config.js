@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080/SWP', 
+        target: 'http://localhost:8080/BSSMS-back',
         changeOrigin: true,
       }
     }

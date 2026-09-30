@@ -4,7 +4,7 @@ import CustomerList from './components/CustomerList'
 function App() {
   return (
     <>
-      <CustomerList />
+      <CustomerList/>
     </>
   )
 }

@@ -14,7 +14,7 @@ const CustomerList = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('http://localhost:8080/SWP/api/customers');
+                const response = await fetch('http://localhost:8080/BSSMS-back/api/customers');
                 if (response.ok) {
                     const data = await response.json();
                     setCustomers(data);
@@ -45,7 +45,7 @@ const CustomerList = () => {
         if (!selectedCustomer) return;
 
         try {
-            const response = await fetch(`http://localhost:8080/SWP/api/customers?id=${selectedCustomer.customerId}`, {
+            const response = await fetch('http://localhost:8080/BSSMS-back/api/customers?id=${selectedCustomer.customerId}', {
                 method: 'DELETE'
             });
             
