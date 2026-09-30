@@ -6,15 +6,13 @@ const CustomerList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [refresh, setRefresh] = useState(0);
 
-    // --- CÁC BIẾN STATE DÀNH CHO MODAL ---
     const [showModal, setShowModal] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-    // Lấy dữ liệu từ Backend
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('http://localhost:8080/SWP/api/customers');
+                const response = await fetch('/api/customers');
                 if (response.ok) {
                     const data = await response.json();
                     setCustomers(data);
@@ -23,47 +21,37 @@ const CustomerList = () => {
                 console.error("Lỗi kết nối đến Backend:", error);
             }
         };
-
         fetchData();
     }, [refresh]);
 
-    // --- CÁC HÀM XỬ LÝ MODAL ---
-    // Mở hộp thoại và lưu lại thông tin khách hàng đang được chọn
     const handleShowModal = (customer) => {
         setSelectedCustomer(customer);
         setShowModal(true);
     };
 
-    // Đóng hộp thoại
     const handleCloseModal = () => {
         setShowModal(false);
         setSelectedCustomer(null);
     };
 
-    // --- HÀM XÓA CHÍNH THỨC (Chạy khi bấm nút Xác nhận trong Modal) ---
     const confirmDelete = async () => {
         if (!selectedCustomer) return;
 
         try {
-            const response = await fetch(`http://localhost:8080/SWP/api/customers?id=${selectedCustomer.customerId}`, {
+            const response = await fetch(`/api/customers?id=${selectedCustomer.customerId}`, {
                 method: 'DELETE'
             });
             
             if (response.ok) {
-                // Kích hoạt load lại bảng dữ liệu
                 setRefresh(prev => prev + 1); 
             } else {
                 alert("Lỗi: Không thể vô hiệu hóa tài khoản này.");
             }
-        } catch (error) {
-            console.error("Lỗi khi xóa:", error);
-        } finally {
-            // Dù thành công hay thất bại cũng đóng Modal lại
+        }finally {
             handleCloseModal(); 
         }
     };
 
-    // Lọc danh sách theo từ khóa
     const filteredCustomers = customers.filter(c => 
         c.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.phone?.includes(searchTerm) ||
@@ -116,11 +104,9 @@ const CustomerList = () => {
                                     <Button 
                                         variant="danger" 
                                         size="sm" 
-                                        // Đổi onClick thành hàm gọi Modal
                                         onClick={() => handleShowModal(c)}
-                                        disabled={c.status === 'Inactive'}
                                     >
-                                        <i className="bi bi-trash"></i> Hủy
+                                        <i className="bi bi-trash"></i> Xóa
                                     </Button>
                                 </td>
                             </tr>
@@ -135,27 +121,25 @@ const CustomerList = () => {
                 </tbody>
             </Table>
 
-            {/* --- GIAO DIỆN MODAL XÁC NHẬN --- */}
             <Modal show={showModal} onHide={handleCloseModal} centered>
                 <Modal.Header closeButton>
                     <Modal.Title className="text-danger fw-bold">
                         <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                        Xác nhận vô hiệu hóa
+                        Xác nhận xóa tài khoản
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    Bạn có chắc chắn muốn vô hiệu hóa tài khoản của khách hàng <span className="fw-bold text-primary">{selectedCustomer?.fullName}</span> không?
+                    Bạn có chắc chắn muốn xóa hóa tài khoản của khách hàng <span className="fw-bold text-primary">{selectedCustomer?.fullName}</span> không?
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={handleCloseModal}>
                         Hủy bỏ
                     </Button>
                     <Button variant="danger" onClick={confirmDelete}>
-                        Vô hiệu hóa
+                        Xóa tài khoản
                     </Button>
                 </Modal.Footer>
             </Modal>
-
         </Container>
     );
 };

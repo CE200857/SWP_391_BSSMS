@@ -13,20 +13,19 @@ public class CustomerDAO extends DBContext {
     // Lấy danh sách kết hợp trả về dạng Map để đẩy thẳng ra JSON (UC-15)
     public List<Map<String, Object>> getAllCustomerDetails() {
         List<Map<String, Object>> list = new ArrayList<>();
-        // Lấy phone từ Customer, lấy email và status từ Account
-        String query = "SELECT c.customer_id, c.full_name, c.phone, a.email, a.status "
+        // Đã sửa c.phone thành a.phone
+        String query = "SELECT c.customer_id, c.full_name, a.phone, a.email, a.status "
                      + "FROM Customer c "
-                     + "JOIN Account a ON c.account_id = a.account_id ";
+                     + "JOIN Account a ON c.account_id = a.account_id";
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
-                    // Dùng Map tạo cấu trúc Key-Value thay vì dùng class Model
                     Map<String, Object> map = new HashMap<>();
                     map.put("customerId", rs.getInt("customer_id"));
                     map.put("fullName", rs.getString("full_name"));
-                    map.put("phone", rs.getString("phone"));
+                    map.put("phone", rs.getString("phone")); // Vẫn lấy tên cột là "phone" từ kết quả
                     map.put("email", rs.getString("email"));
                     map.put("status", rs.getString("status"));
                     
