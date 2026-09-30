@@ -36,7 +36,6 @@ function App() {
   }, []);
 
   return (
-<<<<<<< HEAD
     <BrowserRouter>
       <div className="bg-light min-vh-100 d-flex flex-column">
         <Header user={user} />
@@ -82,12 +81,6 @@ function App() {
       </div>
     </BrowserRouter>
   );
-=======
-    <>
-      <CustomerList/>
-    </>
-  )
->>>>>>> c6cb842c3ab5487d3ef0f3f115ba8c2e280e7a02
 }
 
 export default App;
