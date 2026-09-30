@@ -12,7 +12,11 @@ const CustomerList = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
+<<<<<<< HEAD:Front-end/BSSMS_Front/src/pages/CustomerAdmin/CustomerList.jsx
                 const response = await fetch('/api/customers');
+=======
+                const response = await fetch('http://localhost:8080/BSSMS-back/api/customers');
+>>>>>>> c6cb842c3ab5487d3ef0f3f115ba8c2e280e7a02:Front-end/BSSMS_Front/src/components/CustomerList.jsx
                 if (response.ok) {
                     const data = await response.json();
                     setCustomers(data);
@@ -38,7 +42,11 @@ const CustomerList = () => {
         if (!selectedCustomer) return;
 
         try {
+<<<<<<< HEAD:Front-end/BSSMS_Front/src/pages/CustomerAdmin/CustomerList.jsx
             const response = await fetch(`/api/customers?id=${selectedCustomer.customerId}`, {
+=======
+            const response = await fetch('http://localhost:8080/BSSMS-back/api/customers?id=${selectedCustomer.customerId}', {
+>>>>>>> c6cb842c3ab5487d3ef0f3f115ba8c2e280e7a02:Front-end/BSSMS_Front/src/components/CustomerList.jsx
                 method: 'DELETE'
             });
             
