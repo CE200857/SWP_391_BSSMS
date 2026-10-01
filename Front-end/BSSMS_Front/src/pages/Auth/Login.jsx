@@ -29,23 +29,31 @@ const Login = ({ setUser }) => {
 
             if (response.ok) {
                 localStorage.setItem('user', JSON.stringify(data));
-                setUser(data); 
-                
+                setUser(data);
+
                 setSuccessMsg(`Đăng nhập thành công! Chào mừng ${data.fullName} (${data.role})`);
-                
+
                 // KHI ĐĂNG NHẬP THÀNH CÔNG: Kiểm tra role để chuyển trang tương ứng
                 setTimeout(() => {
-                    if (data.role === 'Customer') {
-                        navigate('/profile'); // Khách hàng vào thẳng Profile
-                    } else {
-                        navigate('/customers'); // Nhân viên vào danh sách
+                    switch (data.role) {
+                        case "Customer":
+                            navigate("/profile");
+                            break;
+
+                        case "Manager":
+                            navigate("/customers");
+                            break;
+
+                        default:
+                            navigate("/customers");
+                            break;
                     }
                 }, 1500);
             } else {
                 setError(data.message || 'Đăng nhập thất bại!');
-                setIsLoading(false); 
+                setIsLoading(false);
             }
-        } catch (err) {
+        } catch {
             setError('Lỗi kết nối đến máy chủ!');
             setIsLoading(false);
         }
@@ -56,16 +64,16 @@ const Login = ({ setUser }) => {
             <Card style={{ width: '400px', padding: '20px', border: 'none', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                 <Card.Body>
                     <h3 className="text-center mb-4 fw-bold text-uppercase">Đăng nhập</h3>
-                    
+
                     {error && <Alert variant="danger">{error}</Alert>}
                     {successMsg && <Alert variant="success">{successMsg}</Alert>}
 
                     <Form onSubmit={handleLogin}>
                         <Form.Group className="mb-3" controlId="formBasicEmail">
                             <Form.Label className="fw-bold">Email*</Form.Label>
-                            <Form.Control 
-                                type="email" 
-                                placeholder="Vui lòng nhập email" 
+                            <Form.Control
+                                type="email"
+                                placeholder="Vui lòng nhập email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -75,9 +83,9 @@ const Login = ({ setUser }) => {
 
                         <Form.Group className="mb-4" controlId="formBasicPassword">
                             <Form.Label className="fw-bold">Mật khẩu*</Form.Label>
-                            <Form.Control 
-                                type="password" 
-                                placeholder="Vui lòng nhập mật khẩu" 
+                            <Form.Control
+                                type="password"
+                                placeholder="Vui lòng nhập mật khẩu"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -85,10 +93,10 @@ const Login = ({ setUser }) => {
                             />
                         </Form.Group>
 
-                        <Button 
-                            variant="danger" 
-                            type="submit" 
-                            className="w-100 mb-4 fw-bold" 
+                        <Button
+                            variant="danger"
+                            type="submit"
+                            className="w-100 mb-4 fw-bold"
                             style={{ height: '45px' }}
                             disabled={isLoading || successMsg !== ''}
                         >
