@@ -9,6 +9,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+/**
+ * 
+ * @author Nguyen Tien Dat - CE200858
+ */
+
 @WebServlet(name = "LogoutServlet", urlPatterns = {"/api/logout"})
 public class LogoutServlet extends HttpServlet {
 
