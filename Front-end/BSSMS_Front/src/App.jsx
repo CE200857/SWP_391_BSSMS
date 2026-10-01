@@ -4,7 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -12,6 +12,7 @@ import Footer from "./components/Footer";
 import Login from "./pages/Auth/Login";
 import Profile from "./pages/Auth/Profile";
 import CustomerList from "./pages/CustomerAdmin/CustomerList";
+import StaffList from "./pages/StaffAdmin/StaffList";
 import "./App.css";
 
 const ProtectedStaffRoute = ({ user, children }) => {
@@ -25,15 +26,10 @@ const ProtectedStaffRoute = ({ user, children }) => {
 };
 
 function App() {
-  const [user, setUser] = useState(null);
-
-  // Giữ phiên đăng nhập khi nhấn F5 (Tải lại trang)
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     const loggedInUser = localStorage.getItem("user");
-    if (loggedInUser) {
-      setUser(JSON.parse(loggedInUser));
-    }
-  }, []);
+    return loggedInUser ? JSON.parse(loggedInUser) : null;
+  });
 
   return (
     <BrowserRouter>
@@ -75,6 +71,16 @@ function App() {
                 </ProtectedStaffRoute>
               }
             />
+
+            <Route
+              path="/staff"
+              element={
+                <ProtectedStaffRoute user={user}>
+                  <StaffList />
+                </ProtectedStaffRoute>
+              }
+            />
+
           </Routes>
         </div>
         <Footer />
