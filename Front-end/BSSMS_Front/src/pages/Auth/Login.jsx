@@ -45,6 +45,7 @@ const Login = ({ setUser }) => {
                 setError(data.message || 'Đăng nhập thất bại!');
                 setIsLoading(false); 
             }
+        // eslint-disable-next-line no-unused-vars
         } catch (err) {
             setError('Lỗi kết nối đến máy chủ!');
             setIsLoading(false);

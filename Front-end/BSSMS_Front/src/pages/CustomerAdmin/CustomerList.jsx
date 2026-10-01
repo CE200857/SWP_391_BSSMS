@@ -59,7 +59,7 @@ const CustomerList = () => {
     );
 
     return (
-        <Container className="mt-4">
+        <Container fluid className="mt-4 px-4">
             <h2 className="mb-4 fw-bold text-uppercase">Danh sách khách hàng</h2>
             
             <InputGroup className="mb-3 w-50">
