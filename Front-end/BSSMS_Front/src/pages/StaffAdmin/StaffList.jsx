@@ -8,7 +8,7 @@ const StaffList = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch("/api/staffs");
+                const response = await fetch("/api/staff");
 
                 if (response.ok) {
                     const data = await response.json();
