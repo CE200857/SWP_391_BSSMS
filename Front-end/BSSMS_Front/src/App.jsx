@@ -7,9 +7,8 @@ import Sidebar from "./components/Sidebar";
 
 import Login from "./pages/Auth/Login";
 import Profile from "./pages/Auth/Profile";
-import CustomerList from "./pages/Dashboard/CustomerAdmin/CustomerList";
-import ServiceForm from "./pages/Dashboard/ServiceList/ServiceForm";
-import ServiceList from "./pages/Dashboard/ServiceList/ServiceList";
+import CustomerList from "./pages/CustomerAdmin/CustomerList";
+import StaffList from "./pages/StaffAdmin/StaffList";
 import "./App.css";
 
 const ProtectedStaffRoute = ({ user, children }) => {
@@ -22,11 +21,21 @@ const ProtectedStaffRoute = ({ user, children }) => {
   return children;
 };
 
-function App() {
-  const [user, setUser] = useState(null);
+const ProtectedManagerRoute = ({ user, children }) => {
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
 
-  // Giữ phiên đăng nhập khi nhấn F5 (Tải lại trang)
-  useEffect(() => {
+  if (user.role !== "Manager") {
+    return <Navigate to="/customers" replace />;
+  }
+
+  return children;
+};
+
+function App() {
+
+  const [user, setUser] = useState(() => {
     const loggedInUser = localStorage.getItem("user");
     if (loggedInUser) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -46,72 +55,27 @@ function App() {
 
           <Header user={user} />
 
-          <div className="flex-grow-1 p-4">
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  user ? (
-                    user.role === "Customer" ? (
-                      <Navigate to="/profile" replace />
-                    ) : (
-                      <Navigate to="/customers" replace />
-                    )
-                  ) : (
-                    <Login setUser={setUser} />
-                  )
-                }
-              />
+            {/* Route Quản lý danh sách khách hàng (Chỉ dành cho Staff/Manager) */}
+            <Route
+              path="/customers"
+              element={
+                <ProtectedStaffRoute user={user}>
+                  <CustomerList />
+                </ProtectedStaffRoute>
+              }
+            />
 
-              <Route
-                path="/profile"
-                element={
-                  user ? (
-                    <Profile user={user} setUser={setUser} />
-                  ) : (
-                    <Navigate to="/" replace />
-                  )
-                }
-              />
+            {/* Route Quản lý danh sách nhân viên (Chỉ dành cho Manager) */}
+            <Route
+              path="/staffs"
+              element={
+                <ProtectedManagerRoute user={user}>
+                  <StaffList />
+                </ProtectedManagerRoute>
+              }
+            />
 
-              <Route
-                path="/customers"
-                element={
-                  <ProtectedStaffRoute user={user}>
-                    <CustomerList />
-                  </ProtectedStaffRoute>
-                }
-              />
-
-              <Route
-                path="/services"
-                element={
-                  <ProtectedStaffRoute user={user}>
-                    <ServiceList />
-                  </ProtectedStaffRoute>
-                }
-              />
-
-              <Route
-                path="/services/new"
-                element={
-                  <ProtectedStaffRoute user={user}>
-                    <ServiceForm />
-                  </ProtectedStaffRoute>
-                }
-              />
-
-              <Route
-                path="/services/edit/:id"
-                element={
-                  <ProtectedStaffRoute user={user}>
-                    <ServiceForm />
-                  </ProtectedStaffRoute>
-                }
-              />
-            </Routes>
-          </div>
-          <Footer />
+          </Routes>
         </div>
       </div>
     </BrowserRouter>
