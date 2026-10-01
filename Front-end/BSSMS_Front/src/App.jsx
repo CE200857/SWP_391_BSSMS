@@ -7,7 +7,9 @@ import Sidebar from "./components/Sidebar";
 
 import Login from "./pages/Auth/Login";
 import Profile from "./pages/Auth/Profile";
-import CustomerList from "./pages/CustomerAdmin/CustomerList";
+import CustomerList from "./pages/Dashboard/CustomerAdmin/CustomerList";
+import ServiceForm from "./pages/Dashboard/ServiceList/ServiceForm";
+import ServiceList from "./pages/Dashboard/ServiceList/ServiceList";
 import "./App.css";
 
 const ProtectedStaffRoute = ({ user, children }) => {
@@ -77,6 +79,33 @@ function App() {
                 element={
                   <ProtectedStaffRoute user={user}>
                     <CustomerList />
+                  </ProtectedStaffRoute>
+                }
+              />
+
+              <Route
+                path="/services"
+                element={
+                  <ProtectedStaffRoute user={user}>
+                    <ServiceList />
+                  </ProtectedStaffRoute>
+                }
+              />
+
+              <Route
+                path="/services/new"
+                element={
+                  <ProtectedStaffRoute user={user}>
+                    <ServiceForm />
+                  </ProtectedStaffRoute>
+                }
+              />
+
+              <Route
+                path="/services/edit/:id"
+                element={
+                  <ProtectedStaffRoute user={user}>
+                    <ServiceForm />
                   </ProtectedStaffRoute>
                 }
               />
