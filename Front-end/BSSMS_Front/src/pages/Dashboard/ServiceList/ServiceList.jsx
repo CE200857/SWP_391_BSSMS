@@ -1,27 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 
 const ServiceList = () => {
     const [services, setServices] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [loadError, setLoadError] = useState(false);
 
-    useEffect(() => {
-        fetchServices();
-    }, []);
+    const filteredServices = services.filter(service => {
+        const search = searchTerm.trim().toLowerCase();
+        const matchesSearch = !search ||
+            String(service.serviceId).toLowerCase().includes(search) ||
+            service.serviceName?.toLowerCase().includes(search);
+        const matchesStatus = statusFilter === 'all' || service.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
 
     const fetchServices = async () => {
         try {
-            const response = await axios.get('http://localhost:8080/api/services');
+            const response = await axios.get('/api/service');
             setServices(response.data);
+            setLoadError(false);
         } catch (error) {
             console.error("Lỗi tải danh sách:", error);
+            setLoadError(true);
         }
     };
+
+    useEffect(() => {
+        axios.get('/api/service')
+            .then(response => {
+                setServices(response.data);
+                setLoadError(false);
+            })
+            .catch(error => {
+                console.error("Lỗi tải danh sách:", error);
+                setLoadError(true);
+            });
+    }, []);
 
     const handleDelete = async (id) => {
         if (window.confirm('Bạn có chắc chắn muốn xóa dịch vụ này?')) {
             try {
-                await axios.delete(`http://localhost:8080/api/services?id=${id}`);
+                await axios.delete(`/api/service?id=${id}`);
                 alert("Xóa thành công!");
                 fetchServices(); 
             } catch (error) {
@@ -32,14 +54,38 @@ const ServiceList = () => {
 
     return (
         <div className="container mt-4">
-            <h2>Danh sách Dịch vụ</h2>
-            
-            
-            <Link to="/services/new" className="btn btn-primary mb-3">
-                Thêm dịch vụ mới
-            </Link>
+            <h2 className="text-center mb-3">Danh sách Dịch vụ</h2>
 
-            <table className="table table-bordered table-hover">
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                <div className="d-flex flex-wrap gap-2 flex-grow-1">
+                    <input
+                        type="search"
+                        className="form-control"
+                        style={{ maxWidth: '360px' }}
+                        placeholder="Tìm theo tên hoặc ID dịch vụ..."
+                        aria-label="Tìm dịch vụ theo tên hoặc ID"
+                        value={searchTerm}
+                        onChange={event => setSearchTerm(event.target.value)}
+                    />
+                    <select
+                        className="form-select"
+                        style={{ maxWidth: '190px' }}
+                        aria-label="Lọc theo trạng thái"
+                        value={statusFilter}
+                        onChange={event => setStatusFilter(event.target.value)}
+                    >
+                        <option value="all">Tất cả trạng thái</option>
+                        <option value="Active">Đang hoạt động</option>
+                        <option value="Inactive">Ngừng hoạt động</option>
+                    </select>
+                </div>
+                <Link to="/services/new" className="btn btn-primary ms-auto">
+                    Thêm dịch vụ mới
+                </Link>
+            </div>
+
+            <div className="table-responsive">
+            <table className="table table-bordered table-hover align-middle mb-0">
                 <thead className="table-dark">
                     <tr>
                         <th>ID</th>
@@ -51,11 +97,11 @@ const ServiceList = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    {services.map(s => (
+                    {filteredServices.length > 0 ? filteredServices.map(s => (
                         <tr key={s.serviceId}>
                             <td>{s.serviceId}</td>
                             <td>{s.serviceName}</td>
-                            <td>{s.price}</td>
+                            <td>{Number(s.price).toLocaleString('vi-VN')}</td>
                             <td>{s.duration}</td>
                             <td>
                                 <span className={s.status === 'Active' ? 'text-success' : 'text-danger'}>
@@ -72,9 +118,20 @@ const ServiceList = () => {
                                 </button>
                             </td>
                         </tr>
-                    ))}
+                    )) : (
+                        <tr>
+                            <td colSpan="6" className="text-center text-muted py-4">
+                                {loadError
+                                    ? 'Không tải được danh sách dịch vụ. Hãy kiểm tra backend và thử tải lại.'
+                                    : services.length === 0
+                                        ? 'Chưa có dịch vụ nào.'
+                                        : 'Không tìm thấy dịch vụ phù hợp.'}
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
+            </div>
         </div>
     );
 };

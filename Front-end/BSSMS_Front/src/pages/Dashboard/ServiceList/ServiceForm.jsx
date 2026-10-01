@@ -17,7 +17,7 @@ const ServiceForm = () => {
 
     useEffect(() => {
         if (id) {
-            axios.get(`http://localhost:8080/api/services?id=${id}`)
+            axios.get(`/api/service?id=${id}`)
                 .then(res => setFormData(res.data))
                 .catch(err => console.error("Lỗi lấy dữ liệu:", err));
         }
@@ -32,11 +32,11 @@ const ServiceForm = () => {
         try {
             if (id) {
                 
-                await axios.put(`http://localhost:8080/api/services?id=${id}`, formData);
+                await axios.put(`/api/service?id=${id}`, formData);
                 alert('Cập nhật thành công!');
             } else {
                 
-                await axios.post('http://localhost:8080/api/services', formData);
+                await axios.post('/api/service', formData);
                 alert('Thêm mới thành công!');
             }
             navigate('/services'); 

@@ -21,7 +21,7 @@ import jakarta.servlet.http.HttpServletResponse;
  *
  * @author Trần Thành Đạt - CE200857
  */
-@WebServlet(name = "ServiceController", urlPatterns = {"/service"})
+@WebServlet(name = "ServiceController", urlPatterns = {"/api/service"})
 public class ServiceController extends HttpServlet {
 
     private ServiceDAO serviceDAO = new ServiceDAO();
