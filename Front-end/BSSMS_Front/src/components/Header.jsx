@@ -9,10 +9,8 @@ const Header = ({ user }) => {
   const initial = user.fullName ? user.fullName.charAt(0).toUpperCase() : "U";
 
   return (
-    // Dùng Navbar nền trắng, có bóng đổ nhẹ (shadow-sm) và đẩy nội dung bên dưới xuống (mb-4)
-    <Navbar bg="white" className="shadow-sm mb-4">
-      <Container>
-        {/* Bên trái: Tên Brand */}
+    <Navbar bg="white" className="shadow-sm z-3" style={{ position: 'relative' }}>
+      <Container fluid className="px-4">
         <Navbar.Brand
           className="fw-bold fs-4"
           style={{ cursor: "pointer", letterSpacing: "1px" }}
@@ -22,7 +20,6 @@ const Header = ({ user }) => {
           Beauty Salon & Spa
         </Navbar.Brand>
 
-        {/* Bên phải: Khung Avatar */}
         <Navbar.Collapse className="justify-content-end">
           <div
             className="d-flex align-items-center p-1 bg-light rounded-pill border"

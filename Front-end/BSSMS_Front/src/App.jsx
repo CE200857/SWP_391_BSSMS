@@ -1,13 +1,9 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import { useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import Sidebar from "./components/Sidebar";
 
 import Login from "./pages/Auth/Login";
 import Profile from "./pages/Auth/Profile";
@@ -41,39 +37,23 @@ function App() {
 
   const [user, setUser] = useState(() => {
     const loggedInUser = localStorage.getItem("user");
-    return loggedInUser ? JSON.parse(loggedInUser) : null;
-  });
+    if (loggedInUser) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setUser(JSON.parse(loggedInUser));
+    }
+  }, []);
 
   return (
     <BrowserRouter>
-      <div className="bg-light min-vh-100 d-flex flex-column">
-        <Header user={user} />
+      <div
+        className="bg-light min-vh-100 vw-100 d-flex m-0 p-0"
+        style={{ overflowX: "hidden" }}
+      >
+        <Sidebar user={user} />
 
-        <div className="flex-grow-1 pb-5">
-          <Routes>
-            {/* Route Đăng nhập (Mặc định) */}
-            <Route
-              path="/"
-              element={
-                user ? (
-                  <Navigate to="/customers" replace />
-                ) : (
-                  <Login setUser={setUser} />
-                )
-              }
-            />
+        <div className="flex-grow-1 d-flex flex-column" style={{ minWidth: 0 }}>
 
-            {/* Route cho trang Hồ sơ cá nhân (Profile) */}
-            <Route
-              path="/profile"
-              element={
-                user ? (
-                  <Profile user={user} setUser={setUser} />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              }
-            />
+          <Header user={user} />
 
             {/* Route Quản lý danh sách khách hàng (Chỉ dành cho Staff/Manager) */}
             <Route
@@ -97,7 +77,6 @@ function App() {
 
           </Routes>
         </div>
-        <Footer />
       </div>
     </BrowserRouter>
   );

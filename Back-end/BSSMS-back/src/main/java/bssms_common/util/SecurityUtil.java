@@ -1,16 +1,11 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_common.util;
+
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
-/**
- *
- * @author admin
- */
+
 public class SecurityUtil {
+    
     /**
      * Hàm băm (mã hóa) mật khẩu bằng thuật toán SHA-256
      * @param password Mật khẩu gốc người dùng nhập

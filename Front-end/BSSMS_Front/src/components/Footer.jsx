@@ -3,7 +3,7 @@ import { Container } from "react-bootstrap";
 const Footer = () => {
   return (
     <footer className="bg-white border-top text-center py-4 mt-auto">
-      <Container>
+      <Container fluid>
         <p className="mb-1 fw-bold text-dark">
           Beauty Salon & Spa Management System
         </p>

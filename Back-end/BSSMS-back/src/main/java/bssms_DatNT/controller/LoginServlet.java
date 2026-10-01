@@ -13,6 +13,11 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * 
+ * @author Nguyen Tien Dat - CE200858
+ */
+
 @WebServlet(name = "LoginServlet", urlPatterns = {"/api/login"})
 public class LoginServlet extends HttpServlet {
 

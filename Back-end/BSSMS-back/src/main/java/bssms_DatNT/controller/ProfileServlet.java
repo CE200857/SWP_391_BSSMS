@@ -12,6 +12,11 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * 
+ * @author Nguyen Tien Dat - CE200858
+ */
+
 @WebServlet(name = "ProfileServlet", urlPatterns = {"/api/profile"})
 public class ProfileServlet extends HttpServlet {
 

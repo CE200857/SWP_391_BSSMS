@@ -46,7 +46,7 @@ const Profile = ({ user, setUser }) => {
   const initial = user.fullName ? user.fullName.charAt(0).toUpperCase() : "U";
 
   return (
-    <Container className="mt-4">
+    <Container fluid className="mt-4 px-4">
       <Card className="shadow-sm border-0" style={{ borderRadius: "15px" }}>
         <Card.Body className="p-5">
           <h2 className="mb-5 fw-bold text-uppercase text-center">
