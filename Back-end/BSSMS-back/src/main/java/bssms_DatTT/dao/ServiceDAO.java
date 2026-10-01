@@ -41,7 +41,7 @@ public class ServiceDAO extends DBContext {
             System.out.println("Database connection is null in ServiceDAO.getServiceById()");
             return null;
         }
-        String sql = "SELECT * FROM Services WHERE id = ?";
+        String sql = "SELECT * FROM Service WHERE service_id = ?";
         try {
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, id);
@@ -109,7 +109,7 @@ public class ServiceDAO extends DBContext {
         if (conn == null) {
             throw new Exception("Database connection is null in ServiceDAO.deleteService()");
         }
-        String sql = "DELETE FROM Service WHERE id = ?";
+        String sql = "DELETE FROM Service WHERE service_id = ?";
         PreparedStatement ps = conn.prepareStatement(sql);
         ps.setInt(1, id);
         int rows = ps.executeUpdate();
