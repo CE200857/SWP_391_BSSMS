@@ -24,6 +24,18 @@ const Sidebar = ({ user }) => {
             <i className="bi bi-people-fill me-2"></i> Danh sách khách hàng
           </NavLink>
 
+          {/* Menu dịch vụ */}
+          <NavLink
+            to="/services"
+            className={({ isActive }) =>
+              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+                isActive ? "bg-primary text-white shadow" : "text-dark"
+              }`
+            }
+          >
+            <i className="bi bi-scissors me-2"></i> Danh sách dịch vụ
+          </NavLink>
+
           {/* Menu Nhân viên (Tạm thời dẫn tới /staffs) */}
           <NavLink
             to="/staffs"

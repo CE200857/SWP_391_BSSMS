@@ -62,7 +62,7 @@ const Login = ({ setUser }) => {
                     {successMsg && <Alert variant="success">{successMsg}</Alert>}
 
                     <Form onSubmit={handleLogin}>
-                        <Form.Group className="mb-3" controlId="formBasicEmail">
+                        <Form.Group className="mb-3 text-start" controlId="formBasicEmail">
                             <Form.Label className="fw-bold">Email*</Form.Label>
                             <Form.Control 
                                 type="email" 
@@ -74,7 +74,7 @@ const Login = ({ setUser }) => {
                             />
                         </Form.Group>
 
-                        <Form.Group className="mb-4" controlId="formBasicPassword">
+                        <Form.Group className="mb-4 text-start" controlId="formBasicPassword">
                             <Form.Label className="fw-bold">Mật khẩu*</Form.Label>
                             <Form.Control 
                                 type="password" 
