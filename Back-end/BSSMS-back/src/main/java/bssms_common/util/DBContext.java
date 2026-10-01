@@ -27,7 +27,7 @@ public class DBContext {
             String dbURL = "jdbc:sqlserver://localhost:1433;"
                     + "databaseName=BeautySalonDB;"
                     + "user=sa;"
-                    + "password=Mytam@260723;"
+                    + "password=123456;"
                     + "encrypt=true;trustServerCertificate=true;";
 
             conn = DriverManager.getConnection(dbURL);

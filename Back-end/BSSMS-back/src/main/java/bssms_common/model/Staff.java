@@ -13,7 +13,6 @@ public class Staff {
     private int accountId; // Khóa ngoại liên kết với bảng Account
     private String fullName;
     private String phone;
-    private String gender;
     private String position; // Vị trí: Technician, Receptionist...
     private double salary;
     private Date hireDate; // Ngày vào làm
@@ -26,7 +25,6 @@ public class Staff {
         this.accountId = accountId;
         this.fullName = fullName;
         this.phone = phone;
-        this.gender = gender;
         this.position = position;
         this.salary = salary;
         this.hireDate = hireDate;
@@ -62,14 +60,6 @@ public class Staff {
 
     public void setPhone(String phone) {
         this.phone = phone;
-    }
-
-    public String getGender() {
-        return gender;
-    }
-
-    public void setGender(String gender) {
-        this.gender = gender;
     }
 
     public String getPosition() {
