@@ -25,7 +25,20 @@ const ProtectedStaffRoute = ({ user, children }) => {
   return children;
 };
 
+const ProtectedManagerRoute = ({ user, children }) => {
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (user.role !== "Manager") {
+    return <Navigate to="/customers" replace />;
+  }
+
+  return children;
+};
+
 function App() {
+
   const [user, setUser] = useState(() => {
     const loggedInUser = localStorage.getItem("user");
     return loggedInUser ? JSON.parse(loggedInUser) : null;
@@ -72,12 +85,13 @@ function App() {
               }
             />
 
+            {/* Route Quản lý danh sách nhân viên (Chỉ dành cho Manager) */}
             <Route
-              path="/staff"
+              path="/staffs"
               element={
-                <ProtectedStaffRoute user={user}>
+                <ProtectedManagerRoute user={user}>
                   <StaffList />
-                </ProtectedStaffRoute>
+                </ProtectedManagerRoute>
               }
             />
 
