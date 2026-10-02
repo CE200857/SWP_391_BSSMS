@@ -12,8 +12,10 @@ const FeedbackForm = () => {
     comment: "",
   });
 
+  const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
-  const [serviceId, setServiceId] = useState("");
+  const [existingFeedbacks, setExistingFeedbacks] = useState([]);
+  const [appointmentId, setAppointmentId] = useState("");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +26,7 @@ const FeedbackForm = () => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Lấy danh sách dịch vụ để khách hàng chọn khi tạo feedback
+  // Lấy danh sách services để hiển thị tên trong dropdown appointment
   useEffect(() => {
     fetch("/api/service")
       .then((res) => (res.ok ? res.json() : []))
@@ -33,6 +35,49 @@ const FeedbackForm = () => {
       })
       .catch((err) => console.error("Lỗi tải dịch vụ:", err));
   }, []);
+
+  // Lấy danh sách appointments đã Completed của customer hiện tại
+  // + Lấy danh sách feedback đã tồn tại (để biết appointment nào đã được đánh giá)
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
+    const loadAll = async () => {
+      try {
+        const [apptRes, fbRes] = await Promise.all([
+          fetch(`/api/appointment?customerId=${user.customerId ?? user.accountId}`),
+          fetch(`/api/feedback?customerId=${user.customerId ?? user.accountId}`),
+        ]);
+
+        if (cancelled) return;
+
+        if (apptRes.ok) {
+          const apptData = await apptRes.json();
+          if (Array.isArray(apptData)) {
+            // Chỉ lấy appointment đã hoàn thành (Completed)
+            const completed = apptData.filter((a) => a.status === "Completed");
+            if (!cancelled) setAppointments(completed);
+          }
+        }
+
+        if (fbRes.ok) {
+          const fbData = await fbRes.json();
+          if (Array.isArray(fbData)) {
+            if (!cancelled) setExistingFeedbacks(fbData);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) console.error("Lỗi tải dữ liệu:", err);
+      }
+    };
+
+    loadAll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Nếu là chế độ Edit, gọi API lấy feedback hiện tại
   useEffect(() => {
@@ -47,7 +92,7 @@ const FeedbackForm = () => {
             rating: data.rating ?? 5,
             comment: data.comment ?? "",
           });
-          setServiceId(data.serviceId ?? "");
+          setAppointmentId(data.appointmentId ? String(data.appointmentId) : "");
         } else {
           setError("Không tìm thấy feedback này.");
         }
@@ -81,8 +126,8 @@ const FeedbackForm = () => {
       return;
     }
 
-    if (!serviceId) {
-      setError("Vui lòng chọn dịch vụ!");
+    if (!appointmentId) {
+      setError("Vui lòng chọn lịch hẹn cần đánh giá!");
       return;
     }
 
@@ -97,7 +142,7 @@ const FeedbackForm = () => {
       const payload = {
         ...formData,
         rating: parseInt(formData.rating, 10),
-        serviceId: parseInt(serviceId, 10),
+        appointmentId: parseInt(appointmentId, 10),
         customerId: user.customerId ?? user.accountId,
       };
 
@@ -151,6 +196,42 @@ const FeedbackForm = () => {
     );
   }
 
+  // Format ngày + giờ để hiển thị trong dropdown
+  const formatDateTime = (dateStr, timeStr) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      const formattedDate = d.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      return timeStr ? `${formattedDate} ${timeStr}` : formattedDate;
+    } catch {
+      return `${dateStr} ${timeStr || ""}`;
+    }
+  };
+
+  const getAppointmentLabel = (appt) => {
+    const service = services.find((s) => s.serviceId === appt.serviceId);
+    const serviceName = service ? service.serviceName : `Dịch vụ #${appt.serviceId}`;
+    const when = formatDateTime(appt.appointmentDate, appt.startTime);
+    return when ? `${serviceName} - ${when}` : serviceName;
+  };
+
+  // Lấy danh sách appointmentId đã có feedback
+  const feedbackAppointmentIds = new Set(
+    existingFeedbacks.map((fb) => fb.appointmentId)
+  );
+
+  // Khi tạo mới: chỉ hiển thị appointment chưa có feedback
+  // Khi edit: hiển thị tất cả appointment Completed (vì cần giữ appointment hiện tại)
+  const availableAppointments = isEdit
+    ? appointments
+    : appointments.filter(
+        (appt) => !feedbackAppointmentIds.has(appt.appointmentId)
+      );
+
   const renderStars = () => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
@@ -192,23 +273,35 @@ const FeedbackForm = () => {
             <Row>
               <Col md={6} className="mb-3">
                 <Form.Group>
-                  <Form.Label className="fw-bold">Dịch vụ*</Form.Label>
+                  <Form.Label className="fw-bold">Lịch hẹn*</Form.Label>
                   <Form.Select
-                    value={serviceId}
-                    onChange={(e) => setServiceId(e.target.value)}
+                    value={appointmentId}
+                    onChange={(e) => setAppointmentId(e.target.value)}
                     disabled={isEdit || isLoading || successMsg !== ""}
                     required
                   >
-                    <option value="">-- Chọn dịch vụ --</option>
-                    {services.map((s) => (
-                      <option key={s.serviceId} value={s.serviceId}>
-                        {s.serviceName}
+                    <option value="">-- Chọn lịch hẹn --</option>
+                    {availableAppointments.map((appt) => (
+                      <option
+                        key={appt.appointmentId}
+                        value={appt.appointmentId}
+                      >
+                        {getAppointmentLabel(appt)}
                       </option>
                     ))}
                   </Form.Select>
-                  {isEdit && (
+                  {isEdit ? (
                     <Form.Text className="text-muted">
-                      Không thể thay đổi dịch vụ khi cập nhật.
+                      Không thể thay đổi lịch hẹn khi cập nhật.
+                    </Form.Text>
+                  ) : availableAppointments.length === 0 ? (
+                    <Form.Text className="text-danger">
+                      Bạn chưa có lịch hẹn nào đã hoàn thành để đánh giá.
+                    </Form.Text>
+                  ) : (
+                    <Form.Text className="text-muted">
+                      Chỉ hiển thị các lịch hẹn đã hoàn thành và chưa được đánh
+                      giá.
                     </Form.Text>
                   )}
                 </Form.Group>
@@ -228,7 +321,7 @@ const FeedbackForm = () => {
                 as="textarea"
                 rows={5}
                 name="comment"
-                placeholder="Chia sẻ trải nghiệm của bạn về dịch vụ..."
+                placeholder="Chia sẻ trải nghiệm của bạn về buổi hẹn..."
                 value={formData.comment}
                 onChange={handleChange}
                 disabled={isLoading || successMsg !== ""}
@@ -251,7 +344,11 @@ const FeedbackForm = () => {
               <Button
                 variant="danger"
                 type="submit"
-                disabled={isLoading || successMsg !== ""}
+                disabled={
+                  isLoading ||
+                  successMsg !== "" ||
+                  (!isEdit && availableAppointments.length === 0)
+                }
                 style={{ minWidth: "160px" }}
               >
                 {isLoading
