@@ -14,6 +14,7 @@ import {
 
 const PublicFeedbackList = () => {
   const [feedbacks, setFeedbacks] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [ratingFilter, setRatingFilter] = useState("all");
@@ -21,7 +22,7 @@ const PublicFeedbackList = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // Lấy danh sách dịch vụ
+  // Lấy danh sách services
   useEffect(() => {
     fetch("/api/service")
       .then((res) => (res.ok ? res.json() : []))
@@ -31,33 +32,70 @@ const PublicFeedbackList = () => {
       .catch((err) => console.error("Lỗi tải dịch vụ:", err));
   }, []);
 
+  // Lấy tất cả appointments để map service info
+  useEffect(() => {
+    fetch("/api/appointment")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) setAppointments(data);
+      })
+      .catch((err) => console.error("Lỗi tải appointments:", err));
+  }, []);
+
   // Lấy tất cả feedback công khai
   useEffect(() => {
+    let cancelled = false;
+
     const fetchFeedback = async () => {
       setIsLoading(true);
       setLoadError("");
       try {
         const response = await fetch("/api/feedback");
+        if (cancelled) return;
         if (response.ok) {
           const data = await response.json();
-          setFeedbacks(Array.isArray(data) ? data : []);
-        } else {
+          if (!cancelled) setFeedbacks(Array.isArray(data) ? data : []);
+        } else if (!cancelled) {
           setLoadError("Không tải được danh sách đánh giá.");
         }
       } catch (err) {
-        console.error("Lỗi tải feedback:", err);
-        setLoadError("Lỗi kết nối đến máy chủ!");
+        if (!cancelled) {
+          console.error("Lỗi tải feedback:", err);
+          setLoadError("Lỗi kết nối đến máy chủ!");
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     fetchFeedback();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const getServiceName = (serviceId) => {
     const s = services.find((x) => x.serviceId === serviceId);
     return s ? s.serviceName : `Dịch vụ #${serviceId}`;
+  };
+
+  const getServiceIdByAppointment = (appointmentId) => {
+    const appt = appointments.find((a) => a.appointmentId === appointmentId);
+    return appt ? appt.serviceId : null;
+  };
+
+  // Tính số sao trung bình + hình
+  const stats = {
+    total: feedbacks.length,
+    avg:
+      feedbacks.length > 0
+        ? (
+            feedbacks.reduce((sum, fb) => sum + (fb.rating || 0), 0) /
+            feedbacks.length
+          ).toFixed(1)
+        : 0,
+    fiveStar: feedbacks.filter((fb) => fb.rating === 5).length,
   };
 
   const filteredFeedbacks = feedbacks.filter((fb) => {
@@ -66,11 +104,18 @@ const PublicFeedbackList = () => {
       !search ||
       fb.comment?.toLowerCase().includes(search) ||
       (fb.customerName || "").toLowerCase().includes(search) ||
-      getServiceName(fb.serviceId).toLowerCase().includes(search);
+      (() => {
+        const sid = getServiceIdByAppointment(fb.appointmentId);
+        return sid ? getServiceName(sid).toLowerCase().includes(search) : false;
+      })();
+
     const matchesRating =
       ratingFilter === "all" || String(fb.rating) === ratingFilter;
+
     const matchesService =
-      serviceFilter === "all" || String(fb.serviceId) === serviceFilter;
+      serviceFilter === "all" ||
+      String(getServiceIdByAppointment(fb.appointmentId)) === serviceFilter;
+
     return matchesSearch && matchesRating && matchesService;
   });
 
@@ -106,19 +151,6 @@ const PublicFeedbackList = () => {
 
   const getInitial = (name) => {
     return name && name.length > 0 ? name.charAt(0).toUpperCase() : "K";
-  };
-
-  // Tính thống kê tổng quan
-  const stats = {
-    total: feedbacks.length,
-    avg:
-      feedbacks.length > 0
-        ? (
-            feedbacks.reduce((sum, fb) => sum + (fb.rating || 0), 0) /
-            feedbacks.length
-          ).toFixed(1)
-        : 0,
-    fiveStar: feedbacks.filter((fb) => fb.rating === 5).length,
   };
 
   return (
@@ -228,56 +260,61 @@ const PublicFeedbackList = () => {
         </Card>
       ) : (
         <Row className="g-3">
-          {filteredFeedbacks.map((fb) => (
-            <Col key={fb.feedbackId} md={6} lg={4}>
-              <Card
-                className="shadow-sm border-0 h-100"
-                style={{ borderRadius: "12px" }}
-              >
-                <Card.Body>
-                  <div className="d-flex align-items-center mb-3">
-                    <div
-                      className="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center me-3"
+          {filteredFeedbacks.map((fb) => {
+            const serviceId = getServiceIdByAppointment(fb.appointmentId);
+            return (
+              <Col key={fb.feedbackId} md={6} lg={4}>
+                <Card
+                  className="shadow-sm border-0 h-100"
+                  style={{ borderRadius: "12px" }}
+                >
+                  <Card.Body>
+                    <div className="d-flex align-items-center mb-3">
+                      <div
+                        className="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center me-3"
+                        style={{
+                          width: "48px",
+                          height: "48px",
+                          fontSize: "20px",
+                          fontWeight: "bold",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {getInitial(fb.customerName || fb.fullName)}
+                      </div>
+                      <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                        <h6 className="mb-0 fw-bold text-truncate">
+                          {fb.customerName || fb.fullName || "Khách hàng ẩn danh"}
+                        </h6>
+                        <small className="text-muted">{formatDate(fb.createdAt)}</small>
+                      </div>
+                    </div>
+
+                    <div className="mb-2" style={{ fontSize: "18px" }}>
+                      {renderStars(fb.rating)}
+                    </div>
+
+                    {serviceId && (
+                      <Badge bg="info" className="mb-2">
+                        <i className="bi bi-scissors me-1"></i>
+                        {getServiceName(serviceId)}
+                      </Badge>
+                    )}
+
+                    <p
+                      className="mb-0 mt-2 text-dark"
                       style={{
-                        width: "48px",
-                        height: "48px",
-                        fontSize: "20px",
-                        fontWeight: "bold",
-                        flexShrink: 0,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
                       }}
                     >
-                      {getInitial(fb.customerName || fb.fullName)}
-                    </div>
-                    <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                      <h6 className="mb-0 fw-bold text-truncate">
-                        {fb.customerName || fb.fullName || "Khách hàng ẩn danh"}
-                      </h6>
-                      <small className="text-muted">{formatDate(fb.createdAt)}</small>
-                    </div>
-                  </div>
-
-                  <div className="mb-2" style={{ fontSize: "18px" }}>
-                    {renderStars(fb.rating)}
-                  </div>
-
-                  <Badge bg="info" className="mb-2">
-                    <i className="bi bi-scissors me-1"></i>
-                    {getServiceName(fb.serviceId)}
-                  </Badge>
-
-                  <p
-                    className="mb-0 mt-2 text-dark"
-                    style={{
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {fb.comment}
-                  </p>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
+                      {fb.comment}
+                    </p>
+                  </Card.Body>
+                </Card>
+              </Col>
+            );
+          })}
         </Row>
       )}
     </Container>
