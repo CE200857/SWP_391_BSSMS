@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Container, Navbar, Button } from "react-bootstrap";
+import { Container, Navbar } from "react-bootstrap";
 
 const Header = ({ user }) => {
   const navigate = useNavigate();
@@ -21,36 +21,22 @@ const Header = ({ user }) => {
         </Navbar.Brand>
 
         <Navbar.Collapse className="justify-content-end">
-          <div className="d-flex align-items-center gap-3">
-            {/* Nút "Đánh giá của tôi" chỉ hiển thị cho Customer */}
-            {user.role === "Customer" && (
-              <Button
-                variant="outline-danger"
-                size="sm"
-                onClick={() => navigate("/my-feedback")}
-                title="Xem đánh giá của tôi"
-              >
-                <i className="bi bi-chat-quote me-1"></i> Đánh giá của tôi
-              </Button>
-            )}
-
+          <div
+            className="d-flex align-items-center p-1 bg-light rounded-pill border"
+            style={{ cursor: "pointer", transition: "all 0.2s" }}
+            onClick={() => navigate("/profile")}
+            title="Nhấn để xem hồ sơ cá nhân"
+          >
             <div
-              className="d-flex align-items-center p-1 bg-light rounded-pill border"
-              style={{ cursor: "pointer", transition: "all 0.2s" }}
-              onClick={() => navigate("/profile")}
-              title="Nhấn để xem hồ sơ cá nhân"
+              className="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center"
+              style={{
+                width: "38px",
+                height: "38px",
+                fontSize: "18px",
+                fontWeight: "bold",
+              }}
             >
-              <div
-                className="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center"
-                style={{
-                  width: "38px",
-                  height: "38px",
-                  fontSize: "18px",
-                  fontWeight: "bold",
-                }}
-              >
-                {initial}
-              </div>
+              {initial}
             </div>
           </div>
         </Navbar.Collapse>
