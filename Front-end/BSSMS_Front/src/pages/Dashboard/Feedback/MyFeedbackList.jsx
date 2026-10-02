@@ -15,6 +15,7 @@ import {
 
 const MyFeedbackList = () => {
   const [feedbacks, setFeedbacks] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [ratingFilter, setRatingFilter] = useState("all");
@@ -29,7 +30,7 @@ const MyFeedbackList = () => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Lấy danh sách dịch vụ để map tên
+  // Lấy danh sách services để map tên từ appointment.serviceId
   useEffect(() => {
     fetch("/api/service")
       .then((res) => (res.ok ? res.json() : []))
@@ -39,9 +40,39 @@ const MyFeedbackList = () => {
       .catch((err) => console.error("Lỗi tải dịch vụ:", err));
   }, []);
 
-  // Load feedback của customer hiện tại khi user thay đổi
+  // Lấy danh sách appointments của customer hiện tại để map thông tin
   useEffect(() => {
     if (!user) return;
+
+    let cancelled = false;
+
+    const loadAppointments = async () => {
+      try {
+        const res = await fetch(
+          `/api/appointment?customerId=${user.customerId ?? user.accountId}`
+        );
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) setAppointments(data);
+        }
+      } catch (err) {
+        if (!cancelled) console.error("Lỗi tải appointments:", err);
+      }
+    };
+
+    loadAppointments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Load feedback của user hiện tại
+  useEffect(() => {
+    // Không có user thì không fetch gì cả
+    if (!user) {
+      return;
+    }
 
     let cancelled = false;
 
@@ -78,7 +109,19 @@ const MyFeedbackList = () => {
 
   const getServiceName = (serviceId) => {
     const s = services.find((x) => x.serviceId === serviceId);
-    return s ? s.serviceName : `#${serviceId}`;
+    return s ? s.serviceName : `Dịch vụ #${serviceId}`;
+  };
+
+  const getAppointmentInfo = (appointmentId) => {
+    const appt = appointments.find((a) => a.appointmentId === appointmentId);
+    if (!appt) return `Lịch hẹn #${appointmentId}`;
+    return getServiceName(appt.serviceId);
+  };
+
+  const getAppointmentDate = (appointmentId) => {
+    const appt = appointments.find((a) => a.appointmentId === appointmentId);
+    if (!appt) return "—";
+    return formatDateTime(appt.appointmentDate, appt.startTime);
   };
 
   const handleShowDelete = (fb) => {
@@ -123,12 +166,27 @@ const MyFeedbackList = () => {
     }
   };
 
+  const formatDateTime = (dateStr, timeStr) => {
+    if (!dateStr) return "";
+    try {
+      const d = new Date(dateStr);
+      const formattedDate = d.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      return timeStr ? `${formattedDate} ${timeStr}` : formattedDate;
+    } catch {
+      return `${dateStr} ${timeStr || ""}`;
+    }
+  };
+
   const filteredFeedbacks = feedbacks.filter((fb) => {
     const search = searchTerm.trim().toLowerCase();
     const matchesSearch =
       !search ||
       fb.comment?.toLowerCase().includes(search) ||
-      getServiceName(fb.serviceId).toLowerCase().includes(search);
+      getAppointmentInfo(fb.appointmentId).toLowerCase().includes(search);
     const matchesRating =
       ratingFilter === "all" || String(fb.rating) === ratingFilter;
     return matchesSearch && matchesRating;
@@ -167,7 +225,9 @@ const MyFeedbackList = () => {
   if (!user) {
     return (
       <Container className="mt-4 px-4">
-        <Alert variant="warning">Bạn cần đăng nhập để xem đánh giá của mình.</Alert>
+        <Alert variant="warning">
+          Bạn cần đăng nhập để xem đánh giá của mình.
+        </Alert>
       </Container>
     );
   }
@@ -242,10 +302,11 @@ const MyFeedbackList = () => {
               <thead className="table-dark">
                 <tr>
                   <th>ID</th>
-                  <th>Dịch vụ</th>
+                  <th>Lịch hẹn</th>
+                  <th>Ngày hẹn</th>
                   <th>Đánh giá</th>
                   <th>Nội dung</th>
-                  <th>Ngày tạo</th>
+                  <th>Ngày đánh giá</th>
                   <th style={{ minWidth: "180px" }}>Hành động</th>
                 </tr>
               </thead>
@@ -256,9 +317,10 @@ const MyFeedbackList = () => {
                       <td>{fb.feedbackId}</td>
                       <td>
                         <span className="fw-semibold">
-                          {getServiceName(fb.serviceId)}
+                          {getAppointmentInfo(fb.appointmentId)}
                         </span>
                       </td>
+                      <td>{getAppointmentDate(fb.appointmentId)}</td>
                       <td style={{ fontSize: "18px" }}>{renderStars(fb.rating)}</td>
                       <td>
                         <div
@@ -293,7 +355,7 @@ const MyFeedbackList = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="text-center text-muted py-4">
+                    <td colSpan="7" className="text-center text-muted py-4">
                       {feedbacks.length === 0
                         ? "Bạn chưa có đánh giá nào. Hãy tạo đánh giá mới!"
                         : "Không tìm thấy đánh giá phù hợp."}
@@ -314,9 +376,9 @@ const MyFeedbackList = () => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có chắc chắn muốn xóa đánh giá cho dịch vụ{" "}
+          Bạn có chắc chắn muốn xóa đánh giá cho lịch hẹn{" "}
           <span className="fw-bold text-primary">
-            {selectedFeedback && getServiceName(selectedFeedback.serviceId)}
+            {selectedFeedback && getAppointmentInfo(selectedFeedback.appointmentId)}
           </span>{" "}
           không? Hành động này không thể hoàn tác.
         </Modal.Body>
