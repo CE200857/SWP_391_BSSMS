@@ -12,8 +12,6 @@ import ServiceForm from "./pages/Dashboard/ServiceList/ServiceForm";
 import MyFeedbackList from "./pages/Dashboard/Feedback/MyFeedbackList";
 import PublicFeedbackList from "./pages/Dashboard/Feedback/PublicFeedbackList";
 import FeedbackForm from "./pages/Dashboard/Feedback/FeedbackForm";
-import ProductList from "./pages/Dashboard/ProductList/ProductList";
-import SupplierList from "./pages/Dashboard/SupplierList/SupplierList";
 import "./App.css";
 
 const ProtectedCustomerRoute = ({ user, children }) => {
@@ -114,26 +112,6 @@ function App() {
                             element={
                                 <ProtectedStaffRoute user={user}>
                                     <ServiceForm />
-                                </ProtectedStaffRoute>
-                            }
-                        />
-
-                        {/* Route Quản lý Sản phẩm */}
-                        <Route
-                            path="/products"
-                            element={
-                                <ProtectedStaffRoute user={user}>
-                                    <ProductList />
-                                </ProtectedStaffRoute>
-                            }
-                        />
-
-                        {/* Route Quản lý Nhà cung cấp */}
-                        <Route
-                            path="/suppliers"
-                            element={
-                                <ProtectedStaffRoute user={user}>
-                                    <SupplierList />
                                 </ProtectedStaffRoute>
                             }
                         />
