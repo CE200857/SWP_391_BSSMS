@@ -153,7 +153,7 @@ const Profile = ({ user, setUser }) => {
                 </div>
 
                 {/* Khu vực nút bấm */}
-                <div className="d-flex justify-content-between mt-auto pt-3 flex-wrap gap-2">
+                <div className="d-flex justify-content-between mt-auto pt-3">
                   <Button
                     variant="outline-secondary"
                     onClick={() => navigate(-1)}
@@ -161,19 +161,8 @@ const Profile = ({ user, setUser }) => {
                     <i className="bi bi-arrow-left me-1"></i> Quay lại
                   </Button>
 
-                  {/* Gom các nút vào chung 1 div để chúng nằm sát nhau bên phải */}
-                  <div className="d-flex gap-2 flex-wrap">
-                    {user.role === "Customer" && (
-                      <Button
-                        variant="info"
-                        className="text-white"
-                        onClick={() => navigate("/my-feedback")}
-                        title="Quản lý đánh giá của tôi"
-                      >
-                        <i className="bi bi-chat-quote me-1"></i> Đánh giá của tôi
-                      </Button>
-                    )}
-
+                  {/* Gom 2 nút vào chung 1 div để chúng nằm sát nhau bên phải */}
+                  <div className="d-flex gap-2">
                     <Button variant="warning" className="text-white">
                       <i className="bi bi-pencil-square me-1"></i> Chỉnh sửa
                     </Button>

@@ -47,18 +47,8 @@ const Sidebar = ({ user }) => {
           >
             <i className="bi bi-person-badge-fill me-2"></i> Danh sách nhân viên
           </NavLink>
-
-          {/* Menu Xem đánh giá từ khách hàng (công khai nội bộ) */}
-          <NavLink
-            to="/feedback"
-            className={({ isActive }) =>
-              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                isActive ? "bg-primary text-white shadow" : "text-dark"
-              }`
-            }
-          >
-            <i className="bi bi-chat-quote-fill me-2"></i> Đánh giá khách hàng
-          </NavLink>
+          <Link to="/products">Quản lý sản phẩm</Link>
+          <Link to="/suppliers">Quản lý nhà cung cấp</Link>
         </div>
       </div>
     </div>
