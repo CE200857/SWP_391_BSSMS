@@ -1,163 +1,69 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
-import Header from "./components/Header";
-import Footer from "./components/Footer";
-import Sidebar from "./components/Sidebar";
-import Login from "./pages/Auth/Login";
-import Profile from "./pages/Auth/Profile";
-import CustomerList from "./pages/Dashboard/CustomerAdmin/CustomerList";
-import StaffList from "./pages/Dashboard/StaffAdmin/StaffList";
-import ServiceList from "./pages/Dashboard/ServiceList/ServiceList";
-import ServiceForm from "./pages/Dashboard/ServiceList/ServiceForm";
-import MyFeedbackList from "./pages/Dashboard/Feedback/MyFeedbackList";
-import PublicFeedbackList from "./pages/Dashboard/Feedback/PublicFeedbackList";
-import FeedbackForm from "./pages/Dashboard/Feedback/FeedbackForm";
-import "./App.css";
+import React, { useState } from 'react';
 
-const ProtectedCustomerRoute = ({ user, children }) => {
-    if (!user) {
-        return <Navigate to="/" replace />;
-    }
-    if (user.role !== "Customer") {
-        return <Navigate to="/feedback" replace />;
-    }
-    return children;
-};
+export default function FER202Demo() {
+  const [number, setNumber] = useState(0);
+  const [message, setMessage] = useState('Chưa có sự kiện');
 
-const ProtectedStaffRoute = ({ user, children }) => {
-    if (!user) {
-        return <Navigate to="/" replace />;
-    }
-    if (user.role === "Customer") {
-        return <Navigate to="/profile" replace />;
-    }
-    return children;
-};
+  function handleButtonClick(customText, event) {
+    event.preventDefault();
+    console.log('Target element:', event.target);
+    setMessage(`Bạn đã click nút với tham số: "${customText}"`);
+  }
 
-const ProtectedManagerRoute = ({ user, children }) => {
-    if (!user) {
-        return <Navigate to="/" replace />;
-    }
+  function handleTripleIncrement() {
+    setNumber(number + 1);
+    setNumber(number + 1);
+    setNumber(number + 1);
+  }
 
-    if (user.role !== "Manager") {
-        return <Navigate to="/customers" replace />;
-    }
+  return (
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      <h1>FER202: Event Handling & Render Cycle Demo</h1>
 
-    return children;
-};
+      <section style={{ marginBottom: '30px', border: '1px solid #ccc', padding: '15px' }}>
+        <h2>1. Event Handling & Synthetic Event</h2>
+        
+        <button 
+          onClick={(e) => handleButtonClick('Bài tập FER202', e)}
+          style={{ marginRight: '10px', padding: '8px 12px' }}
+        >
+          Click gửi tham số (Named Handler)
+        </button>
 
-function App() {
-    const [user, setUser] = useState(() => {
-        const loggedInUser = localStorage.getItem("user");
-        return loggedInUser ? JSON.parse(loggedInUser) : null;
-    });
+        <button 
+          onClick={() => alert('Đây là Inline Event Handler!')}
+          style={{ padding: '8px 12px' }}
+        >
+          Click Inline Handler
+        </button>
 
-    return (
-        <BrowserRouter>
-            <div
-                className="bg-light min-vh-100 vw-100 d-flex m-0 p-0"
-                style={{ overflowX: "hidden" }}
-            >
-                <Sidebar user={user} />
+        <p><strong>Trạng thái Event:</strong> {message}</p>
 
-                <div className="flex-grow-1 d-flex flex-column" style={{ minWidth: 0 }}>
-                    <Header user={user} />
+        <blockquote style={{ background: '#f9f9f9', padding: '10px', borderLeft: '4px solid #ccc' }}>
+          <strong>Ghi chú Event Pooling (React 16 vs 17+):</strong><br />
+          Ở các phiên bản React 16 trở về trước, <code>SyntheticEvent</code> được đưa vào một "pool" để tái sử dụng hiệu năng (thuộc tính của <code>e</code> sẽ bị xoá về <code>null</code> nếu truy cập bất đồng bộ như <code>setTimeout</code>).<br />
+          Từ <strong>React 17 trở đi</strong>, React đã <strong>loại bỏ Event Pooling</strong>, thuộc tính sự kiện không còn bị xoá tự động nữa.
+        </blockquote>
+      </section>
 
-                    <Routes>
-                        {/* Trang đăng nhập */}
-                        <Route path="/" element={<Login setUser={setUser} />} />
+      <section style={{ border: '1px solid #ccc', padding: '15px' }}>
+        <h2>2. State as a Snapshot & Render Trigger</h2>
+        <h3>Giá trị hiện tại của Number: {number}</h3>
 
-                        {/* Trang Profile */}
-                        <Route path="/profile" element={<Profile user={user} />} />
+        <button 
+          onClick={handleTripleIncrement}
+          style={{ padding: '8px 12px', cursor: 'pointer' }}
+        >
+          Gọi setNumber(number + 1) ba lần liên tiếp
+        </button>
 
-                        {/* Route Quản lý danh sách khách hàng (Chỉ dành cho Staff/Manager) */}
-                        <Route
-                            path="/customers"
-                            element={
-                                <ProtectedStaffRoute user={user}>
-                                    <CustomerList />
-                                </ProtectedStaffRoute>
-                            }
-                        />
-
-                        {/* Route Quản lý danh sách nhân viên (Chỉ dành cho Manager) */}
-                        <Route
-                            path="/staffs"
-                            element={
-                                <ProtectedManagerRoute user={user}>
-                                    <StaffList />
-                                </ProtectedManagerRoute>
-                            }
-                        />
-
-                        {/* Route Quản lý dịch vụ (Chỉ dành cho Staff/Manager) */}
-                        <Route
-                            path="/services"
-                            element={
-                                <ProtectedStaffRoute user={user}>
-                                    <ServiceList />
-                                </ProtectedStaffRoute>
-                            }
-                        />
-                        <Route
-                            path="/services/new"
-                            element={
-                                <ProtectedStaffRoute user={user}>
-                                    <ServiceForm />
-                                </ProtectedStaffRoute>
-                            }
-                        />
-                        <Route
-                            path="/services/edit/:id"
-                            element={
-                                <ProtectedStaffRoute user={user}>
-                                    <ServiceForm />
-                                </ProtectedStaffRoute>
-                            }
-                        />
-
-                        {/* Xem đánh giá từ khách hàng (công khai - ai đăng nhập cũng xem được) */}
-                        <Route
-                            path="/feedback"
-                            element={
-                                <ProtectedStaffRoute user={user}>
-                                    <PublicFeedbackList />
-                                </ProtectedStaffRoute>
-                            }
-                        />
-
-                        {/* Quản lý đánh giá cá nhân (Chỉ dành cho Customer) */}
-                        <Route
-                            path="/my-feedback"
-                            element={
-                                <ProtectedCustomerRoute user={user}>
-                                    <MyFeedbackList />
-                                </ProtectedCustomerRoute>
-                            }
-                        />
-                        <Route
-                            path="/feedback/new"
-                            element={
-                                <ProtectedCustomerRoute user={user}>
-                                    <FeedbackForm />
-                                </ProtectedCustomerRoute>
-                            }
-                        />
-                        <Route
-                            path="/feedback/edit/:id"
-                            element={
-                                <ProtectedCustomerRoute user={user}>
-                                    <FeedbackForm />
-                                </ProtectedCustomerRoute>
-                            }
-                        />
-                    </Routes>
-
-                    <Footer />
-                </div>
-            </div>
-        </BrowserRouter>
-    );
+        <p style={{ color: '#555' }}>
+          <em>
+            Khi bấm nút trên, dù gọi <code>setNumber(number + 1)</code> 3 lần, giá trị chỉ tăng thêm 1.<br />
+            Lý do: State hoạt động như một <strong>Snapshot (Ảnh chụp)</strong> tại thời điểm render. Giá trị của <code>number</code> không đổi trong suốt quá trình xử lý sự kiện đó.
+          </em>
+        </p>
+      </section>
+    </div>
+  );
 }
-
-export default App;
