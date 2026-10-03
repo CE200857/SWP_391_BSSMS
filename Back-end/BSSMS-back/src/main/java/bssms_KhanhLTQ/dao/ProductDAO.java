@@ -1,7 +1,7 @@
-package dao;
+package bssms_KhanhLTQ.dao;
 
-import utils.DBContext;
-import model.Product;
+import bssms_common.util.DBContext;
+import bssms_common.model.Product;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,24 +12,22 @@ public class ProductDAO extends DBContext {
     public List<Product> getAllProducts() {
         List<Product> list = new ArrayList<>();
         String sql = "SELECT * FROM Product";
-        
-        try (Connection conn = getConnection();
-             PreparedStatement ps = (conn != null) ? conn.prepareStatement(sql) : null) {
-            
-            if (ps == null) return list;
 
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Product p = new Product();
-                    p.setProductId(rs.getInt("product_id"));
-                    p.setProductName(rs.getString("product_name"));
-                    p.setDescription(rs.getString("description"));
-                    p.setUnitPrice(rs.getBigDecimal("unit_price"));
-                    p.setStockQuantity(rs.getInt("stock_quantity"));
-                    p.setReorderLevel(rs.getInt("reorder_level"));
-                    p.setStatus(rs.getString("status"));
-                    list.add(p);
-                }
+        if (this.conn == null) return list;
+
+        try (PreparedStatement ps = this.conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                Product p = new Product();
+                p.setProductId(rs.getInt("product_id"));
+                p.setProductName(rs.getString("product_name"));
+                p.setDescription(rs.getString("description"));
+                p.setUnitPrice(rs.getDouble("unit_price"));
+                p.setStockQuantity(rs.getInt("stock_quantity"));
+                p.setReorderLevel(rs.getInt("reorder_level"));
+                p.setStatus(rs.getString("status"));
+                list.add(p);
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -40,23 +38,22 @@ public class ProductDAO extends DBContext {
     // 2. Lấy sản phẩm theo ID
     public Product getProductById(int id) {
         String sql = "SELECT * FROM Product WHERE product_id = ?";
-        try (Connection conn = getConnection();
-             PreparedStatement ps = (conn != null) ? conn.prepareStatement(sql) : null) {
-            
-            if (ps != null) {
-                ps.setInt(1, id);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        Product p = new Product();
-                        p.setProductId(rs.getInt("product_id"));
-                        p.setProductName(rs.getString("product_name"));
-                        p.setDescription(rs.getString("description"));
-                        p.setUnitPrice(rs.getBigDecimal("unit_price"));
-                        p.setStockQuantity(rs.getInt("stock_quantity"));
-                        p.setReorderLevel(rs.getInt("reorder_level"));
-                        p.setStatus(rs.getString("status"));
-                        return p;
-                    }
+
+        if (this.conn == null) return null;
+
+        try (PreparedStatement ps = this.conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Product p = new Product();
+                    p.setProductId(rs.getInt("product_id"));
+                    p.setProductName(rs.getString("product_name"));
+                    p.setDescription(rs.getString("description"));
+                    p.setUnitPrice(rs.getDouble("unit_price"));
+                    p.setStockQuantity(rs.getInt("stock_quantity"));
+                    p.setReorderLevel(rs.getInt("reorder_level"));
+                    p.setStatus(rs.getString("status"));
+                    return p;
                 }
             }
         } catch (SQLException e) {
@@ -69,19 +66,18 @@ public class ProductDAO extends DBContext {
     public boolean createProduct(Product product) {
         String sql = "INSERT INTO Product (product_name, description, unit_price, stock_quantity, reorder_level, status) "
                    + "VALUES (?, ?, ?, ?, ?, ?)";
-        try (Connection conn = getConnection();
-             PreparedStatement ps = (conn != null) ? conn.prepareStatement(sql) : null) {
-            
-            if (ps != null) {
-                ps.setString(1, product.getProductName());
-                ps.setString(2, product.getDescription());
-                ps.setBigDecimal(3, product.getUnitPrice());
-                ps.setInt(4, product.getStockQuantity());
-                ps.setInt(5, product.getReorderLevel());
-                ps.setString(6, product.getStatus());
-                
-                return ps.executeUpdate() > 0;
-            }
+
+        if (this.conn == null) return false;
+
+        try (PreparedStatement ps = this.conn.prepareStatement(sql)) {
+            ps.setString(1, product.getProductName());
+            ps.setString(2, product.getDescription());
+            ps.setDouble(3, product.getUnitPrice());
+            ps.setInt(4, product.getStockQuantity());
+            ps.setInt(5, product.getReorderLevel());
+            ps.setString(6, product.getStatus());
+
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -92,20 +88,19 @@ public class ProductDAO extends DBContext {
     public boolean updateProduct(Product product) {
         String sql = "UPDATE Product SET product_name = ?, description = ?, unit_price = ?, "
                    + "stock_quantity = ?, reorder_level = ?, status = ? WHERE product_id = ?";
-        try (Connection conn = getConnection();
-             PreparedStatement ps = (conn != null) ? conn.prepareStatement(sql) : null) {
-            
-            if (ps != null) {
-                ps.setString(1, product.getProductName());
-                ps.setString(2, product.getDescription());
-                ps.setBigDecimal(3, product.getUnitPrice());
-                ps.setInt(4, product.getStockQuantity());
-                ps.setInt(5, product.getReorderLevel());
-                ps.setString(6, product.getStatus());
-                ps.setInt(7, product.getProductId());
-                
-                return ps.executeUpdate() > 0;
-            }
+
+        if (this.conn == null) return false;
+
+        try (PreparedStatement ps = this.conn.prepareStatement(sql)) {
+            ps.setString(1, product.getProductName());
+            ps.setString(2, product.getDescription());
+            ps.setDouble(3, product.getUnitPrice());
+            ps.setInt(4, product.getStockQuantity());
+            ps.setInt(5, product.getReorderLevel());
+            ps.setString(6, product.getStatus());
+            ps.setInt(7, product.getProductId());
+
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -115,13 +110,12 @@ public class ProductDAO extends DBContext {
     // 5. Xóa sản phẩm
     public boolean deleteProduct(int id) {
         String sql = "DELETE FROM Product WHERE product_id = ?";
-        try (Connection conn = getConnection();
-             PreparedStatement ps = (conn != null) ? conn.prepareStatement(sql) : null) {
-            
-            if (ps != null) {
-                ps.setInt(1, id);
-                return ps.executeUpdate() > 0;
-            }
+
+        if (this.conn == null) return false;
+
+        try (PreparedStatement ps = this.conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
         }

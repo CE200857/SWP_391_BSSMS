@@ -1,8 +1,8 @@
-package controller;
+package bssms_KhanhLTQ.controller;
 
+import bssms_KhanhLTQ.dao.ProductDAO;
 import com.google.gson.Gson;
-import dao.ProductDAO;
-import model.Product;
+import bssms_common.model.Product;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
