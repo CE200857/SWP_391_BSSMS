@@ -5,13 +5,13 @@ import Footer from "./components/Footer";
 import Sidebar from "./components/Sidebar";
 import Login from "./pages/Auth/Login";
 import Profile from "./pages/Auth/Profile";
-import CustomerList from "./pages/Dashboard/CustomerAdmin/CustomerList";
-import StaffList from "./pages/Dashboard/StaffAdmin/StaffList";
-import ServiceList from "./pages/Dashboard/ServiceList/ServiceList";
-import ServiceForm from "./pages/Dashboard/ServiceList/ServiceForm";
-import MyFeedbackList from "./pages/Dashboard/Feedback/MyFeedbackList";
-import PublicFeedbackList from "./pages/Dashboard/Feedback/PublicFeedbackList";
-import FeedbackForm from "./pages/Dashboard/Feedback/FeedbackForm";
+import CustomerList from "./pages/Dashboard/Manager/CustomerAdmin/CustomerList";
+import StaffList from "./pages/Dashboard/Manager/StaffAdmin/StaffList";
+import ServiceList from "./pages/Shared/ServiceList/ServiceList";
+import ServiceForm from "./pages/Shared/ServiceList/ServiceForm";
+import MyFeedbackList from "./pages/Shared/Feedback/MyFeedbackList";
+import PublicFeedbackList from "./pages/Shared/Feedback/PublicFeedbackList";
+import FeedbackForm from "./pages/Shared/Feedback/FeedbackForm";
 import "./App.css";
 
 const ProtectedCustomerRoute = ({ user, children }) => {
