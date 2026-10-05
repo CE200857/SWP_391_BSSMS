@@ -4,8 +4,11 @@ const Sidebar = ({ user }) => {
   // Ẩn Sidebar nếu chưa đăng nhập
   if (!user) return null;
 
-  const isCustomer = user.role === "Customer";
-  const isManager = user.role === "Manager";
+  const role = user.role;
+  const isCustomer = role === "Customer";
+  const isTechnician = role === "Technician";
+  const isReceptionist = role === "Receptionist";
+  const isManager = role === "Manager";
 
   return (
     <div
@@ -14,26 +17,26 @@ const Sidebar = ({ user }) => {
     >
       <div className="p-3 mt-2 text-start">
         <p className="text-muted fw-bold text-uppercase mb-4 ms-2" style={{ fontSize: "13px" }}>
-          {isCustomer ? "Menu Khách hàng" : "Quản lý hệ thống"}
+          {isCustomer ? "Menu Khách hàng" : isTechnician ? "Menu Kỹ thuật viên" : "Quản lý hệ thống"}
         </p>
 
         <div className="d-flex flex-column gap-2">
-          {/* Menu Sản phẩm (Hiển thị cho tất cả người dùng) */}
-          <NavLink
-            to="/products"
-            className={({ isActive }) =>
-              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                isActive ? "bg-primary text-white shadow" : "text-dark"
-              }`
-            }
-          >
-            <i className="bi bi-box-seam-fill me-2"></i>{" "}
-            {isCustomer ? "Danh sách sản phẩm" : "Quản lý sản phẩm"}
-          </NavLink>
-
-          {/* Dành cho Staff / Manager */}
-          {!isCustomer && (
+          {/* Dành cho Receptionist / Manager */}
+          {(isReceptionist || isManager) && (
             <>
+              {/* Menu Sản phẩm */}
+              <NavLink
+                to="/products"
+                className={({ isActive }) =>
+                  `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+                    isActive ? "bg-primary text-white shadow" : "text-dark"
+                  }`
+                }
+              >
+                <i className="bi bi-box-seam-fill me-2"></i>{" "}
+                {isReceptionist ? "Danh sách sản phẩm" : "Quản lý sản phẩm"}
+              </NavLink>
+
               {/* Menu Khách hàng */}
               <NavLink
                 to="/customers"
@@ -58,19 +61,18 @@ const Sidebar = ({ user }) => {
                 <i className="bi bi-scissors me-2"></i> Danh sách dịch vụ
               </NavLink>
 
-              {/* Menu Nhân viên (Chỉ Manager mới thấy) */}
-              {isManager && (
-                <NavLink
-                  to="/staffs"
-                  className={({ isActive }) =>
-                    `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                      isActive ? "bg-primary text-white shadow" : "text-dark"
-                    }`
-                  }
-                >
-                  <i className="bi bi-person-badge-fill me-2"></i> Danh sách nhân viên
-                </NavLink>
-              )}
+              {/* Menu Nhà cung cấp (Bổ sung mới) */}
+              <NavLink
+                to="/suppliers"
+                className={({ isActive }) =>
+                  `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+                    isActive ? "bg-primary text-white shadow" : "text-dark"
+                  }`
+                }
+              >
+                <i className="bi bi-truck me-2"></i>{" "}
+                {isReceptionist ? "Danh sách nhà cung cấp" : "Quản lý nhà cung cấp"}
+              </NavLink>
 
               {/* Menu Xem đánh giá từ khách hàng */}
               <NavLink
@@ -84,6 +86,20 @@ const Sidebar = ({ user }) => {
                 <i className="bi bi-chat-quote-fill me-2"></i> Đánh giá khách hàng
               </NavLink>
             </>
+          )}
+
+          {/* Dành riêng cho Manager */}
+          {isManager && (
+            <NavLink
+              to="/staffs"
+              className={({ isActive }) =>
+                `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+                  isActive ? "bg-primary text-white shadow" : "text-dark"
+                }`
+              }
+            >
+              <i className="bi bi-person-badge-fill me-2"></i> Danh sách nhân viên
+            </NavLink>
           )}
 
           {/* Dành riêng cho Customer */}

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
 const API_URL = 'http://localhost:8080/BSSMS-back/api/products';
-export default function ProductList() {
+
+export default function ProductList({ userRole = 'Receptionist' }) {
   const [products, setProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [formData, setFormData] = useState({
@@ -15,7 +17,8 @@ export default function ProductList() {
     status: 'Active'
   });
 
-  // 1. Fetch danh sách sản phẩm
+  const isManager = userRole === 'Manager';
+
   const fetchProducts = async () => {
     try {
       const res = await fetch(API_URL);
@@ -32,18 +35,16 @@ export default function ProductList() {
     fetchProducts();
   }, []);
 
-  // Thay đổi input form
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'unitPrice' || name === 'stockQuantity' || name === 'reorderLevel' 
-        ? Number(value) 
+      [name]: name === 'unitPrice' || name === 'stockQuantity' || name === 'reorderLevel'
+        ? Number(value)
         : value
     }));
   };
 
-  // Mở modal Thêm mới
   const handleOpenAdd = () => {
     setIsEdit(false);
     setFormData({
@@ -58,14 +59,12 @@ export default function ProductList() {
     setShowModal(true);
   };
 
-  // Mở modal Sửa
   const handleOpenEdit = (product) => {
     setIsEdit(true);
     setFormData(product);
     setShowModal(true);
   };
 
-  // Gửi Form (Thêm hoặc Sửa)
   const handleSubmit = async (e) => {
     e.preventDefault();
     const method = isEdit ? 'PUT' : 'POST';
@@ -88,7 +87,6 @@ export default function ProductList() {
     }
   };
 
-  // Xóa sản phẩm
   const handleDelete = async (id) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
 
@@ -104,15 +102,36 @@ export default function ProductList() {
     }
   };
 
+  const filteredProducts = products.filter(p =>
+    p.productName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="container-fluid py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Quản lý Sản phẩm</h2>
-        <button className="btn btn-primary" onClick={handleOpenAdd}>
-          + Thêm sản phẩm mới
-        </button>
+        <h2>{isManager ? 'Quản lý Sản phẩm' : 'Danh sách Sản phẩm'}</h2>
+
+        {/* Chỉ Manager mới thấy nút Thêm sản phẩm */}
+        {isManager && (
+          <button className="btn btn-primary" onClick={handleOpenAdd}>
+            + Thêm sản phẩm mới
+          </button>
+        )}
       </div>
 
+      <div className="row mb-4">
+        <div className="col-md-4">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Tìm kiếm sản phẩm..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Hiển thị bảng danh sách sản phẩm cho Lễ tân / Quản lý */}
       <div className="card shadow-sm">
         <div className="card-body">
           <div className="table-responsive">
@@ -126,12 +145,13 @@ export default function ProductList() {
                   <th>Tồn kho</th>
                   <th>Ngưỡng đặt lại</th>
                   <th>Trạng thái</th>
-                  <th className="text-center">Thao tác</th>
+                  {/* Cột Thao tác chỉ xuất hiện cho Manager */}
+                  {isManager && <th className="text-center">Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
-                {products.length > 0 ? (
-                  products.map((p) => (
+                {filteredProducts.length > 0 ? (
+                  filteredProducts.map((p) => (
                     <tr key={p.productId}>
                       <td>{p.productId}</td>
                       <td className="fw-bold">{p.productName}</td>
@@ -144,19 +164,24 @@ export default function ProductList() {
                           {p.status}
                         </span>
                       </td>
-                      <td className="text-center">
-                        <button className="btn btn-sm btn-outline-primary me-2" onClick={() => handleOpenEdit(p)}>
-                          Sửa
-                        </button>
-                        <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(p.productId)}>
-                          Xóa
-                        </button>
-                      </td>
+                      {/* Nút Sửa/Xóa chỉ xuất hiện cho Manager */}
+                      {isManager && (
+                        <td className="text-center">
+                          <button className="btn btn-sm btn-outline-primary me-2" onClick={() => handleOpenEdit(p)}>
+                            Sửa
+                          </button>
+                          <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(p.productId)}>
+                            Xóa
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="8" className="text-center text-muted">Chưa có dữ liệu sản phẩm</td>
+                    <td colSpan={isManager ? "8" : "7"} className="text-center text-muted">
+                      Chưa có dữ liệu sản phẩm
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -165,9 +190,9 @@ export default function ProductList() {
         </div>
       </div>
 
-      {/* Modal Form Thêm/Sửa */}
-      {showModal && (
-        <div className="modal show d-block tab-index='-1'" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      {/* Modal Thêm/Sửa chỉ khả dụng khi Manager thao tác */}
+      {showModal && isManager && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">

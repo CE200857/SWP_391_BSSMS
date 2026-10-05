@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
-const API_URL = 'http://localhost:8080/BSSMS-back/SupplierServlet'; // Chỉnh lại URL Servlet của bạn nếu khác
+const API_URL = 'http://localhost:8080/BSSMS-back/SupplierServlet';
 
 export default function SupplierList() {
   const [suppliers, setSuppliers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [formData, setFormData] = useState({
@@ -15,13 +16,15 @@ export default function SupplierList() {
     status: 'Active'
   });
 
-  // 1. Fetch danh sách nhà cung cấp
+  // Fetch danh sách nhà cung cấp
   const fetchSuppliers = async () => {
     try {
       const res = await fetch(API_URL);
       if (res.ok) {
         const data = await res.json();
         setSuppliers(data);
+      } else {
+        console.error('Lỗi khi gọi API:', res.status);
       }
     } catch (err) {
       console.error('Lỗi kết nối API Supplier:', err);
@@ -32,13 +35,11 @@ export default function SupplierList() {
     fetchSuppliers();
   }, []);
 
-  // Thay đổi input form
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Mở modal Thêm mới
   const handleOpenAdd = () => {
     setIsEdit(false);
     setFormData({
@@ -52,14 +53,19 @@ export default function SupplierList() {
     setShowModal(true);
   };
 
-  // Mở modal Sửa
   const handleOpenEdit = (supplier) => {
     setIsEdit(true);
-    setFormData(supplier);
+    setFormData({
+      supplierId: supplier.supplierId || supplier.supplier_id || 0,
+      supplierName: supplier.supplierName || supplier.supplier_name || '',
+      phone: supplier.phone || '',
+      email: supplier.email || '',
+      address: supplier.address || '',
+      status: supplier.status || 'Active'
+    });
     setShowModal(true);
   };
 
-  // Gửi Form (Thêm hoặc Sửa)
   const handleSubmit = async (e) => {
     e.preventDefault();
     const method = isEdit ? 'PUT' : 'POST';
@@ -82,7 +88,6 @@ export default function SupplierList() {
     }
   };
 
-  // Xóa nhà cung cấp
   const handleDelete = async (id) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa nhà cung cấp này?')) return;
 
@@ -98,57 +103,102 @@ export default function SupplierList() {
     }
   };
 
+  // Lọc danh sách hỗ trợ cả camelCase lẫn snake_case từ backend
+  const filteredSuppliers = suppliers.filter((s) => {
+    const name = s.supplierName || s.supplier_name || '';
+    const phone = s.phone || '';
+    const email = s.email || '';
+
+    return (
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      phone.includes(searchTerm) ||
+      email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
+
   return (
-    <div className="container-fluid py-4">
+    <div className="p-4" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Quản lý Nhà cung cấp</h2>
-        <button className="btn btn-success" onClick={handleOpenAdd}>
-          + Thêm nhà cung cấp
+        <h2 className="fw-bold mb-0">Quản lý Nhà cung cấp</h2>
+        <button className="btn btn-primary px-3 py-2 fw-bold" onClick={handleOpenAdd}>
+          + Thêm nhà cung cấp mới
         </button>
       </div>
 
-      <div className="card shadow-sm">
-        <div className="card-body">
+      {/* Thanh tìm kiếm */}
+      <div className="card border-0 shadow-sm mb-4">
+        <div className="card-body p-3">
+          <div className="row g-3">
+            <div className="col-md-5">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Tìm kiếm theo tên, SĐT, email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bảng danh sách */}
+      <div className="card border-0 shadow-sm">
+        <div className="card-body p-0">
           <div className="table-responsive">
-            <table className="table table-hover table-bordered align-middle mb-0">
-              <thead className="table-dark">
+            <table className="table table-hover align-middle mb-0">
+              <thead style={{ backgroundColor: '#212529', color: '#fff' }}>
                 <tr>
-                  <th>ID</th>
-                  <th>Tên nhà cung cấp</th>
-                  <th>Số điện thoại</th>
-                  <th>Email</th>
-                  <th>Địa chỉ</th>
-                  <th>Trạng thái</th>
-                  <th className="text-center">Thao tác</th>
+                  <th className="py-3 px-3">ID</th>
+                  <th className="py-3">Tên nhà cung cấp</th>
+                  <th className="py-3">Số điện thoại</th>
+                  <th className="py-3">Email</th>
+                  <th className="py-3">Địa chỉ</th>
+                  <th className="py-3">Trạng thái</th>
+                  <th className="py-3 text-center">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {suppliers.length > 0 ? (
-                  suppliers.map((s) => (
-                    <tr key={s.supplierId}>
-                      <td>{s.supplierId}</td>
-                      <td className="fw-bold">{s.supplierName}</td>
-                      <td>{s.phone}</td>
-                      <td>{s.email}</td>
-                      <td>{s.address}</td>
-                      <td>
-                        <span className={`badge ${s.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>
-                          {s.status}
-                        </span>
-                      </td>
-                      <td className="text-center">
-                        <button className="btn btn-sm btn-outline-primary me-2" onClick={() => handleOpenEdit(s)}>
-                          Sửa
-                        </button>
-                        <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(s.supplierId)}>
-                          Xóa
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                {filteredSuppliers.length > 0 ? (
+                  filteredSuppliers.map((s) => {
+                    const id = s.supplierId || s.supplier_id;
+                    const name = s.supplierName || s.supplier_name;
+
+                    return (
+                      <tr key={id}>
+                        <td className="px-3 fw-bold">{id}</td>
+                        <td className="fw-bold">{name}</td>
+                        <td>{s.phone}</td>
+                        <td>{s.email}</td>
+                        <td>{s.address}</td>
+                        <td>
+                          <span className={`badge ${s.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>
+                            {s.status}
+                          </span>
+                        </td>
+                        <td className="text-center">
+                          <button
+                            className="btn btn-sm btn-outline-primary me-2"
+                            onClick={() => handleOpenEdit(s)}
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => handleDelete(id)}
+                          >
+                            Xóa
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan="7" className="text-center text-muted">Chưa có dữ liệu nhà cung cấp</td>
+                    <td colSpan="7" className="text-center py-4 text-muted">
+                      Không tìm thấy dữ liệu nhà cung cấp nào
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -157,46 +207,85 @@ export default function SupplierList() {
         </div>
       </div>
 
-      {/* Modal Form Thêm/Sửa */}
+      {/* Modal Form */}
       {showModal && (
         <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
+            <div className="modal-content border-0 shadow">
               <div className="modal-header">
-                <h5 className="modal-title">{isEdit ? 'Cập nhật nhà cung cấp' : 'Thêm nhà cung cấp mới'}</h5>
+                <h5 className="modal-title fw-bold">
+                  {isEdit ? 'Cập nhật nhà cung cấp' : 'Thêm nhà cung cấp mới'}
+                </h5>
                 <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="modal-body">
                   <div className="mb-3">
-                    <label className="form-label">Tên nhà cung cấp</label>
-                    <input type="text" className="form-control" name="supplierName" value={formData.supplierName} onChange={handleChange} required />
+                    <label className="form-label fw-semibold">Tên nhà cung cấp</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="supplierName"
+                      value={formData.supplierName}
+                      onChange={handleChange}
+                      required
+                    />
                   </div>
                   <div className="row">
                     <div className="col-md-6 mb-3">
-                      <label className="form-label">Số điện thoại</label>
-                      <input type="text" className="form-control" name="phone" value={formData.phone} onChange={handleChange} required />
+                      <label className="form-label fw-semibold">Số điện thoại</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        required
+                      />
                     </div>
                     <div className="col-md-6 mb-3">
-                      <label className="form-label">Email</label>
-                      <input type="email" className="form-control" name="email" value={formData.email} onChange={handleChange} required />
+                      <label className="form-label fw-semibold">Email</label>
+                      <input
+                        type="email"
+                        className="form-control"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        required
+                      />
                     </div>
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Địa chỉ</label>
-                    <input type="text" className="form-control" name="address" value={formData.address} onChange={handleChange} required />
+                    <label className="form-label fw-semibold">Địa chỉ</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleChange}
+                      required
+                    />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Trạng thái</label>
-                    <select className="form-select" name="status" value={formData.status} onChange={handleChange}>
+                    <label className="form-label fw-semibold">Trạng thái</label>
+                    <select
+                      className="form-select"
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                    >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
                     </select>
                   </div>
                 </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Hủy</button>
-                  <button type="submit" className="btn btn-success">{isEdit ? 'Lưu thay đổi' : 'Tạo mới'}</button>
+                <div className="modal-footer border-0">
+                  <button type="button" className="btn btn-light" onClick={() => setShowModal(false)}>
+                    Hủy
+                  </button>
+                  <button type="submit" className="btn btn-primary px-4">
+                    {isEdit ? 'Lưu thay đổi' : 'Tạo mới'}
+                  </button>
                 </div>
               </form>
             </div>

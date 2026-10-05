@@ -13,6 +13,7 @@ import MyFeedbackList from "./pages/Shared/Feedback/MyFeedbackList";
 import PublicFeedbackList from "./pages/Shared/Feedback/PublicFeedbackList";
 import FeedbackForm from "./pages/Shared/Feedback/FeedbackForm";
 import ProductList from "./pages/Shared/ProductList/ProductList";
+import SupplierList from "./pages/Shared/SupplierList/SupplierList"; 
 import "./App.css";
 
 const ProtectedCustomerRoute = ({ user, children }) => {
@@ -93,6 +94,16 @@ function App() {
                             element={
                                 <ProtectedManagerRoute user={user}>
                                     <StaffList />
+                                </ProtectedManagerRoute>
+                            }
+                        />
+
+                        {/* Route Quản lý nhà cung cấp (Chỉ dành cho Manager) */}
+                        <Route
+                            path="/suppliers"
+                            element={
+                                <ProtectedManagerRoute user={user}>
+                                    <SupplierList />
                                 </ProtectedManagerRoute>
                             }
                         />
