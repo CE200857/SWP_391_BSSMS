@@ -46,24 +46,6 @@ const Sidebar = ({ user }) => {
                 <i className="bi bi-people-fill me-2"></i> Danh sách khách hàng
               </NavLink>
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-          {/* Menu Nhân viên (Tạm thời dẫn tới /staffs) */}
-          <NavLink
-            to="/staffs"
-            className={({ isActive }) =>
-              `d-block px-3 py-2 rounded text-decoration-none fw-bold ${
-                isActive ? "bg-primary text-white shadow-sm" : "text-dark"
-              }`
-            }
-          >
-            <i className="bi bi-person-badge-fill me-2"></i> Danh sách nhân viên
-          </NavLink>
-          <Link to="/products">Quản lý sản phẩm</Link>
-          <Link to="/suppliers">Quản lý nhà cung cấp</Link>
-=======
-=======
->>>>>>> Stashed changes
               {/* Menu Dịch vụ */}
               <NavLink
                 to="/services"
@@ -117,10 +99,6 @@ const Sidebar = ({ user }) => {
               <i className="bi bi-chat-left-text-fill me-2"></i> Đánh giá của tôi
             </NavLink>
           )}
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         </div>
       </div>
     </div>

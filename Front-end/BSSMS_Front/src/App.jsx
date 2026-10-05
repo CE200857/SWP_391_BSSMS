@@ -5,17 +5,6 @@ import Footer from "./components/Footer";
 import Sidebar from "./components/Sidebar";
 import Login from "./pages/Auth/Login";
 import Profile from "./pages/Auth/Profile";
-<<<<<<< Updated upstream
-import CustomerList from "./pages/Dashboard/CustomerAdmin/CustomerList";
-import StaffList from "./pages/Dashboard/StaffAdmin/StaffList";
-import ServiceList from "./pages/Dashboard/ServiceList/ServiceList";
-import ServiceForm from "./pages/Dashboard/ServiceList/ServiceForm";
-import MyFeedbackList from "./pages/Dashboard/Feedback/MyFeedbackList";
-import PublicFeedbackList from "./pages/Dashboard/Feedback/PublicFeedbackList";
-import FeedbackForm from "./pages/Dashboard/Feedback/FeedbackForm";
-import ProductList from "./pages/Dashboard/ProductList/ProductList";
-import SupplierList from "./pages/Dashboard/SupplierList/SupplierList";
-=======
 import CustomerList from "./pages/Dashboard/Manager/CustomerAdmin/CustomerList";
 import StaffList from "./pages/Dashboard/Manager/StaffAdmin/StaffList";
 import ServiceList from "./pages/Shared/ServiceList/ServiceList";
@@ -24,10 +13,6 @@ import MyFeedbackList from "./pages/Shared/Feedback/MyFeedbackList";
 import PublicFeedbackList from "./pages/Shared/Feedback/PublicFeedbackList";
 import FeedbackForm from "./pages/Shared/Feedback/FeedbackForm";
 import ProductList from "./pages/Shared/ProductList/ProductList";
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 import "./App.css";
 
 const ProtectedCustomerRoute = ({ user, children }) => {
@@ -138,35 +123,7 @@ function App() {
                             }
                         />
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-                        {/* Route Quản lý Sản phẩm */}
-                        <Route
-                            path="/products"
-                            element={
-                                <ProtectedStaffRoute user={user}>
-                                    <ProductList />
-                                </ProtectedStaffRoute>
-                            }
-                        />
-
-                        {/* Route Quản lý Nhà cung cấp */}
-                        <Route
-                            path="/suppliers"
-                            element={
-                                <ProtectedStaffRoute user={user}>
-                                    <SupplierList />
-                                </ProtectedStaffRoute>
-                            }
-                        />
-
-                        {/* Xem đánh giá từ khách hàng (công khai - ai đăng nhập cũng xem được) */}
-=======
                         {/* Xem đánh giá từ khách hàng */}
->>>>>>> Stashed changes
-=======
-                        {/* Xem đánh giá từ khách hàng */}
->>>>>>> Stashed changes
                         <Route
                             path="/feedback"
                             element={
