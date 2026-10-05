@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import Sidebar from "./components/Sidebar";
 import Login from "./pages/Auth/Login";
 import Profile from "./pages/Auth/Profile";
+<<<<<<< Updated upstream
 import CustomerList from "./pages/Dashboard/CustomerAdmin/CustomerList";
 import StaffList from "./pages/Dashboard/StaffAdmin/StaffList";
 import ServiceList from "./pages/Dashboard/ServiceList/ServiceList";
@@ -14,6 +15,16 @@ import PublicFeedbackList from "./pages/Dashboard/Feedback/PublicFeedbackList";
 import FeedbackForm from "./pages/Dashboard/Feedback/FeedbackForm";
 import ProductList from "./pages/Dashboard/ProductList/ProductList";
 import SupplierList from "./pages/Dashboard/SupplierList/SupplierList";
+=======
+import CustomerList from "./pages/Dashboard/Manager/CustomerAdmin/CustomerList";
+import StaffList from "./pages/Dashboard/Manager/StaffAdmin/StaffList";
+import ServiceList from "./pages/Shared/ServiceList/ServiceList";
+import ServiceForm from "./pages/Shared/ServiceList/ServiceForm";
+import MyFeedbackList from "./pages/Shared/Feedback/MyFeedbackList";
+import PublicFeedbackList from "./pages/Shared/Feedback/PublicFeedbackList";
+import FeedbackForm from "./pages/Shared/Feedback/FeedbackForm";
+import ProductList from "./pages/Shared/ProductList/ProductList";
+>>>>>>> Stashed changes
 import "./App.css";
 
 const ProtectedCustomerRoute = ({ user, children }) => {
@@ -72,6 +83,12 @@ function App() {
                         {/* Trang Profile */}
                         <Route path="/profile" element={<Profile user={user} />} />
 
+                        {/* Route Sản phẩm (Mở cho tất cả user đã đăng nhập, tự điều chỉnh UI theo role) */}
+                        <Route
+                            path="/products"
+                            element={<ProductList userRole={user?.role || "Customer"} />}
+                        />
+
                         {/* Route Quản lý danh sách khách hàng (Chỉ dành cho Staff/Manager) */}
                         <Route
                             path="/customers"
@@ -118,6 +135,7 @@ function App() {
                             }
                         />
 
+<<<<<<< Updated upstream
                         {/* Route Quản lý Sản phẩm */}
                         <Route
                             path="/products"
@@ -139,6 +157,9 @@ function App() {
                         />
 
                         {/* Xem đánh giá từ khách hàng (công khai - ai đăng nhập cũng xem được) */}
+=======
+                        {/* Xem đánh giá từ khách hàng */}
+>>>>>>> Stashed changes
                         <Route
                             path="/feedback"
                             element={
