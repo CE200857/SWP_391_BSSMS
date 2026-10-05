@@ -47,6 +47,7 @@ const Sidebar = ({ user }) => {
               </NavLink>
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
           {/* Menu Nhân viên (Tạm thời dẫn tới /staffs) */}
           <NavLink
             to="/staffs"
@@ -61,6 +62,8 @@ const Sidebar = ({ user }) => {
           <Link to="/products">Quản lý sản phẩm</Link>
           <Link to="/suppliers">Quản lý nhà cung cấp</Link>
 =======
+=======
+>>>>>>> Stashed changes
               {/* Menu Dịch vụ */}
               <NavLink
                 to="/services"
@@ -114,6 +117,9 @@ const Sidebar = ({ user }) => {
               <i className="bi bi-chat-left-text-fill me-2"></i> Đánh giá của tôi
             </NavLink>
           )}
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         </div>
       </div>

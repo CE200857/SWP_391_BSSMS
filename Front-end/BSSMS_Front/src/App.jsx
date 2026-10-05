@@ -24,6 +24,9 @@ import MyFeedbackList from "./pages/Shared/Feedback/MyFeedbackList";
 import PublicFeedbackList from "./pages/Shared/Feedback/PublicFeedbackList";
 import FeedbackForm from "./pages/Shared/Feedback/FeedbackForm";
 import ProductList from "./pages/Shared/ProductList/ProductList";
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 import "./App.css";
 
@@ -136,6 +139,7 @@ function App() {
                         />
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                         {/* Route Quản lý Sản phẩm */}
                         <Route
                             path="/products"
@@ -157,6 +161,9 @@ function App() {
                         />
 
                         {/* Xem đánh giá từ khách hàng (công khai - ai đăng nhập cũng xem được) */}
+=======
+                        {/* Xem đánh giá từ khách hàng */}
+>>>>>>> Stashed changes
 =======
                         {/* Xem đánh giá từ khách hàng */}
 >>>>>>> Stashed changes
