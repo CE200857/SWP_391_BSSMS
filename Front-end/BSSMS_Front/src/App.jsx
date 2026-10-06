@@ -33,6 +33,43 @@ const ProtectedManagerRoute = ({ user, children }) => {
   return children;
 };
 
+const ProtectedAppointmentRoute = ({ user, children }) => {
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  const allowedRoles = [
+    "Customer",
+    "Receptionist",
+    "Technician",
+    "Manager"
+  ];
+
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
+const ProtectedRescheduleRoute = ({ user, children }) => {
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  const allowedRoles = [
+    "Customer",
+    "Receptionist",
+    "Manager"
+  ];
+
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to="/appointments" replace />;
+  }
+
+  return children;
+};
+
 function App() {
 
   const [user, setUser] = useState(() => {
