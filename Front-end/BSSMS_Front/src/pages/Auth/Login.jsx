@@ -37,15 +37,23 @@ const Login = ({ setUser }) => {
                 setTimeout(() => {
                     switch (data.role) {
                         case "Customer":
-                            navigate("/profile");
+                            navigate("/customer/home"); 
                             break;
 
                         case "Manager":
-                            navigate("/customers");
+                            navigate("/manager/dashboard");
+                            break;
+
+                        case "Receptionist":
+                            navigate("/receptionist/dashboard");
+                            break;
+
+                        case "Technician":
+                            navigate("/technician/dashboard");
                             break;
 
                         default:
-                            navigate("/customers");
+                            navigate("/bssms-guest");
                             break;
                     }
                 }, 1500);
@@ -53,7 +61,7 @@ const Login = ({ setUser }) => {
                 setError(data.message || 'Đăng nhập thất bại!');
                 setIsLoading(false);
             }
-        // eslint-disable-next-line no-unused-vars
+            // eslint-disable-next-line no-unused-vars
         } catch (err) {
             setError('Lỗi kết nối đến máy chủ!');
             setIsLoading(false);

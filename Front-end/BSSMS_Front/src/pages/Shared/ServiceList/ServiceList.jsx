@@ -7,6 +7,15 @@ const ServiceList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [loadError, setLoadError] = useState(false);
+    
+    // 1. THÊM BIẾN REFRESH ĐỂ KÍCH HOẠT LOAD LẠI DATA
+    const [refresh, setRefresh] = useState(0); 
+
+    // Lấy thông tin user để phân quyền hiển thị nút bấm
+    const storedUser = localStorage.getItem('user');
+    const user = storedUser ? JSON.parse(storedUser) : null;
+    const isManager = user?.role === 'Manager';
+    const isGuest = !user; // Nếu không có user thì là khách vãng lai
 
     const filteredServices = services.filter(service => {
         const search = searchTerm.trim().toLowerCase();
@@ -17,35 +26,30 @@ const ServiceList = () => {
         return matchesSearch && matchesStatus;
     });
 
-    const fetchServices = async () => {
-        try {
-            const response = await axios.get('/api/service');
-            setServices(response.data);
-            setLoadError(false);
-        } catch (error) {
-            console.error("Lỗi tải danh sách:", error);
-            setLoadError(true);
-        }
-    };
-
+    // 2. ĐƯA TOÀN BỘ LOGIC GỌI API VÀO TRONG useEffect
     useEffect(() => {
-        axios.get('/api/service')
-            .then(response => {
+        const fetchServices = async () => {
+            try {
+                const response = await axios.get('/api/service');
                 setServices(response.data);
                 setLoadError(false);
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error("Lỗi tải danh sách:", error);
                 setLoadError(true);
-            });
-    }, []);
+            }
+        };
+
+        fetchServices();
+    }, [refresh]); // <-- Lắng nghe biến refresh. Mỗi lần biến này đổi, API sẽ tự động gọi lại.
 
     const handleDelete = async (id) => {
         if (window.confirm('Bạn có chắc chắn muốn xóa dịch vụ này?')) {
             try {
                 await axios.delete(`/api/service?id=${id}`);
                 alert("Xóa thành công!");
-                fetchServices(); 
+                
+                // 3. THAY VÌ GỌI fetchServices(), TA CHỈ CẦN TĂNG BIẾN REFRESH LÊN 1
+                setRefresh(prev => prev + 1); 
             } catch (error) {
                 console.error("Lỗi xóa:", error);
             }
@@ -79,9 +83,13 @@ const ServiceList = () => {
                         <option value="Inactive">Ngừng hoạt động</option>
                     </select>
                 </div>
-                <Link to="/services/new" className="btn btn-primary ms-auto">
-                    Thêm dịch vụ mới
-                </Link>
+                
+                {/* CHỈ MANAGER MỚI THẤY NÚT THÊM MỚI */}
+                {isManager && (
+                    <Link to="/services/new" className="btn btn-primary ms-auto">
+                        Thêm dịch vụ mới
+                    </Link>
+                )}
             </div>
 
             <div className="table-responsive">
@@ -109,13 +117,24 @@ const ServiceList = () => {
                                 </span>
                             </td>
                             <td>
-                                
-                                <Link to={`/services/edit/${s.serviceId}`} className="btn btn-warning btn-sm me-2">
-                                    Sửa
-                                </Link>
-                                <button onClick={() => handleDelete(s.serviceId)} className="btn btn-danger btn-sm">
-                                    Xóa
-                                </button>
+                                {/* PHÂN QUYỀN NÚT HÀNH ĐỘNG */}
+                                {isManager ? (
+                                    <>
+                                        <Link to={`/services/edit/${s.serviceId}`} className="btn btn-warning btn-sm me-2">
+                                            Sửa
+                                        </Link>
+                                        <button onClick={() => handleDelete(s.serviceId)} className="btn btn-danger btn-sm">
+                                            Xóa
+                                        </button>
+                                    </>
+                                ) : (
+                                    <Link 
+                                        to={isGuest ? `/guest/services/${s.serviceId}` : `/services/detail/${s.serviceId}`} 
+                                        className="btn btn-info btn-sm text-white"
+                                    >
+                                        Xem chi tiết
+                                    </Link>
+                                )}
                             </td>
                         </tr>
                     )) : (

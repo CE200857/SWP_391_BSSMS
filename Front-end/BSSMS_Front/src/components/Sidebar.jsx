@@ -21,100 +21,53 @@ const Sidebar = ({ user }) => {
         </p>
 
         <div className="d-flex flex-column gap-2">
-          {/* Dành cho Receptionist / Manager */}
-          {(isReceptionist || isManager) && (
-            <>
-              {/* Menu Sản phẩm */}
-              <NavLink
-                to="/products"
-                className={({ isActive }) =>
-                  `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                    isActive ? "bg-primary text-white shadow" : "text-dark"
-                  }`
-                }
-              >
-                <i className="bi bi-box-seam-fill me-2"></i>{" "}
-                {isReceptionist ? "Danh sách sản phẩm" : "Quản lý sản phẩm"}
-              </NavLink>
+          {/* Menu Khách hàng */}
+          <NavLink
+            to="/customers"
+            className={({ isActive }) =>
+              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+                isActive ? "bg-primary text-white shadow" : "text-dark"
+              }`
+            }
+          >
+            <i className="bi bi-people-fill me-2"></i> Danh sách khách hàng
+          </NavLink>
 
-              {/* Menu Khách hàng */}
-              <NavLink
-                to="/customers"
-                className={({ isActive }) =>
-                  `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                    isActive ? "bg-primary text-white shadow" : "text-dark"
-                  }`
-                }
-              >
-                <i className="bi bi-people-fill me-2"></i> Danh sách khách hàng
-              </NavLink>
+          {/* Menu dịch vụ */}
+          <NavLink
+            to="/services"
+            className={({ isActive }) =>
+              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+                isActive ? "bg-primary text-white shadow" : "text-dark"
+              }`
+            }
+          >
+            <i className="bi bi-scissors me-2"></i> Danh sách dịch vụ
+          </NavLink>
 
-              {/* Menu Dịch vụ */}
-              <NavLink
-                to="/services"
-                className={({ isActive }) =>
-                  `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                    isActive ? "bg-primary text-white shadow" : "text-dark"
-                  }`
-                }
-              >
-                <i className="bi bi-scissors me-2"></i> Danh sách dịch vụ
-              </NavLink>
+          {/* Menu Nhân viên (Tạm thời dẫn tới /staffs) */}
+          <NavLink
+            to="/staffs"
+            className={({ isActive }) =>
+              `d-block px-3 py-2 rounded text-decoration-none fw-bold ${
+                isActive ? "bg-primary text-white shadow-sm" : "text-dark"
+              }`
+            }
+          >
+            <i className="bi bi-person-badge-fill me-2"></i> Danh sách nhân viên
+          </NavLink>
 
-              {/* Menu Nhà cung cấp (Bổ sung mới) */}
-              <NavLink
-                to="/suppliers"
-                className={({ isActive }) =>
-                  `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                    isActive ? "bg-primary text-white shadow" : "text-dark"
-                  }`
-                }
-              >
-                <i className="bi bi-truck me-2"></i>{" "}
-                {isReceptionist ? "Danh sách nhà cung cấp" : "Quản lý nhà cung cấp"}
-              </NavLink>
-
-              {/* Menu Xem đánh giá từ khách hàng */}
-              <NavLink
-                to="/feedback"
-                className={({ isActive }) =>
-                  `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                    isActive ? "bg-primary text-white shadow" : "text-dark"
-                  }`
-                }
-              >
-                <i className="bi bi-chat-quote-fill me-2"></i> Đánh giá khách hàng
-              </NavLink>
-            </>
-          )}
-
-          {/* Dành riêng cho Manager */}
-          {isManager && (
-            <NavLink
-              to="/staffs"
-              className={({ isActive }) =>
-                `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                  isActive ? "bg-primary text-white shadow" : "text-dark"
-                }`
-              }
-            >
-              <i className="bi bi-person-badge-fill me-2"></i> Danh sách nhân viên
-            </NavLink>
-          )}
-
-          {/* Dành riêng cho Customer */}
-          {isCustomer && (
-            <NavLink
-              to="/my-feedback"
-              className={({ isActive }) =>
-                `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                  isActive ? "bg-primary text-white shadow" : "text-dark"
-                }`
-              }
-            >
-              <i className="bi bi-chat-left-text-fill me-2"></i> Đánh giá của tôi
-            </NavLink>
-          )}
+          {/* Menu Xem đánh giá từ khách hàng (công khai nội bộ) */}
+          <NavLink
+            to="/feedback"
+            className={({ isActive }) =>
+              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+                isActive ? "bg-primary text-white shadow" : "text-dark"
+              }`
+            }
+          >
+            <i className="bi bi-chat-quote-fill me-2"></i> Đánh giá khách hàng
+          </NavLink>
         </div>
       </div>
     </div>
