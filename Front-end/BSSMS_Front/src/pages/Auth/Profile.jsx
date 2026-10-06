@@ -37,7 +37,7 @@ const Profile = ({ user, setUser }) => {
     } finally {
       localStorage.removeItem("user");
       setUser(null);
-      navigate("/");
+      navigate("/bssms-guest");
     }
   };
 
