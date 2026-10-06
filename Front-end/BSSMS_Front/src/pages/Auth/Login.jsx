@@ -69,8 +69,8 @@ const Login = ({ setUser }) => {
     };
 
     return (
-        <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
-            <Card style={{ width: '400px', padding: '20px', border: 'none', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+        <Container className="app-login-surface d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
+            <Card className="app-login-card" style={{ width: '400px', padding: '20px', border: 'none' }}>
                 <Card.Body>
                     <h3 className="text-center mb-4 fw-bold text-uppercase">Đăng nhập</h3>
 
