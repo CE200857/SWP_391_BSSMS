@@ -1,14 +1,23 @@
 import { NavLink } from "react-router-dom";
 
 const Sidebar = ({ user }) => {
-  // Ẩn Sidebar nếu chưa đăng nhập hoặc có vai trò là Khách hàng (Customer)
-  if (!user || user.role === "Customer") return null;
+  // Ẩn Sidebar nếu chưa đăng nhập
+  if (!user) return null;
+
+  const role = user.role;
+  const isCustomer = role === "Customer";
+  const isTechnician = role === "Technician";
+  const isReceptionist = role === "Receptionist";
+  const isManager = role === "Manager";
 
   return (
-    <div className="bg-white border-end shadow-sm" style={{ width: "fit-content", minWidth: "260px", minHeight: "100vh", zIndex: 10 }}>
+    <div
+      className="bg-white border-end shadow-sm"
+      style={{ width: "fit-content", minWidth: "260px", minHeight: "100vh", zIndex: 10 }}
+    >
       <div className="p-3 mt-2 text-start">
         <p className="text-muted fw-bold text-uppercase mb-4 ms-2" style={{ fontSize: "13px" }}>
-          Quản lý hệ thống
+          {isCustomer ? "Menu Khách hàng" : isTechnician ? "Menu Kỹ thuật viên" : "Quản lý hệ thống"}
         </p>
 
         <div className="d-flex flex-column gap-2">
