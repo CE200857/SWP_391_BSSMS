@@ -53,7 +53,7 @@ const Login = ({ setUser }) => {
                             break;
 
                         default:
-                            navigate("/");
+                            navigate("/bssms-guest");
                             break;
                     }
                 }, 1500);

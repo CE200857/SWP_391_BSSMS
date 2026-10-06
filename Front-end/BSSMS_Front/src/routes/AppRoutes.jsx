@@ -46,7 +46,7 @@ const GuestLayout = () => {
 };
 
 const DashboardLayout = ({ user }) => {
-    if (!user) return <Navigate to="/login" replace />;
+    if (!user) return <Navigate to="/bssms-guest" replace />;
     
     return (
         <div className="bg-light min-vh-100 vw-100 d-flex m-0 p-0" style={{ overflowX: "hidden" }}>
@@ -75,6 +75,7 @@ export default function AppRoutes({ user, setUser }) {
                 {/* Theo bảng: Guest được phép View Services & View Other Customers' Feedback */}
                 {/* Bạn có thể tạo 2 trang public riêng ở đây nếu muốn Guest xem mà không cần Sidebar */}
                 <Route path="/guest/services" element={<ServiceList />} />
+                <Route path="/guest/services/:id" element={<ServiceForm isReadOnly={true} />} />
                 <Route path="/guest/feedback" element={<PublicFeedbackList />} />
             </Route>
 
