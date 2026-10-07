@@ -1,6 +1,6 @@
 package bssms_KhanhND.dao;
 
-import bssms_common.util.DBContext;
+import bssms_persistence.DBContext;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;

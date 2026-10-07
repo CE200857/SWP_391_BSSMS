@@ -24,6 +24,8 @@ import PublicFeedbackList from "../pages/Shared/Feedback/PublicFeedbackList";
 import FeedbackForm from "../pages/Shared/Feedback/FeedbackForm";
 import ProductList from "../pages/Shared/ProductList/ProductList";
 import SupplierList from "../pages/Shared/SupplierList/SupplierList";
+import AppointmentList from "../pages/Dashboard/Appointment/AppointmentList";
+import RescheduleForm from "../pages/Dashboard/Appointment/RescheduleAppointment";
 
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
@@ -141,6 +143,14 @@ export default function AppRoutes({ user, setUser }) {
                 {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO) --- */}
                 <Route path="/manager/products" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><ProductList /></ProtectedRoute>} />
                 <Route path="/manager/suppliers" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><SupplierList /></ProtectedRoute>} />
+
+                {/* Xem danh sách lịch hẹn: Cho phép Customer, Receptionist, Technician, Manager */}
+                <Route path="/appointments" element={<ProtectedRoute user={user} allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}>{<AppointmentList />}</ProtectedRoute>} />
+
+                {/* Đổi lịch hẹn (Reschedule): Kỹ thuật viên không được phép đổi lịch */}
+                <Route path="/appointments/reschedule/:id" element={
+                    <ProtectedRoute user={user} allowedRoles={["Customer", "Receptionist", "Manager"]}><RescheduleForm /> </ProtectedRoute>
+                } />
 
             </Route>
         </Routes>
