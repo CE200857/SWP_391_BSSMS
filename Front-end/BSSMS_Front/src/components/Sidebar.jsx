@@ -1,52 +1,69 @@
 import { NavLink } from "react-router-dom";
 
 const Sidebar = ({ user }) => {
-  // Ẩn Sidebar nếu chưa đăng nhập hoặc có vai trò là Khách hàng (Customer)
-  if (!user || user.role === "Customer") return null;
+  // Ẩn Sidebar nếu chưa đăng nhập
+  if (!user) return null;
+
+  const role = user.role;
+  const isCustomer = role === "Customer";
+  const isTechnician = role === "Technician";
+  const isReceptionist = role === "Receptionist";
+  const isManager = role === "Manager";
+
+  // Tạo class dùng chung cho các nút bấm để code không bị lặp lại quá dài
+  const navClass = ({ isActive }) =>
+    `app-nav-link d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+      isActive ? "active" : ""
+    }`;
 
   return (
-    <div className="bg-white border-end shadow-sm" style={{ width: "fit-content", minWidth: "260px", minHeight: "100vh", zIndex: 10 }}>
+    <div
+      className="app-sidebar border-end shadow-sm"
+      style={{ width: "fit-content", minWidth: "260px", minHeight: "100vh", zIndex: 10 }}
+    >
       <div className="p-3 mt-2 text-start">
-        <p className="text-muted fw-bold text-uppercase mb-4 ms-2" style={{ fontSize: "13px" }}>
-          Quản lý hệ thống
+        <p className="app-sidebar-title text-muted fw-bold text-uppercase mb-4 ms-2" style={{ fontSize: "13px" }}>
+          {isCustomer ? "Menu Khách hàng" : isTechnician ? "Menu Kỹ thuật viên" : isReceptionist ? "Menu Lễ tân" : "Quản lý hệ thống"}
         </p>
 
         <div className="d-flex flex-column gap-2">
-          {/* Menu Khách hàng */}
-          <NavLink
-            to="/customers"
-            className={({ isActive }) =>
-              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                isActive ? "bg-primary text-white shadow" : "text-dark"
-              }`
-            }
-          >
-            <i className="bi bi-people-fill me-2"></i> Danh sách khách hàng
+            
+          {/* MENU DÙNG CHUNG (Tất cả các Role đều thấy) */}
+          <NavLink to="/services" className={navClass}>
+            <i className="bi bi-scissors me-2"></i> <span className="app-nav-label">Danh sách dịch vụ</span>
           </NavLink>
 
-          {/* Menu dịch vụ */}
-          <NavLink
-            to="/services"
-            className={({ isActive }) =>
-              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                isActive ? "bg-primary text-white shadow" : "text-dark"
-              }`
-            }
-          >
-            <i className="bi bi-scissors me-2"></i> Danh sách dịch vụ
-          </NavLink>
+          {/* MENU CỦA CUSTOMER, RECEPTIONIST, MANAGER (Kỹ thuật viên không xem đánh giá) */}
+          {(isCustomer || isReceptionist || isManager) && (
+            <NavLink to="/feedback" className={navClass}>
+              <i className="bi bi-chat-quote-fill me-2"></i> <span className="app-nav-label">Đánh giá khách hàng</span>
+            </NavLink>
+          )}
 
-          {/* Menu Nhân viên (Tạm thời dẫn tới /staffs) */}
-          <NavLink
-            to="/staffs"
-            className={({ isActive }) =>
-              `d-block px-3 py-2 rounded text-decoration-none fw-bold ${
-                isActive ? "bg-primary text-white shadow-sm" : "text-dark"
-              }`
-            }
-          >
-            <i className="bi bi-person-badge-fill me-2"></i> Danh sách nhân viên
-          </NavLink>
+          {/* MENU CỦA RECEPTIONIST VÀ MANAGER */}
+          {(isReceptionist || isManager) && (
+            <NavLink to="/customers" className={navClass}>
+              <i className="bi bi-people-fill me-2"></i> <span className="app-nav-label">Danh sách khách hàng</span>
+            </NavLink>
+          )}
+
+          {/* CÁC MENU ĐỘC QUYỀN CHỈ DÀNH CHO MANAGER */}
+          {isManager && (
+            <>
+              <NavLink to="/staffs" className={navClass}>
+                <i className="bi bi-person-badge-fill me-2"></i> <span className="app-nav-label">Danh sách nhân viên</span>
+              </NavLink>
+              
+              <NavLink to="/manager/products" className={navClass}>
+                <i className="bi bi-box-seam me-2"></i> <span className="app-nav-label">Quản lý Sản phẩm</span>
+              </NavLink>
+              
+              <NavLink to="/manager/suppliers" className={navClass}>
+                <i className="bi bi-truck me-2"></i> <span className="app-nav-label">Quản lý Nhà cung cấp</span>
+              </NavLink>
+            </>
+          )}
+
         </div>
       </div>
     </div>
