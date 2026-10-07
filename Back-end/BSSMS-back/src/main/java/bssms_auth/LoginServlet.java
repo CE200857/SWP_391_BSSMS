@@ -27,6 +27,8 @@ public class LoginServlet extends HttpServlet {
         resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); 
         resp.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         resp.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        // THÊM DÒNG NÀY ĐỂ CHO PHÉP LƯU SESSION (COOKIE)
+        resp.setHeader("Access-Control-Allow-Credentials", "true");
     }
 
     @Override
@@ -56,6 +58,9 @@ public class LoginServlet extends HttpServlet {
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     out.print("{\"message\": \"Tài khoản của bạn đã bị khóa hoặc chưa kích hoạt.\"}");
                 } else {
+                    jakarta.servlet.http.HttpSession session = request.getSession(true);
+                    session.setAttribute("user", user);
+                    
                     response.setStatus(HttpServletResponse.SC_OK);
                     out.print(gson.toJson(user));
                 }

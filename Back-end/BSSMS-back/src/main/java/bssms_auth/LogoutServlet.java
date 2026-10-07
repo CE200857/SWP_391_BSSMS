@@ -21,6 +21,7 @@ public class LogoutServlet extends HttpServlet {
         resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); 
         resp.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         resp.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        // THÊM DÒNG NÀY ĐỂ CHO PHÉP LƯU SESSION (COOKIE)
         resp.setHeader("Access-Control-Allow-Credentials", "true");
     }
 
