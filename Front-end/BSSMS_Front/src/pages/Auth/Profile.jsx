@@ -187,17 +187,13 @@ const Profile = ({ user, setUser }) => {
                   </Button>
 
                   <div className="d-flex gap-2 flex-wrap">
-                    {user.role === "Customer" && (
-                      <Button
-                        variant="info"
-                        className="text-white"
-                        onClick={() => navigate("/my-feedback")}
-                        title="Quản lý đánh giá của tôi"
-                      >
-                        <i className="bi bi-chat-quote me-1"></i> Đánh giá của
-                        tôi
-                      </Button>
-                    )}
+                    <Button 
+                      variant="danger" 
+                      className="text-white"
+                      onClick={() => navigate("/change-password")}
+                    >
+                      <i className="bi bi-key me-1"></i> Đổi mật khẩu
+                    </Button>
 
                     <Button variant="warning" className="text-white">
                       <i className="bi bi-pencil-square me-1"></i> Chỉnh sửa

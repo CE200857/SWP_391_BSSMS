@@ -9,6 +9,7 @@ import Login from "../pages/Auth/Login";
 import Profile from "../pages/Auth/Profile";
 import Register from '../pages/Auth/Register';
 import CreateProfile from '../pages/Auth/CreateProfile';
+import ChangePassword from '../pages/Auth/ChangePassword';
 
 // Nhóm 4 Giao diện chính (Dashboard & Home)
 import CustomerHome from "../pages/Homepages/Customer/CustomerHome";
@@ -86,6 +87,7 @@ export default function AppRoutes({ user, setUser }) {
                 <Route path="/login" element={<Login setUser={setUser} />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/update-profile" element={<CreateProfile setUser={setUser} />} />
+                
 
                 {/* Theo bảng: Guest được phép View Services & View Other Customers' Feedback */}
                 {/* Bạn có thể tạo 2 trang public riêng ở đây nếu muốn Guest xem mà không cần Sidebar */}
@@ -101,6 +103,12 @@ export default function AppRoutes({ user, setUser }) {
                 <Route path="/profile" element={
                     <ProtectedRoute user={user} allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}>
                         <Profile user={user} setUser={setUser} />
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/change-password" element={
+                    <ProtectedRoute user={user} allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}>
+                        <ChangePassword />
                     </ProtectedRoute>
                 } />
 
