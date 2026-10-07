@@ -1,12 +1,25 @@
 import { NavLink } from "react-router-dom";
 
 const Sidebar = ({ user }) => {
-  // Ẩn Sidebar nếu chưa đăng nhập hoặc có vai trò là Khách hàng (Customer)
+  // Ẩn Sidebar nếu chưa đăng nhập
   if (!user) return null;
+
+  const role = user.role;
+
+  const isCustomer = role === "Customer";
+  const isTechnician = role === "Technician";
+  const isReceptionist = role === "Receptionist";
+  const isManager = role === "Manager";
+
+  // Class dùng chung cho các menu
+  const navClass = ({ isActive }) =>
+    `app-nav-link d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+      isActive ? "active" : ""
+    }`;
 
   return (
     <div
-      className="bg-white border-end shadow-sm"
+      className="app-sidebar border-end shadow-sm"
       style={{
         width: "fit-content",
         minWidth: "260px",
@@ -15,74 +28,72 @@ const Sidebar = ({ user }) => {
       }}
     >
       <div className="p-3 mt-2 text-start">
+
+        {/* Tiêu đề Sidebar */}
         <p
-          className="text-muted fw-bold text-uppercase mb-4 ms-2"
+          className="app-sidebar-title text-muted fw-bold text-uppercase mb-4 ms-2"
           style={{ fontSize: "13px" }}
         >
-          Quản lý hệ thống
+          {isCustomer
+            ? "Menu Khách hàng"
+            : isTechnician
+              ? "Menu Kỹ thuật viên"
+              : isReceptionist
+                ? "Menu Lễ tân"
+                : "Quản lý hệ thống"}
         </p>
 
         <div className="d-flex flex-column gap-2">
 
-          {/* Menu Khách hàng */}
-          <NavLink
-            to="/customers"
-            className={({ isActive }) =>
-              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                isActive
-                  ? "bg-primary text-white shadow"
-                  : "text-dark"
-              }`
-            }
-          >
-            <i className="bi bi-people-fill me-2"></i>
-            Danh sách khách hàng
-          </NavLink>
-
-          {/* Menu dịch vụ */}
-          <NavLink
-            to="/services"
-            className={({ isActive }) =>
-              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                isActive
-                  ? "bg-primary text-white shadow"
-                  : "text-dark"
-              }`
-            }
-          >
+          {/* MENU DÙNG CHUNG */}
+          <NavLink to="/services" className={navClass}>
             <i className="bi bi-scissors me-2"></i>
-            Danh sách dịch vụ
+            <span className="app-nav-label">Danh sách dịch vụ</span>
           </NavLink>
 
-          {/* Menu Nhân viên */}
-          <NavLink
-            to="/staffs"
-            className={({ isActive }) =>
-              `d-block px-3 py-2 rounded text-decoration-none fw-bold ${
-                isActive
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-dark"
-              }`
-            }
-          >
-            <i className="bi bi-person-badge-fill me-2"></i>
-            Danh sách nhân viên
-          </NavLink>
-
-          {/* Menu Booking Management */}
-          <NavLink
-            to="/appointments"
-            className={({ isActive }) =>
-              `d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-                isActive
-                  ? "bg-primary text-white shadow"
-                  : "text-dark"
-              }`
-            }
-          >
+          {/* MENU LỊCH HẸN */}
+          <NavLink to="/appointments" className={navClass}>
             <i className="bi bi-calendar-check-fill me-2"></i>
-            Danh sách lịch hẹn
+            <span className="app-nav-label">Danh sách lịch hẹn</span>
           </NavLink>
+
+          {/* MENU ĐÁNH GIÁ
+              Customer, Receptionist, Manager được xem */}
+          {(isCustomer || isReceptionist || isManager) && (
+            <NavLink to="/feedback" className={navClass}>
+              <i className="bi bi-chat-quote-fill me-2"></i>
+              <span className="app-nav-label">Đánh giá khách hàng</span>
+            </NavLink>
+          )}
+
+          {/* MENU KHÁCH HÀNG
+              Receptionist và Manager được xem */}
+          {(isReceptionist || isManager) && (
+            <NavLink to="/customers" className={navClass}>
+              <i className="bi bi-people-fill me-2"></i>
+              <span className="app-nav-label">Danh sách khách hàng</span>
+            </NavLink>
+          )}
+
+          {/* MENU CHỈ DÀNH CHO MANAGER */}
+          {isManager && (
+            <>
+              <NavLink to="/staffs" className={navClass}>
+                <i className="bi bi-person-badge-fill me-2"></i>
+                <span className="app-nav-label">Danh sách nhân viên</span>
+              </NavLink>
+
+              <NavLink to="/manager/products" className={navClass}>
+                <i className="bi bi-box-seam me-2"></i>
+                <span className="app-nav-label">Quản lý Sản phẩm</span>
+              </NavLink>
+
+              <NavLink to="/manager/suppliers" className={navClass}>
+                <i className="bi bi-truck me-2"></i>
+                <span className="app-nav-label">Quản lý Nhà cung cấp</span>
+              </NavLink>
+            </>
+          )}
 
         </div>
       </div>
