@@ -8,12 +8,24 @@ const Profile = ({ user, setUser }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Gọi API lấy thông tin chi tiết ngay khi trang vừa load xong
+  // Gọi API lấy thông tin chi tiết ngay khi trang vừa load xong
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user) return;
+      const idToFetch = user?.account_id || user?.accountId;
+
+      if (!idToFetch) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
+        // Đổi thành đường dẫn tuyệt đối và thêm credentials
         const response = await fetch(
-          `/api/profile?accountId=${user.accountId}&role=${user.role}`,
+          `http://localhost:8080/BSSMS-back/api/profile?accountId=${idToFetch}&role=${user.role}`,
+          {
+            method: "GET",
+            credentials: "include", // Bắt buộc phải có để Backend nhận diện được Session
+          },
         );
         if (response.ok) {
           const data = await response.json();
@@ -31,7 +43,11 @@ const Profile = ({ user, setUser }) => {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/logout", { method: "POST" });
+      // Sửa lại đường dẫn API logout
+      await fetch("http://localhost:8080/BSSMS-back/api/logout", {
+        method: "POST",
+        credentials: "include", // Gửi cookie để Backend hủy Session
+      });
     } catch (error) {
       console.error("Lỗi khi gọi API logout:", error);
     } finally {
@@ -43,7 +59,9 @@ const Profile = ({ user, setUser }) => {
 
   if (!user) return null;
 
-  const initial = user.fullName ? user.fullName.charAt(0).toUpperCase() : "U";
+  // Lấy ký tự đầu làm Avatar
+  const displayName = profileData?.fullName || user?.fullName || "User";
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <Container fluid className="mt-4 px-4">
@@ -57,6 +75,15 @@ const Profile = ({ user, setUser }) => {
             <div className="text-center py-5">
               <Spinner animation="border" variant="danger" />
               <p className="mt-3 text-muted">Đang tải thông tin...</p>
+            </div>
+          ) : !profileData ? (
+            <div className="text-center py-5">
+              <p className="mt-3 text-danger">
+                Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.
+              </p>
+              <Button variant="danger" onClick={handleLogout}>
+                Đăng xuất
+              </Button>
             </div>
           ) : (
             <Row>
@@ -76,11 +103,9 @@ const Profile = ({ user, setUser }) => {
                 >
                   {initial}
                 </div>
-                <h4 className="fw-bold mt-2">
-                  {profileData?.fullName || user.fullName}
-                </h4>
+                <h4 className="fw-bold mt-2">{profileData.fullName}</h4>
                 <span className="badge bg-success px-3 py-2 mt-1">
-                  {profileData?.role || user.role}
+                  {profileData.role}
                 </span>
               </Col>
 
@@ -89,13 +114,13 @@ const Profile = ({ user, setUser }) => {
                 <div className="mb-3">
                   <label className="text-muted fw-bold mb-1">Họ và Tên</label>
                   <div className="p-2 bg-light rounded border">
-                    {profileData?.fullName}
+                    {profileData.fullName}
                   </div>
                 </div>
                 <div className="mb-3">
                   <label className="text-muted fw-bold mb-1">Email</label>
                   <div className="p-2 bg-light rounded border">
-                    {profileData?.email}
+                    {profileData.email}
                   </div>
                 </div>
                 <div className="mb-3">
@@ -103,12 +128,12 @@ const Profile = ({ user, setUser }) => {
                     Số điện thoại
                   </label>
                   <div className="p-2 bg-light rounded border">
-                    {profileData?.phone || "Chưa cập nhật"}
+                    {profileData.phone || "Chưa cập nhật"}
                   </div>
                 </div>
 
                 {/* Chỉ hiển thị Ngày sinh, Giới tính, Địa chỉ nếu là Khách hàng */}
-                {profileData?.role === "Customer" && (
+                {profileData.role === "Customer" && (
                   <>
                     <Row>
                       <Col md={6} className="mb-3">
@@ -116,7 +141,7 @@ const Profile = ({ user, setUser }) => {
                           Ngày sinh
                         </label>
                         <div className="p-2 bg-light rounded border">
-                          {profileData?.dob || "Chưa cập nhật"}
+                          {profileData.dob || "Chưa cập nhật"}
                         </div>
                       </Col>
                       <Col md={6} className="mb-3">
@@ -124,9 +149,9 @@ const Profile = ({ user, setUser }) => {
                           Giới tính
                         </label>
                         <div className="p-2 bg-light rounded border">
-                          {profileData?.gender === "Male"
+                          {profileData.gender === "Male"
                             ? "Nam"
-                            : profileData?.gender === "Female"
+                            : profileData.gender === "Female"
                               ? "Nữ"
                               : "Khác"}
                         </div>
@@ -135,7 +160,7 @@ const Profile = ({ user, setUser }) => {
                     <div className="mb-3">
                       <label className="text-muted fw-bold mb-1">Địa chỉ</label>
                       <div className="p-2 bg-light rounded border">
-                        {profileData?.address || "Chưa cập nhật"}
+                        {profileData.address || "Chưa cập nhật"}
                       </div>
                     </div>
                   </>
@@ -146,7 +171,7 @@ const Profile = ({ user, setUser }) => {
                     Trạng thái tài khoản
                   </label>
                   <div className="p-2 bg-light rounded border">
-                    {profileData?.status === "Active"
+                    {profileData.status === "Active"
                       ? "Đang hoạt động"
                       : "Không hoạt động"}
                   </div>
@@ -161,7 +186,6 @@ const Profile = ({ user, setUser }) => {
                     <i className="bi bi-arrow-left me-1"></i> Quay lại
                   </Button>
 
-                  {/* Gom các nút vào chung 1 div để chúng nằm sát nhau bên phải */}
                   <div className="d-flex gap-2 flex-wrap">
                     {user.role === "Customer" && (
                       <Button
@@ -170,7 +194,8 @@ const Profile = ({ user, setUser }) => {
                         onClick={() => navigate("/my-feedback")}
                         title="Quản lý đánh giá của tôi"
                       >
-                        <i className="bi bi-chat-quote me-1"></i> Đánh giá của tôi
+                        <i className="bi bi-chat-quote me-1"></i> Đánh giá của
+                        tôi
                       </Button>
                     )}
 
