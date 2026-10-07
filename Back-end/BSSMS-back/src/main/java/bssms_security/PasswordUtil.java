@@ -1,13 +1,27 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_security;
 
+import java.security.MessageDigest;
+
 /**
- *
- * @author admin
+ * 
+ * @author Nguyen Tien Dat - CE200858
  */
 public class PasswordUtil {
     
+    public static String hashMD5(String pass) {
+        if (pass == null) {
+            return null;
+        }
+        String hash = "";
+        try {
+            MessageDigest md = MessageDigest.getInstance("md5");
+            byte[] bytes = md.digest(pass.getBytes());
+            for (byte b : bytes) {
+                hash += String.format("%02x", b);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return hash;
+    }
 }
