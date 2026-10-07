@@ -32,6 +32,13 @@ const Sidebar = ({ user }) => {
           <NavLink to="/services" className={navClass}>
             <i className="bi bi-scissors me-2"></i> <span className="app-nav-label">Danh sách dịch vụ</span>
           </NavLink>
+          
+          {/* Đánh giá của tôi (Chỉ dành cho Customer) */}
+          {isCustomer && (
+            <NavLink to="/my-feedback" className={navClass}>
+              <i className="bi bi-star-fill me-2"></i> <span className="app-nav-label">Đánh giá của tôi</span>
+            </NavLink>
+          )}
 
           {/* MENU CỦA CUSTOMER, RECEPTIONIST, MANAGER (Kỹ thuật viên không xem đánh giá) */}
           {(isCustomer || isReceptionist || isManager) && (
