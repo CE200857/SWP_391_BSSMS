@@ -7,9 +7,9 @@ const ServiceList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [loadError, setLoadError] = useState(false);
-    
+
     // 1. THÊM BIẾN REFRESH ĐỂ KÍCH HOẠT LOAD LẠI DATA
-    const [refresh, setRefresh] = useState(0); 
+    const [refresh, setRefresh] = useState(0);
 
     // Lấy thông tin user để phân quyền hiển thị nút bấm
     const storedUser = localStorage.getItem('user');
@@ -47,9 +47,9 @@ const ServiceList = () => {
             try {
                 await axios.delete(`/api/service?id=${id}`);
                 alert("Xóa thành công!");
-                
+
                 // 3. THAY VÌ GỌI fetchServices(), TA CHỈ CẦN TĂNG BIẾN REFRESH LÊN 1
-                setRefresh(prev => prev + 1); 
+                setRefresh(prev => prev + 1);
             } catch (error) {
                 console.error("Lỗi xóa:", error);
             }
@@ -83,7 +83,7 @@ const ServiceList = () => {
                         <option value="Inactive">Ngừng hoạt động</option>
                     </select>
                 </div>
-                
+
                 {/* CHỈ MANAGER MỚI THẤY NÚT THÊM MỚI */}
                 {isManager && (
                     <Link to="/services/new" className="btn btn-primary ms-auto">
@@ -93,63 +93,64 @@ const ServiceList = () => {
             </div>
 
             <div className="table-responsive">
-            <table className="table table-bordered table-hover align-middle mb-0">
-                <thead className="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Tên dịch vụ</th>
-                        <th>Giá (VNĐ)</th>
-                        <th>Thời lượng (phút)</th>
-                        <th>Trạng thái</th>
-                        <th>Hành động</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {filteredServices.length > 0 ? filteredServices.map(s => (
-                        <tr key={s.serviceId}>
-                            <td>{s.serviceId}</td>
-                            <td>{s.serviceName}</td>
-                            <td>{Number(s.price).toLocaleString('vi-VN')}</td>
-                            <td>{s.duration}</td>
-                            <td>
-                                <span className={s.status === 'Active' ? 'text-success' : 'text-danger'}>
-                                    {s.status}
-                                </span>
-                            </td>
-                            <td>
-                                {/* PHÂN QUYỀN NÚT HÀNH ĐỘNG */}
-                                {isManager ? (
-                                    <>
-                                        <Link to={`/services/edit/${s.serviceId}`} className="btn btn-warning btn-sm me-2">
-                                            Sửa
-                                        </Link>
-                                        <button onClick={() => handleDelete(s.serviceId)} className="btn btn-danger btn-sm">
-                                            Xóa
-                                        </button>
-                                    </>
-                                ) : (
-                                    <Link 
-                                        to={isGuest ? `/guest/services/${s.serviceId}` : `/services/detail/${s.serviceId}`} 
-                                        className="btn btn-info btn-sm text-white"
+                <table className="table table-bordered table-hover align-middle mb-0">
+                    <thead className="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Tên dịch vụ</th>
+                            <th>Giá (VNĐ)</th>
+                            <th>Thời lượng (phút)</th>
+                            <th>Trạng thái</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredServices.length > 0 ? filteredServices.map(s => (
+                            <tr key={s.serviceId}>
+                                <td>{s.serviceId}</td>
+                                <td>{s.serviceName}</td>
+                                <td>{Number(s.price).toLocaleString('vi-VN')}</td>
+                                <td>{s.duration}</td>
+                                <td>
+                                    <span className={s.status === 'Active' ? 'text-success' : 'text-danger'}>
+                                        {s.status}
+                                    </span>
+                                </td>
+                                <td>
+                                    {/* 1. NÚT XEM CHI TIẾT DÀNH CHO TẤT CẢ MỌI NGƯỜI */}
+                                    <Link
+                                        to={isGuest ? `/guest/services/${s.serviceId}` : `/services/detail/${s.serviceId}`}
+                                        className="btn btn-info btn-sm text-white me-2"
                                     >
                                         Xem chi tiết
                                     </Link>
-                                )}
-                            </td>
-                        </tr>
-                    )) : (
-                        <tr>
-                            <td colSpan="6" className="text-center text-muted py-4">
-                                {loadError
-                                    ? 'Không tải được danh sách dịch vụ. Hãy kiểm tra backend và thử tải lại.'
-                                    : services.length === 0
-                                        ? 'Chưa có dịch vụ nào.'
-                                        : 'Không tìm thấy dịch vụ phù hợp.'}
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
+
+                                    {/* 2. NÚT SỬA/XÓA CHỈ DÀNH RIÊNG CHO MANAGER */}
+                                    {isManager && (
+                                        <>
+                                            <Link to={`/services/edit/${s.serviceId}`} className="btn btn-warning btn-sm me-2">
+                                                Sửa
+                                            </Link>
+                                            <button onClick={() => handleDelete(s.serviceId)} className="btn btn-danger btn-sm">
+                                                Xóa
+                                            </button>
+                                        </>
+                                    )}
+                                </td>
+                            </tr>
+                        )) : (
+                            <tr>
+                                <td colSpan="6" className="text-center text-muted py-4">
+                                    {loadError
+                                        ? 'Không tải được danh sách dịch vụ. Hãy kiểm tra backend và thử tải lại.'
+                                        : services.length === 0
+                                            ? 'Chưa có dịch vụ nào.'
+                                            : 'Không tìm thấy dịch vụ phù hợp.'}
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

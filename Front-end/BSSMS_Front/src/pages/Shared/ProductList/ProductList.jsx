@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
+// Đường dẫn API (hãy điều chỉnh lại nếu bạn dùng proxy '/api/products')
 const API_URL = 'http://localhost:8080/BSSMS-back/api/products';
 
-export default function ProductList({ userRole = 'Receptionist' }) {
+export default function ProductList() {
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -17,23 +18,30 @@ export default function ProductList({ userRole = 'Receptionist' }) {
     status: 'Active'
   });
 
-  const isManager = userRole === 'Manager';
+  // Biến refresh dùng để trigger useEffect tải lại dữ liệu mà không bị lỗi linter
+  const [refresh, setRefresh] = useState(0);
 
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch(API_URL);
-      if (res.ok) {
-        const data = await res.json();
-        setProducts(data);
-      }
-    } catch (err) {
-      console.error('Lỗi kết nối API Product:', err);
-    }
-  };
+  // Lấy thông tin user từ localStorage để phân quyền
+  const storedUser = localStorage.getItem('user');
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const isManager = user?.role?.toLowerCase()?.trim() === 'manager';
 
+  // Đưa hàm fetch vào trong useEffect để tránh lỗi dependency
   useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch(API_URL);
+        if (res.ok) {
+          const data = await res.json();
+          setProducts(data);
+        }
+      } catch (err) {
+        console.error('Lỗi kết nối API Product:', err);
+      }
+    };
+
     fetchProducts();
-  }, []);
+  }, [refresh]); // Lắng nghe biến refresh để gọi lại API
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -78,7 +86,8 @@ export default function ProductList({ userRole = 'Receptionist' }) {
 
       if (res.ok) {
         setShowModal(false);
-        fetchProducts();
+        // Tăng biến refresh lên 1 để useEffect tự động gọi lại API
+        setRefresh(prev => prev + 1);
       } else {
         alert('Có lỗi xảy ra khi lưu thông tin sản phẩm.');
       }
@@ -93,7 +102,8 @@ export default function ProductList({ userRole = 'Receptionist' }) {
     try {
       const res = await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        fetchProducts();
+        // Tăng biến refresh lên 1 để load lại danh sách sau khi xóa
+        setRefresh(prev => prev + 1);
       } else {
         alert('Không thể xóa sản phẩm này.');
       }
@@ -114,7 +124,7 @@ export default function ProductList({ userRole = 'Receptionist' }) {
         {/* Chỉ Manager mới thấy nút Thêm sản phẩm */}
         {isManager && (
           <button className="btn btn-primary" onClick={handleOpenAdd}>
-            + Thêm sản phẩm mới
+            <i className="bi bi-plus-lg me-1"></i> Thêm sản phẩm mới
           </button>
         )}
       </div>
@@ -131,43 +141,44 @@ export default function ProductList({ userRole = 'Receptionist' }) {
         </div>
       </div>
 
-      {/* Hiển thị bảng danh sách sản phẩm cho Lễ tân / Quản lý */}
-      <div className="card shadow-sm">
-        <div className="card-body">
+      <div className="card shadow-sm border-0">
+        <div className="card-body p-0">
           <div className="table-responsive">
-            <table className="table table-hover table-bordered align-middle mb-0">
+            <table className="table table-hover align-middle mb-0">
               <thead className="table-dark">
                 <tr>
-                  <th>ID</th>
+                  <th className="ps-3">ID</th>
                   <th>Tên sản phẩm</th>
                   <th>Mô tả</th>
                   <th>Đơn giá (VNĐ)</th>
                   <th>Tồn kho</th>
                   <th>Ngưỡng đặt lại</th>
                   <th>Trạng thái</th>
-                  {/* Cột Thao tác chỉ xuất hiện cho Manager */}
-                  {isManager && <th className="text-center">Thao tác</th>}
+                  {isManager && <th className="text-center pe-3">Thao tác</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredProducts.length > 0 ? (
                   filteredProducts.map((p) => (
                     <tr key={p.productId}>
-                      <td>{p.productId}</td>
-                      <td className="fw-bold">{p.productName}</td>
+                      <td className="ps-3">{p.productId}</td>
+                      <td className="fw-bold text-primary">{p.productName}</td>
                       <td>{p.description}</td>
-                      <td>{p.unitPrice?.toLocaleString()}</td>
-                      <td>{p.stockQuantity}</td>
+                      <td>{p.unitPrice?.toLocaleString('vi-VN')}</td>
+                      <td>
+                          <span className={`badge ${p.stockQuantity <= p.reorderLevel ? 'bg-danger' : 'bg-success'}`}>
+                              {p.stockQuantity}
+                          </span>
+                      </td>
                       <td>{p.reorderLevel}</td>
                       <td>
-                        <span className={`badge ${p.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>
+                        <span className={`badge ${p.status === 'Active' ? 'bg-info' : 'bg-secondary'}`}>
                           {p.status}
                         </span>
                       </td>
-                      {/* Nút Sửa/Xóa chỉ xuất hiện cho Manager */}
                       {isManager && (
-                        <td className="text-center">
-                          <button className="btn btn-sm btn-outline-primary me-2" onClick={() => handleOpenEdit(p)}>
+                        <td className="text-center pe-3">
+                          <button className="btn btn-sm btn-outline-warning me-2" onClick={() => handleOpenEdit(p)}>
                             Sửa
                           </button>
                           <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(p.productId)}>
@@ -179,7 +190,7 @@ export default function ProductList({ userRole = 'Receptionist' }) {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={isManager ? "8" : "7"} className="text-center text-muted">
+                    <td colSpan={isManager ? "8" : "7"} className="text-center text-muted py-4">
                       Chưa có dữ liệu sản phẩm
                     </td>
                   </tr>
@@ -190,42 +201,42 @@ export default function ProductList({ userRole = 'Receptionist' }) {
         </div>
       </div>
 
-      {/* Modal Thêm/Sửa chỉ khả dụng khi Manager thao tác */}
+      {/* Modal Thêm/Sửa */}
       {showModal && isManager && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">{isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'}</h5>
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header bg-light">
+                <h5 className="modal-title fw-bold">{isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
               </div>
               <form onSubmit={handleSubmit}>
-                <div className="modal-body">
+                <div className="modal-body p-4">
                   <div className="mb-3">
-                    <label className="form-label">Tên sản phẩm</label>
+                    <label className="form-label fw-bold">Tên sản phẩm</label>
                     <input type="text" className="form-control" name="productName" value={formData.productName} onChange={handleChange} required />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Mô tả</label>
+                    <label className="form-label fw-bold">Mô tả</label>
                     <textarea className="form-control" name="description" rows="2" value={formData.description} onChange={handleChange}></textarea>
                   </div>
                   <div className="row">
                     <div className="col-md-6 mb-3">
-                      <label className="form-label">Đơn giá</label>
+                      <label className="form-label fw-bold">Đơn giá</label>
                       <input type="number" className="form-control" name="unitPrice" value={formData.unitPrice} onChange={handleChange} required />
                     </div>
                     <div className="col-md-6 mb-3">
-                      <label className="form-label">Số lượng tồn</label>
+                      <label className="form-label fw-bold">Số lượng tồn</label>
                       <input type="number" className="form-control" name="stockQuantity" value={formData.stockQuantity} onChange={handleChange} required />
                     </div>
                   </div>
                   <div className="row">
                     <div className="col-md-6 mb-3">
-                      <label className="form-label">Ngưỡng đặt lại</label>
+                      <label className="form-label fw-bold">Ngưỡng đặt lại (Reorder)</label>
                       <input type="number" className="form-control" name="reorderLevel" value={formData.reorderLevel} onChange={handleChange} required />
                     </div>
                     <div className="col-md-6 mb-3">
-                      <label className="form-label">Trạng thái</label>
+                      <label className="form-label fw-bold">Trạng thái</label>
                       <select className="form-select" name="status" value={formData.status} onChange={handleChange}>
                         <option value="Active">Active</option>
                         <option value="Inactive">Inactive</option>
@@ -233,9 +244,9 @@ export default function ProductList({ userRole = 'Receptionist' }) {
                     </div>
                   </div>
                 </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Hủy</button>
-                  <button type="submit" className="btn btn-primary">{isEdit ? 'Lưu thay đổi' : 'Tạo mới'}</button>
+                <div className="modal-footer bg-light">
+                  <button type="button" className="btn btn-secondary px-4" onClick={() => setShowModal(false)}>Hủy</button>
+                  <button type="submit" className="btn btn-primary px-4">{isEdit ? 'Lưu thay đổi' : 'Tạo mới'}</button>
                 </div>
               </form>
             </div>

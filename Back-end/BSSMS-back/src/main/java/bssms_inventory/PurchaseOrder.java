@@ -8,23 +8,29 @@ import java.util.Date;
  *
  * @author admin
  */
+
+
+import java.util.List;
+
 public class PurchaseOrder {
     private int purchaseOrderId;
     private int supplierId;
-    private Date orderDate;
-    private Date expectedDate;
-    private String status;
+    private String supplierName;
+    private String orderDate;
     private double totalAmount;
+    private String status;
+    private List<PurchaseOrderProduct> items; // Danh sách sản phẩm trong đơn nhập
 
     public PurchaseOrder() {}
 
-    public PurchaseOrder(int purchaseOrderId, int supplierId, Date orderDate, Date expectedDate, String status, double totalAmount) {
+    public PurchaseOrder(int purchaseOrderId, int supplierId, String supplierName, String orderDate, double totalAmount, String status, List<PurchaseOrderProduct> items) {
         this.purchaseOrderId = purchaseOrderId;
         this.supplierId = supplierId;
+        this.supplierName = supplierName;
         this.orderDate = orderDate;
-        this.expectedDate = expectedDate;
-        this.status = status;
         this.totalAmount = totalAmount;
+        this.status = status;
+        this.items = items;
     }
 
     public int getPurchaseOrderId() {
@@ -43,20 +49,28 @@ public class PurchaseOrder {
         this.supplierId = supplierId;
     }
 
-    public Date getOrderDate() {
+    public String getSupplierName() {
+        return supplierName;
+    }
+
+    public void setSupplierName(String supplierName) {
+        this.supplierName = supplierName;
+    }
+
+    public String getOrderDate() {
         return orderDate;
     }
 
-    public void setOrderDate(Date orderDate) {
+    public void setOrderDate(String orderDate) {
         this.orderDate = orderDate;
     }
 
-    public Date getExpectedDate() {
-        return expectedDate;
+    public double getTotalAmount() {
+        return totalAmount;
     }
 
-    public void setExpectedDate(Date expectedDate) {
-        this.expectedDate = expectedDate;
+    public void setTotalAmount(double totalAmount) {
+        this.totalAmount = totalAmount;
     }
 
     public String getStatus() {
@@ -67,12 +81,12 @@ public class PurchaseOrder {
         this.status = status;
     }
 
-    public double getTotalAmount() {
-        return totalAmount;
+    // --- Phương thức bị thiếu gây ra lỗi ---
+    public List<PurchaseOrderProduct> getItems() {
+        return items;
     }
 
-    public void setTotalAmount(double totalAmount) {
-        this.totalAmount = totalAmount;
+    public void setItems(List<PurchaseOrderProduct> items) {
+        this.items = items;
     }
-    
 }

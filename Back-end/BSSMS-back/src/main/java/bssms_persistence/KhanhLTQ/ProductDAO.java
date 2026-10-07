@@ -5,6 +5,8 @@ import bssms_inventory.Product;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
 public class ProductDAO extends DBContext {
 
@@ -115,6 +117,19 @@ public class ProductDAO extends DBContext {
 
         try (PreparedStatement ps = this.conn.prepareStatement(sql)) {
             ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+  
+    // Cập nhật số lượng tồn kho (Manage Stock)
+    public boolean updateStockQuantity(int productId, int newQuantity) {
+        String sql = "UPDATE Product SET quantity = ? WHERE product_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, newQuantity);
+            ps.setInt(2, productId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
