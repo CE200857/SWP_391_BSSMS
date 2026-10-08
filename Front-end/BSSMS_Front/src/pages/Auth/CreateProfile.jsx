@@ -57,7 +57,7 @@ const CreateProfile = ({ setUser }) => {
       );
 
       if (response.status === 200 || response.status === 201) {
-        setSuccessMsg("Cập nhật thông tin thành công!");
+        setSuccessMsg("Đăng ký thành công!");
 
         // Nhận object user mới (đã có role=Customer) từ Backend
         const updatedUser = response.data;
@@ -104,10 +104,6 @@ const CreateProfile = ({ setUser }) => {
         >
           Thông tin cá nhân
         </h3>
-
-        <p className="text-center text-muted mb-4" style={{ fontSize: "14px" }}>
-          Vui lòng cung cấp thông tin để hoàn tất việc đăng ký tài khoản.
-        </p>
 
         {error && <Alert variant="danger">{error}</Alert>}
         {successMsg && <Alert variant="success">{successMsg}</Alert>}
