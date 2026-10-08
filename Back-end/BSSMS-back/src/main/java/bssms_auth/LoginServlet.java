@@ -3,6 +3,8 @@ package bssms_auth;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import bssms_persistence.DatNT.LoginDAO;
+import bssms_security.PasswordUtil;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Map;
@@ -49,8 +51,10 @@ public class LoginServlet extends HttpServlet {
             String email = jsonObject.get("email").getAsString();
             String password = jsonObject.get("password").getAsString();
 
+            String hashedPassword = PasswordUtil.hashMD5(password);
+
             LoginDAO dao = new LoginDAO();
-            Map<String, Object> user = dao.authenticateUser(email, password);
+            Map<String, Object> user = dao.authenticateUser(email, hashedPassword);
             
             PrintWriter out = response.getWriter();
             if (user != null) {
