@@ -1,4 +1,4 @@
-package bssms_KhanhND.dao;
+package bssms_persistence.KhanhND;
 
 import bssms_persistence.DBContext;
 import java.sql.PreparedStatement;
