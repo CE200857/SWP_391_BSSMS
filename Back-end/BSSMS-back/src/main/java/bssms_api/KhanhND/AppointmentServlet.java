@@ -1,6 +1,6 @@
-package bssms_KhanhND.controller;
+package bssms_api.KhanhND;
 
-import bssms_KhanhND.dao.AppointmentDAO;
+import bssms_persistence.KhanhND.AppointmentDAO;
 import com.google.gson.Gson;
 import java.io.IOException;
 import java.io.PrintWriter;
