@@ -38,10 +38,10 @@ export default function ManagerDashboard() {
       <Row className="g-4 mb-4">
         {/* Card 1: Doanh thu */}
         <Col md={4}>
-          <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "15px", background: "linear-gradient(135deg, #c52d69 0%, #ad1c56 100%)", color: "white" }}>
+          <Card className="manager-metric-card manager-metric-card--revenue shadow-sm border-0 h-100">
             <Card.Body className="d-flex align-items-center p-4">
               <div className="me-4 rounded-circle bg-white d-flex justify-content-center align-items-center" style={{ width: "60px", height: "60px" }}>
-                <i className="bi bi-wallet2 fs-3 text-danger"></i>
+                <i className="bi bi-wallet2 manager-metric-icon fs-3"></i>
               </div>
               <div>
                 <h6 className="mb-1 text-white-50 fw-bold text-uppercase">Doanh thu dự kiến</h6>
@@ -55,10 +55,10 @@ export default function ManagerDashboard() {
 
         {/* Card 2: Lịch hẹn hôm nay */}
         <Col md={4}>
-          <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "15px", background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", color: "white" }}>
+          <Card className="manager-metric-card manager-metric-card--appointments shadow-sm border-0 h-100">
             <Card.Body className="d-flex align-items-center p-4">
               <div className="me-4 rounded-circle bg-white d-flex justify-content-center align-items-center" style={{ width: "60px", height: "60px" }}>
-                <i className="bi bi-calendar-check fs-3 text-primary"></i>
+                <i className="bi bi-calendar-check manager-metric-icon fs-3"></i>
               </div>
               <div>
                 <h6 className="mb-1 text-white-50 fw-bold text-uppercase">Lịch hẹn hôm nay</h6>
@@ -72,10 +72,10 @@ export default function ManagerDashboard() {
 
         {/* Card 3: Tổng khách hàng */}
         <Col md={4}>
-          <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "15px", background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)", color: "white" }}>
+          <Card className="manager-metric-card manager-metric-card--customers shadow-sm border-0 h-100">
             <Card.Body className="d-flex align-items-center p-4">
               <div className="me-4 rounded-circle bg-white d-flex justify-content-center align-items-center" style={{ width: "60px", height: "60px" }}>
-                <i className="bi bi-people-fill fs-3 text-success"></i>
+                <i className="bi bi-people-fill manager-metric-icon fs-3"></i>
               </div>
               <div>
                 <h6 className="mb-1 text-white-50 fw-bold text-uppercase">Tổng Khách hàng</h6>

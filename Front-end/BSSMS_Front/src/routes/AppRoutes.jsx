@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -72,12 +73,18 @@ const GuestLayout = () => {
 const DashboardLayout = ({ user }) => {
     if (!user) return <Navigate to="/bssms-guest" replace />;
 
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
     return (
         <div
             className="app-dashboard min-vh-100 vw-100 d-flex m-0 p-0"
             style={{ overflowX: "hidden" }}
         >
-            <Sidebar user={user} />
+            <Sidebar
+                user={user}
+                collapsed={sidebarCollapsed}
+                onToggle={() => setSidebarCollapsed((prev) => !prev)}
+            />
             <div className="flex-grow-1 d-flex flex-column" style={{ minWidth: 0 }}>
                 <Header user={user} />
                 <main className="app-dashboard-content p-3 flex-grow-1">
