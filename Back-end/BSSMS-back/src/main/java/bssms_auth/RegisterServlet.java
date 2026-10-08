@@ -2,27 +2,18 @@ package bssms_auth;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import bssms_persistence.DatNT.LoginDAO;
+import bssms_persistence.DatNT.RegisterDAO;
 import bssms_security.PasswordUtil;
-
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Map;
-
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import static java.lang.System.out;
 
-/**
- * 
- * @author Nguyen Tien Dat - CE200858
- */
-
-@WebServlet(name = "LoginServlet", urlPatterns = {"/api/login"})
-public class LoginServlet extends HttpServlet {
+@WebServlet(name = "RegisterServlet", urlPatterns = {"/api/register"})
+public class RegisterServlet extends HttpServlet {
 
     private Gson gson = new Gson();
 
@@ -30,8 +21,7 @@ public class LoginServlet extends HttpServlet {
         resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); 
         resp.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         resp.setHeader("Access-Control-Allow-Headers", "Content-Type");
-        // THÊM DÒNG NÀY ĐỂ CHO PHÉP LƯU SESSION (COOKIE)
-        resp.setHeader("Access-Control-Allow-Credentials", "true");
+        resp.setHeader("Access-Control-Allow-Credentials", "true"); 
     }
 
     @Override
@@ -47,47 +37,46 @@ public class LoginServlet extends HttpServlet {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         
+        PrintWriter out = response.getWriter();
         try {
             JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
-            
-            String identifier = jsonObject.get("email").getAsString().trim(); 
+            String email = jsonObject.get("email").getAsString();
             String rawPassword = jsonObject.get("password").getAsString();
 
-            boolean isValidEmail = identifier.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
-            boolean isValidPhone = identifier.matches("^0\\d{9}$");
-
-            if (!isValidEmail && !isValidPhone) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                out.print("{\"message\": \"Vui lòng nhập đúng định dạng Email hoặc Số điện thoại!\"}");
+            RegisterDAO dao = new RegisterDAO();
+            
+            if (dao.checkEmailExist(email)) {
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                out.print("{\"message\": \"Email này đã được sử dụng. Vui lòng chọn email khác!\"}");
                 out.flush();
                 return;
             }
 
+            String usernamePrefix = email.substring(0, email.indexOf('@'));
+            String username = usernamePrefix + "_" + System.currentTimeMillis();
+
             String hashedPassword = PasswordUtil.hashMD5(rawPassword);
 
-            LoginDAO dao = new LoginDAO();
-            Map<String, Object> user = dao.authenticateUser(identifier, hashedPassword);
+            boolean isCreated = dao.createAccount(username, hashedPassword, email);
             
-            PrintWriter out = response.getWriter();
-            if (user != null) {
-                if ("Inactive".equals(user.get("status"))) {
-                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    out.print("{\"message\": \"Tài khoản của bạn đã bị khóa hoặc chưa kích hoạt.\"}");
-                } else {
+            if (isCreated) {
+                bssms_persistence.DatNT.LoginDAO loginDao = new bssms_persistence.DatNT.LoginDAO();
+                java.util.Map<String, Object> user = loginDao.authenticateUser(email, hashedPassword);
+                if (user != null) {
                     jakarta.servlet.http.HttpSession session = request.getSession(true);
                     session.setAttribute("user", user);
-                    
-                    response.setStatus(HttpServletResponse.SC_OK);
-                    out.print(gson.toJson(user));
                 }
+
+                response.setStatus(HttpServletResponse.SC_CREATED);
+                out.print("{\"message\": \"Đăng ký thành công!\"}");
             } else {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                out.print("{\"message\": \"Email hoặc mật khẩu không chính xác!\"}");
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                out.print("{\"message\": \"Có lỗi xảy ra khi tạo tài khoản. Vui lòng thử lại!\"}");
             }
-            out.flush();
         } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+            out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
         }
+        out.flush();
     }
 }

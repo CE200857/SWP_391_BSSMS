@@ -12,7 +12,7 @@ public class Equipment {
     private int equipmentId;
     private String equipmentName;
     private String description;
-    private String status;
+    private String status = "Available";
 
     public Equipment() {}
 

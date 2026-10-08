@@ -50,6 +50,13 @@ const Sidebar = ({ user }) => {
             <i className="bi bi-scissors me-2"></i>
             <span className="app-nav-label">Danh sách dịch vụ</span>
           </NavLink>
+          
+          {/* Đánh giá của tôi (Chỉ dành cho Customer) */}
+          {isCustomer && (
+            <NavLink to="/my-feedback" className={navClass}>
+              <i className="bi bi-star-fill me-2"></i> <span className="app-nav-label">Đánh giá của tôi</span>
+            </NavLink>
+          )}
 
           {/* MENU LỊCH HẸN */}
           <NavLink to="/appointments" className={navClass}>

@@ -50,8 +50,7 @@ public class AppointmentServlet extends HttpServlet {
         // GET /api/appointments
         if (pathInfo == null || pathInfo.equals("/")) {
 
-            List<Map<String, Object>> appointmentList
-                    = dao.getAllAppointmentDetails();
+            List<Map<String, Object>> appointmentList = dao.getAllAppointmentDetails();
 
             String jsonString = gson.toJson(appointmentList);
 
@@ -64,11 +63,9 @@ public class AppointmentServlet extends HttpServlet {
 
         try {
 
-            int appointmentId
-                    = Integer.parseInt(pathInfo.substring(1));
+            int appointmentId = Integer.parseInt(pathInfo.substring(1));
 
-            Map<String, Object> appointment
-                    = dao.getAppointmentDetails(appointmentId);
+            Map<String, Object> appointment = dao.getAppointmentDetails(appointmentId);
 
             if (appointment != null) {
 
