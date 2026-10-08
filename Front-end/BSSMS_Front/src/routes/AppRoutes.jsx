@@ -31,6 +31,7 @@ import SupplierList from "../pages/Shared/SupplierList/SupplierList";
 import AppointmentList from "../pages/Dashboard/Appointment/AppointmentList";
 import AppointmentDetails from "../pages/Dashboard/Appointment/AppointmentDetails";
 import RescheduleAppointment from "../pages/Dashboard/Appointment/RescheduleAppointment";
+import TreatmentPackageList from "../pages/Dashboard/Manager/TreatmentPackageAdmin/TreatmentPackageList";
 
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
@@ -110,6 +111,13 @@ export default function AppRoutes({ user, setUser }) {
                 <Route path="/change-password" element={
                     <ProtectedRoute user={user} allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}>
                         <ChangePassword />
+                    </ProtectedRoute>
+                } />
+
+                // Cho phép cả 4 vai trò truy cập
+                <Route path="/treatment-packages" element={
+                    <ProtectedRoute user={user} allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}>
+                        <TreatmentPackageList />
                     </ProtectedRoute>
                 } />
 
@@ -200,6 +208,9 @@ export default function AppRoutes({ user, setUser }) {
                 {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO) --- */}
                 <Route path="/manager/products" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><ProductList /></ProtectedRoute>} />
                 <Route path="/manager/suppliers" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><SupplierList /></ProtectedRoute>} />
+
+                {/* --- TREATMENT PACKAGE MANAGEMENT (QUẢN LÝ GÓI LIỆU TRÌNH) --- */}
+                <Route path="/manager/treatment-packages" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><TreatmentPackageList /></ProtectedRoute>} />
 
             </Route>
         </Routes>
