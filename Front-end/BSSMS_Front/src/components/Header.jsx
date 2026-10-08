@@ -10,13 +10,13 @@ const Header = ({ user }) => {
   const initial = user.fullName ? user.fullName.charAt(0).toUpperCase() : "U";
 
   return (
-    <Navbar bg="white" className="app-header z-3" style={{ position: 'relative' }}>
+    <Navbar
+      bg="white"
+      className="app-header z-3"
+      style={{ position: "relative" }}
+    >
       <Container fluid className="px-4">
-        <Navbar.Brand
-          className="app-brand"
-          onClick={() => navigate("/")}
-          title="Về trang chủ"
-        >
+        <Navbar.Brand className="app-brand" style={{ cursor: "default" }}>
           <img src={logo} alt="Seoul Center" />
         </Navbar.Brand>
 
