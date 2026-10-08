@@ -146,6 +146,7 @@ public class ProductDAO extends DBContext {
         return false;
     }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   
     // Cập nhật số lượng tồn kho (Manage Stock)
     public boolean updateStockQuantity(int productId, int newQuantity) {
@@ -153,6 +154,8 @@ public class ProductDAO extends DBContext {
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, newQuantity);
 =======
+=======
+>>>>>>> Stashed changes
 
     // 6. Cập nhật số lượng tồn kho
     public boolean updateStockQuantity(int productId, int quantityToAdd) {
@@ -164,6 +167,9 @@ public class ProductDAO extends DBContext {
 
         try (PreparedStatement ps = this.conn.prepareStatement(query)) {
             ps.setInt(1, quantityToAdd);
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
             ps.setInt(2, productId);
             return ps.executeUpdate() > 0;
@@ -173,7 +179,11 @@ public class ProductDAO extends DBContext {
         return false;
     }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 }
+=======
+}
+>>>>>>> Stashed changes
 =======
 }
 >>>>>>> Stashed changes

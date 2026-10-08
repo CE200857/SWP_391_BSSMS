@@ -62,4 +62,79 @@ public class ProfileServlet extends HttpServlet {
             response.getWriter().print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
         }
     }
+<<<<<<< Updated upstream
+=======
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        setAccessControlHeaders(response);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        PrintWriter out = response.getWriter();
+        HttpSession session = request.getSession(false);
+
+        if (session == null || session.getAttribute("user") == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            out.print("{\"message\": \"Phiên làm việc không hợp lệ! Vui lòng đăng nhập lại.\"}");
+            out.flush();
+            return;
+        }
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> user = (Map<String, Object>) session.getAttribute("user");
+            
+            int accountId = -1;
+            if (user.containsKey("account_id")) {
+                accountId = ((Number) user.get("account_id")).intValue();
+            } else if (user.containsKey("accountId")) {
+                accountId = ((Number) user.get("accountId")).intValue();
+            }
+
+            JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
+            String fullName = jsonObject.get("fullName").getAsString().trim();
+            String phone = jsonObject.get("phone").getAsString().trim();
+            String dob = jsonObject.get("dob").getAsString();
+            String gender = jsonObject.get("gender").getAsString();
+            String address = jsonObject.get("address").getAsString();
+            
+            if (fullName.split("\\s+").length < 2) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Họ và tên bắt buộc phải có từ 2 từ trở lên!\"}");
+                out.flush();
+                return;
+            }
+
+            if (!phone.matches("^0[1-9]\\d{8}$")) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0, số thứ hai khác 0)!\"}");
+                out.flush();
+                return;
+            }
+
+            String standardizedName = formatFullName(fullName);
+
+            ProfileDAO dao = new ProfileDAO();
+            boolean isCreated = dao.createCustomerProfile(accountId, standardizedName, dob, gender, phone, address);
+
+            if (isCreated) {
+                user.put("role", "Customer");
+                user.put("fullName", standardizedName);
+                session.setAttribute("user", user);
+
+                response.setStatus(HttpServletResponse.SC_OK);
+                out.print(gson.toJson(user));
+            } else {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                out.print("{\"message\": \"Không thể lưu thông tin. Vui lòng thử lại!\"}");
+            }
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+            e.printStackTrace();
+        }
+        out.flush();
+    }
+>>>>>>> Stashed changes
 }

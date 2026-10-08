@@ -7,6 +7,12 @@ import Sidebar from "../components/Sidebar";
 import GuestHome from "../pages/Homepages/Guest/GuestHome";
 import Login from "../pages/Auth/Login";
 import Profile from "../pages/Auth/Profile";
+<<<<<<< Updated upstream
+=======
+import Register from '../pages/Auth/Register';
+import CreateProfile from '../pages/Auth/CreateProfile';
+import ChangePassword from '../pages/Auth/ChangePassword';
+>>>>>>> Stashed changes
 
 // Nhóm 4 Giao diện chính (Dashboard & Home)
 import CustomerHome from "../pages/Homepages/Customer/CustomerHome";
@@ -24,8 +30,15 @@ import PublicFeedbackList from "../pages/Shared/Feedback/PublicFeedbackList";
 import FeedbackForm from "../pages/Shared/Feedback/FeedbackForm";
 import ProductList from "../pages/Shared/ProductList/ProductList";
 import SupplierList from "../pages/Shared/SupplierList/SupplierList";
+<<<<<<< Updated upstream
 import ManageStock from "../pages/Shared/ManageStock/ManageStock";
 import PurchaseOrder from "../pages/Shared/PurchaseOrder/PurchaseOrder";
+=======
+
+import AppointmentList from "../pages/Dashboard/Appointment/AppointmentList";
+import AppointmentDetails from "../pages/Dashboard/Appointment/AppointmentDetails";
+import RescheduleAppointment from "../pages/Dashboard/Appointment/RescheduleAppointment";
+>>>>>>> Stashed changes
 
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
@@ -82,6 +95,11 @@ export default function AppRoutes({ user, setUser }) {
                 <Route path="/bssms-guest" element={<GuestHome />} />
                 <Route path="/" element={<Navigate to="/bssms-guest" replace />} />
                 <Route path="/login" element={<Login setUser={setUser} />} />
+<<<<<<< Updated upstream
+=======
+                <Route path="/register" element={<Register />} />
+                <Route path="/update-profile" element={<CreateProfile setUser={setUser} />} />
+>>>>>>> Stashed changes
 
                 {/* Theo bảng: Guest được phép View Services & View Other Customers' Feedback */}
                 {/* Bạn có thể tạo 2 trang public riêng ở đây nếu muốn Guest xem mà không cần Sidebar */}
@@ -100,6 +118,15 @@ export default function AppRoutes({ user, setUser }) {
                     </ProtectedRoute>
                 } />
 
+<<<<<<< Updated upstream
+=======
+                <Route path="/change-password" element={
+                    <ProtectedRoute user={user} allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}>
+                        <ChangePassword />
+                    </ProtectedRoute>
+                } />
+
+>>>>>>> Stashed changes
                 {/* --- TRANG CHỦ THEO ROLE --- */}
                 <Route path="/customer/home" element={<ProtectedRoute user={user} allowedRoles={["Customer"]}><CustomerHome /></ProtectedRoute>} />
                 <Route path="/manager/dashboard" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><ManagerDashboard /></ProtectedRoute>} />
@@ -128,12 +155,65 @@ export default function AppRoutes({ user, setUser }) {
                 {/* Update Service: Theo bảng CHỈ có Manager có quyền sửa (Dấu X ở cột P) */}
                 <Route path="/services/edit/:id" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><ServiceForm /></ProtectedRoute>} />
 
+<<<<<<< Updated upstream
                 {/* --- FEEDBACK & REVIEW --- */}
                 {/* View Other Feedback: Customer, Receptionist, Manager (Technician KHÔNG có quyền xem) */}
                 <Route path="/feedback" element={<ProtectedRoute user={user} allowedRoles={["Customer", "Receptionist", "Manager"]}><PublicFeedbackList /></ProtectedRoute>
                 } />
 
 
+=======
+                {/* --- APPOINTMENT MANAGEMENT --- */}
+
+                {/* View Appointment List: 
+                Customer, Receptionist, Technician, Manager */}
+                <Route
+                    path="/appointments"
+                    element={
+                        <ProtectedRoute
+                            user={user}
+                            allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}
+                        >
+                            <AppointmentList />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* View Appointment Details:
+                Customer, Receptionist, Technician, Manager */}
+                <Route
+                    path="/appointments/:id"
+                    element={
+                        <ProtectedRoute
+                            user={user}
+                            allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}
+                        >
+                            <AppointmentDetails />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Reschedule Appointment:
+                 Customer, Receptionist, Manager */}
+                <Route
+                    path="/appointments/:id/reschedule"
+                    element={
+                        <ProtectedRoute
+                            user={user}
+                            allowedRoles={["Customer", "Receptionist", "Manager"]}
+                        >
+                            <RescheduleAppointment />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* --- FEEDBACK & REVIEW --- */}
+                {/* View Other Feedback: Customer, Receptionist, Manager (Technician KHÔNG có quyền xem) */}
+                <Route path="/feedback" element={<ProtectedRoute user={user} allowedRoles={["Customer", "Receptionist", "Manager"]}><PublicFeedbackList /></ProtectedRoute>
+                } />
+
+
+>>>>>>> Stashed changes
                 {/* Các thao tác cá nhân (Create/Update/Delete Feedback): Chỉ dành cho Customer */}
                 <Route path="/my-feedback" element={<ProtectedRoute user={user} allowedRoles={["Customer"]}><MyFeedbackList /></ProtectedRoute>} />
                 <Route path="/feedback/new" element={<ProtectedRoute user={user} allowedRoles={["Customer"]}><FeedbackForm /></ProtectedRoute>} />
@@ -143,9 +223,13 @@ export default function AppRoutes({ user, setUser }) {
                 {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO) --- */}
                 <Route path="/manager/products" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><ProductList /></ProtectedRoute>} />
                 <Route path="/manager/suppliers" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><SupplierList /></ProtectedRoute>} />
+<<<<<<< Updated upstream
                 {/* BỔ SUNG: 2 Route mới chỉ cấp quyền cho Manager */}
                 <Route path="/manager/stock" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><ManageStock /></ProtectedRoute>} />
                 <Route path="/manager/purchase-orders" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><PurchaseOrder /></ProtectedRoute>} />
+=======
+
+>>>>>>> Stashed changes
             </Route>
         </Routes>
     );

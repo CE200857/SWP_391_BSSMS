@@ -1,16 +1,22 @@
 package bssms_api.KhanhLTQ;
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import bssms_inventory.PurchaseOrder;
 import bssms_persistence.KhanhLTQ.PurchaseOrderDAO;
 import com.google.gson.Gson;
 =======
+=======
+>>>>>>> Stashed changes
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import bssms_persistence.KhanhLTQ.ProductDAO;
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -20,6 +26,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 
 @WebServlet("/api/purchase-order")
@@ -33,6 +40,8 @@ public class PurchaseOrderServlet extends HttpServlet {
         response.setHeader("Access-Control-Allow-Headers", "Content-Type");
         response.setContentType("application/json;charset=UTF-8");
 =======
+=======
+>>>>>>> Stashed changes
 import java.io.PrintWriter;
 
 @WebServlet("/PurchaseOrderServlet")
@@ -50,13 +59,20 @@ public class PurchaseOrderServlet extends HttpServlet {
         resp.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         resp.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
         resp.setHeader("Access-Control-Allow-Credentials", "true");
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     }
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         setCorsHeaders(resp);
+=======
+        setCorsHeaders(req, resp);
+>>>>>>> Stashed changes
 =======
         setCorsHeaders(req, resp);
 >>>>>>> Stashed changes
@@ -64,6 +80,7 @@ public class PurchaseOrderServlet extends HttpServlet {
     }
 
     @Override
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         setCorsHeaders(response);
@@ -79,6 +96,8 @@ public class PurchaseOrderServlet extends HttpServlet {
             response.getWriter().print("{\"message\": \"Tạo đơn nhập hàng thất bại\"}");
         }
 =======
+=======
+>>>>>>> Stashed changes
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         setCorsHeaders(req, resp);
         resp.setContentType("application/json");
@@ -114,6 +133,9 @@ public class PurchaseOrderServlet extends HttpServlet {
             out.print("{\"message\": \"Lỗi máy chủ khi tạo đơn nhập hàng!\"}");
         }
         out.flush();
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     }
 }

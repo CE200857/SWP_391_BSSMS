@@ -163,6 +163,7 @@ const Profile = ({ user, setUser }) => {
 
                   {/* Gom các nút vào chung 1 div để chúng nằm sát nhau bên phải */}
                   <div className="d-flex gap-2 flex-wrap">
+<<<<<<< Updated upstream
                     {user.role === "Customer" && (
                       <Button
                         variant="info"
@@ -173,6 +174,15 @@ const Profile = ({ user, setUser }) => {
                         <i className="bi bi-chat-quote me-1"></i> Đánh giá của tôi
                       </Button>
                     )}
+=======
+                    <Button 
+                      variant="danger" 
+                      className="text-white"
+                      onClick={() => navigate("/change-password")}
+                    >
+                      <i className="bi bi-key me-1"></i> Đổi mật khẩu
+                    </Button>
+>>>>>>> Stashed changes
 
                     <Button variant="warning" className="text-white">
                       <i className="bi bi-pencil-square me-1"></i> Chỉnh sửa

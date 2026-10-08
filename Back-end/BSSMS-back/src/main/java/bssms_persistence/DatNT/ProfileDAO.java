@@ -49,4 +49,49 @@ public class ProfileDAO extends DBContext {
         }
         return map;
     }
+<<<<<<< Updated upstream
+=======
+    
+    public boolean createCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address) {
+        String updateAccountSql = "UPDATE Account SET phone = ? WHERE account_id = ?";
+        String insertCustomerSql = "INSERT INTO Customer (account_id, membership_tier_id, full_name, date_of_birth, gender, address, phone) VALUES (?, 1, ?, ?, ?, ?, ?)";
+        
+        try {
+            if (conn != null) {
+                conn.setAutoCommit(false);
+
+                PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
+                psAccount.setString(1, phone);
+                psAccount.setInt(2, accountId);
+                psAccount.executeUpdate();
+
+                PreparedStatement psCustomer = conn.prepareStatement(insertCustomerSql);
+                psCustomer.setInt(1, accountId);
+                psCustomer.setString(2, fullName);
+                psCustomer.setString(3, dob);
+                psCustomer.setString(4, gender);
+                psCustomer.setString(5, address);
+                psCustomer.setString(6, phone);
+                psCustomer.executeUpdate();
+
+                conn.commit(); 
+                return true;
+            }
+        } catch (Exception e) {
+            try {
+                if (conn != null) conn.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            try {
+                if (conn != null) conn.setAutoCommit(true);
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
+        return false;
+    }
+>>>>>>> Stashed changes
 }
