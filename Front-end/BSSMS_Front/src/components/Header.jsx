@@ -16,7 +16,7 @@ const Header = ({ user }) => {
       style={{ position: "relative" }}
     >
       <Container fluid className="px-4">
-        <Navbar.Brand className="app-brand" style={{ cursor: "default" }}>
+        <Navbar.Brand className="app-brand ms-auto" style={{ cursor: "default" }}>
           <img src={logo} alt="Seoul Center" />
         </Navbar.Brand>
 

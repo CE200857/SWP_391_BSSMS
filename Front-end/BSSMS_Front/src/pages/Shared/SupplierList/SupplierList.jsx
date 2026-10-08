@@ -148,7 +148,7 @@ export default function SupplierList() {
         <div className="card-body p-0">
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0">
-              <thead style={{ backgroundColor: '#212529', color: '#fff' }}>
+              <thead className="table-dark">
                 <tr>
                   <th className="py-3 px-3">ID</th>
                   <th className="py-3">Tên nhà cung cấp</th>
