@@ -17,7 +17,9 @@ const AppointmentList = () => {
     useEffect(() => {
         const fetchAppointments = async () => {
             try {
-                const response = await fetch("/api/appointments");
+                const response = await fetch("/api/appointments", {
+                    credentials: "include"
+                });
 
                 if (response.ok) {
                     const data = await response.json();

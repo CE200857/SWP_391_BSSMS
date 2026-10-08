@@ -28,7 +28,7 @@ const Login = ({ setUser }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/BSSMS-back/api/login", {
+      const response = await fetch("api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -14,6 +14,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 /**
  * 
@@ -73,8 +74,8 @@ public class LoginServlet extends HttpServlet {
                 if ("Inactive".equals(user.get("status"))) {
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     out.print("{\"message\": \"Tài khoản của bạn đã bị khóa hoặc chưa kích hoạt.\"}");
-                } else {
-                    jakarta.servlet.http.HttpSession session = request.getSession(true);
+                } else {             
+                    HttpSession session = request.getSession(true);
                     session.setAttribute("user", user);
                     
                     response.setStatus(HttpServletResponse.SC_OK);
