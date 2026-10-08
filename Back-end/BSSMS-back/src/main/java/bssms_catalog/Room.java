@@ -12,7 +12,7 @@ public class Room {
     private int roomId;
     private String roomName;
     private String roomType;
-    private String status;
+    private String status = "Available";
 
     public Room() {}
 
