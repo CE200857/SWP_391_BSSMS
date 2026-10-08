@@ -12,9 +12,9 @@ public class CustomerDAO extends DBContext {
 
     public List<Map<String, Object>> getAllCustomerDetails() {
         List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT c.customer_id, c.full_name, c.phone, a.email, a.status "
-                     + "FROM Customer c "
-                     + "JOIN Account a ON c.account_id = a.account_id";
+        String query = "SELECT c.customer_id, c.full_name, a.phone, a.email, a.status "
+                + "FROM Customer c "
+                + "JOIN Account a ON c.account_id = a.account_id";
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
@@ -26,7 +26,7 @@ public class CustomerDAO extends DBContext {
                     map.put("phone", rs.getString("phone"));
                     map.put("email", rs.getString("email"));
                     map.put("status", rs.getString("status"));
-                    
+
                     list.add(map);
                 }
             }
@@ -38,7 +38,7 @@ public class CustomerDAO extends DBContext {
 
     public boolean deactivateCustomer(int customerId) {
         String query = "UPDATE Account SET status = 'Inactive' "
-                     + "WHERE account_id = (SELECT account_id FROM Customer WHERE customer_id = ?)";
+                + "WHERE account_id = (SELECT account_id FROM Customer WHERE customer_id = ?)";
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
