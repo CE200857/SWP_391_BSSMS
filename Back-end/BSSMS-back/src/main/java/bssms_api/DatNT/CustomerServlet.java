@@ -77,4 +77,39 @@ public class CustomerServlet extends HttpServlet {
             response.getWriter().print("{\"message\": \"Thiếu hoặc sai định dạng ID\"}");
         }
     }
+    
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        setAccessControlHeaders(response);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        PrintWriter out = response.getWriter();
+        try {
+            com.google.gson.JsonObject jsonObject = gson.fromJson(request.getReader(), com.google.gson.JsonObject.class);
+            String fullName = jsonObject.get("fullName").getAsString().trim();
+            String email = jsonObject.get("email").getAsString().trim();
+            String phone = jsonObject.get("phone").getAsString().trim();
+            String dob = jsonObject.get("dob").getAsString();
+            String gender = jsonObject.get("gender").getAsString();
+            String username = jsonObject.get("username").getAsString();
+            String password = jsonObject.get("password").getAsString();
+
+            CustomerDAO dao = new CustomerDAO();
+            boolean success = dao.createWalkInCustomer(username, password, email, phone, fullName, dob, gender);
+
+            if (success) {
+                response.setStatus(HttpServletResponse.SC_CREATED);
+                out.print("{\"message\": \"Tạo tài khoản khách hàng thành công!\"}");
+            } else {
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                out.print("{\"message\": \"Lỗi: Tên đăng nhập hoặc Email/SĐT đã được sử dụng.\"}");
+            }
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+        }
+        out.flush();
+    }
 }
