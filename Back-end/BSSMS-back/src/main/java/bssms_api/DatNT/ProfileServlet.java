@@ -25,6 +25,20 @@ public class ProfileServlet extends HttpServlet {
         resp.setHeader("Access-Control-Allow-Headers", "Content-Type");
         resp.setHeader("Access-Control-Allow-Credentials", "true"); // Thêm dòng này để xử lý Session
     }
+    
+    private String formatFullName(String name) {
+        if (name == null || name.trim().isEmpty()) return "";
+        String[] words = name.trim().split("\\s+");
+        StringBuilder formatted = new StringBuilder();
+        for (String word : words) {
+            if (word.length() > 0) {
+                formatted.append(Character.toUpperCase(word.charAt(0)))
+                         .append(word.substring(1).toLowerCase())
+                         .append(" ");
+            }
+        }
+        return formatted.toString().trim();
+    }
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -32,7 +46,6 @@ public class ProfileServlet extends HttpServlet {
         resp.setStatus(HttpServletResponse.SC_OK);
     }
 
-    // XỬ LÝ LẤY DỮ LIỆU (Xem Profile)
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -62,7 +75,6 @@ public class ProfileServlet extends HttpServlet {
         }
     }
 
-    // XỬ LÝ LƯU DỮ LIỆU (Tạo Profile mới)
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         setAccessControlHeaders(response);
@@ -72,7 +84,6 @@ public class ProfileServlet extends HttpServlet {
         PrintWriter out = response.getWriter();
         HttpSession session = request.getSession(false);
 
-        // Bắt buộc phải có Session từ bước Register thì mới cho tạo Profile
         if (session == null || session.getAttribute("user") == null) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             out.print("{\"message\": \"Phiên làm việc không hợp lệ! Vui lòng đăng nhập lại.\"}");
@@ -84,7 +95,6 @@ public class ProfileServlet extends HttpServlet {
             @SuppressWarnings("unchecked")
             Map<String, Object> user = (Map<String, Object>) session.getAttribute("user");
             
-            // Lấy ID từ Session (đảm bảo đồng nhất key account_id hoặc accountId)
             int accountId = -1;
             if (user.containsKey("account_id")) {
                 accountId = ((Number) user.get("account_id")).intValue();
@@ -92,25 +102,39 @@ public class ProfileServlet extends HttpServlet {
                 accountId = ((Number) user.get("accountId")).intValue();
             }
 
-            // Đọc dữ liệu từ form React gửi lên
             JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
-            String fullName = jsonObject.get("fullName").getAsString();
+            String fullName = jsonObject.get("fullName").getAsString().trim();
+            String phone = jsonObject.get("phone").getAsString().trim();
             String dob = jsonObject.get("dob").getAsString();
             String gender = jsonObject.get("gender").getAsString();
-            String phone = jsonObject.get("phone").getAsString();
             String address = jsonObject.get("address").getAsString();
+            
+            if (fullName.split("\\s+").length < 2) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Họ và tên bắt buộc phải có từ 2 từ trở lên!\"}");
+                out.flush();
+                return;
+            }
+
+            if (!phone.matches("^0[1-9]\\d{8}$")) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0, số thứ hai khác 0)!\"}");
+                out.flush();
+                return;
+            }
+
+            String standardizedName = formatFullName(fullName);
 
             ProfileDAO dao = new ProfileDAO();
-            boolean isCreated = dao.createCustomerProfile(accountId, fullName, dob, gender, phone, address);
+            boolean isCreated = dao.createCustomerProfile(accountId, standardizedName, dob, gender, phone, address);
 
             if (isCreated) {
-                // Cập nhật Role và FullName vào Session hiện tại
                 user.put("role", "Customer");
-                user.put("fullName", fullName);
+                user.put("fullName", standardizedName);
                 session.setAttribute("user", user);
 
                 response.setStatus(HttpServletResponse.SC_OK);
-                out.print(gson.toJson(user)); // Trả về object user mới
+                out.print(gson.toJson(user));
             } else {
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 out.print("{\"message\": \"Không thể lưu thông tin. Vui lòng thử lại!\"}");

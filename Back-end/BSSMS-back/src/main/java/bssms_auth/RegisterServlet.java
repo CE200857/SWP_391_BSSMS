@@ -42,6 +42,20 @@ public class RegisterServlet extends HttpServlet {
             JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
             String email = jsonObject.get("email").getAsString();
             String rawPassword = jsonObject.get("password").getAsString();
+            
+            if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Email không đúng định dạng!\"}");
+                out.flush();
+                return;
+            }
+            
+            if (rawPassword.length() < 6) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Mật khẩu phải có ít nhất 6 ký tự!\"}");
+                out.flush();
+                return;
+            }
 
             RegisterDAO dao = new RegisterDAO();
             
