@@ -8,8 +8,10 @@ import {
   InputGroup,
   Modal,
 } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 
 const CustomerList = () => {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -79,18 +81,26 @@ const CustomerList = () => {
 
   return (
     <Container fluid className="mt-4 px-4">
-      <h2 className="mb-4 fw-bold text-uppercase">Danh sách khách hàng</h2>
+        <h2 className="fw-bold text-uppercase mb-4">Danh sách khách hàng</h2>
 
-      <InputGroup className="mb-3 w-50">
-        <InputGroup.Text>
-          <i className="bi bi-search"></i>
-        </InputGroup.Text>
-        <Form.Control
-          placeholder="Tìm theo tên, email, số điện thoại..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </InputGroup>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <InputGroup className="mb-3 w-50">
+          <InputGroup.Text>
+            <i className="bi bi-search"></i>
+          </InputGroup.Text>
+          <Form.Control
+            placeholder="Tìm theo tên, email, số điện thoại..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </InputGroup>
+        <Button
+          variant="danger"
+          onClick={() => navigate("/receptionist/create")}
+        >
+          <i className="bi bi-plus-lg me-1"></i> Thêm khách mới
+        </Button>
+      </div>
 
       <Table striped bordered hover responsive className="align-middle">
         <thead className="table-dark">

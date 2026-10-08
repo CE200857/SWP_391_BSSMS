@@ -87,7 +87,6 @@ const Profile = ({ user, setUser }) => {
             </div>
           ) : (
             <Row>
-              {/* Cột trái: Avatar và Vai trò */}
               <Col
                 md={4}
                 className="d-flex flex-column align-items-center justify-content-center border-end mb-4 mb-md-0"
@@ -109,8 +108,15 @@ const Profile = ({ user, setUser }) => {
                 </span>
               </Col>
 
-              {/* Cột phải: Chi tiết thông tin */}
               <Col md={8} className="ps-md-5 d-flex flex-column">
+                <div className="mb-3">
+                  <label className="text-muted fw-bold mb-1">
+                    Tên đăng nhập
+                  </label>
+                  <div className="p-2 bg-light rounded border">
+                    {profileData.username}
+                  </div>
+                </div>
                 <div className="mb-3">
                   <label className="text-muted fw-bold mb-1">Họ và Tên</label>
                   <div className="p-2 bg-light rounded border">
@@ -187,15 +193,21 @@ const Profile = ({ user, setUser }) => {
                   </Button>
 
                   <div className="d-flex gap-2 flex-wrap">
-                    <Button 
-                      variant="danger" 
+                    <Button
+                      variant="danger"
                       className="text-white"
                       onClick={() => navigate("/change-password")}
                     >
                       <i className="bi bi-key me-1"></i> Đổi mật khẩu
                     </Button>
 
-                    <Button variant="warning" className="text-white">
+                    <Button
+                      variant="danger"
+                      className="text-white"
+                      onClick={() =>
+                        navigate("/edit-profile", { state: { profileData } })
+                      }
+                    >
                       <i className="bi bi-pencil-square me-1"></i> Chỉnh sửa
                     </Button>
 
