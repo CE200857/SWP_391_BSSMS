@@ -29,8 +29,10 @@ import PublicFeedbackList from "../pages/Shared/Feedback/PublicFeedbackList";
 import FeedbackForm from "../pages/Shared/Feedback/FeedbackForm";
 import ProductList from "../pages/Shared/ProductList/ProductList";
 import SupplierList from "../pages/Shared/SupplierList/SupplierList";
+
 import AppointmentList from "../pages/Dashboard/Appointment/AppointmentList";
-import RescheduleForm from "../pages/Dashboard/Appointment/RescheduleAppointment";
+import AppointmentDetails from "../pages/Dashboard/Appointment/AppointmentDetails";
+import RescheduleAppointment from "../pages/Dashboard/Appointment/RescheduleAppointment";
 
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà

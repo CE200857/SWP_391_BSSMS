@@ -8,6 +8,9 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080/BSSMS-back',
         changeOrigin: true,
+        cookiePathRewrite: {
+          '/BSSMS-back': '/'
+        }
       }
     }
   }

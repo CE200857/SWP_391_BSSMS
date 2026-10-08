@@ -51,7 +51,7 @@ const CreateProfile = ({ setUser }) => {
 
     try {
       const response = await axios.post(
-        "http://localhost:8080/BSSMS-back/api/profile",
+        "/api/profile",
         { fullName: formattedName, dob, gender, phone: phone.trim(), address }, // Gửi tên đã chuẩn hóa
         { withCredentials: true },
       );

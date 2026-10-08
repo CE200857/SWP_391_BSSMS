@@ -44,8 +44,7 @@ const Register = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post(
-        "http://localhost:8080/BSSMS-back/api/register",
+      const response = await axios.post("api/register",
         {
           username: trimmedUsername,
           email: email,

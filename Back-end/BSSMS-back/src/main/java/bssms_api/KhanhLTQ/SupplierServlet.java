@@ -15,7 +15,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 
-@WebServlet("/SupplierServlet")
+@WebServlet("/api/suppliers")
 public class SupplierServlet extends HttpServlet {
 
     private final SupplierDAO supplierDAO = new SupplierDAO();
@@ -26,7 +26,9 @@ public class SupplierServlet extends HttpServlet {
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        response.setHeader("Access-Control-Allow-Credentials", "true");
         response.setContentType("application/json;charset=UTF-8");
+        
     }
 
     @Override
