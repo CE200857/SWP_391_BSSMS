@@ -14,6 +14,17 @@ const Login = ({ setUser }) => {
     e.preventDefault();
     setError("");
     setSuccessMsg("");
+
+    const inputValue = email.trim(); 
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
+    const phoneRegex = /^0\d{9}$/; 
+
+    if (!emailRegex.test(inputValue) && !phoneRegex.test(inputValue)) {
+      setError("Vui lòng nhập đúng định dạng Email hoặc Số điện thoại (10 chữ số, bắt đầu bằng số 0).");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -22,8 +33,8 @@ const Login = ({ setUser }) => {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // Vẫn giữ dòng này để lưu Cookie
-        body: JSON.stringify({ email, password }),
+        credentials: "include",
+        body: JSON.stringify({ email: inputValue, password }),
       });
 
       const data = await response.json();
@@ -105,10 +116,10 @@ const Login = ({ setUser }) => {
 
           <Form onSubmit={handleLogin}>
             <Form.Group className="mb-3 text-start" controlId="formBasicEmail">
-              <Form.Label className="fw-bold">Email*</Form.Label>
+              <Form.Label className="fw-bold">Email hoặc Số điện thoại*</Form.Label>
               <Form.Control
-                type="email"
-                placeholder="Vui lòng nhập email"
+                type="text"
+                placeholder="Vui lòng nhập email hoặc sđt"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
