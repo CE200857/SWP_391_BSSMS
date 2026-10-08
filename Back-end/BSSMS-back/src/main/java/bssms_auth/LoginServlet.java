@@ -14,6 +14,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import static java.lang.System.out;
 
 /**
  * 
@@ -48,13 +49,24 @@ public class LoginServlet extends HttpServlet {
         
         try {
             JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
-            String email = jsonObject.get("email").getAsString();
-            String password = jsonObject.get("password").getAsString();
+            
+            String identifier = jsonObject.get("email").getAsString().trim(); 
+            String rawPassword = jsonObject.get("password").getAsString();
 
-            String hashedPassword = PasswordUtil.hashMD5(password);
+            boolean isValidEmail = identifier.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+            boolean isValidPhone = identifier.matches("^0\\d{9}$");
+
+            if (!isValidEmail && !isValidPhone) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Vui lòng nhập đúng định dạng Email hoặc Số điện thoại!\"}");
+                out.flush();
+                return;
+            }
+
+            String hashedPassword = PasswordUtil.hashMD5(rawPassword);
 
             LoginDAO dao = new LoginDAO();
-            Map<String, Object> user = dao.authenticateUser(email, hashedPassword);
+            Map<String, Object> user = dao.authenticateUser(identifier, hashedPassword);
             
             PrintWriter out = response.getWriter();
             if (user != null) {

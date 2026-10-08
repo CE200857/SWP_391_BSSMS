@@ -24,7 +24,7 @@ public class RegisterDAO extends DBContext {
     }
 
     public boolean createAccount(String username, String password, String email) {
-        String sql = "INSERT INTO Account (username, password, email, status) VALUES (?, ?, ?, 'Active')";
+        String sql = "INSERT INTO Account (username, password, email, status, role) VALUES (?, ?, ?, 'Active', 'Customer')";
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(sql);

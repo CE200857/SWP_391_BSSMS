@@ -53,33 +53,32 @@ public class ProfileDAO extends DBContext {
     
     public boolean createCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address) {
         String updateAccountSql = "UPDATE Account SET phone = ? WHERE account_id = ?";
-        String insertCustomerSql = "INSERT INTO Customer (account_id, membership_tier_id, full_name, date_of_birth, gender, address) VALUES (?, 1, ?, ?, ?, ?)";
+        String insertCustomerSql = "INSERT INTO Customer (account_id, membership_tier_id, full_name, date_of_birth, gender, address, phone) VALUES (?, 1, ?, ?, ?, ?, ?)";
         
         try {
             if (conn != null) {
-                conn.setAutoCommit(false); // Bật Transaction
+                conn.setAutoCommit(false);
 
-                // Cập nhật SĐT vào bảng Account
                 PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
                 psAccount.setString(1, phone);
                 psAccount.setInt(2, accountId);
                 psAccount.executeUpdate();
 
-                // Thêm thông tin vào bảng Customer (membership_tier_id = 1 là Member)
                 PreparedStatement psCustomer = conn.prepareStatement(insertCustomerSql);
                 psCustomer.setInt(1, accountId);
                 psCustomer.setString(2, fullName);
                 psCustomer.setString(3, dob);
                 psCustomer.setString(4, gender);
                 psCustomer.setString(5, address);
+                psCustomer.setString(6, phone);
                 psCustomer.executeUpdate();
 
-                conn.commit(); // Xác nhận lưu dữ liệu
+                conn.commit(); 
                 return true;
             }
         } catch (Exception e) {
             try {
-                if (conn != null) conn.rollback(); // Hủy bỏ nếu có lỗi
+                if (conn != null) conn.rollback();
             } catch (SQLException ex) {
                 ex.printStackTrace();
             }

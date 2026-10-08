@@ -12,7 +12,7 @@ public class CustomerDAO extends DBContext {
 
     public List<Map<String, Object>> getAllCustomerDetails() {
         List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT c.customer_id, c.full_name, a.phone, a.email, a.status "
+        String query = "SELECT c.customer_id, c.full_name, c.phone, a.email, a.status "
                      + "FROM Customer c "
                      + "JOIN Account a ON c.account_id = a.account_id";
         try {
