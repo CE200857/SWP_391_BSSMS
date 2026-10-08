@@ -35,7 +35,7 @@ const ChangePassword = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/BSSMS-back/api/change-password", {
+      const response = await fetch("/api/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // Cực kỳ quan trọng để giữ Session

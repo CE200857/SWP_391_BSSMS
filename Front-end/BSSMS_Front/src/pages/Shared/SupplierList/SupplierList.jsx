@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_URL = 'http://localhost:8080/BSSMS-back/SupplierServlet';
+const API_URL = '/api/suppliers'
 
 export default function SupplierList() {
   const [suppliers, setSuppliers] = useState([]);

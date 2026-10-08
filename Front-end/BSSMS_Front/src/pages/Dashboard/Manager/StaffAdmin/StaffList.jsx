@@ -19,7 +19,9 @@ const StaffList = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch("/api/staff");
+                const response = await fetch("/api/staff", {
+                    credentials: "include"
+                });
 
                 if (response.ok) {
                     const data = await response.json();
@@ -52,7 +54,8 @@ const StaffList = () => {
             const response = await fetch(
                 `/api/staff?id=${selectedStaff.staffId}`,
                 {
-                    method: "DELETE"
+                    method: "DELETE",
+                    credentials: "include"
                 }
             );
 

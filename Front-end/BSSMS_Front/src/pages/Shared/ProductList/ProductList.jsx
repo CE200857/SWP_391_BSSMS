@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 // Đường dẫn API (hãy điều chỉnh lại nếu bạn dùng proxy '/api/products')
-const API_URL = 'http://localhost:8080/BSSMS-back/api/products';
+const API_URL = '/api/products';
 
 export default function ProductList() {
   const [products, setProducts] = useState([]);
@@ -30,7 +30,7 @@ export default function ProductList() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch(API_URL);
+        const res = await fetch(API_URL, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           setProducts(data);
@@ -81,7 +81,8 @@ export default function ProductList() {
       const res = await fetch(API_URL, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
+        credentials: "include"
       });
 
       if (res.ok) {
@@ -100,7 +101,7 @@ export default function ProductList() {
     if (!window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
 
     try {
-      const res = await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}?id=${id}`, { method: 'DELETE', credentials: "include" });
       if (res.ok) {
         // Tăng biến refresh lên 1 để load lại danh sách sau khi xóa
         setRefresh(prev => prev + 1);
@@ -166,9 +167,9 @@ export default function ProductList() {
                       <td>{p.description}</td>
                       <td>{p.unitPrice?.toLocaleString('vi-VN')}</td>
                       <td>
-                          <span className={`badge ${p.stockQuantity <= p.reorderLevel ? 'bg-danger' : 'bg-success'}`}>
-                              {p.stockQuantity}
-                          </span>
+                        <span className={`badge ${p.stockQuantity <= p.reorderLevel ? 'bg-danger' : 'bg-success'}`}>
+                          {p.stockQuantity}
+                        </span>
                       </td>
                       <td>{p.reorderLevel}</td>
                       <td>
