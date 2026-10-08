@@ -1,12 +1,13 @@
-package bssms_KhanhND.dao;
+package bssms_persistence.KhanhND;
 
-import bssms_common.util.DBContext;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import bssms_persistence.DBContext;
 
 public class AppointmentDAO extends DBContext {
 
