@@ -4,6 +4,7 @@ import { Card, Form, Button, Alert } from "react-bootstrap";
 import axios from "axios";
 
 const Register = () => {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -14,6 +15,22 @@ const Register = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+
+    const trimmedUsername = username.trim();
+    if (trimmedUsername.length < 3) {
+      setError("Tên đăng nhập phải có ít nhất 3 ký tự!");
+      return;
+    }
+    if (/\s/.test(trimmedUsername)) {
+      setError("Tên đăng nhập không được chứa khoảng trắng!");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError("Email không đúng định dạng!");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp!");
@@ -30,6 +47,7 @@ const Register = () => {
       const response = await axios.post(
         "http://localhost:8080/BSSMS-back/api/register",
         {
+          username: trimmedUsername,
           email: email,
           password: password,
         },
@@ -72,6 +90,20 @@ const Register = () => {
         )}
 
         <Form onSubmit={handleRegister}>
+          <Form.Group className="mb-3">
+            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+              Tên đăng nhập*
+            </Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Vui lòng nhập tên đăng nhập"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              style={{ fontSize: "14px", padding: "10px" }}
+            />
+          </Form.Group>
+
           <Form.Group className="mb-3">
             <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
               Email*

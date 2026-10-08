@@ -46,7 +46,7 @@ public class LogoutServlet extends HttpServlet {
 
         PrintWriter out = response.getWriter();
         response.setStatus(HttpServletResponse.SC_OK);
-        out.print("{\"message\": \"Đăng xuất thành cồng\"}");
+        out.print("{\"message\": \"Đăng xuất thành công\"}");
         out.flush();
     }
 }

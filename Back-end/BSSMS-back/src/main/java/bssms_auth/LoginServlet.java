@@ -14,7 +14,6 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import static java.lang.System.out;
 
 /**
  * 
@@ -47,6 +46,8 @@ public class LoginServlet extends HttpServlet {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         
+        PrintWriter out = response.getWriter();
+        
         try {
             JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
             
@@ -68,7 +69,6 @@ public class LoginServlet extends HttpServlet {
             LoginDAO dao = new LoginDAO();
             Map<String, Object> user = dao.authenticateUser(identifier, hashedPassword);
             
-            PrintWriter out = response.getWriter();
             if (user != null) {
                 if ("Inactive".equals(user.get("status"))) {
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);

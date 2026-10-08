@@ -40,8 +40,30 @@ public class RegisterServlet extends HttpServlet {
         PrintWriter out = response.getWriter();
         try {
             JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
+            String username = jsonObject.get("username").getAsString().trim();
             String email = jsonObject.get("email").getAsString();
             String rawPassword = jsonObject.get("password").getAsString();
+            
+            if (username.length() < 3 || username.contains(" ")) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Tên đăng nhập phải có ít nhất 3 ký tự và không chứa khoảng trắng!\"}");
+                out.flush();
+                return;
+            }
+            
+            if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Email không đúng định dạng!\"}");
+                out.flush();
+                return;
+            }
+            
+            if (rawPassword.length() < 6) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Mật khẩu phải có ít nhất 6 ký tự!\"}");
+                out.flush();
+                return;
+            }
 
             RegisterDAO dao = new RegisterDAO();
             
@@ -51,9 +73,6 @@ public class RegisterServlet extends HttpServlet {
                 out.flush();
                 return;
             }
-
-            String usernamePrefix = email.substring(0, email.indexOf('@'));
-            String username = usernamePrefix + "_" + System.currentTimeMillis();
 
             String hashedPassword = PasswordUtil.hashMD5(rawPassword);
 
@@ -70,8 +89,8 @@ public class RegisterServlet extends HttpServlet {
                 response.setStatus(HttpServletResponse.SC_CREATED);
                 out.print("{\"message\": \"Đăng ký thành công!\"}");
             } else {
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                out.print("{\"message\": \"Có lỗi xảy ra khi tạo tài khoản. Vui lòng thử lại!\"}");
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                out.print("{\"message\": \"Tên đăng nhập này đã tồn tại. Vui lòng chọn tên khác!\"}");
             }
         } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
