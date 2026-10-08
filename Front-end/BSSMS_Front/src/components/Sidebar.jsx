@@ -13,8 +13,7 @@ const Sidebar = ({ user }) => {
 
   // Class dùng chung cho các menu
   const navClass = ({ isActive }) =>
-    `app-nav-link d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-      isActive ? "active" : ""
+    `app-nav-link d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${isActive ? "active" : ""
     }`;
 
   return (
@@ -50,7 +49,7 @@ const Sidebar = ({ user }) => {
             <i className="bi bi-scissors me-2"></i>
             <span className="app-nav-label">Danh sách dịch vụ</span>
           </NavLink>
-          
+
           {/* Đánh giá của tôi (Chỉ dành cho Customer) */}
           {isCustomer && (
             <NavLink to="/my-feedback" className={navClass}>
@@ -98,6 +97,11 @@ const Sidebar = ({ user }) => {
               <NavLink to="/manager/suppliers" className={navClass}>
                 <i className="bi bi-truck me-2"></i>
                 <span className="app-nav-label">Quản lý Nhà cung cấp</span>
+              </NavLink>
+
+              <NavLink to="/manager/treatment-packages" className={navClass}>
+                <i className="bi bi-box2-heart-fill me-2"></i>
+                <span className="app-nav-label">Quản lý Gói liệu trình</span>
               </NavLink>
             </>
           )}
