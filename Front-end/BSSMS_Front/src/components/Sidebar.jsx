@@ -58,6 +58,7 @@ const Sidebar = ({ user }) => {
                 <i className="bi bi-box-seam me-2"></i> <span className="app-nav-label">Quản lý Sản phẩm</span>
               </NavLink>
 
+<<<<<<< Updated upstream
               {/* BỔ SUNG: QUẢN LÝ TỒN KHO */}
               <NavLink to="/manager/stock" className={navClass}>
                 <i className="bi bi-boxes me-2"></i> <span className="app-nav-label">Quản lý Tồn kho</span>
@@ -71,6 +72,9 @@ const Sidebar = ({ user }) => {
               <NavLink to="/manager/suppliers" className={navClass}>
                 <i className="bi bi-truck me-2"></i> <span className="app-nav-label">Quản lý Nhà cung cấp</span>
               </NavLink>
+=======
+            
+>>>>>>> Stashed changes
             </>
           )}
 
