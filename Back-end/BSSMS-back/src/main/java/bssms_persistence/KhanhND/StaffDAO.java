@@ -53,4 +53,30 @@ public class StaffDAO extends DBContext {
 
         return list;
     }
+
+    // Deactivate Staff Account
+    public boolean deactivateStaff(int staffId) {
+
+        String query = "UPDATE Account SET status = 'Inactive' "
+                + "WHERE account_id = ("
+                + "SELECT account_id FROM Staff WHERE staff_id = ?"
+                + ")";
+
+        try {
+            if (conn != null) {
+
+                PreparedStatement ps = conn.prepareStatement(query);
+                ps.setInt(1, staffId);
+
+                int rowsAffected = ps.executeUpdate();
+
+                return rowsAffected > 0;
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
 }

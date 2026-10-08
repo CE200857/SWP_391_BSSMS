@@ -1,17 +1,19 @@
 package bssms_api.KhanhND;
 
-import bssms_persistence.KhanhND.AppointmentDAO;
-import com.google.gson.Gson;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.google.gson.Gson;
+
+import bssms_persistence.KhanhND.AppointmentDAO;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.HashMap;
 
 @WebServlet(name = "AppointmentServlet", urlPatterns = {"/api/appointments/*"})
 public class AppointmentServlet extends HttpServlet {
@@ -48,8 +50,7 @@ public class AppointmentServlet extends HttpServlet {
         // GET /api/appointments
         if (pathInfo == null || pathInfo.equals("/")) {
 
-            List<Map<String, Object>> appointmentList
-                    = dao.getAllAppointmentDetails();
+            List<Map<String, Object>> appointmentList = dao.getAllAppointmentDetails();
 
             String jsonString = gson.toJson(appointmentList);
 
@@ -62,11 +63,9 @@ public class AppointmentServlet extends HttpServlet {
 
         try {
 
-            int appointmentId
-                    = Integer.parseInt(pathInfo.substring(1));
+            int appointmentId = Integer.parseInt(pathInfo.substring(1));
 
-            Map<String, Object> appointment
-                    = dao.getAppointmentDetails(appointmentId);
+            Map<String, Object> appointment = dao.getAppointmentDetails(appointmentId);
 
             if (appointment != null) {
 

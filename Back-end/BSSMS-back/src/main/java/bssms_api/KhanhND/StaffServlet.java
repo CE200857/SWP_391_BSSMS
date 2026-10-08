@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
-
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -37,7 +36,6 @@ public class StaffServlet extends HttpServlet {
             throws ServletException, IOException {
 
         setAccessControlHeaders(response);
-
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
@@ -48,8 +46,43 @@ public class StaffServlet extends HttpServlet {
         String jsonString = gson.toJson(staffList);
 
         PrintWriter out = response.getWriter();
-
         out.print(jsonString);
         out.flush();
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        setAccessControlHeaders(response);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        try {
+            int staffId = Integer.parseInt(request.getParameter("id"));
+
+            StaffDAO dao = new StaffDAO();
+
+            boolean isSuccess = dao.deactivateStaff(staffId);
+
+            PrintWriter out = response.getWriter();
+
+            if (isSuccess) {
+                out.print("{\"message\":\"Vô hiệu hóa tài khoản nhân viên thành công\",\"status\":200}");
+            } else {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\":\"Không tìm thấy nhân viên để xóa\",\"status\":400}");
+            }
+
+            out.flush();
+
+        } catch (NumberFormatException e) {
+
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+
+            response.getWriter().print(
+                    "{\"message\":\"Thiếu hoặc sai định dạng Staff ID\"}"
+            );
+        }
     }
 }
