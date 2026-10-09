@@ -85,6 +85,13 @@ const PublicFeedbackList = () => {
     return appt ? appt.serviceId : null;
   };
 
+  // Tên appointment hiển thị: "Appointment #ID - Dịch vụ"
+  const getAppointmentName = (appointmentId) => {
+    const appt = appointments.find((a) => a.appointmentId === appointmentId);
+    if (!appt) return `Appointment #${appointmentId}`;
+    return `Appointment #${appt.appointmentId} - ${getServiceName(appt.serviceId)}`;
+  };
+
   // Tính số sao trung bình + hình
   const stats = {
     total: feedbacks.length,
@@ -261,7 +268,6 @@ const PublicFeedbackList = () => {
       ) : (
         <Row className="g-3">
           {filteredFeedbacks.map((fb) => {
-            const serviceId = getServiceIdByAppointment(fb.appointmentId);
             return (
               <Col key={fb.feedbackId} md={6} lg={4}>
                 <Card
@@ -294,12 +300,20 @@ const PublicFeedbackList = () => {
                       {renderStars(fb.rating)}
                     </div>
 
-                    {serviceId && (
-                      <Badge bg="info" className="mb-2">
-                        <i className="bi bi-scissors me-1"></i>
-                        {getServiceName(serviceId)}
-                      </Badge>
-                    )}
+                    <Badge
+                      bg="info"
+                      className="mb-2"
+                      style={{ cursor: "pointer" }}
+                    >
+                      <Link
+                        to={`/appointments/${fb.appointmentId}`}
+                        className="text-white text-decoration-none"
+                        title="Xem chi tiết lịch hẹn"
+                      >
+                        <i className="bi bi-calendar-check me-1"></i>
+                        {getAppointmentName(fb.appointmentId)}
+                      </Link>
+                    </Badge>
 
                     <p
                       className="mb-0 mt-2 text-dark"
