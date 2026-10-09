@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_inventory;
 
 /**
@@ -16,6 +12,7 @@ public class Product {
     private int stockQuantity;
     private int reorderLevel;
     private String status;
+    private int supplierId; // Thêm thuộc tính liên kết Nhà cung cấp
 
     public Product() {}
 
@@ -27,6 +24,17 @@ public class Product {
         this.stockQuantity = stockQuantity;
         this.reorderLevel = reorderLevel;
         this.status = status;
+    }
+
+    public Product(int productId, String productName, String description, double unitPrice, int stockQuantity, int reorderLevel, String status, int supplierId) {
+        this.productId = productId;
+        this.productName = productName;
+        this.description = description;
+        this.unitPrice = unitPrice;
+        this.stockQuantity = stockQuantity;
+        this.reorderLevel = reorderLevel;
+        this.status = status;
+        this.supplierId = supplierId;
     }
 
     public int getProductId() {
@@ -84,5 +92,13 @@ public class Product {
     public void setStatus(String status) {
         this.status = status;
     }
-    
+
+    // --- Getter & Setter cho supplierId ---
+    public int getSupplierId() {
+        return supplierId;
+    }
+
+    public void setSupplierId(int supplierId) {
+        this.supplierId = supplierId;
+    }
 }
