@@ -77,27 +77,6 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
             </NavLink>
           )}
 
-          <NavLink
-            to="/appointments"
-            end
-            className={navClass}
-            title="Danh sách lịch hẹn"
-          >
-            <i className="bi bi-calendar-check-fill me-2"></i>
-            {renderMenuLabel("Danh sách lịch hẹn")}
-          </NavLink>
-
-          {(isReceptionist || isManager) && (
-            <NavLink
-              to="/appointments/create"
-              className={navClass}
-              title="Tạo lịch hẹn walk-in"
-            >
-              <i className="bi bi-calendar-plus me-2"></i>
-              {renderMenuLabel("Tạo lịch hẹn")}
-            </NavLink>
-          )}
-
           {/* CUSTOMER, LỄ TÂN, QUẢN LÝ THẤY */}
           {(isCustomer || isReceptionist || isManager) && (
             <NavLink to="/feedback" className={navClass} title="Đánh giá khách hàng">
@@ -125,11 +104,6 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
               <NavLink to="/manager/products" className={navClass} title="Quản lý Sản phẩm">
                 <i className="bi bi-box-seam me-2"></i>
                 {renderMenuLabel("Quản lý Sản phẩm")}
-              </NavLink>
-
-              <NavLink to="/manager/suppliers" className={navClass} title="Quản lý Nhà cung cấp">
-                <i className="bi bi-truck me-2"></i>
-                {renderMenuLabel("Quản lý Nhà cung cấp")}
               </NavLink>
 
               <NavLink to="/treatment-packages" className={navClass} title="Quản lý Gói liệu trình">
