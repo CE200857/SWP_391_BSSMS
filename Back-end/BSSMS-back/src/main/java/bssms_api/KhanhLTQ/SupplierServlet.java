@@ -21,24 +21,20 @@ public class SupplierServlet extends HttpServlet {
     private final SupplierDAO supplierDAO = new SupplierDAO();
     private final Gson gson = new Gson();
 
-    // Sửa lại hàm để đọc Origin từ request
-    private void setCorsHeaders(HttpServletRequest request, HttpServletResponse response) {
-        String origin = request.getHeader("Origin");
-        if (origin == null || origin.isEmpty()) {
-            origin = "http://localhost:5173"; // Origin mặc định của Vite/React
-        }
-        
-        response.setHeader("Access-Control-Allow-Origin", origin);
+    // Thiết lập CORS Header cho phép React kết nối
+    private void setCorsHeaders(HttpServletResponse response) {
+        response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        response.setHeader("Access-Control-Allow-Headers", "Content-Type");
         response.setHeader("Access-Control-Allow-Credentials", "true");
         response.setContentType("application/json;charset=UTF-8");
+        
     }
 
     @Override
     protected void doOptions(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        setCorsHeaders(request, response);
+        setCorsHeaders(response);
         response.setStatus(HttpServletResponse.SC_OK);
     }
 
@@ -46,7 +42,7 @@ public class SupplierServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        setCorsHeaders(request, response);
+        setCorsHeaders(response);
         PrintWriter out = response.getWriter();
 
         String idParam = request.getParameter("id");
@@ -65,7 +61,7 @@ public class SupplierServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        setCorsHeaders(request, response);
+        setCorsHeaders(response);
         PrintWriter out = response.getWriter();
 
         BufferedReader reader = request.getReader();
@@ -86,7 +82,7 @@ public class SupplierServlet extends HttpServlet {
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        setCorsHeaders(request, response);
+        setCorsHeaders(response);
         PrintWriter out = response.getWriter();
 
         BufferedReader reader = request.getReader();
@@ -107,7 +103,7 @@ public class SupplierServlet extends HttpServlet {
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        setCorsHeaders(request, response);
+        setCorsHeaders(response);
         PrintWriter out = response.getWriter();
 
         String idParam = request.getParameter("id");
