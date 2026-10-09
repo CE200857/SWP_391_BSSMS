@@ -117,7 +117,47 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
               </NavLink>
             </>
           )}
-          
+
+          {/* --- 5 CHỨC NĂNG MỚI --- */}
+
+          {/* 1. View Treatment Status - Tất cả role */}
+          <NavLink to="/treatment-status" className={navClass} title="Xem trạng thái điều trị">
+            <i className="bi bi-activity me-2"></i>
+            {renderMenuLabel("Xem trạng thái điều trị")}
+          </NavLink>
+
+          {/* 2. Update Service Status - Chỉ Manager */}
+          {isManager && (
+            <NavLink to="/manager/update-service-status" className={navClass} title="Cập nhật trạng thái dịch vụ">
+              <i className="bi bi-toggle-on me-2"></i>
+              {renderMenuLabel("Cập nhật TT dịch vụ")}
+            </NavLink>
+          )}
+
+          {/* 3. Update Room & Bed Status - Manager, Receptionist, Technician */}
+          {(isManager || isReceptionist || isTechnician) && (
+            <NavLink to="/update-room-bed-status" className={navClass} title="Cập nhật trạng thái phòng & giường">
+              <i className="bi bi-door-open me-2"></i>
+              {renderMenuLabel("Cập nhật TT phòng/giường")}
+            </NavLink>
+          )}
+
+          {/* 4. Record Treatment Outcomes - Manager, Technician */}
+          {(isManager || isTechnician) && (
+            <NavLink to="/record-treatment-outcome" className={navClass} title="Ghi nhận kết quả điều trị">
+              <i className="bi bi-clipboard-check me-2"></i>
+              {renderMenuLabel("Ghi nhận kết quả điều trị")}
+            </NavLink>
+          )}
+
+          {/* 5. Sell Treatment Package - Manager, Receptionist */}
+          {(isManager || isReceptionist) && (
+            <NavLink to="/sell-treatment-package" className={navClass} title="Bán gói liệu trình">
+              <i className="bi bi-cart-plus me-2"></i>
+              {renderMenuLabel("Bán gói liệu trình")}
+            </NavLink>
+          )}
+
         </div>
       </div>
     </aside>
