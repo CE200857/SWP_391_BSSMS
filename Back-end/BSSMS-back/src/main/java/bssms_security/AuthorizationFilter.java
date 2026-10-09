@@ -39,6 +39,17 @@ public class AuthorizationFilter implements Filter {
         String role = (String) user.get("role");
         String path = req.getRequestURI();
 
+        // Only Receptionist and Manager can create walk-in appointments.
+        if (path.contains("/api/appointments")
+                && "POST".equalsIgnoreCase(req.getMethod())) {
+
+            if (!"Receptionist".equals(role)
+                    && !"Manager".equals(role)) {
+                sendForbiddenError(res);
+                return;
+            }
+        }
+
         if (path.contains("/api/staff")) {
             if (!"Manager".equals(role)) {
                 sendForbiddenError(res);
