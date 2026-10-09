@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 
-const Sidebar = ({ user, collapsed = false, onToggle }) => {
+const Sidebar = ({ user }) => {
+  // Ẩn Sidebar nếu chưa đăng nhập
   if (!user) return null;
 
   const role = user.role;
@@ -10,104 +11,97 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
   const isReceptionist = role === "Receptionist";
   const isManager = role === "Manager";
 
+  // Class dùng chung cho các menu
   const navClass = ({ isActive }) =>
-    `app-nav-link d-flex align-items-center rounded text-decoration-none fw-bold ${isActive ? "active" : ""}`;
-
-  const renderMenuLabel = (label) => (
-    <span className="app-nav-label">{label}</span>
-  );
+    `app-nav-link d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
+      isActive ? "active" : ""
+    }`;
 
   return (
-    <aside
-      className={`app-sidebar border-end shadow-sm ${collapsed ? "collapsed" : ""}`}
+    <div
+      className="app-sidebar border-end shadow-sm"
       style={{
+        width: "fit-content",
+        minWidth: "260px",
         minHeight: "100vh",
-        zIndex: 10,
+        zIndex: 10
       }}
     >
-      <div className="app-sidebar-inner p-3 mt-2 text-start">
-        <div className="app-sidebar-heading d-flex align-items-center justify-content-between mb-4">
-          <p
-            className="app-sidebar-title text-muted fw-bold text-uppercase mb-0 ms-2"
-            style={{ fontSize: "13px" }}
-          >
-            {isCustomer
-              ? "Menu Khách hàng"
-              : isTechnician
-                ? "Menu Kỹ thuật viên"
-                : isReceptionist
-                  ? "Menu Lễ tân"
-                  : "Quản lý hệ thống"}
-          </p>
-          <button
-            type="button"
-            className="app-sidebar-toggle btn btn-light border shadow-sm d-flex align-items-center justify-content-center"
-            onClick={onToggle}
-            aria-label={collapsed ? "Mở rộng Side Bar" : "Thu nhỏ Side Bar"}
-            title={collapsed ? "Mở rộng Side Bar" : "Thu nhỏ Side Bar"}
-          >
-            <i className="bi bi-list fs-4" />
-          </button>
-        </div>
+      <div className="p-3 mt-2 text-start">
+
+        {/* Tiêu đề Sidebar */}
+        <p
+          className="app-sidebar-title text-muted fw-bold text-uppercase mb-4 ms-2"
+          style={{ fontSize: "13px" }}
+        >
+          {isCustomer
+            ? "Menu Khách hàng"
+            : isTechnician
+              ? "Menu Kỹ thuật viên"
+              : isReceptionist
+                ? "Menu Lễ tân"
+                : "Quản lý hệ thống"}
+        </p>
 
         <div className="d-flex flex-column gap-2">
-          <NavLink to="/services" className={navClass} title="Danh sách dịch vụ">
+
+          {/* MENU DÙNG CHUNG */}
+          <NavLink to="/services" className={navClass}>
             <i className="bi bi-scissors me-2"></i>
-            {renderMenuLabel("Danh sách dịch vụ")}
+            <span className="app-nav-label">Danh sách dịch vụ</span>
           </NavLink>
-
+          
+          {/* Đánh giá của tôi (Chỉ dành cho Customer) */}
           {isCustomer && (
-            <NavLink to="/my-feedback" className={navClass} title="Đánh giá của tôi">
-              <i className="bi bi-star-fill me-2"></i>
-              {renderMenuLabel("Đánh giá của tôi")}
+            <NavLink to="/my-feedback" className={navClass}>
+              <i className="bi bi-star-fill me-2"></i> <span className="app-nav-label">Đánh giá của tôi</span>
             </NavLink>
           )}
 
-          <NavLink to="/appointments" className={navClass} title="Danh sách lịch hẹn">
+          {/* MENU LỊCH HẸN */}
+          <NavLink to="/appointments" className={navClass}>
             <i className="bi bi-calendar-check-fill me-2"></i>
-            {renderMenuLabel("Danh sách lịch hẹn")}
+            <span className="app-nav-label">Danh sách lịch hẹn</span>
           </NavLink>
 
+          {/* MENU ĐÁNH GIÁ
+              Customer, Receptionist, Manager được xem */}
           {(isCustomer || isReceptionist || isManager) && (
-            <NavLink to="/feedback" className={navClass} title="Đánh giá khách hàng">
+            <NavLink to="/feedback" className={navClass}>
               <i className="bi bi-chat-quote-fill me-2"></i>
-              {renderMenuLabel("Đánh giá khách hàng")}
+              <span className="app-nav-label">Đánh giá khách hàng</span>
             </NavLink>
           )}
 
+          {/* MENU KHÁCH HÀNG
+              Receptionist và Manager được xem */}
           {(isReceptionist || isManager) && (
-            <NavLink to="/customers" className={navClass} title="Danh sách khách hàng">
+            <NavLink to="/customers" className={navClass}>
               <i className="bi bi-people-fill me-2"></i>
-              {renderMenuLabel("Danh sách khách hàng")}
+              <span className="app-nav-label">Danh sách khách hàng</span>
             </NavLink>
           )}
 
+          {/* MENU CHỈ DÀNH CHO MANAGER */}
           {isManager && (
             <>
-              <NavLink to="/staffs" className={navClass} title="Danh sách nhân viên">
+              <NavLink to="/staffs" className={navClass}>
                 <i className="bi bi-person-badge-fill me-2"></i>
-                {renderMenuLabel("Danh sách nhân viên")}
+                <span className="app-nav-label">Danh sách nhân viên</span>
               </NavLink>
 
-              <NavLink to="/manager/products" className={navClass} title="Quản lý Sản phẩm">
+              <NavLink to="/manager/products" className={navClass}>
                 <i className="bi bi-box-seam me-2"></i>
-                {renderMenuLabel("Quản lý Sản phẩm")}
+                <span className="app-nav-label">Quản lý Sản phẩm</span>
               </NavLink>
 
-              <NavLink to="/manager/suppliers" className={navClass} title="Quản lý Nhà cung cấp">
-                <i className="bi bi-truck me-2"></i>
-                {renderMenuLabel("Quản lý Nhà cung cấp")}
-              </NavLink>
-
-              <NavLink to="/manager/treatment-packages" className={navClass} title="Quản lý Gói liệu trình">
-                <i className="bi bi-box2-heart-fill me-2"></i>
-                {renderMenuLabel("Quản lý Gói liệu trình")}
-              </NavLink>
+            
             </>
           )}
+
         </div>
       </div>
-    </aside>
+    </div>
   );
 };
 
