@@ -112,10 +112,17 @@ const MyFeedbackList = () => {
     return s ? s.serviceName : `Dịch vụ #${serviceId}`;
   };
 
-  const getAppointmentInfo = (appointmentId) => {
+  // Trả về nhãn hiển thị cho 1 appointment: "Appointment #ID - Dịch vụ - Ngày giờ"
+  const getAppointmentName = (appointmentId) => {
     const appt = appointments.find((a) => a.appointmentId === appointmentId);
-    if (!appt) return `Lịch hẹn #${appointmentId}`;
-    return getServiceName(appt.serviceId);
+    if (!appt) return `Appointment #${appointmentId}`;
+    const serviceName = getServiceName(appt.serviceId);
+    return `Appointment #${appt.appointmentId} - ${serviceName}`;
+  };
+
+  // Dùng cho dropdown / bảng nếu cần lấy tên đơn thuần (giữ để tương thích)
+  const getAppointmentInfo = (appointmentId) => {
+    return getAppointmentName(appointmentId);
   };
 
   const getAppointmentDate = (appointmentId) => {
@@ -302,7 +309,7 @@ const MyFeedbackList = () => {
               <thead className="table-dark">
                 <tr>
                   <th>ID</th>
-                  <th>Lịch hẹn</th>
+                  <th>Tên lịch hẹn</th>
                   <th>Ngày hẹn</th>
                   <th>Đánh giá</th>
                   <th>Nội dung</th>
@@ -316,9 +323,16 @@ const MyFeedbackList = () => {
                     <tr key={fb.feedbackId}>
                       <td>{fb.feedbackId}</td>
                       <td>
-                        <span className="fw-semibold">
-                          {getAppointmentInfo(fb.appointmentId)}
-                        </span>
+                        <Link
+                          to={`/appointments/${fb.appointmentId}`}
+                          className="text-decoration-none"
+                          title="Xem chi tiết lịch hẹn"
+                        >
+                          <span className="fw-semibold text-primary">
+                            <i className="bi bi-calendar-check me-1"></i>
+                            {getAppointmentName(fb.appointmentId)}
+                          </span>
+                        </Link>
                       </td>
                       <td>{getAppointmentDate(fb.appointmentId)}</td>
                       <td style={{ fontSize: "18px" }}>{renderStars(fb.rating)}</td>
