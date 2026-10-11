@@ -6,15 +6,26 @@ import {
     Form,
     InputGroup,
     Button,
-    Modal
+    Modal,
+    Dropdown
 } from "react-bootstrap";
+import axios from "axios";
 
-const StaffList = () => {
+const StaffList = ({ user }) => {
     const [staffs, setStaffs] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
 
     const [showModal, setShowModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState(null);
+
+    const [showRoleModal, setShowRoleModal] = useState(false);
+    const [roleChangeData, setRoleChangeData] = useState({ accountId: null, staffName: "", newRole: "" });
+
+    const [message, setMessage] = useState("");
+
+    const [refresh, setRefresh] = useState(0);
+
+    const availableRoles = ["Manager", "Receptionist", "Technician"];
 
     useEffect(() => {
         const fetchData = async () => {
@@ -33,7 +44,7 @@ const StaffList = () => {
         };
 
         fetchData();
-    }, []);
+    }, [refresh]);
 
     const handleShowModal = (staff) => {
         setSelectedStaff(staff);
@@ -79,6 +90,36 @@ const StaffList = () => {
         }
     };
 
+    const handleShowRoleModal = (staff, newRole) => {
+        if (staff.position === newRole) return;
+        setRoleChangeData({ accountId: staff.accountId, staffName: staff.fullName, newRole: newRole });
+        setShowRoleModal(true);
+    };
+
+    const handleCloseRoleModal = () => {
+        setShowRoleModal(false);
+        setRoleChangeData({ accountId: null, staffName: "", newRole: "" });
+    };
+
+    const confirmRoleChange = async () => {
+        try {
+            const { accountId, newRole } = roleChangeData;
+            const url = `http://localhost:8080/BSSMS-back/api/staff/assign-role?accountId=${accountId}&role=${newRole}`;
+            const response = await axios.post(url, null, { withCredentials: true });
+
+            if (response.status === 200) {
+                setRefresh(prev => prev + 1);
+                setMessage(`Đã cấp quyền ${newRole} thành công!`);
+                setTimeout(() => setMessage(""), 3000);
+            }
+        } catch (error) {
+            console.error("Lỗi khi đổi quyền:", error);
+            alert("Đổi quyền thất bại. Vui lòng thử lại!");
+        } finally {
+            handleCloseRoleModal(); // Gọi API xong thì đóng Modal
+        }
+    };
+
     const filteredStaffs = staffs.filter((s) =>
         s.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -92,6 +133,12 @@ const StaffList = () => {
             <h2 className="mb-4 fw-bold text-uppercase">
                 Danh sách nhân viên
             </h2>
+
+            {message && (
+                <div className="alert alert-success py-2 mb-3" role="alert">
+                    <i className="bi bi-check-circle-fill me-2"></i> {message}
+                </div>
+            )}
 
             <InputGroup className="mb-3 w-50">
                 <InputGroup.Text>
@@ -128,7 +175,36 @@ const StaffList = () => {
                                 <td>{s.fullName}</td>
                                 <td>{s.email}</td>
                                 <td>{s.phone}</td>
-                                <td>{s.position}</td>
+                                <td>
+                                    {user?.role === "Manager" ? (
+                                        <Dropdown>
+                                            <Dropdown.Toggle 
+                                                variant={s.position === "Manager" ? "dark" : s.position === "Technician" ? "info" : "secondary"} 
+                                                size="sm" 
+                                                className="w-100 text-start d-flex justify-content-between align-items-center"
+                                                disabled={s.status !== "Active" || s.accountId === user?.account_id} // Không tự đổi quyền chính mình
+                                            >
+                                                {s.position}
+                                            </Dropdown.Toggle>
+                                            <Dropdown.Menu 
+                                                 renderOnMount={true} 
+                                                 style={{ position: 'absolute', zIndex: 1050 }}
+                                            >
+                                                {availableRoles.map(role => (
+                                                    <Dropdown.Item
+                                                        key={role} 
+                                                        active={s.position === role}
+                                                        onClick={() => handleShowRoleModal(s, role)}
+                                                    >
+                                                        {role}
+                                                    </Dropdown.Item>
+                                                ))}
+                                            </Dropdown.Menu>
+                                        </Dropdown>
+                                    ) : (
+                                        <span className="fw-bold text-secondary">{s.position}</span>
+                                    )}
+                                </td>
 
                                 <td>
                                     {s.status === "Active" ? (
@@ -210,6 +286,25 @@ const StaffList = () => {
                         onClick={confirmDelete}
                     >
                         Xóa nhân viên
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            <Modal show={showRoleModal} onHide={handleCloseRoleModal} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title className="text-primary fw-bold">
+                        <i className="bi bi-person-gear me-2"></i> Xác nhận phân quyền
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    Bạn có muốn đổi quyền của nhân viên <span className="fw-bold text-danger">{roleChangeData.staffName}</span> sang chức vụ <span className="fw-bold text-success">{roleChangeData.newRole}</span> không?
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={handleCloseRoleModal}>
+                        Hủy bỏ
+                    </Button>
+                    <Button variant="primary" onClick={confirmRoleChange}>
+                        Xác nhận
                     </Button>
                 </Modal.Footer>
             </Modal>

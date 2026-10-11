@@ -28,7 +28,7 @@ public class AuthenticationFilter implements Filter {
 
         String path = req.getRequestURI();
 
-        if (path.endsWith("/api/login") || path.endsWith("/api/register") || path.endsWith("/api/logout")) {
+        if (path.endsWith("/api/login") || path.endsWith("/api/register") || path.endsWith("/api/logout") || path.contains("/api/forgot-password")) {
             chain.doFilter(request, response);
             return;
         }

@@ -12,7 +12,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-@WebServlet(name = "StaffServlet", urlPatterns = {"/api/staff"})
+@WebServlet(name = "StaffServlet", urlPatterns = {"/api/staff", "/api/staff/assign-role"})
 public class StaffServlet extends HttpServlet {
 
     private Gson gson = new Gson();
@@ -84,6 +84,49 @@ public class StaffServlet extends HttpServlet {
             response.getWriter().print(
                     "{\"message\":\"Thiếu hoặc sai định dạng Staff ID\"}"
             );
+        }
+    }
+    
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        
+        setAccessControlHeaders(response);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        String pathInfo = request.getRequestURI();
+        if (pathInfo != null && pathInfo.contains("/assign-role")) {
+            PrintWriter out = response.getWriter();
+            try {
+                String accountIdStr = request.getParameter("accountId");
+                String role = request.getParameter("role");
+
+                if (accountIdStr == null || role == null) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"message\": \"Dữ liệu không đầy đủ!\"}");
+                    out.flush();
+                    return;
+                }
+
+                int accountId = Integer.parseInt(accountIdStr);
+
+                StaffDAO dao = new StaffDAO();
+                boolean isAssigned = dao.assignRole(accountId, role);
+
+                if (isAssigned) {
+                    response.setStatus(HttpServletResponse.SC_OK);
+                    out.print("{\"message\": \"Phân quyền thành công!\"}");
+                } else {
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    out.print("{\"message\": \"Lỗi: Không thể phân quyền!\"}");
+                }
+            } catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+                e.printStackTrace();
+            }
+            out.flush();
         }
     }
 }
