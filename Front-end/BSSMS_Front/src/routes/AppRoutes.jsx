@@ -24,6 +24,7 @@ import TechnicianDashboard from "../pages/Dashboard/Technician/TechnicianDashboa
 
 // Nhóm Tính năng (Pages)
 import CustomerList from "../pages/Dashboard/Manager/CustomerAdmin/CustomerList";
+import EditCustomerProfile from "../pages/Dashboard/Manager/CustomerAdmin/EditCustomerProfile";
 import StaffList from "../pages/Dashboard/Manager/StaffAdmin/StaffList";
 import ServiceList from "../pages/Shared/ServiceList/ServiceList";
 import ServiceForm from "../pages/Shared/ServiceList/ServiceForm";
@@ -225,6 +226,18 @@ export default function AppRoutes({ user, setUser }) {
               allowedRoles={["Receptionist", "Manager"]}
             >
               <CustomerList user={user} />
+            </ProtectedRoute>
+          }
+        />
+        {/* Update Customer Account: Receptionist & Manager */}
+        <Route
+          path="/customers/edit/:id"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
+              <EditCustomerProfile user={user} /> 
             </ProtectedRoute>
           }
         />

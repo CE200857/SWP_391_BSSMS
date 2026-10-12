@@ -131,13 +131,17 @@ const CustomerList = ({ user }) => {
                   )}
                 </td>
                 <td>
-                  <Button
-                    variant="warning"
-                    size="sm"
-                    className="me-2 text-white"
-                  >
-                    <i className="bi bi-pencil-square"></i> Chỉnh sửa
-                  </Button>
+                  {(user?.role === "Manager" ||
+                    user?.role === "Receptionist") && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="me-2"
+                      onClick={() => navigate(`/customers/edit/${c.customerId}`)}
+                    >
+                      <i className="bi bi-pencil-square"></i> Chỉnh sửa
+                    </Button>
+                  )}
                   <Button
                     variant="danger"
                     size="sm"
