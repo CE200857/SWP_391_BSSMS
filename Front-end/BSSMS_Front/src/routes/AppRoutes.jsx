@@ -11,6 +11,8 @@ import Profile from "../pages/Auth/Profile";
 import Register from "../pages/Auth/Register";
 import CreateProfile from "../pages/Auth/CreateProfile";
 import ChangePassword from "../pages/Auth/ChangePassword";
+import ForgotPassword from "../pages/Auth/ForgotPassword";
+import ResetPassword from "../pages/Auth/ResetPassword";
 import EditProfile from "../pages/Auth/EditProfile";
 
 // Nhóm 4 Giao diện chính (Dashboard & Home)
@@ -22,6 +24,7 @@ import TechnicianDashboard from "../pages/Dashboard/Technician/TechnicianDashboa
 
 // Nhóm Tính năng (Pages)
 import CustomerList from "../pages/Dashboard/Manager/CustomerAdmin/CustomerList";
+import EditCustomerProfile from "../pages/Dashboard/Manager/CustomerAdmin/EditCustomerProfile";
 import StaffList from "../pages/Dashboard/Manager/StaffAdmin/StaffList";
 import ServiceList from "../pages/Shared/ServiceList/ServiceList";
 import ServiceForm from "../pages/Shared/ServiceList/ServiceForm";
@@ -113,6 +116,8 @@ export default function AppRoutes({ user, setUser }) {
         <Route path="/bssms-guest" element={<GuestHome />} />
         <Route path="/" element={<Navigate to="/bssms-guest" replace />} />
         <Route path="/login" element={<Login setUser={setUser} />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<Register />} />
         <Route
           path="/update-profile"
@@ -202,9 +207,8 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- RECEPTIONIST: TẠO KHÁCH VÃNG LAI --- */}
         <Route
-          path="/receptionist/create"
+          path="/receptionist/create-walkin"
           element={
             <ProtectedRoute user={user} allowedRoles={["Receptionist"]}>
               <CreateWalkInCustomer />
@@ -221,7 +225,19 @@ export default function AppRoutes({ user, setUser }) {
               user={user}
               allowedRoles={["Receptionist", "Manager"]}
             >
-              <CustomerList />
+              <CustomerList user={user} />
+            </ProtectedRoute>
+          }
+        />
+        {/* Update Customer Account: Receptionist & Manager */}
+        <Route
+          path="/customers/edit/:id"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
+              <EditCustomerProfile user={user} /> 
             </ProtectedRoute>
           }
         />
@@ -230,7 +246,7 @@ export default function AppRoutes({ user, setUser }) {
           path="/staffs"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <StaffList />
+              <StaffList user={user} />
             </ProtectedRoute>
           }
         />

@@ -161,16 +161,17 @@ const Login = ({ setUser }) => {
             className="d-flex flex-column text-start"
             style={{ fontSize: "15px" }}
           >
-            <a
-              href="/forgot-password"
+            <span
+              onClick={() => navigate("/forgot-password")}
               style={{
                 textDecoration: "none",
                 color: "#0d6efd",
                 marginBottom: "8px",
+                cursor: "pointer",
               }}
             >
-              Forgot Password
-            </a>
+              Quên mật khẩu?
+            </span>
             <span>
               Chưa có tài khoản?{" "}
               <span

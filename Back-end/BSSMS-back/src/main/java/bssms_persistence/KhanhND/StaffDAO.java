@@ -79,4 +79,42 @@ public class StaffDAO extends DBContext {
 
         return false;
     }
+    
+    public boolean assignRole(int accountId, String newRole) {
+        String updateAccountSql = "UPDATE Account SET role = ? WHERE account_id = ?";
+        String updateStaffSql = "UPDATE Staff SET position = ? WHERE account_id = ?";
+        
+        try {
+            if (conn != null) {
+                conn.setAutoCommit(false);
+
+                PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
+                psAccount.setString(1, newRole);
+                psAccount.setInt(2, accountId);
+                psAccount.executeUpdate();
+
+                PreparedStatement psStaff = conn.prepareStatement(updateStaffSql);
+                psStaff.setString(1, newRole);
+                psStaff.setInt(2, accountId);
+                psStaff.executeUpdate();
+
+                conn.commit(); // Hoàn tất Transaction
+                return true;
+            }
+        } catch (Exception e) {
+            try {
+                if (conn != null) conn.rollback();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            try {
+                if (conn != null) conn.setAutoCommit(true);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+        return false;
+    }
 }
