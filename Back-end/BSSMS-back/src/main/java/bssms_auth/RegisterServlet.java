@@ -18,10 +18,10 @@ public class RegisterServlet extends HttpServlet {
     private Gson gson = new Gson();
 
     private void setAccessControlHeaders(HttpServletResponse resp) {
-        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); 
+        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
         resp.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         resp.setHeader("Access-Control-Allow-Headers", "Content-Type");
-        resp.setHeader("Access-Control-Allow-Credentials", "true"); 
+        resp.setHeader("Access-Control-Allow-Credentials", "true");
     }
 
     @Override
@@ -36,28 +36,28 @@ public class RegisterServlet extends HttpServlet {
         setAccessControlHeaders(response);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        
+
         PrintWriter out = response.getWriter();
         try {
             JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
             String username = jsonObject.get("username").getAsString().trim();
             String email = jsonObject.get("email").getAsString();
             String rawPassword = jsonObject.get("password").getAsString();
-            
+
             if (username.length() < 3 || username.contains(" ")) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 out.print("{\"message\": \"Tên đăng nhập phải có ít nhất 3 ký tự và không chứa khoảng trắng!\"}");
                 out.flush();
                 return;
             }
-            
+
             if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 out.print("{\"message\": \"Email không đúng định dạng!\"}");
                 out.flush();
                 return;
             }
-            
+
             if (rawPassword.length() < 6) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 out.print("{\"message\": \"Mật khẩu phải có ít nhất 6 ký tự!\"}");
@@ -66,10 +66,12 @@ public class RegisterServlet extends HttpServlet {
             }
 
             RegisterDAO dao = new RegisterDAO();
-            
-            if (dao.checkEmailExist(email)) {
+
+            String duplicateField = dao.checkDuplicate(username, email, null, null);
+
+            if (duplicateField != null) {
                 response.setStatus(HttpServletResponse.SC_CONFLICT);
-                out.print("{\"message\": \"Email này đã được sử dụng. Vui lòng chọn email khác!\"}");
+                out.print("{\"message\": \"" + duplicateField + " này đã được sử dụng. Vui lòng chọn thông tin khác!\"}");
                 out.flush();
                 return;
             }
@@ -77,7 +79,7 @@ public class RegisterServlet extends HttpServlet {
             String hashedPassword = PasswordUtil.hashMD5(rawPassword);
 
             boolean isCreated = dao.createAccount(username, hashedPassword, email);
-            
+
             if (isCreated) {
                 bssms_persistence.DatNT.LoginDAO loginDao = new bssms_persistence.DatNT.LoginDAO();
                 java.util.Map<String, Object> user = loginDao.authenticateUser(email, hashedPassword);

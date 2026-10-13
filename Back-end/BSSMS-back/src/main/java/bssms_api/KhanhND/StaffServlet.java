@@ -147,6 +147,43 @@ public class StaffServlet extends HttpServlet {
             try {
                 com.google.gson.JsonObject jsonObject = gson.fromJson(request.getReader(), com.google.gson.JsonObject.class);
                 String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : null;
+                
+                if ("update".equals(action)) {
+                    int accountId = jsonObject.get("accountId").getAsInt();
+                    String fullName = jsonObject.get("fullName").getAsString().trim();
+                    String email = jsonObject.get("email").getAsString().trim();
+                    String phone = jsonObject.get("phone").getAsString().trim();
+                    String role = jsonObject.get("role").getAsString();
+                    String username = jsonObject.get("username").getAsString().trim();
+                    String hireDate = jsonObject.has("hireDate") ? jsonObject.get("hireDate").getAsString() : null;
+                    double salary = jsonObject.has("salary") ? jsonObject.get("salary").getAsDouble() : 0;
+                    
+                    String rawPassword = jsonObject.has("password") ? jsonObject.get("password").getAsString() : "";
+                    String hashedPassword = null;
+                    if (!rawPassword.isEmpty()) {
+                         hashedPassword = bssms_security.PasswordUtil.hashMD5(rawPassword);
+                    }
+                    
+                    StaffDAO dao = new StaffDAO();
+                    
+                    String duplicateField = dao.checkDuplicate(username, email, phone, accountId);
+                    if (duplicateField != null) {
+                        response.setStatus(HttpServletResponse.SC_CONFLICT);
+                        out.print("{\"message\": \"" + duplicateField + " này đã tồn tại trên hệ thống. Vui lòng chọn thông tin khác!\"}");
+                        out.flush();
+                        return;
+                    }
+                    
+                    boolean success = dao.updateStaff(accountId, fullName, phone, email, role, hireDate, salary, username, hashedPassword);
+                    
+                    if (success) {
+                        response.setStatus(HttpServletResponse.SC_OK);
+                        out.print("{\"message\": \"Cập nhật nhân viên thành công!\"}");
+                    } else {
+                        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        out.print("{\"message\": \"Lỗi: Không thể lưu cập nhật vào cơ sở dữ liệu.\"}");
+                    }
+                }
 
                 if ("create".equals(action)) {
                     String fullName = jsonObject.get("fullName").getAsString().trim();
@@ -155,16 +192,27 @@ public class StaffServlet extends HttpServlet {
                     String role = jsonObject.get("role").getAsString();
                     String username = jsonObject.get("username").getAsString();
                     String password = jsonObject.get("password").getAsString();
-
+                    double salary = jsonObject.has("salary") ? jsonObject.get("salary").getAsDouble() : 0;
+                    
                     StaffDAO dao = new StaffDAO();
-                    String finalUsername = dao.createStaff(username, password, email, phone, fullName, role);
-
+                    
+                    String duplicateField = dao.checkDuplicate(username, email, phone, null);
+                    
+                    if (duplicateField != null) {
+                        response.setStatus(HttpServletResponse.SC_CONFLICT);
+                        out.print("{\"message\": \"" + duplicateField + " này đã tồn tại trên hệ thống. Vui lòng chọn thông tin khác!\"}");
+                        out.flush();
+                        return;
+                    }
+                    
+                    String finalUsername = dao.createStaff(username, password, email, phone, fullName, role, salary);
+                    
                     if (finalUsername != null) {
                         response.setStatus(HttpServletResponse.SC_CREATED);
                         out.print("{\"message\": \"Tạo tài khoản nhân viên thành công!\", \"username\": \"" + finalUsername + "\"}");
                     } else {
-                        response.setStatus(HttpServletResponse.SC_CONFLICT);
-                        out.print("{\"message\": \"Lỗi: SĐT hoặc Email đã tồn tại trên hệ thống.\"}");
+                        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        out.print("{\"message\": \"Lỗi: Không thể lưu vào cơ sở dữ liệu.\"}");
                     }
                 }
             } catch (Exception e) {

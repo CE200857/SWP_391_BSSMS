@@ -51,7 +51,8 @@ public class ForgotPasswordServlet extends HttpServlet {
             }
 
             RegisterDAO dao = new RegisterDAO();
-            boolean isExist = dao.checkEmailExist(email);
+            String duplicateField = dao.checkDuplicate(null, email, null, null);
+            boolean isExist = (duplicateField != null);
             
             if (isExist) {
                 response.setStatus(HttpServletResponse.SC_OK);
