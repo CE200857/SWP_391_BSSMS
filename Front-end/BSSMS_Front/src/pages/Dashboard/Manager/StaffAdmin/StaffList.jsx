@@ -247,9 +247,10 @@ const StaffList = ({ user }) => {
                   </Button>
 
                   <Button
-                    variant="warning"
+                    variant="info"
                     size="sm"
                     className="me-2 text-white"
+                    onClick={() => navigate(`/staffs/edit/${s.staffId}`)}
                   >
                     <i className="bi bi-pencil-square"></i> Chỉnh sửa
                   </Button>

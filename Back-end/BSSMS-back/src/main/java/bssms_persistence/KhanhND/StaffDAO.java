@@ -142,9 +142,9 @@ public class StaffDAO extends DBContext {
         return username;
     }
     
-    public String createStaff(String baseUsername, String password, String email, String phone, String fullName, String role) {
+    public String createStaff(String baseUsername, String password, String email, String phone, String fullName, String role, double salary) {
         String insertAccount = "INSERT INTO Account (username, password, email, phone, status, role) VALUES (?, ?, ?, ?, 'Active', ?)";
-        String insertStaff = "INSERT INTO Staff (account_id, full_name, phone, email, position, hire_date) VALUES (?, ?, ?, ?, ?, GETDATE())";
+        String insertStaff = "INSERT INTO Staff (account_id, full_name, phone, email, position, salary, hire_date) VALUES (?, ?, ?, ?, ?, ?, GETDATE())";
 
         try {
             if (conn != null) {
@@ -173,6 +173,7 @@ public class StaffDAO extends DBContext {
                     psStaff.setString(3, phone);
                     psStaff.setString(4, email);
                     psStaff.setString(5, role);
+                    psStaff.setDouble(6, salary);
                     psStaff.executeUpdate();
                 }
 
@@ -223,5 +224,100 @@ public class StaffDAO extends DBContext {
             e.printStackTrace();
         }
         return map;
+    }
+    
+    public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
+        
+        if (excludeAccountId != null) {
+            sql += " AND account_id != ?";
+        }
+        
+        try {
+            if (conn != null) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ps.setString(1, username);
+                ps.setString(2, email);
+                ps.setString(3, phone);
+                
+                if (excludeAccountId != null) {
+                    ps.setInt(4, excludeAccountId);
+                }
+                
+                ResultSet rs = ps.executeQuery();
+                
+                if (rs.next()) {
+                    String dbUsername = rs.getString("username");
+                    String dbEmail = rs.getString("email");
+                    String dbPhone = rs.getString("phone");
+                    
+                    if (username != null && username.equalsIgnoreCase(dbUsername)) {
+                        return "Tên đăng nhập (Username)";
+                    }
+                    if (phone != null && phone.equals(dbPhone)) {
+                        return "Số điện thoại";
+                    }
+                    if (email != null && email.equalsIgnoreCase(dbEmail)) {
+                        return "Email";
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    public boolean updateStaff(int accountId, String fullName, String phone, String email, String role, String hireDate, double salary, String username, String hashedPassword) {
+        String updateAccountSql = hashedPassword != null && !hashedPassword.isEmpty() 
+                ? "UPDATE Account SET phone = ?, email = ?, role = ?, username = ?, password = ? WHERE account_id = ?"
+                : "UPDATE Account SET phone = ?, email = ?, role = ?, username = ? WHERE account_id = ?";
+                
+        String updateStaffSql = "UPDATE Staff SET full_name = ?, phone = ?, email = ?, position = ?, hire_date = ?, salary = ? WHERE account_id = ?";
+
+        try {
+            if (conn != null) {
+                conn.setAutoCommit(false);
+                
+                PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
+                psAccount.setString(1, phone);
+                psAccount.setString(2, email);
+                psAccount.setString(3, role);
+                psAccount.setString(4, username);
+                
+                if (hashedPassword != null && !hashedPassword.isEmpty()) {
+                    psAccount.setString(5, hashedPassword);
+                    psAccount.setInt(6, accountId);
+                } else {
+                    psAccount.setInt(5, accountId);
+                }
+                psAccount.executeUpdate();
+
+                PreparedStatement psStaff = conn.prepareStatement(updateStaffSql);
+                psStaff.setString(1, fullName);
+                psStaff.setString(2, phone);
+                psStaff.setString(3, email);
+                psStaff.setString(4, role);
+                
+                if (hireDate != null && !hireDate.trim().isEmpty()) {
+                    psStaff.setDate(5, java.sql.Date.valueOf(hireDate.trim()));
+                } else {
+                    psStaff.setNull(5, java.sql.Types.DATE);
+                }
+                
+                psStaff.setDouble(6, salary);
+                psStaff.setInt(7, accountId);
+                psStaff.executeUpdate();
+
+                conn.commit();
+                return true;
+            }
+        } catch (Exception e) {
+            try { if (conn != null) conn.rollback(); } catch (Exception ex) { ex.printStackTrace(); }
+            e.printStackTrace();
+        } finally {
+            try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { ex.printStackTrace(); }
+        }
+        return false;
     }
 }

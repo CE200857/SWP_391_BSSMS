@@ -40,6 +40,9 @@ import AppointmentDetails from "../pages/Dashboard/Appointment/AppointmentDetail
 import RescheduleAppointment from "../pages/Dashboard/Appointment/RescheduleAppointment";
 import TreatmentPackageList from "../pages/Dashboard/Manager/TreatmentPackageAdmin/TreatmentPackageList";
 import ResourceManagement from "../pages/Dashboard/Manager/ResourceAdmin/ResourceManagement";
+import CreateStaff from "../pages/Dashboard/Manager/StaffAdmin/CreateStaff";
+import StaffDetail from "../pages/Dashboard/Manager/StaffAdmin/StaffDetail";
+import EditStaffProfile from "../pages/Dashboard/Manager/StaffAdmin/EditStaffProfile";
 
 // Nhóm 5 chức năng mới
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
@@ -248,6 +251,34 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
               <StaffList user={user} />
+            </ProtectedRoute>
+          }
+        />
+        {/* Staff Detail: Xem chi tiết nhân viên (Chỉ Manager) */}
+        <Route
+          path="/staffs/detail/:id"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <StaffDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Create Staff: Tạo tài khoản nhân viên (Chỉ Manager) */}
+        <Route
+          path="/manager/create-staff"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <CreateStaff />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/staffs/edit/:id"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <EditStaffProfile user={user} />
             </ProtectedRoute>
           }
         />

@@ -10,6 +10,7 @@ const CreateStaff = () => {
     email: "",
     phone: "",
     role: "Receptionist",
+    salary: "",
   });
 
   const [error, setError] = useState("");
@@ -56,6 +57,13 @@ const CreateStaff = () => {
       return;
     }
 
+    const salaryValue = parseFloat(formData.salary);
+    if (isNaN(salaryValue) || salaryValue < 0) {
+      setError("Mức lương không hợp lệ (Phải là số lớn hơn hoặc bằng 0)!");
+      setIsLoading(false);
+      return;
+    }
+
     const generatedUsername = generateUsername(trimmedName);
     const formattedName = trimmedName
       .split(/\s+/)
@@ -74,6 +82,7 @@ const CreateStaff = () => {
           role: formData.role,
           username: generatedUsername,
           password: "123456",
+          salary: salaryValue,
         },
         { withCredentials: true },
       );
@@ -159,6 +168,19 @@ const CreateStaff = () => {
                 <option value="Receptionist">Lễ tân (Receptionist)</option>
                 <option value="Technician">Kỹ thuật viên (Technician)</option>
               </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mb-4">
+              <Form.Label className="fw-bold">Mức lương (VNĐ) (*)</Form.Label>
+              <Form.Control
+                type="number"
+                name="salary"
+                value={formData.salary}
+                onChange={handleChange}
+                placeholder="Nhập mức lương"
+                required
+                min="0"
+              />
             </Form.Group>
 
             <div className="d-flex justify-content-end gap-2 mt-4">
