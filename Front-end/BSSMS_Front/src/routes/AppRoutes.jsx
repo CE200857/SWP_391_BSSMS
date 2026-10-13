@@ -39,6 +39,7 @@ import AppointmentList from "../pages/Dashboard/Appointment/AppointmentList";
 import AppointmentDetails from "../pages/Dashboard/Appointment/AppointmentDetails";
 import RescheduleAppointment from "../pages/Dashboard/Appointment/RescheduleAppointment";
 import TreatmentPackageList from "../pages/Dashboard/Manager/TreatmentPackageAdmin/TreatmentPackageList";
+import ResourceManagement from "../pages/Dashboard/Manager/ResourceAdmin/ResourceManagement";
 
 // Nhóm 5 chức năng mới
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
@@ -237,7 +238,7 @@ export default function AppRoutes({ user, setUser }) {
               user={user}
               allowedRoles={["Receptionist", "Manager"]}
             >
-              <EditCustomerProfile user={user} /> 
+              <EditCustomerProfile user={user} />
             </ProtectedRoute>
           }
         />
@@ -352,6 +353,16 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
               <SupplierList />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- RESOURCE MANAGEMENT (QUẢN LÝ TÀI NGUYÊN) --- */}
+        <Route
+          path="/manager/resources"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <ResourceManagement />
             </ProtectedRoute>
           }
         />

@@ -139,6 +139,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                   <NavLink to="/manager/suppliers" className={navClass}><i className="bi bi-truck fs-6"></i>{renderMenuLabel("Nhà cung cấp")}</NavLink>
                   <NavLink to="/treatment-packages" className={navClass}><i className="bi bi-box2-heart-fill fs-6"></i>{renderMenuLabel("Gói liệu trình")}</NavLink>
                   <NavLink to="/manager/update-service-status" className={navClass}><i className="bi bi-toggle-on fs-6"></i>{renderMenuLabel("Trạng thái dịch vụ")}</NavLink>
+                  <NavLink to="/manager/resources" className={navClass}><i className="bi bi-building"></i>{renderMenuLabel("Quản lý Tài nguyên")}</NavLink>
                 </div>
               )}
             </>
