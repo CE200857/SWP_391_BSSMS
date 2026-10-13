@@ -41,13 +41,29 @@ public class StaffServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         StaffDAO dao = new StaffDAO();
-
-        List<Map<String, Object>> staffList = dao.getAllStaffDetails();
-
-        String jsonString = gson.toJson(staffList);
-
         PrintWriter out = response.getWriter();
-        out.print(jsonString);
+
+        String idParam = request.getParameter("id");
+
+        if (idParam != null && !idParam.trim().isEmpty()) {
+            try {
+                int staffId = Integer.parseInt(idParam);
+                Map<String, Object> staff = dao.getStaffById(staffId);
+
+                if (staff.isEmpty()) {
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    out.print("{\"message\": \"Không tìm thấy nhân viên này\"}");
+                } else {
+                    out.print(gson.toJson(staff));
+                }
+            } catch (NumberFormatException e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"ID nhân viên không hợp lệ\"}");
+            }
+        } else {
+            List<Map<String, Object>> staffList = dao.getAllStaffDetails();
+            out.print(gson.toJson(staffList));
+        }
         out.flush();
     }
 
@@ -86,18 +102,19 @@ public class StaffServlet extends HttpServlet {
             );
         }
     }
-    
+
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
+
         setAccessControlHeaders(response);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
         String pathInfo = request.getRequestURI();
+        PrintWriter out = response.getWriter();
+
         if (pathInfo != null && pathInfo.contains("/assign-role")) {
-            PrintWriter out = response.getWriter();
             try {
                 String accountIdStr = request.getParameter("accountId");
                 String role = request.getParameter("role");
@@ -110,7 +127,6 @@ public class StaffServlet extends HttpServlet {
                 }
 
                 int accountId = Integer.parseInt(accountIdStr);
-
                 StaffDAO dao = new StaffDAO();
                 boolean isAssigned = dao.assignRole(accountId, role);
 
@@ -120,6 +136,36 @@ public class StaffServlet extends HttpServlet {
                 } else {
                     response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     out.print("{\"message\": \"Lỗi: Không thể phân quyền!\"}");
+                }
+            } catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+                e.printStackTrace();
+            }
+            out.flush();
+        } else {
+            try {
+                com.google.gson.JsonObject jsonObject = gson.fromJson(request.getReader(), com.google.gson.JsonObject.class);
+                String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : null;
+
+                if ("create".equals(action)) {
+                    String fullName = jsonObject.get("fullName").getAsString().trim();
+                    String email = jsonObject.get("email").getAsString().trim();
+                    String phone = jsonObject.get("phone").getAsString().trim();
+                    String role = jsonObject.get("role").getAsString();
+                    String username = jsonObject.get("username").getAsString();
+                    String password = jsonObject.get("password").getAsString();
+
+                    StaffDAO dao = new StaffDAO();
+                    String finalUsername = dao.createStaff(username, password, email, phone, fullName, role);
+
+                    if (finalUsername != null) {
+                        response.setStatus(HttpServletResponse.SC_CREATED);
+                        out.print("{\"message\": \"Tạo tài khoản nhân viên thành công!\", \"username\": \"" + finalUsername + "\"}");
+                    } else {
+                        response.setStatus(HttpServletResponse.SC_CONFLICT);
+                        out.print("{\"message\": \"Lỗi: SĐT hoặc Email đã tồn tại trên hệ thống.\"}");
+                    }
                 }
             } catch (Exception e) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
