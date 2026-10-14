@@ -4,7 +4,8 @@ const API_URL = 'http://localhost:8080/BSSMS-back/api/products';
 const SUPPLIER_API_URL = 'http://localhost:8080/BSSMS-back/api/suppliers';
 const PURCHASE_ORDER_API_URL = 'http://localhost:8080/BSSMS-back/PurchaseOrderServlet';
 
-export default function ProductList() {
+// Thêm prop { user } để lấy role từ hệ thống
+export default function ProductList({ user }) {
   const [viewMode, setViewMode] = useState('list');
 
   const [products, setProducts] = useState([]);
@@ -264,6 +265,169 @@ export default function ProductList() {
     p.productName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // =====================================================================
+  // 1. GIAO DIỆN DÀNH RIÊNG CHO LỄ TÂN (RECEPTIONIST) - BÁN LẺ (POS)
+  // =====================================================================
+  if (user?.role === 'Receptionist') {
+    // State quản lý giỏ hàng của Lễ tân
+    const [cart, setCart] = useState([]);
+
+    // Thêm sản phẩm vào giỏ hàng
+    const handleAddToCart = (product) => {
+      setCart(prevCart => {
+        const existingItem = prevCart.find(item => item.productId === product.productId);
+        if (existingItem) {
+          // Nếu đã có trong giỏ thì tăng số lượng lên 1 (không vượt quá tồn kho)
+          if (existingItem.quantity < product.stockQuantity) {
+            return prevCart.map(item => 
+              item.productId === product.productId 
+                ? { ...item, quantity: item.quantity + 1 } 
+                : item
+            );
+          }
+          return prevCart;
+        } else {
+          // Nếu chưa có thì thêm mới với số lượng = 1
+          return [...prevCart, { ...product, quantity: 1 }];
+        }
+      });
+    };
+
+    // Xóa sản phẩm khỏi giỏ hàng
+    const handleRemoveFromCart = (productId) => {
+      setCart(prevCart => prevCart.filter(item => item.productId !== productId));
+    };
+
+    // Thay đổi số lượng trực tiếp trong giỏ
+    const handleQuantityChange = (productId, delta) => {
+      setCart(prevCart => {
+        return prevCart.map(item => {
+          if (item.productId === productId) {
+            const newQty = item.quantity + delta;
+            if (newQty > 0 && newQty <= item.stockQuantity) {
+              return { ...item, quantity: newQty };
+            }
+          }
+          return item;
+        });
+      });
+    };
+
+    // Tính tổng tiền giỏ hàng
+    const calculateCartTotal = () => {
+      return cart.reduce((total, item) => total + (item.unitPrice || 0) * item.quantity, 0);
+    };
+
+    // Xác nhận thanh toán đơn hàng
+    const handleCheckout = () => {
+      if (cart.length === 0) {
+        alert('Giỏ hàng đang trống!');
+        return;
+      }
+      alert('Thanh toán đơn hàng thành công!');
+      setCart([]); // Reset giỏ hàng sau khi thanh toán
+    };
+
+    return (
+      <div className="container-fluid py-4">
+        <h2 className="fw-bold mb-4" style={{ color: '#800020' }}>Bán lẻ sản phẩm (POS)</h2>
+        
+        <div className="row mb-4">
+          <div className="col-md-5">
+            <input
+              type="text"
+              className="form-control shadow-sm"
+              placeholder="Tìm kiếm sản phẩm để bán..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="row">
+          {/* Cột Danh sách sản phẩm */}
+          <div className="col-md-8">
+            <div className="row g-3">
+              {filteredProducts.map(p => (
+                <div className="col-lg-4 col-md-6" key={p.productId}>
+                  <div className="card h-100 shadow-sm border-0">
+                    <div className="card-body d-flex flex-column text-center">
+                      <h6 className="fw-bold text-dark">{p.productName}</h6>
+                      <p className="text-danger fw-bold fs-5 mb-1">
+                        {p.unitPrice ? p.unitPrice.toLocaleString('vi-VN') : '0'} VNĐ
+                      </p>
+                      <small className="text-muted mb-3">Tồn kho: {p.stockQuantity}</small>
+                      <button 
+                        className="btn btn-outline-danger mt-auto fw-bold"
+                        disabled={p.stockQuantity <= 0}
+                        onClick={() => handleAddToCart(p)}
+                      >
+                        <i className="bi bi-cart-plus me-1"></i> 
+                        {p.stockQuantity > 0 ? 'Thêm vào giỏ' : 'Hết hàng'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Cột Giỏ hàng động */}
+          <div className="col-md-4">
+            <div className="card shadow-sm border-0 p-3 sticky-top" style={{ top: '20px' }}>
+              <h5 className="fw-bold border-bottom pb-3 mb-3">
+                <i className="bi bi-cart3 me-2"></i> Giỏ hàng hiện tại
+              </h5>
+
+              {cart.length === 0 ? (
+                <div className="text-center py-5">
+                  <i className="bi bi-cart-x text-muted" style={{ fontSize: '3rem' }}></i>
+                  <p className="text-muted mt-2">Giỏ hàng đang trống</p>
+                </div>
+              ) : (
+                <div className="d-flex flex-column gap-3 mb-3" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                  {cart.map(item => (
+                    <div key={item.productId} className="d-flex justify-content-between align-items-center border-bottom pb-2">
+                      <div>
+                        <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '14px' }}>{item.productName}</h6>
+                        <small className="text-danger fw-semibold">{(item.unitPrice * item.quantity).toLocaleString('vi-VN')} VNĐ</small>
+                      </div>
+                      <div className="d-flex align-items-center gap-1">
+                        <button className="btn btn-sm btn-outline-secondary px-2 py-0" onClick={() => handleQuantityChange(item.productId, -1)}>-</button>
+                        <span className="fw-bold px-2">{item.quantity}</span>
+                        <button className="btn btn-sm btn-outline-secondary px-2 py-0" onClick={() => handleQuantityChange(item.productId, 1)}>+</button>
+                        <button className="btn btn-sm text-danger ms-1 p-0" onClick={() => handleRemoveFromCart(item.productId)}>
+                          <i className="bi bi-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <hr />
+              <div className="d-flex justify-content-between mb-3 fw-bold fs-5">
+                <span>Tổng tiền:</span>
+                <span className="text-danger">{calculateCartTotal().toLocaleString('vi-VN')} VNĐ</span>
+              </div>
+              <button 
+                className="btn text-white w-100 fw-bold py-2" 
+                style={{ backgroundColor: '#800020' }}
+                onClick={handleCheckout}
+                disabled={cart.length === 0}
+              >
+                Xác nhận thanh toán
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =====================================================================
+  // 2. GIAO DIỆN MANAGER: CHẾ ĐỘ TẠO ĐƠN NHẬP HÀNG (PURCHASE ORDER)
+  // =====================================================================
   if (viewMode === 'purchase') {
     return (
       <div className="container-fluid py-4">
@@ -426,6 +590,9 @@ export default function ProductList() {
     );
   }
 
+  // =====================================================================
+  // 3. GIAO DIỆN MANAGER: QUẢN LÝ KHO (INVENTORY & PRODUCT LIST)
+  // =====================================================================
   return (
     <div className="container-fluid py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
