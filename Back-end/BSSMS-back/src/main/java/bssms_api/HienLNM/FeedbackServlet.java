@@ -15,8 +15,11 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-
-@WebServlet(name = "FeedbackController", urlPatterns = {"/api/feedback"})
+/**
+ * Feedback liên quan đến Appointment cụ thể.
+ * Mỗi Appointment chỉ có 1 Feedback, rating 1-5.
+ */
+@WebServlet(name = "FeedbackServlet", urlPatterns = {"/api/feedback", "/api/feedback/*"})
 public class FeedbackServlet extends HttpServlet {
 
     private FeedbackDAO feedbackDAO = new FeedbackDAO();
@@ -35,99 +38,189 @@ public class FeedbackServlet extends HttpServlet {
         resp.setStatus(HttpServletResponse.SC_OK);
     }
 
-    
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         setAccessControlHeaders(resp);
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
-
-        String idParam = req.getParameter("id");
         PrintWriter out = resp.getWriter();
 
-        if (idParam != null && !idParam.isEmpty()) {
-            int id = Integer.parseInt(idParam);
-            Feedback fb = feedbackDAO.getFeedbackById(id);
-            out.print(gson.toJson(fb));
-        } else {
-            
-            List<Map<String, Object>> list = feedbackDAO.getAllFeedbackDetails();
-            out.print(gson.toJson(list));
+        String pathInfo = req.getPathInfo();
+
+        // GET /api/feedback/appointments/{customerId}
+        if (pathInfo != null && pathInfo.startsWith("/appointments/")) {
+            String customerIdStr = pathInfo.substring("/appointments/".length());
+            try {
+                int customerId = Integer.parseInt(customerIdStr);
+                List<Map<String, Object>> list = feedbackDAO.getAvailableAppointmentsForFeedback(customerId);
+                out.print(gson.toJson(list));
+            } catch (NumberFormatException e) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\":\"Customer ID khong hop le\"}");
+            }
+            out.flush();
+            return;
         }
+
+        // GET /api/feedback/customer/{customerId}
+        if (pathInfo != null && pathInfo.startsWith("/customer/")) {
+            String customerIdStr = pathInfo.substring("/customer/".length());
+            try {
+                int customerId = Integer.parseInt(customerIdStr);
+                List<Map<String, Object>> list = feedbackDAO.getFeedbackByCustomerId(customerId);
+                out.print(gson.toJson(list));
+            } catch (NumberFormatException e) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\":\"Customer ID khong hop le\"}");
+            }
+            out.flush();
+            return;
+        }
+
+        // GET /api/feedback/{id}
+        if (pathInfo != null && !pathInfo.equals("/")) {
+            try {
+                int id = Integer.parseInt(pathInfo.substring(1));
+                Feedback fb = feedbackDAO.getFeedbackById(id);
+                if (fb != null) {
+                    out.print(gson.toJson(fb));
+                } else {
+                    resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    out.print("{\"message\":\"Khong tim thay feedback voi id = " + id + "\"}");
+                }
+            } catch (NumberFormatException e) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"message\":\"Feedback ID khong hop le\"}");
+            }
+            out.flush();
+            return;
+        }
+
+        // GET /api/feedback (mặc định)
+        List<Map<String, Object>> list = feedbackDAO.getAllFeedbackDetails();
+        out.print(gson.toJson(list));
         out.flush();
     }
 
-    
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         setAccessControlHeaders(resp);
         req.setCharacterEncoding("UTF-8");
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+        PrintWriter out = resp.getWriter();
 
         BufferedReader reader = req.getReader();
         Feedback newFeedback = gson.fromJson(reader, Feedback.class);
 
+        if (newFeedback == null) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\":\"Body JSON khong hop le\"}");
+            out.flush();
+            return;
+        }
+
+        // Validate bắt buộc
+        if (newFeedback.getCustomerId() <= 0) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\":\"customerId la bat buoc\"}");
+            out.flush();
+            return;
+        }
+        if (newFeedback.getAppointmentId() <= 0) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\":\"appointmentId la bat buoc\"}");
+            out.flush();
+            return;
+        }
+        if (newFeedback.getRating() <= 0) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\":\"rating la bat buoc (1-5)\"}");
+            out.flush();
+            return;
+        }
+
         try {
             feedbackDAO.addFeedback(newFeedback);
-            resp.setStatus(HttpServletResponse.SC_CREATED); 
-            resp.getWriter().print("{\"message\": \"Tao feedback thanh cong\", \"status\": 201}");
+            resp.setStatus(HttpServletResponse.SC_CREATED); // 201
+            out.print("{\"message\":\"Tao feedback thanh cong\",\"status\":201}");
         } catch (Exception e) {
             e.printStackTrace();
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR); 
-            resp.getWriter().print("{\"message\": \"" + e.getMessage() + "\", \"status\": 500}");
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\":\"" + e.getMessage() + "\"}");
         }
+        out.flush();
     }
 
-    
     @Override
     protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         setAccessControlHeaders(resp);
         req.setCharacterEncoding("UTF-8");
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+        PrintWriter out = resp.getWriter();
 
-        String idParam = req.getParameter("id");
-        if (idParam != null) {
+        String pathInfo = req.getPathInfo();
+        if (pathInfo == null || pathInfo.equals("/") || pathInfo.equals("")) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\":\"Thieu feedback ID\"}");
+            out.flush();
+            return;
+        }
+
+        try {
+            int feedbackId = Integer.parseInt(pathInfo.substring(1));
             BufferedReader reader = req.getReader();
             Feedback updatedFeedback = gson.fromJson(reader, Feedback.class);
-            updatedFeedback.setFeedbackId(Integer.parseInt(idParam));
+            updatedFeedback.setFeedbackId(feedbackId);
 
-            try {
-                feedbackDAO.updateFeedback(updatedFeedback);
-                resp.setStatus(HttpServletResponse.SC_OK); 
-                resp.getWriter().print("{\"message\": \"Cap nhat feedback thanh cong\", \"status\": 200}");
-            } catch (Exception e) {
-                e.printStackTrace();
-                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR); 
-                resp.getWriter().print("{\"message\": \"" + e.getMessage() + "\", \"status\": 500}");
-            }
-        } else {
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST); 
-            resp.getWriter().print("{\"message\": \"Thieu ID feedback\", \"status\": 400}");
+            feedbackDAO.updateFeedback(updatedFeedback);
+            resp.setStatus(HttpServletResponse.SC_OK); // 200
+            out.print("{\"message\":\"Cap nhat feedback thanh cong\",\"status\":200}");
+        } catch (NumberFormatException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\":\"Feedback ID khong hop le\"}");
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            out.print("{\"message\":\"" + e.getMessage() + "\"}");
         }
+        out.flush();
     }
 
-    
     @Override
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         setAccessControlHeaders(resp);
-        String idParam = req.getParameter("id");
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+        PrintWriter out = resp.getWriter();
 
-        if (idParam != null) {
-            try {
-                boolean isSuccess = feedbackDAO.deleteFeedback(Integer.parseInt(idParam));
-                if (isSuccess) {
-                    resp.setStatus(HttpServletResponse.SC_OK);
-                    resp.getWriter().print("{\"message\": \"Xoa feedback thanh cong\", \"status\": 200}");
-                } else {
-                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                    resp.getWriter().print("{\"message\": \"Khong tim thay feedback de xoa\", \"status\": 400}");
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                resp.getWriter().print("{\"message\": \"" + e.getMessage() + "\", \"status\": 500}");
-            }
-        } else {
+        String pathInfo = req.getPathInfo();
+        if (pathInfo == null || pathInfo.equals("/") || pathInfo.equals("")) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            resp.getWriter().print("{\"message\": \"Thieu ID feedback\", \"status\": 400}");
+            out.print("{\"message\":\"Thieu feedback ID\"}");
+            out.flush();
+            return;
         }
+
+        try {
+            int id = Integer.parseInt(pathInfo.substring(1));
+            boolean isSuccess = feedbackDAO.deleteFeedback(id);
+            if (isSuccess) {
+                resp.setStatus(HttpServletResponse.SC_OK);
+                out.print("{\"message\":\"Xoa feedback thanh cong\",\"status\":200}");
+            } else {
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.print("{\"message\":\"Khong tim thay feedback de xoa\"}");
+            }
+        } catch (NumberFormatException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\":\"Feedback ID khong hop le\"}");
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            out.print("{\"message\":\"" + e.getMessage() + "\"}");
+        }
+        out.flush();
     }
 }

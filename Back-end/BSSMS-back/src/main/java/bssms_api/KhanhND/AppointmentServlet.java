@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.gson.JsonObject;
+import java.sql.SQLException;
 import com.google.gson.Gson;
 
 import bssms_persistence.KhanhND.AppointmentDAO;
@@ -102,6 +104,144 @@ public class AppointmentServlet extends HttpServlet {
     }
 
     @Override
+    protected void doPost(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
+        setAccessControlHeaders(response);
+        request.setCharacterEncoding("UTF-8");
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        // Only POST /api/appointments is supported.
+        String pathInfo = request.getPathInfo();
+
+        if (pathInfo != null && !pathInfo.equals("/")) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.getWriter().write(
+                    "{\"message\":\"Appointment endpoint not found.\"}");
+            return;
+        }
+
+        try {
+            JsonObject data = gson.fromJson(
+                    request.getReader(), JsonObject.class);
+
+            // Validate required fields.
+            if (data == null
+                    || !data.has("customerId")
+                    || data.get("customerId").isJsonNull()
+                    || !data.has("serviceId")
+                    || data.get("serviceId").isJsonNull()
+                    || !data.has("appointmentDate")
+                    || data.get("appointmentDate").isJsonNull()
+                    || !data.has("startTime")
+                    || data.get("startTime").isJsonNull()) {
+
+                response.setStatus(
+                        HttpServletResponse.SC_BAD_REQUEST);
+
+                response.getWriter().write(
+                        "{\"message\":\"Please provide customer, service, date and start time.\"}");
+                return;
+            }
+
+            int customerId = data.get("customerId").getAsInt();
+            int serviceId = data.get("serviceId").getAsInt();
+
+            String appointmentDate
+                    = data.get("appointmentDate").getAsString();
+
+            String startTime
+                    = data.get("startTime").getAsString();
+
+            Integer technicianId = null;
+
+            if (data.has("technicianId")
+                    && !data.get("technicianId").isJsonNull()
+                    && !data.get("technicianId").getAsString().isBlank()) {
+
+                technicianId = data.get("technicianId").getAsInt();
+
+                if (technicianId <= 0) {
+                    technicianId = null;
+                }
+            }
+
+            Integer customerPackageId = null;
+
+            if (data.has("customerPackageId")
+                    && !data.get("customerPackageId").isJsonNull()
+                    && !data.get("customerPackageId").getAsString().isBlank()) {
+
+                customerPackageId
+                        = data.get("customerPackageId").getAsInt();
+            }
+
+            String notes = null;
+
+            if (data.has("notes") && !data.get("notes").isJsonNull()) {
+                notes = data.get("notes").getAsString();
+            }
+
+            AppointmentDAO dao = new AppointmentDAO();
+
+            Map<String, Object> result
+                    = dao.createWalkInAppointment(
+                            customerId,
+                            serviceId,
+                            customerPackageId,
+                            appointmentDate,
+                            startTime,
+                            technicianId,
+                            notes);
+
+            response.setStatus(HttpServletResponse.SC_CREATED);
+            response.getWriter().write(gson.toJson(result));
+
+        } catch (IllegalArgumentException e) {
+
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+
+            response.getWriter().write(gson.toJson(error));
+
+        } catch (IllegalStateException e) {
+
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+
+            response.getWriter().write(gson.toJson(error));
+
+        } catch (SQLException e) {
+
+            e.printStackTrace();
+
+            response.setStatus(
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+
+            response.getWriter().write(
+                    "{\"message\":\"A database error occurred while creating the appointment.\"}");
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            response.setStatus(
+                    HttpServletResponse.SC_BAD_REQUEST);
+
+            response.getWriter().write(
+                    "{\"message\":\"Invalid appointment data.\"}");
+        }
+    }
+
+    @Override
     protected void doPut(
             HttpServletRequest request,
             HttpServletResponse response)
@@ -176,7 +316,7 @@ public class AppointmentServlet extends HttpServlet {
 
                 return;
             }
-            
+
             if (pathParts.length == 3
                     && pathParts[2].equals("cancel")) {
 

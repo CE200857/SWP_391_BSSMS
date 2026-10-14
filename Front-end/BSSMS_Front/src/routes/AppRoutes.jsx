@@ -44,12 +44,17 @@ import CreateStaff from "../pages/Dashboard/Manager/StaffAdmin/CreateStaff";
 import StaffDetail from "../pages/Dashboard/Manager/StaffAdmin/StaffDetail";
 import EditStaffProfile from "../pages/Dashboard/Manager/StaffAdmin/EditStaffProfile";
 
-// Nhóm 5 chức năng mới
+// Nhóm 5 chức năng mới (Iteration 2)
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
 import UpdateServiceStatus from "../pages/Dashboard/Manager/UpdateServiceStatus";
 import UpdateRoomBedStatus from "../pages/Dashboard/Technician/UpdateRoomBedStatus";
 import RecordTreatmentOutcome from "../pages/Dashboard/Technician/RecordTreatmentOutcome";
 import SellTreatmentPackage from "../pages/Dashboard/Receptionist/SellTreatmentPackage";
+
+// Nhóm 4 chức năng Booking Management (Iteration 4 - Dat TT)
+import CheckSlotAvailability from "../pages/Dashboard/Appointment/CheckSlotAvailability";
+import CreateOnlineAppointment from "../pages/Dashboard/Appointment/CreateOnlineAppointment";
+import ReceptionistBookingDesk from "../pages/Dashboard/Receptionist/ReceptionistBookingDesk";
 
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
@@ -128,13 +133,14 @@ export default function AppRoutes({ user, setUser }) {
           element={<CreateProfile setUser={setUser} />}
         />
 
-        {/* Guest được phép View Services & View Other Customers' Feedback */}
+        {/* Guest được phép View Services, View Other Customers' Feedback & Check Slot Availability */}
         <Route path="/guest/services" element={<ServiceList />} />
         <Route
           path="/guest/services/:id"
           element={<ServiceForm isReadOnly={true} />}
         />
         <Route path="/guest/feedback" element={<PublicFeedbackList />} />
+        <Route path="/guest/slots" element={<CheckSlotAvailability />} />
       </Route>
 
       {/* NHÁNH 2: KHUNG ĐÃ ĐĂNG NHẬP (CÓ SIDEBAR) */}
@@ -222,34 +228,18 @@ export default function AppRoutes({ user, setUser }) {
 
         {/* --- ACCOUNT MANAGEMENT --- */}
         {/* View Customer Account: Receptionist & Manager */}
-       <Route
-          path="/manager/products"
+        <Route
+          path="/customers"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <ProductList user={user} />
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
+              <CustomerList user={user} />
             </ProtectedRoute>
           }
         />
 
-        {/* 2. Trang Bán lẻ sản phẩm POS (Receptionist & Manager) */}
-        <Route
-          path="/products"
-          element={
-            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
-              <ProductList user={user} />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* 3. Trang Quản lý Nhà cung cấp */}
-        <Route
-          path="/manager/suppliers"
-          element={
-            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <SupplierList />
-            </ProtectedRoute>
-          }
-        />
         {/* Update Customer Account: Receptionist & Manager */}
         <Route
           path="/customers/edit/:id"
@@ -262,6 +252,7 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
+
         {/* Staff List: Chỉ Manager */}
         <Route
           path="/staffs"
@@ -271,6 +262,7 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
+
         {/* Staff Detail: Xem chi tiết nhân viên (Chỉ Manager) */}
         <Route
           path="/staffs/detail/:id"
@@ -387,15 +379,28 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO) --- */}
+        {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO - KHANHLTQ) --- */}
+        {/* 1. Trang Quản lý Sản phẩm (Manager) */}
         <Route
           path="/manager/products"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <ProductList />
+              <ProductList user={user} />
             </ProtectedRoute>
           }
         />
+
+        {/* 2. Trang Bán lẻ sản phẩm POS (Receptionist & Manager) */}
+        <Route
+          path="/products"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+              <ProductList user={user} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3. Trang Quản lý Nhà cung cấp (Manager) */}
         <Route
           path="/manager/suppliers"
           element={
@@ -473,8 +478,7 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- 5 CHỨC NĂNG MỚI --- */}
-
+        {/* --- 5 CHỨC NĂNG MỚI (ITERATION 2) --- */}
         {/* 1. View Treatment Status - Tất cả role */}
         <Route
           path="/treatment-status"
@@ -529,6 +533,41 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager", "Receptionist"]}>
               <SellTreatmentPackage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- 4 CHỨC NĂNG BOOKING MANAGEMENT (ITERATION 4 - DAT TT) --- */}
+
+        {/* 1. Check Slot Availability: Customer & Receptionist (Guest xem ở /guest/slots) */}
+        <Route
+          path="/slots"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Customer", "Receptionist", "Manager"]}
+            >
+              <CheckSlotAvailability />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 2. Create Online Appointment: Chỉ Customer */}
+        <Route
+          path="/appointments/online"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Customer"]}>
+              <CreateOnlineAppointment />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3 & 4. Check-in & Status Update + Coordinate Service: Receptionist & Manager */}
+        <Route
+          path="/receptionist/coordination"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+              <ReceptionistBookingDesk />
             </ProtectedRoute>
           }
         />

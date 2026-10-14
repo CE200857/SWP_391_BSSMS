@@ -69,7 +69,7 @@ const GuestHome = () => {
                                 fontStyle: 'italic',
                             }}
                         >
-                            Chào mừng bạn đến với hệ thống BSSMS. Dễ dàng xem dịch vụ, tìm hiểu thông tin và trải nghiệm quy trình đáng tin cậy ngay từ lần đầu tiên.
+                            Chào mừng bạn đến với hệ thống BSSMS. Dễ dàng xem dịch vụ, kiểm tra lịch trống, tìm hiểu thông tin và trải nghiệm quy trình đáng tin cậy ngay từ lần đầu tiên.
                         </p>
 
                         <div className="d-flex flex-wrap gap-3 mb-5">
@@ -99,6 +99,21 @@ const GuestHome = () => {
                                 }}
                             >
                                 Xem dịch vụ
+                            </Link>
+
+                            <Link
+                                to="/guest/slots"
+                                className="btn btn-lg px-4 shadow-sm"
+                                style={{
+                                    background: '#fdf2f8',
+                                    color: '#9d174d',
+                                    border: '1px solid rgba(236, 72, 153, 0.4)',
+                                    borderRadius: '14px',
+                                    fontWeight: 600,
+                                }}
+                            >
+                                <i className="bi bi-calendar2-week me-2"></i>
+                                Xem lịch trống
                             </Link>
                         </div>
 
@@ -191,7 +206,7 @@ const GuestHome = () => {
                 </div>
 
                 <div className="row g-4 mt-4">
-                    <div className="col-md-6 col-xl-4">
+                    <div className="col-md-6 col-xl-3">
                         <div className="h-100 rounded-4 p-4 shadow-sm" style={{ background: '#fff', border: '1px solid rgba(236, 72, 153, 0.08)' }}>
                             <div className="fw-bold mb-2" style={{ color: '#1f2937' }}>Dịch vụ nổi bật</div>
                             <p className="mb-3" style={{ color: '#6b7280', lineHeight: 1.7 }}>
@@ -203,7 +218,19 @@ const GuestHome = () => {
                         </div>
                     </div>
 
-                    <div className="col-md-6 col-xl-4">
+                    <div className="col-md-6 col-xl-3">
+                        <div className="h-100 rounded-4 p-4 shadow-sm" style={{ background: '#fff', border: '1px solid rgba(236, 72, 153, 0.08)' }}>
+                            <div className="fw-bold mb-2" style={{ color: '#1f2937' }}>Tra cứu lịch trống</div>
+                            <p className="mb-3" style={{ color: '#6b7280', lineHeight: 1.7 }}>
+                                Kiểm tra trước các khung giờ và kỹ thuật viên còn trống theo từng ngày.
+                            </p>
+                            <Link to="/guest/slots" className="btn btn-link p-0" style={{ color: '#db2777', textDecoration: 'none', fontWeight: 600 }}>
+                                Kiểm tra slot →
+                            </Link>
+                        </div>
+                    </div>
+
+                    <div className="col-md-6 col-xl-3">
                         <div className="h-100 rounded-4 p-4 shadow-sm" style={{ background: '#fff', border: '1px solid rgba(236, 72, 153, 0.08)' }}>
                             <div className="fw-bold mb-2" style={{ color: '#1f2937' }}>Đánh giá khách hàng</div>
                             <p className="mb-3" style={{ color: '#6b7280', lineHeight: 1.7 }}>
@@ -215,11 +242,11 @@ const GuestHome = () => {
                         </div>
                     </div>
 
-                    <div className="col-md-12 col-xl-4">
+                    <div className="col-md-6 col-xl-3">
                         <div className="h-100 rounded-4 p-4 shadow-sm" style={{ background: 'linear-gradient(135deg, #fdf2f8, #fce7f3)', border: '1px solid rgba(236, 72, 153, 0.08)' }}>
                             <div className="fw-bold mb-2" style={{ color: '#1f2937' }}>Bắt đầu ngay</div>
                             <p className="mb-3" style={{ color: '#374151', lineHeight: 1.7 }}>
-                                Hãy đăng nhập để trải nghiệm đầy đủ dịch vụ và quản lý lịch hẹn dễ dàng hơn.
+                                Hãy đăng nhập để đặt lịch hẹn online và quản lý liệu trình dễ dàng hơn.
                             </p>
                             <Link to="/login" className="btn fw-semibold" style={{ background: '#fff', color: '#be185d', borderRadius: '12px' }}>
                                 Đi đến đăng nhập
