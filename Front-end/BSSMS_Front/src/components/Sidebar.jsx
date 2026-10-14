@@ -16,8 +16,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
   const isManager = role === "Manager";
 
   const navClass = ({ isActive }) =>
-    `app-nav-link d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-      isActive ? "active bg-primary text-white shadow" : "text-dark"
+    `app-nav-link d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${isActive ? "active bg-primary text-white shadow" : "text-dark"
     }`;
 
   const renderMenuLabel = (label) => (
@@ -33,7 +32,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
       }}
     >
       <div className="app-sidebar-inner p-3 mt-2 text-start">
-        
+
         {/* KHU VỰC TIÊU ĐỀ & NÚT THU GỌN */}
         <div className="app-sidebar-heading d-flex align-items-center justify-content-between mb-4">
           <p
@@ -54,7 +53,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
 
         {/* DANH SÁCH MENU CHÍNH (Core Menus) */}
         <div className="d-flex flex-column gap-2">
-          
+
           <NavLink to="/services" className={navClass}>
             <i className="bi bi-scissors fs-5"></i>{renderMenuLabel("Danh sách dịch vụ")}
           </NavLink>
@@ -107,6 +106,13 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
             </>
           )}
 
+          {isReceptionist && (
+            <NavLink to="/invoices/create" className={navClass}>
+              <i className="bi bi-receipt-cutoff fs-5"></i>
+              {renderMenuLabel("Tạo hóa đơn")}
+            </NavLink>
+          )}
+
           {/* NHÓM 1: NGHIỆP VỤ KỸ THUẬT (Dành cho Technician & Manager) */}
           {(isTechnician || isManager) && (
             <>
@@ -123,7 +129,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                   </>
                 )}
               </div>
-              
+
               {/* Các menu con sẽ sổ xuống khi bấm vào nút trên */}
               {openTech && !collapsed && (
                 <div className="d-flex flex-column gap-2 ms-3 mt-1 border-start ps-2">
@@ -165,7 +171,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
               )}
             </>
           )}
-          
+
         </div>
       </div>
     </aside>

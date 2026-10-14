@@ -43,6 +43,7 @@ import ResourceManagement from "../pages/Dashboard/Manager/ResourceAdmin/Resourc
 import CreateStaff from "../pages/Dashboard/Manager/StaffAdmin/CreateStaff";
 import StaffDetail from "../pages/Dashboard/Manager/StaffAdmin/StaffDetail";
 import EditStaffProfile from "../pages/Dashboard/Manager/StaffAdmin/EditStaffProfile";
+import CreateInvoice from "../pages/Dashboard/Receptionist/CreateInvoice";
 
 // Nhóm 5 chức năng mới (Iteration 2)
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
@@ -533,6 +534,19 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager", "Receptionist"]}>
               <SellTreatmentPackage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- BILLING & COMMISSION (KHANH ND) --- */}
+        <Route
+          path="/invoices/create"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist"]}
+            >
+              <CreateInvoice />
             </ProtectedRoute>
           }
         />

@@ -1,13 +1,6 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_billing;
 import java.util.Date;
-/**
- *
- * @author admin
- */
+
 public class Payment {
     private int paymentId;
     private int invoiceId;
@@ -84,5 +77,4 @@ public class Payment {
     public void setStatus(String status) {
         this.status = status;
     }
-    
 }
