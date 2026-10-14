@@ -239,6 +239,7 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
+
         {/* Update Customer Account: Receptionist & Manager */}
         <Route
           path="/customers/edit/:id"
@@ -251,6 +252,7 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
+
         {/* Staff List: Chỉ Manager */}
         <Route
           path="/staffs"
@@ -260,6 +262,7 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
+
         {/* Staff Detail: Xem chi tiết nhân viên (Chỉ Manager) */}
         <Route
           path="/staffs/detail/:id"
@@ -376,15 +379,28 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO) --- */}
+        {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO - KHANHLTQ) --- */}
+        {/* 1. Trang Quản lý Sản phẩm (Manager) */}
         <Route
           path="/manager/products"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <ProductList />
+              <ProductList user={user} />
             </ProtectedRoute>
           }
         />
+
+        {/* 2. Trang Bán lẻ sản phẩm POS (Receptionist & Manager) */}
+        <Route
+          path="/products"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+              <ProductList user={user} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3. Trang Quản lý Nhà cung cấp (Manager) */}
         <Route
           path="/manager/suppliers"
           element={
@@ -463,7 +479,6 @@ export default function AppRoutes({ user, setUser }) {
         />
 
         {/* --- 5 CHỨC NĂNG MỚI (ITERATION 2) --- */}
-
         {/* 1. View Treatment Status - Tất cả role */}
         <Route
           path="/treatment-status"
@@ -530,7 +545,7 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Receptionist"]}
+              allowedRoles={["Customer", "Receptionist", "Manager"]}
             >
               <CheckSlotAvailability />
             </ProtectedRoute>
@@ -547,11 +562,11 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* 3 & 4. Check-in & Status Update + Coordinate Service: Chỉ Receptionist */}
+        {/* 3 & 4. Check-in & Status Update + Coordinate Service: Receptionist & Manager */}
         <Route
           path="/receptionist/coordination"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Receptionist"]}>
+            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
               <ReceptionistBookingDesk />
             </ProtectedRoute>
           }
