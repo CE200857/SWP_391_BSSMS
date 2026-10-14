@@ -18,12 +18,15 @@ export default function ProductList({ user }) {
 
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
 
-  // Mock data cho danh sách Đơn nhập hàng (Purchase Orders) để View / Update / Delete
+  // Dữ liệu Đơn nhập hàng (Purchase Orders)
   const [purchaseOrders, setPurchaseOrders] = useState([
     { id: 'PO001', supplierName: 'Công ty Dược Mỹ Phẩm A', orderDate: '10/10/2026', totalAmount: 15000000, status: 'Hoàn thành' },
     { id: 'PO002', supplierName: 'Nhà phân phối Thiết bị Spa B', orderDate: '12/10/2026', totalAmount: 32000000, status: 'Chờ xử lý' },
     { id: 'PO003', supplierName: 'Mỹ phẩm Thiên nhiên C', orderDate: '14/10/2026', totalAmount: 8500000, status: 'Đang giao' },
   ]);
+
+  // State phục vụ việc CẬP NHẬT Đơn nhập hàng
+  const [editingPO, setEditingPO] = useState(null);
 
   const [formData, setFormData] = useState({
     productId: 0,
@@ -272,8 +275,20 @@ export default function ProductList({ user }) {
     alert(`[CHI TIẾT ĐƠN NHẬP HÀNG ${poId}]\n- Nhà cung cấp: ${po?.supplierName}\n- Ngày nhập: ${po?.orderDate}\n- Tổng tiền: ${po?.totalAmount?.toLocaleString('vi-VN')} VNĐ\n- Trạng thái: ${po?.status}`);
   };
 
+  // Bấm Sửa -> Mở Modal
   const handleUpdatePO = (poId) => {
-    alert(`Đang mở màn hình Cập nhật (Update) cho đơn nhập hàng ${poId}`);
+    const po = purchaseOrders.find(o => o.id === poId);
+    if (po) {
+      setEditingPO({ ...po });
+    }
+  };
+
+  // Lưu thông tin sau khi Sửa Đơn Nhập Hàng
+  const handleSaveUpdatePO = (e) => {
+    e.preventDefault();
+    setPurchaseOrders(prev => prev.map(o => o.id === editingPO.id ? editingPO : o));
+    setEditingPO(null);
+    alert(`Cập nhật thành công đơn nhập hàng ${editingPO.id}!`);
   };
 
   const handleDeletePO = (poId) => {
@@ -520,7 +535,6 @@ export default function ProductList({ user }) {
           {activeTab === 'products' ? 'Quản lý Kho Sản phẩm' : 'Quản lý Đơn nhập hàng'}
         </h2>
         
-        {/* NÚT CHUYỂN TAB CỰC KỲ RÕ RÀNG */}
         <div className="btn-group shadow-sm">
           <button 
             className={`btn fw-bold px-3 py-2 ${activeTab === 'products' ? 'btn-danger' : 'btn-outline-danger'}`}
@@ -665,6 +679,73 @@ export default function ProductList({ user }) {
             </div>
           </div>
         </>
+      )}
+
+      {/* ================= MODAL CẬP NHẬT ĐƠN NHẬP HÀNG (PO EDIT MODAL) ================= */}
+      {editingPO && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header text-white" style={{ backgroundColor: '#800020' }}>
+                <h5 className="modal-title fw-bold">Cập Nhật Đơn Nhập Hàng #{editingPO.id}</h5>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setEditingPO(null)}></button>
+              </div>
+              <form onSubmit={handleSaveUpdatePO}>
+                <div className="modal-body p-4">
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Nhà Cung Cấp</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={editingPO.supplierName} 
+                      onChange={(e) => setEditingPO({ ...editingPO, supplierName: e.target.value })} 
+                      required 
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Ngày Nhập Hàng</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={editingPO.orderDate} 
+                      onChange={(e) => setEditingPO({ ...editingPO, orderDate: e.target.value })} 
+                      required 
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Tổng Số Tiền (VNĐ)</label>
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      value={editingPO.totalAmount} 
+                      onChange={(e) => setEditingPO({ ...editingPO, totalAmount: Number(e.target.value) })} 
+                      required 
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Trạng Thái Đơn Hàng</label>
+                    <select 
+                      className="form-select" 
+                      value={editingPO.status} 
+                      onChange={(e) => setEditingPO({ ...editingPO, status: e.target.value })}
+                    >
+                      <option value="Chờ xử lý">Chờ xử lý</option>
+                      <option value="Đang giao">Đang giao</option>
+                      <option value="Hoàn thành">Hoàn thành</option>
+                      <option value="Đã hủy">Đã hủy</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="modal-footer bg-light">
+                  <button type="button" className="btn btn-secondary px-4" onClick={() => setEditingPO(null)}>Hủy</button>
+                  <button type="submit" className="btn text-white px-4 fw-bold" style={{ backgroundColor: '#800020' }}>
+                    Lưu Thay Đổi
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ================= MODAL XEM CHI TIẾT SẢN PHẨM ================= */}
