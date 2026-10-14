@@ -262,5 +262,60 @@ public class CustomerPackageDAO extends DBContext {
         }
         return list;
     }
+
+    /**
+     * Cập nhật CustomerPackage (remaining_sessions, expiry_date, status).
+     * Mở connection mới để tránh trường hợp connection đã đóng.
+     */
+    public boolean updateCustomerPackage(int customerPackageId, int remainingSessions,
+                                         String expiryDate, String status) {
+        // Đảm bảo status không null/empty
+        if (status == null || status.trim().isEmpty()) {
+            status = "Active";
+        }
+        String dbURL = "jdbc:sqlserver://localhost:1433;"
+                + "databaseName=BeautySalonDB;"
+                + "user=sa;"
+                + "password=123456;"
+                + "encrypt=true;trustServerCertificate=true;";
+        String sql = "UPDATE CustomerPackage SET remaining_sessions = ?, expiry_date = ?, "
+                   + "status = ? WHERE customer_package_id = ?";
+        java.sql.Connection newConn = null;
+        try {
+            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            newConn = java.sql.DriverManager.getConnection(dbURL);
+            System.out.println("=== updateCustomerPackage DEBUG ===");
+            System.out.println("customerPackageId: " + customerPackageId);
+            System.out.println("remainingSessions: " + remainingSessions);
+            System.out.println("expiryDate: " + expiryDate);
+            System.out.println("status: " + status);
+            PreparedStatement ps = newConn.prepareStatement(sql);
+            ps.setInt(1, remainingSessions);
+            if (expiryDate != null && !expiryDate.trim().isEmpty()) {
+                ps.setString(2, expiryDate);
+            } else {
+                ps.setNull(2, java.sql.Types.DATE);
+            }
+            ps.setString(3, status);
+            ps.setInt(4, customerPackageId);
+            
+            // Debug: In SQL
+            System.out.println("SQL: UPDATE CustomerPackage SET remaining_sessions = " + remainingSessions 
+                    + ", expiry_date = " + expiryDate + ", status = " + status 
+                    + " WHERE customer_package_id = " + customerPackageId);
+            
+            int rows = ps.executeUpdate();
+            ps.close();
+            System.out.println("Rows affected: " + rows);
+            System.out.println("=================================");
+            return rows > 0;
+        } catch (Exception e) {
+            System.out.println("updateCustomerPackage ERROR: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            try { if (newConn != null) newConn.close(); } catch (Exception ex) { ex.printStackTrace(); }
+        }
+        return false;
+    }
 }
 
