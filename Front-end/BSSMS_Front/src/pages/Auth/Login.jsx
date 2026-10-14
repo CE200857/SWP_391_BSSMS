@@ -15,20 +15,22 @@ const Login = ({ setUser }) => {
     setError("");
     setSuccessMsg("");
 
-    const inputValue = email.trim(); 
+    const inputValue = email.trim();
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
-    const phoneRegex = /^0\d{9}$/; 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^0\d{9}$/;
 
     if (!emailRegex.test(inputValue) && !phoneRegex.test(inputValue)) {
-      setError("Vui lòng nhập đúng định dạng Email hoặc Số điện thoại (10 chữ số, bắt đầu bằng số 0).");
+      setError(
+        "Vui lòng nhập đúng định dạng Email hoặc Số điện thoại (10 chữ số, bắt đầu bằng số 0)."
+      );
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch("api/login", {
+      const response = await fetch("/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -44,10 +46,38 @@ const Login = ({ setUser }) => {
         setUser(data);
 
         setSuccessMsg(
-          `Đăng nhập thành công! Chào mừng ${data.fullName} (${data.role})`,
+          `Đăng nhập thành công! Chào mừng ${data.fullName} (${data.role})`
         );
 
         setTimeout(() => {
+          // Kiểm tra xem người dùng có vừa chọn khung giờ trống trước khi đăng nhập không
+          const pendingRaw = sessionStorage.getItem("bssms.pendingBooking");
+          if (pendingRaw) {
+            sessionStorage.removeItem("bssms.pendingBooking");
+            const pendingSlot = JSON.parse(pendingRaw);
+
+            if (data.role === "Customer") {
+              navigate("/appointments/online", { state: pendingSlot });
+              return;
+            }
+
+            if (data.role === "Receptionist" || data.role === "Manager") {
+              sessionStorage.setItem(
+                "bssms.walkInAppointmentDraft",
+                JSON.stringify({
+                  formData: {
+                    customerId: "",
+                    ...pendingSlot,
+                    notes: "",
+                  },
+                  customerSearch: "",
+                })
+              );
+              navigate("/appointments/create");
+              return;
+            }
+          }
+
           switch (data.role) {
             case "Customer":
               navigate("/customer/home");
@@ -69,13 +99,12 @@ const Login = ({ setUser }) => {
               navigate("/bssms-guest");
               break;
           }
-        }, 1500);
+        }, 1200);
       } else {
         setError(data.message || "Đăng nhập thất bại!");
         setIsLoading(false);
       }
-      // eslint-disable-next-line no-unused-vars
-    } catch (err) {
+    } catch {
       setError("Lỗi kết nối đến máy chủ!");
       setIsLoading(false);
     }
@@ -116,7 +145,9 @@ const Login = ({ setUser }) => {
 
           <Form onSubmit={handleLogin}>
             <Form.Group className="mb-3 text-start" controlId="formBasicEmail">
-              <Form.Label className="fw-bold">Email hoặc Số điện thoại*</Form.Label>
+              <Form.Label className="fw-bold">
+                Email hoặc Số điện thoại*
+              </Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Vui lòng nhập email hoặc sđt"
@@ -152,8 +183,8 @@ const Login = ({ setUser }) => {
               {isLoading
                 ? "Đang xử lý..."
                 : successMsg
-                  ? "Đang chuyển hướng..."
-                  : "Đăng nhập"}
+                ? "Đang chuyển hướng..."
+                : "Đăng nhập"}
             </Button>
           </Form>
 

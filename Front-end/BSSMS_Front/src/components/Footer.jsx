@@ -44,6 +44,7 @@ const Footer = () => {
             <h2 className="h6 text-white fw-bold mb-3">KHÁM PHÁ & HỖ TRỢ</h2>
             <div className="d-flex flex-column align-items-start gap-2">
               <Link className="app-footer-link" to="/guest/services">Danh sách dịch vụ</Link>
+              <Link className="app-footer-link" to="/guest/slots">Tra cứu lịch trống</Link>
               <Link className="app-footer-link" to="/guest/feedback">Đánh giá khách hàng</Link>
               <Link className="app-footer-link" to="/login">Đăng nhập</Link>
             </div>

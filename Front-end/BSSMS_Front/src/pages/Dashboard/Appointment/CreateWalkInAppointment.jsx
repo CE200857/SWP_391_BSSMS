@@ -47,6 +47,12 @@ const fetchJson = async (url) => {
 
     const data = await response.json().catch(() => null);
 
+    if (response.status === 401) {
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+        throw new Error("Vui lòng đăng nhập để tiếp tục!");
+    }
+
     if (!response.ok) {
         throw new Error(
             data?.message || `Không thể tải dữ liệu từ ${url}.`

@@ -62,6 +62,20 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
             <i className="bi bi-calendar-check-fill fs-5"></i>{renderMenuLabel("Danh sách lịch hẹn")}
           </NavLink>
 
+          {/* Check Slot Availability: Dành cho Customer & Receptionist */}
+          {(isCustomer || isReceptionist) && (
+            <NavLink to="/slots" className={navClass}>
+              <i className="bi bi-calendar2-week fs-5"></i>{renderMenuLabel("Tra cứu lịch trống")}
+            </NavLink>
+          )}
+
+          {/* Create Online Appointment: Chỉ dành cho Customer */}
+          {isCustomer && (
+            <NavLink to="/appointments/online" className={navClass}>
+              <i className="bi bi-calendar-heart fs-5"></i>{renderMenuLabel("Đặt lịch Online")}
+            </NavLink>
+          )}
+
           {isCustomer && (
             <NavLink to="/my-feedback" className={navClass}>
               <i className="bi bi-star-fill fs-5"></i>{renderMenuLabel("Đánh giá của tôi")}
@@ -71,6 +85,13 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
           {(isCustomer || isReceptionist || isManager) && (
             <NavLink to="/feedback" className={navClass}>
               <i className="bi bi-chat-quote-fill fs-5"></i>{renderMenuLabel("Đánh giá khách hàng")}
+            </NavLink>
+          )}
+
+          {/* Check-in & Status Update + Coordinate Service: Chỉ dành cho Receptionist */}
+          {isReceptionist && (
+            <NavLink to="/receptionist/coordination" className={navClass}>
+              <i className="bi bi-sliders fs-5"></i>{renderMenuLabel("Check-in & Điều phối")}
             </NavLink>
           )}
 
