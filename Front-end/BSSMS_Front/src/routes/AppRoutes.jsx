@@ -44,6 +44,19 @@ import UpdateRoomBedStatus from "../pages/Dashboard/Technician/UpdateRoomBedStat
 import RecordTreatmentOutcome from "../pages/Dashboard/Technician/RecordTreatmentOutcome";
 import SellTreatmentPackage from "../pages/Dashboard/Receptionist/SellTreatmentPackage";
 
+<<<<<<< Updated upstream
+=======
+// Nhóm 4 chức năng Booking Management (Iteration 4 - Dat TT)
+import CheckSlotAvailability from "../pages/Dashboard/Appointment/CheckSlotAvailability";
+import CreateOnlineAppointment from "../pages/Dashboard/Appointment/CreateOnlineAppointment";
+import ReceptionistBookingDesk from "../pages/Dashboard/Receptionist/ReceptionistBookingDesk";
+
+// Nhóm 7 chức năng mới (Iteration 5 - Voucher & Birthday Promotion)
+import VoucherList from "../pages/Dashboard/Manager/VoucherManagement/VoucherList";
+import BirthdayPromotion from "../pages/Dashboard/Manager/BirthdayPromotion/BirthdayPromotion";
+import CustomerTreatmentProfile from "../pages/Dashboard/Manager/CustomerTreatmentProfile/CustomerTreatmentProfile";
+
+>>>>>>> Stashed changes
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
 const ProtectedRoute = ({ user, allowedRoles, children }) => {
@@ -778,6 +791,94 @@ export default function AppRoutes({ user, setUser }) {
                 {/* --- TREATMENT PACKAGE MANAGEMENT (QUẢN LÝ GÓI LIỆU TRÌNH) --- */}
                 <Route path="/manager/treatment-packages" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><TreatmentPackageList /></ProtectedRoute>} />
 
+<<<<<<< Updated upstream
+=======
+        {/* --- 4 CHỨC NĂNG BOOKING MANAGEMENT (ITERATION 4 - DAT TT) --- */}
+
+        {/* 1. Check Slot Availability: Customer & Receptionist (Guest xem ở /guest/slots) */}
+        <Route
+          path="/slots"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Customer", "Receptionist", "Manager"]}
+            >
+              <CheckSlotAvailability />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 2. Create Online Appointment: Chỉ Customer */}
+        <Route
+          path="/appointments/online"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Customer"]}>
+              <CreateOnlineAppointment />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3 & 4. Check-in & Status Update + Coordinate Service: Receptionist & Manager */}
+        <Route
+          path="/receptionist/coordination"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+              <ReceptionistBookingDesk />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- 7 CHỨC NĂNG MỚI (ITERATION 5 - VOUCHER & BIRTHDAY PROMOTION) --- */}
+
+        {/* 1. View/Manage Vouchers: Manager & Receptionist */}
+        <Route
+          path="/vouchers"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Manager", "Receptionist"]}
+            >
+              <VoucherList />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 2. Birthday Month Promotion Management: Manager */}
+        <Route
+          path="/birthday-promotions"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <BirthdayPromotion />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3. View/Update Customer Treatment Profile: All roles can view, Manager & Technician can edit */}
+        <Route
+          path="/treatment-profile/:customerId"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Manager", "Receptionist", "Technician", "Customer"]}
+            >
+              <CustomerTreatmentProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Default treatment profile route (for Customer viewing their own profile) */}
+        <Route
+          path="/my-treatment-profile"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}
+            >
+              <CustomerTreatmentProfile />
+            </ProtectedRoute>
+          }
+        />
+>>>>>>> Stashed changes
       </Route>
     </Routes>
   );
