@@ -77,6 +77,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
             </NavLink>
           )}
 
+<<<<<<< Updated upstream
           <NavLink
             to="/appointments"
             end
@@ -95,6 +96,51 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
             >
               <i className="bi bi-calendar-plus me-2"></i>
               {renderMenuLabel("Tạo lịch hẹn")}
+=======
+          {isCustomer && (
+            <NavLink to="/my-feedback" className={navClass}>
+              <i className="bi bi-star-fill fs-5"></i>{renderMenuLabel("Đánh giá của tôi")}
+            </NavLink>
+          )}
+
+          {isCustomer && (
+            <NavLink to="/my-treatment-profile" className={navClass}>
+              <i className="bi bi-clipboard-pulse fs-5"></i>{renderMenuLabel("Hồ sơ liệu trình của tôi")}
+            </NavLink>
+          )}
+
+          {(isCustomer || isReceptionist || isManager) && (
+            <NavLink to="/feedback" className={navClass}>
+              <i className="bi bi-chat-quote-fill fs-5"></i>{renderMenuLabel("Đánh giá khách hàng")}
+            </NavLink>
+          )}
+
+          {/* Check-in & Status Update + Coordinate Service: Chỉ dành cho Receptionist */}
+          {isReceptionist && (
+            <NavLink to="/receptionist/coordination" className={navClass}>
+              <i className="bi bi-sliders fs-5"></i>{renderMenuLabel("Check-in & Điều phối")}
+            </NavLink>
+          )}
+
+          {(isReceptionist || isManager) && (
+            <>
+              <NavLink to="/customers" className={navClass}>
+                <i className="bi bi-people-fill fs-5"></i>{renderMenuLabel("Danh sách khách hàng")}
+              </NavLink>
+              <NavLink to="/sell-treatment-package" className={navClass}>
+                <i className="bi bi-cart-plus fs-5"></i>{renderMenuLabel("Bán gói liệu trình")}
+              </NavLink>
+              <NavLink to="/vouchers" className={navClass}>
+                <i className="bi bi-ticket-perforated fs-5"></i>{renderMenuLabel("Quản lý Voucher")}
+              </NavLink>
+            </>
+          )}
+
+          {isReceptionist && (
+            <NavLink to="/invoices/create" className={navClass}>
+              <i className="bi bi-receipt-cutoff fs-5"></i>
+              {renderMenuLabel("Tạo hóa đơn")}
+>>>>>>> Stashed changes
             </NavLink>
           )}
 
@@ -106,6 +152,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
             </NavLink>
           )}
 
+<<<<<<< Updated upstream
           {/* LỄ TÂN, QUẢN LÝ THẤY */}
           {(isReceptionist || isManager) && (
             <NavLink to="/customers" className={navClass} title="Danh sách khách hàng">
@@ -136,11 +183,23 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                 <i className="bi bi-box2-heart-fill me-2"></i>
                 {renderMenuLabel("Quản lý Gói liệu trình")}
               </NavLink>
+=======
+              {/* Các menu con sẽ sổ xuống khi bấm vào nút trên */}
+              {openTech && !collapsed && (
+                <div className="d-flex flex-column gap-2 ms-3 mt-1 border-start ps-2">
+                  <NavLink to="/treatment-status" className={navClass}><i className="bi bi-clipboard-pulse fs-6"></i>{renderMenuLabel("Trạng thái điều trị")}</NavLink>
+                  <NavLink to="/update-room-bed-status" className={navClass}><i className="bi bi-door-open fs-6"></i>{renderMenuLabel("Phòng & Giường")}</NavLink>
+                  <NavLink to="/record-treatment-outcome" className={navClass}><i className="bi bi-clipboard-check fs-6"></i>{renderMenuLabel("Ghi nhận kết quả")}</NavLink>
+                  <NavLink to="/my-treatment-profile" className={navClass}><i className="bi bi-clipboard-data fs-6"></i>{renderMenuLabel("Hồ sơ liệu trình")}</NavLink>
+                </div>
+              )}
+>>>>>>> Stashed changes
             </>
           )}
 
           {/* --- 5 CHỨC NĂNG MỚI --- */}
 
+<<<<<<< Updated upstream
           {/* 1. View Treatment Status - Tất cả role */}
           <NavLink to="/treatment-status" className={navClass} title="Xem trạng thái điều trị">
             <i className="bi bi-activity me-2"></i>
@@ -177,6 +236,22 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
               <i className="bi bi-cart-plus me-2"></i>
               {renderMenuLabel("Bán gói liệu trình")}
             </NavLink>
+=======
+              {/* Các menu con của Manager */}
+              {openAdmin && !collapsed && (
+                <div className="d-flex flex-column gap-2 ms-3 mt-1 border-start ps-2">
+                  <NavLink to="/staffs" className={navClass}><i className="bi bi-person-badge-fill fs-6"></i>{renderMenuLabel("Nhân viên")}</NavLink>
+                  <NavLink to="/manager/products" className={navClass}><i className="bi bi-box-seam fs-6"></i>{renderMenuLabel("Sản phẩm")}</NavLink>
+                  <NavLink to="/manager/suppliers" className={navClass}><i className="bi bi-truck fs-6"></i>{renderMenuLabel("Nhà cung cấp")}</NavLink>
+                  <NavLink to="/treatment-packages" className={navClass}><i className="bi bi-box2-heart-fill fs-6"></i>{renderMenuLabel("Gói liệu trình")}</NavLink>
+                  <NavLink to="/manager/update-service-status" className={navClass}><i className="bi bi-toggle-on fs-6"></i>{renderMenuLabel("Trạng thái dịch vụ")}</NavLink>
+                  <NavLink to="/manager/resources" className={navClass}><i className="bi bi-building"></i>{renderMenuLabel("Quản lý Tài nguyên")}</NavLink>
+                  <NavLink to="/birthday-promotions" className={navClass}><i className="bi bi-calendar-heart fs-6"></i>{renderMenuLabel("KM Sinh nhật")}</NavLink>
+                  <NavLink to="/my-treatment-profile" className={navClass}><i className="bi bi-clipboard-pulse fs-6"></i>{renderMenuLabel("Hồ sơ liệu trình")}</NavLink>
+                </div>
+              )}
+            </>
+>>>>>>> Stashed changes
           )}
 
         </div>
