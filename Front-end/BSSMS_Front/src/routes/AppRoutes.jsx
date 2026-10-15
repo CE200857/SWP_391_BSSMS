@@ -11,6 +11,8 @@ import Profile from "../pages/Auth/Profile";
 import Register from "../pages/Auth/Register";
 import CreateProfile from "../pages/Auth/CreateProfile";
 import ChangePassword from "../pages/Auth/ChangePassword";
+import ForgotPassword from "../pages/Auth/ForgotPassword";
+import ResetPassword from "../pages/Auth/ResetPassword";
 import EditProfile from "../pages/Auth/EditProfile";
 
 // Nhóm 4 Giao diện chính (Dashboard & Home)
@@ -22,6 +24,7 @@ import TechnicianDashboard from "../pages/Dashboard/Technician/TechnicianDashboa
 
 // Nhóm Tính năng (Pages)
 import CustomerList from "../pages/Dashboard/Manager/CustomerAdmin/CustomerList";
+import EditCustomerProfile from "../pages/Dashboard/Manager/CustomerAdmin/EditCustomerProfile";
 import StaffList from "../pages/Dashboard/Manager/StaffAdmin/StaffList";
 import ServiceList from "../pages/Shared/ServiceList/ServiceList";
 import ServiceForm from "../pages/Shared/ServiceList/ServiceForm";
@@ -36,27 +39,29 @@ import AppointmentList from "../pages/Dashboard/Appointment/AppointmentList";
 import AppointmentDetails from "../pages/Dashboard/Appointment/AppointmentDetails";
 import RescheduleAppointment from "../pages/Dashboard/Appointment/RescheduleAppointment";
 import TreatmentPackageList from "../pages/Dashboard/Manager/TreatmentPackageAdmin/TreatmentPackageList";
+import ResourceManagement from "../pages/Dashboard/Manager/ResourceAdmin/ResourceManagement";
+import CreateStaff from "../pages/Dashboard/Manager/StaffAdmin/CreateStaff";
+import StaffDetail from "../pages/Dashboard/Manager/StaffAdmin/StaffDetail";
+import EditStaffProfile from "../pages/Dashboard/Manager/StaffAdmin/EditStaffProfile";
+import CreateInvoice from "../pages/Dashboard/Receptionist/CreateInvoice";
 
-// Nhóm 5 chức năng mới
+// Nhóm 5 chức năng mới (Iteration 2)
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
 import UpdateServiceStatus from "../pages/Dashboard/Manager/UpdateServiceStatus";
 import UpdateRoomBedStatus from "../pages/Dashboard/Technician/UpdateRoomBedStatus";
 import RecordTreatmentOutcome from "../pages/Dashboard/Technician/RecordTreatmentOutcome";
 import SellTreatmentPackage from "../pages/Dashboard/Receptionist/SellTreatmentPackage";
 
-<<<<<<< Updated upstream
-=======
 // Nhóm 4 chức năng Booking Management (Iteration 4 - Dat TT)
 import CheckSlotAvailability from "../pages/Dashboard/Appointment/CheckSlotAvailability";
 import CreateOnlineAppointment from "../pages/Dashboard/Appointment/CreateOnlineAppointment";
 import ReceptionistBookingDesk from "../pages/Dashboard/Receptionist/ReceptionistBookingDesk";
 
-// Nhóm 7 chức năng mới (Iteration 5 - Voucher & Birthday Promotion)
+// Nhóm chức năng mới (Voucher, Birthday Promotion & Treatment Profile - Hien LNM)
 import VoucherList from "../pages/Dashboard/Manager/VoucherManagement/VoucherList";
 import BirthdayPromotion from "../pages/Dashboard/Manager/BirthdayPromotion/BirthdayPromotion";
 import CustomerTreatmentProfile from "../pages/Dashboard/Manager/CustomerTreatmentProfile/CustomerTreatmentProfile";
 
->>>>>>> Stashed changes
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
 const ProtectedRoute = ({ user, allowedRoles, children }) => {
@@ -92,9 +97,9 @@ const GuestLayout = () => {
 };
 
 const DashboardLayout = ({ user }) => {
-  if (!user) return <Navigate to="/bssms-guest" replace />;
-
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  if (!user) return <Navigate to="/bssms-guest" replace />;
 
   return (
     <div
@@ -126,19 +131,22 @@ export default function AppRoutes({ user, setUser }) {
         <Route path="/bssms-guest" element={<GuestHome />} />
         <Route path="/" element={<Navigate to="/bssms-guest" replace />} />
         <Route path="/login" element={<Login setUser={setUser} />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<Register />} />
         <Route
           path="/update-profile"
           element={<CreateProfile setUser={setUser} />}
         />
 
-        {/* Guest được phép View Services & View Other Customers' Feedback */}
+        {/* Guest được phép View Services, View Other Customers' Feedback & Check Slot Availability */}
         <Route path="/guest/services" element={<ServiceList />} />
         <Route
           path="/guest/services/:id"
           element={<ServiceForm isReadOnly={true} />}
         />
         <Route path="/guest/feedback" element={<PublicFeedbackList />} />
+        <Route path="/guest/slots" element={<CheckSlotAvailability />} />
       </Route>
 
       {/* NHÁNH 2: KHUNG ĐÃ ĐĂNG NHẬP (CÓ SIDEBAR) */}
@@ -215,9 +223,8 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- RECEPTIONIST: TẠO KHÁCH VÃNG LAI --- */}
         <Route
-          path="/receptionist/create"
+          path="/receptionist/create-walkin"
           element={
             <ProtectedRoute user={user} allowedRoles={["Receptionist"]}>
               <CreateWalkInCustomer />
@@ -234,16 +241,59 @@ export default function AppRoutes({ user, setUser }) {
               user={user}
               allowedRoles={["Receptionist", "Manager"]}
             >
-              <CustomerList />
+              <CustomerList user={user} />
             </ProtectedRoute>
           }
         />
+
+        {/* Update Customer Account: Receptionist & Manager */}
+        <Route
+          path="/customers/edit/:id"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
+              <EditCustomerProfile user={user} />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Staff List: Chỉ Manager */}
         <Route
           path="/staffs"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <StaffList />
+              <StaffList user={user} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Staff Detail: Xem chi tiết nhân viên (Chỉ Manager) */}
+        <Route
+          path="/staffs/detail/:id"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <StaffDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Create Staff: Tạo tài khoản nhân viên (Chỉ Manager) */}
+        <Route
+          path="/manager/create-staff"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <CreateStaff />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/staffs/edit/:id"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <EditStaffProfile user={user} />
             </ProtectedRoute>
           }
         />
@@ -335,20 +385,43 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO) --- */}
+        {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO - KHANHLTQ) --- */}
+        {/* 1. Trang Quản lý Sản phẩm (Manager) */}
         <Route
           path="/manager/products"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <ProductList />
+              <ProductList user={user} />
             </ProtectedRoute>
           }
         />
+
+        {/* 2. Trang Bán lẻ sản phẩm POS (Receptionist & Manager) */}
+        <Route
+          path="/products"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+              <ProductList user={user} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3. Trang Quản lý Nhà cung cấp (Manager) */}
         <Route
           path="/manager/suppliers"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
               <SupplierList />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- RESOURCE MANAGEMENT (QUẢN LÝ TÀI NGUYÊN) --- */}
+        <Route
+          path="/manager/resources"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <ResourceManagement />
             </ProtectedRoute>
           }
         />
@@ -411,8 +484,7 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- 5 CHỨC NĂNG MỚI --- */}
-
+        {/* --- 5 CHỨC NĂNG MỚI (ITERATION 2) --- */}
         {/* 1. View Treatment Status - Tất cả role */}
         <Route
           path="/treatment-status"
@@ -435,318 +507,14 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
-    return (
-        <Routes>
-            {/* NHÁNH 1: KHÁCH VÃNG LAI (GUEST) */}
-            <Route element={<GuestLayout />}>
-                <Route path="/bssms-guest" element={<GuestHome />} />
-                <Route path="/" element={<Navigate to="/bssms-guest" replace />} />
-                <Route path="/login" element={<Login setUser={setUser} />} />
-                <Route path="/register" element={<Register />} />
-                <Route
-                    path="/update-profile"
-                    element={<CreateProfile setUser={setUser} />}
-                />
-
-                {/* Theo bảng: Guest được phép View Services & View Other Customers' Feedback */}
-                {/* Bạn có thể tạo 2 trang public riêng ở đây nếu muốn Guest xem mà không cần Sidebar */}
-                <Route path="/guest/services" element={<ServiceList />} />
-                <Route
-                    path="/guest/services/:id"
-                    element={<ServiceForm isReadOnly={true} />}
-                />
-                <Route path="/guest/feedback" element={<PublicFeedbackList />} />
-            </Route>
-
-            {/* NHÁNH 2: KHUNG ĐÃ ĐĂNG NHẬP (CÓ SIDEBAR) */}
-            <Route element={<DashboardLayout user={user} />}>
-                {/* View Profile: Tất cả các Role nội bộ */}
-                <Route
-                    path="/profile"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={[
-                                "Customer",
-                                "Manager",
-                                "Receptionist",
-                                "Technician",
-                            ]}
-                        >
-                            <Profile user={user} setUser={setUser} />
-                        </ProtectedRoute>
-                    }
-                />
-
-                <Route
-                    path="/change-password"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={[
-                                "Customer",
-                                "Manager",
-                                "Receptionist",
-                                "Technician",
-                            ]}
-                        >
-                            <ChangePassword />
-                        </ProtectedRoute>
-                    }
-                />
-
-                <Route
-                    path="/edit-profile"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={[
-                                "Customer",
-                                "Manager",
-                                "Receptionist",
-                                "Technician",
-                            ]}
-                        >
-                            <EditProfile user={user} setUser={setUser} />
-                        </ProtectedRoute>
-                    }
-                />
-
-    // Cho phép cả 4 vai trò truy cập
-                <Route path="/treatment-packages" element={
-                    <ProtectedRoute user={user} allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}>
-                        <TreatmentPackageList />
-                    </ProtectedRoute>
-                } />
-
-                {/* --- TRANG CHỦ THEO ROLE --- */}
-                <Route path="/customer/home" element={<ProtectedRoute user={user} allowedRoles={["Customer"]}><CustomerHome /></ProtectedRoute>} />
-                <Route path="/manager/dashboard" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><ManagerDashboard /></ProtectedRoute>} />
-                <Route path="/receptionist/dashboard" element={<ProtectedRoute user={user} allowedRoles={["Receptionist"]}><ReceptionistDashboard /></ProtectedRoute>} />
-                <Route path="/technician/dashboard" element={<ProtectedRoute user={user} allowedRoles={["Technician"]}><TechnicianDashboard /></ProtectedRoute>} />
-
-                <Route
-                    path="/receptionist/create"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Receptionist"]}>
-                            <CreateWalkInCustomer />
-                        </ProtectedRoute>
-                    }
-                />
-
-                <Route
-                    path="/technician/dashboard"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Technician"]}>
-                            <TechnicianDashboard />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* --- ACCOUNT MANAGEMENT --- */}
-                {/* View Customer Account: Chỉ Receptionist & Manager */}
-                <Route
-                    path="/customers"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={["Receptionist", "Manager"]}
-                        >
-                            <CustomerList />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/staffs"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-                            <StaffList />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* --- SERVICE CATALOG --- */}
-                {/* View Services: Ai đăng nhập cũng xem được */}
-                <Route
-                    path="/services"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={[
-                                "Customer",
-                                "Receptionist",
-                                "Technician",
-                                "Manager",
-                            ]}
-                        >
-                            <ServiceList />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* THÊM DÒNG NÀY: Xem chi tiết dịch vụ (Chỉ đọc) dành cho các role không phải Manager */}
-                <Route
-                    path="/services/detail/:id"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={[
-                                "Customer",
-                                "Receptionist",
-                                "Technician",
-                                "Manager",
-                            ]}
-                        >
-                            <ServiceForm isReadOnly={true} />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* Create Service: Theo bảng chỉ có Manager có quyền tạo (Dấu X ở cột M và P) */}
-                <Route
-                    path="/services/new"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-                            <ServiceForm />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* Update Service: Theo bảng CHỈ có Manager có quyền sửa (Dấu X ở cột P) */}
-                <Route
-                    path="/services/edit/:id"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-                            <ServiceForm />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* --- FEEDBACK & REVIEW --- */}
-                {/* View Other Feedback: Customer, Receptionist, Manager (Technician KHÔNG có quyền xem) */}
-                <Route
-                    path="/feedback"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={["Customer", "Receptionist", "Manager"]}
-                        >
-                            <PublicFeedbackList />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* Các thao tác cá nhân (Create/Update/Delete Feedback): Chỉ dành cho Customer */}
-                <Route
-                    path="/my-feedback"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Customer"]}>
-                            <MyFeedbackList />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/feedback/new"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Customer"]}>
-                            <FeedbackForm />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/feedback/edit/:id"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Customer"]}>
-                            <FeedbackForm />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO) --- */}
-                <Route
-                    path="/manager/products"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-                            <ProductList />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/manager/suppliers"
-                    element={
-                        <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-                            <SupplierList />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* Xem danh sách lịch hẹn: Cho phép Customer, Receptionist, Technician, Manager */}
-                <Route
-                    path="/appointments/create"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={["Receptionist", "Manager"]}
-                        >
-                            <CreateWalkInAppointment />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/appointments"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={[
-                                "Customer",
-                                "Receptionist",
-                                "Technician",
-                                "Manager",
-                            ]}
-                        >
-                            {<AppointmentList />}
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/appointments/:id"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={[
-                                "Customer",
-                                "Receptionist",
-                                "Technician",
-                                "Manager",
-                            ]}
-                        >
-                            <AppointmentDetails />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/appointments/:id/reschedule"
-                    element={
-                        <ProtectedRoute
-                            user={user}
-                            allowedRoles={[
-                                "Customer",
-                                "Receptionist",
-                                "Technician",
-                                "Manager",
-                            ]}
-                        >
-                            <RescheduleAppointment />
-                        </ProtectedRoute>
-                    }
-                />
-
-                {/* Các thao tác cá nhân (Create/Update/Delete Feedback): Chỉ dành cho Customer */}
-                <Route path="/my-feedback" element={<ProtectedRoute user={user} allowedRoles={["Customer"]}><MyFeedbackList /></ProtectedRoute>} />
-                <Route path="/feedback/new" element={<ProtectedRoute user={user} allowedRoles={["Customer"]}><FeedbackForm /></ProtectedRoute>} />
-                <Route path="/feedback/edit/:id" element={<ProtectedRoute user={user} allowedRoles={["Customer"]}><FeedbackForm /></ProtectedRoute>} />
-
-        {/* 3. Update Room & Bed Status - Manager, Receptionist, Technician */}
+        <Route
+          path="/appointments/create"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+              <CreateWalkInAppointment />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/update-room-bed-status"
           element={
@@ -758,41 +526,36 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
-
-        {/* 4. Record Treatment Outcomes - Manager, Technician */}
         <Route
           path="/record-treatment-outcome"
           element={
-            <ProtectedRoute
-              user={user}
-              allowedRoles={["Manager", "Technician"]}
-            >
+            <ProtectedRoute user={user} allowedRoles={["Manager", "Technician"]}>
               <RecordTreatmentOutcome />
             </ProtectedRoute>
           }
         />
-
-        {/* 5. Sell Treatment Package - Manager, Receptionist */}
         <Route
           path="/sell-treatment-package"
           element={
-            <ProtectedRoute
-              user={user}
-              allowedRoles={["Manager", "Receptionist"]}
-            >
+            <ProtectedRoute user={user} allowedRoles={["Manager", "Receptionist"]}>
               <SellTreatmentPackage />
             </ProtectedRoute>
           }
         />
-                {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO) --- */}
-                <Route path="/manager/products" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><ProductList /></ProtectedRoute>} />
-                <Route path="/manager/suppliers" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><SupplierList /></ProtectedRoute>} />
 
-                {/* --- TREATMENT PACKAGE MANAGEMENT (QUẢN LÝ GÓI LIỆU TRÌNH) --- */}
-                <Route path="/manager/treatment-packages" element={<ProtectedRoute user={user} allowedRoles={["Manager"]}><TreatmentPackageList /></ProtectedRoute>} />
+        {/* --- BILLING & COMMISSION (KHANH ND) --- */}
+        <Route
+          path="/invoices/create"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist"]}
+            >
+              <CreateInvoice />
+            </ProtectedRoute>
+          }
+        />
 
-<<<<<<< Updated upstream
-=======
         {/* --- 4 CHỨC NĂNG BOOKING MANAGEMENT (ITERATION 4 - DAT TT) --- */}
 
         {/* 1. Check Slot Availability: Customer & Receptionist (Guest xem ở /guest/slots) */}
@@ -828,7 +591,7 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- 7 CHỨC NĂNG MỚI (ITERATION 5 - VOUCHER & BIRTHDAY PROMOTION) --- */}
+        {/* --- NHÓM CHỨC NĂNG VOUCHER, BIRTHDAY PROMOTION & TREATMENT PROFILE (HIEN LNM) --- */}
 
         {/* 1. View/Manage Vouchers: Manager & Receptionist */}
         <Route
@@ -878,7 +641,6 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
->>>>>>> Stashed changes
       </Route>
     </Routes>
   );

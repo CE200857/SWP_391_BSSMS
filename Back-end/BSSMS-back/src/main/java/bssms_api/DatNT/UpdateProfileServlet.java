@@ -105,9 +105,11 @@ public class UpdateProfileServlet extends HttpServlet {
             String standardizedName = formatFullName(fullName);
             ProfileDAO dao = new ProfileDAO();
             
-            if (dao.isUsernameTaken(username, accountId)) {
+            String duplicateField = dao.checkDuplicate(username, null, phone, accountId);
+            
+            if (duplicateField != null) {
                 response.setStatus(HttpServletResponse.SC_CONFLICT);
-                out.print("{\"message\": \"Tên đăng nhập này đã được người khác sử dụng!\"}");
+                out.print("{\"message\": \"" + duplicateField + " này đã được người khác sử dụng!\"}");
                 out.flush();
                 return;
             }

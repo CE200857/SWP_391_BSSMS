@@ -31,4 +31,21 @@ public class PasswordDAO extends DBContext {
         }
         return false;
     }
+    
+    public boolean resetPasswordByEmail(String email, String newPasswordHashed) {
+        String updateSql = "UPDATE Account SET password = ? WHERE email = ?";
+        try {
+            if (conn != null) {
+                PreparedStatement psUpdate = conn.prepareStatement(updateSql);
+                psUpdate.setString(1, newPasswordHashed);
+                psUpdate.setString(2, email);
+                
+                int rowsAffected = psUpdate.executeUpdate();
+                return rowsAffected > 0;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

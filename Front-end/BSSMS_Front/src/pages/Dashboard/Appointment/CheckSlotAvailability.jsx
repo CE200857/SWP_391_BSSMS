@@ -1,0 +1,291 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  Container,
+  Card,
+  Row,
+  Col,
+  Form,
+  Button,
+  Badge,
+  Spinner,
+  Alert,
+} from "react-bootstrap";
+
+const getTodayString = () => {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, "0");
+  const d = String(today.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const CheckSlotAvailability = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Nếu đang truy cập từ đường dẫn /guest/slots thì luôn coi là Guest (bắt buộc qua Login)
+  const isGuestRoute = location.pathname.startsWith("/guest");
+  const storedUser = localStorage.getItem("user");
+  const user = !isGuestRoute && storedUser ? JSON.parse(storedUser) : null;
+  const role = user?.role || "Guest";
+
+  const [services, setServices] = useState([]);
+  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
+  const [selectedTechId, setSelectedTechId] = useState("");
+
+  const [slotData, setSlotData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Tải danh sách dịch vụ đang hoạt động
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        const res = await fetch("/api/service", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          const activeList = Array.isArray(data)
+            ? data.filter((s) => s.status?.toLowerCase() === "active")
+            : [];
+          setServices(activeList);
+          if (activeList.length > 0) {
+            setSelectedServiceId(String(activeList[0].serviceId));
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi tải danh sách dịch vụ:", err);
+      }
+    };
+    loadServices();
+  }, []);
+
+  // Tự động tra cứu lịch trống khi thay đổi Dịch vụ, Ngày hoặc KTV
+  useEffect(() => {
+    if (!selectedServiceId || !selectedDate) return;
+
+    const fetchSlots = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const params = new URLSearchParams({
+          serviceId: selectedServiceId,
+          date: selectedDate,
+        });
+        if (selectedTechId) {
+          params.append("technicianId", selectedTechId);
+        }
+
+        const res = await fetch(`/api/booking/slots?${params.toString()}`, {
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setSlotData(data);
+        } else {
+          setError(data.message || "Không thể kiểm tra lịch trống.");
+        }
+      } catch {
+        setError("Lỗi kết nối máy chủ khi kiểm tra lịch trống.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSlots();
+  }, [selectedServiceId, selectedDate, selectedTechId]);
+
+  const handleSelectSlot = (slot) => {
+    if (!slot.available) return;
+
+    const chosenSlot = {
+      serviceId: String(selectedServiceId),
+      appointmentDate: selectedDate,
+      startTime: slot.startTime,
+      technicianId: selectedTechId || "",
+    };
+
+    // Nếu đang ở trang Guest (/guest/slots) hoặc chưa đăng nhập -> Lưu slot và chuyển qua /login trước
+    if (role === "Guest") {
+      localStorage.removeItem("user");
+      sessionStorage.setItem("bssms.pendingBooking", JSON.stringify(chosenSlot));
+      navigate("/login");
+      return;
+    }
+
+    if (role === "Customer") {
+      navigate("/appointments/online", { state: chosenSlot });
+    } else if (role === "Receptionist" || role === "Manager") {
+      sessionStorage.setItem(
+        "bssms.walkInAppointmentDraft",
+        JSON.stringify({
+          formData: {
+            customerId: "",
+            ...chosenSlot,
+            notes: "",
+          },
+          customerSearch: "",
+        })
+      );
+      navigate("/appointments/create");
+    }
+  };
+
+  return (
+    <Container fluid className="py-4 px-4">
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+          <h2 className="fw-bold text-uppercase mb-1" style={{ color: "#800020" }}>
+            <i className="bi bi-calendar2-week me-2"></i>Tra cứu lịch trống (Slot Availability)
+          </h2>
+          <p className="text-muted mb-0">
+            Kiểm tra các khung giờ còn trống theo dịch vụ, ngày hẹn và kỹ thuật viên.
+          </p>
+        </div>
+
+        {role === "Guest" && (
+          <Button
+            variant="outline-danger"
+            onClick={() => navigate("/bssms-guest")}
+          >
+            <i className="bi bi-house-door me-1"></i> Trang chủ
+          </Button>
+        )}
+      </div>
+
+      {/* Bộ lọc tra cứu */}
+      <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "14px" }}>
+        <Card.Body className="p-4">
+          <Row className="g-3 align-items-end">
+            <Col md={5}>
+              <Form.Group>
+                <Form.Label className="fw-bold">Chọn dịch vụ *</Form.Label>
+                <Form.Select
+                  value={selectedServiceId}
+                  onChange={(e) => {
+                    setSelectedServiceId(e.target.value);
+                    setSelectedTechId("");
+                  }}
+                >
+                  {services.map((s) => (
+                    <option key={s.serviceId} value={s.serviceId}>
+                      {s.serviceName} ({s.duration} phút -{" "}
+                      {Number(s.price).toLocaleString("vi-VN")} ₫)
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+
+            <Col md={3}>
+              <Form.Group>
+                <Form.Label className="fw-bold">Ngày hẹn *</Form.Label>
+                <Form.Control
+                  type="date"
+                  min={getTodayString()}
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+              </Form.Group>
+            </Col>
+
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label className="fw-bold">Kỹ thuật viên (Tùy chọn)</Form.Label>
+                <Form.Select
+                  value={selectedTechId}
+                  onChange={(e) => setSelectedTechId(e.target.value)}
+                >
+                  <option value="">-- Tất cả kỹ thuật viên --</option>
+                  {slotData?.technicians?.map((t) => (
+                    <option key={t.staffId} value={t.staffId}>
+                      {t.fullName}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+
+      {error && <Alert variant="danger">{error}</Alert>}
+
+      {loading ? (
+        <div className="text-center py-5">
+          <Spinner animation="border" variant="danger" />
+          <p className="mt-2 text-muted">Đang tính toán các khung giờ trống...</p>
+        </div>
+      ) : slotData ? (
+        <Card className="shadow-sm border-0" style={{ borderRadius: "14px" }}>
+          <Card.Header className="d-flex flex-wrap justify-content-between align-items-center py-3">
+            <div>
+              <span className="fw-bold fs-5">{slotData.serviceName}</span>
+              <Badge bg="primary" className="ms-2">
+                Thời lượng: {slotData.duration} phút
+              </Badge>
+            </div>
+            <div className="d-flex gap-3 small">
+              <span>
+                <Badge bg="success" className="me-1">&nbsp;</Badge> Còn chỗ trống
+              </span>
+              <span>
+                <Badge bg="secondary" className="me-1">&nbsp;</Badge> Đã kín lịch
+              </span>
+            </div>
+          </Card.Header>
+
+          <Card.Body className="p-4">
+            <Row className="g-3">
+              {slotData.slots?.map((slot) => (
+                <Col key={slot.startTime} xs={6} sm={4} md={3} lg={2}>
+                  <Card
+                    onClick={() => handleSelectSlot(slot)}
+                    className={`h-100 text-center border ${
+                      slot.available
+                        ? "border-success shadow-sm"
+                        : "bg-light text-muted opacity-75"
+                    }`}
+                    style={{
+                      cursor: slot.available ? "pointer" : "not-allowed",
+                      borderRadius: "12px",
+                    }}
+                  >
+                    <Card.Body className="p-3">
+                      <div className="fw-bold fs-5 mb-1">
+                        {slot.startTime} - {slot.endTime}
+                      </div>
+                      {slot.available ? (
+                        <>
+                          <Badge bg="success" className="mb-2">
+                            Còn trống
+                          </Badge>
+                          <div className="small text-muted">
+                            <i className="bi bi-person-check me-1"></i>
+                            {slot.availableTechnicianCount} KTV rảnh
+                          </div>
+                          <div className="small text-primary fw-semibold mt-1">
+                            {role === "Customer"
+                              ? "Nhấn để đặt online →"
+                              : role === "Receptionist" || role === "Manager"
+                              ? "Tạo lịch tại quầy →"
+                              : "Đăng nhập để đặt →"}
+                          </div>
+                        </>
+                      ) : (
+                        <Badge bg="secondary">Hết chỗ</Badge>
+                      )}
+                    </Card.Body>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          </Card.Body>
+        </Card>
+      ) : null}
+    </Container>
+  );
+};
+
+export default CheckSlotAvailability;
