@@ -194,6 +194,10 @@ public class CustomerDAO extends DBContext {
         if (username != null && username.trim().isEmpty()) username = null;
         if (email != null && email.trim().isEmpty()) email = null;
         if (phone != null && phone.trim().isEmpty()) phone = null;
+        
+        if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
+            return "Email (Trùng với email hệ thống)";
+        }
 
         String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
         

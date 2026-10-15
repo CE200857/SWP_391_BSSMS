@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import bssms_persistence.DatNT.ProfileDAO;
 import bssms_persistence.DatNT.RegisterDAO;
+import bssms_security.EmailUtil;
 import bssms_security.PasswordUtil;
 
 import java.io.IOException;
@@ -34,14 +35,16 @@ public class ProfileServlet extends HttpServlet {
     }
 
     private String formatFullName(String name) {
-        if (name == null || name.trim().isEmpty()) return "";
+        if (name == null || name.trim().isEmpty()) {
+            return "";
+        }
         String[] words = name.trim().split("\\s+");
         StringBuilder formatted = new StringBuilder();
         for (String word : words) {
             if (word.length() > 0) {
                 formatted.append(Character.toUpperCase(word.charAt(0)))
-                         .append(word.substring(1).toLowerCase())
-                         .append(" ");
+                        .append(word.substring(1).toLowerCase())
+                        .append(" ");
             }
         }
         return formatted.toString().trim();
@@ -151,6 +154,49 @@ public class ProfileServlet extends HttpServlet {
                 return;
             }
 
+            ProfileDAO dao = new ProfileDAO();
+            RegisterDAO authDao = new RegisterDAO();
+            String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : "";
+
+            if (uri.endsWith("/update-profile") && "send-email-code".equals(action)) {
+                if (!"Customer".equals(role)) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    out.print("{\"message\": \"Chỉ khách hàng mới được phép đổi email tại đây!\"}");
+                    out.flush();
+                    return;
+                }
+
+                String newEmail = jsonObject.has("email") ? jsonObject.get("email").getAsString().trim() : "";
+                if (!newEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"message\": \"Email mới không đúng định dạng!\"}");
+                    out.flush();
+                    return;
+                }
+
+                String duplicateField = dao.checkDuplicate(null, newEmail, null, accountId);
+                if (duplicateField != null) {
+                    response.setStatus(HttpServletResponse.SC_CONFLICT);
+                    out.print("{\"message\": \"" + duplicateField + " này đã được tài khoản khác sử dụng!\"}");
+                    out.flush();
+                    return;
+                }
+
+                String otp = EmailUtil.generateOTP();
+                if (!authDao.saveVerificationCode(newEmail, otp)) {
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    out.print("{\"message\": \"Không thể tạo mã xác thực. Vui lòng thử lại!\"}");
+                    out.flush();
+                    return;
+                }
+
+                EmailUtil.sendOTP(newEmail, otp, "[BSSMS] Mã xác thực thay đổi Email");
+                response.setStatus(HttpServletResponse.SC_OK);
+                out.print("{\"message\": \"Mã xác thực đã được gửi tới Email mới của bạn!\"}");
+                out.flush();
+                return;
+            }
+
             String fullName = jsonObject.get("fullName").getAsString().trim();
             String phone = jsonObject.get("phone").getAsString().trim();
 
@@ -168,7 +214,6 @@ public class ProfileServlet extends HttpServlet {
             }
 
             String standardizedName = formatFullName(fullName);
-            ProfileDAO dao = new ProfileDAO();
 
             if (uri.endsWith("/update-profile")) {
                 String username = jsonObject.has("username") ? jsonObject.get("username").getAsString().trim() : "";
@@ -179,7 +224,27 @@ public class ProfileServlet extends HttpServlet {
                     return;
                 }
 
-                String duplicateField = dao.checkDuplicate(username, null, phone, accountId);
+                Map<String, Object> currentProfile = dao.getProfileByAccountId(accountId, role);
+                String currentEmail = currentProfile.get("email") != null ? currentProfile.get("email").toString().trim() : "";
+                String newEmail = jsonObject.has("email") ? jsonObject.get("email").getAsString().trim() : currentEmail;
+
+                boolean isEmailChanged = "Customer".equals(role) && !newEmail.equalsIgnoreCase(currentEmail);
+
+                if (isEmailChanged) {
+                    if (!newEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        out.print("{\"message\": \"Email mới không đúng định dạng!\"}");
+                        out.flush();
+                        return;
+                    }
+                }
+
+                String duplicateField = dao.checkDuplicate(
+                        username,
+                        "Customer".equals(role) ? newEmail : null,
+                        phone,
+                        accountId
+                );
                 if (duplicateField != null) {
                     response.setStatus(HttpServletResponse.SC_CONFLICT);
                     out.print("{\"message\": \"" + duplicateField + " này đã được người khác sử dụng!\"}");
@@ -187,17 +252,33 @@ public class ProfileServlet extends HttpServlet {
                     return;
                 }
 
+                if (isEmailChanged) {
+                    String verificationCode = jsonObject.has("verificationCode")
+                            ? jsonObject.get("verificationCode").getAsString().trim()
+                            : "";
+                    if (verificationCode.isEmpty() || !authDao.verifyCode(newEmail, verificationCode)) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        out.print("{\"message\": \"Mã xác thực Email không chính xác hoặc đã hết hạn!\"}");
+                        out.flush();
+                        return;
+                    }
+                }
+
                 boolean isUpdated;
                 if ("Customer".equals(role)) {
                     String dob = jsonObject.get("dob").getAsString();
                     String gender = jsonObject.get("gender").getAsString();
                     String address = jsonObject.get("address").getAsString();
-                    isUpdated = dao.updateCustomerProfile(accountId, standardizedName, dob, gender, phone, address, username);
+                    isUpdated = dao.updateCustomerProfile(accountId, standardizedName, dob, gender, phone, address, username, newEmail);
                 } else {
                     isUpdated = dao.updateStaffProfile(accountId, standardizedName, phone, username);
                 }
 
                 if (isUpdated) {
+                    if (isEmailChanged) {
+                        authDao.deleteVerificationCode(newEmail);
+                        user.put("email", newEmail);
+                    }
                     user.put("fullName", standardizedName);
                     user.put("username", username);
                     session.setAttribute("user", user);
