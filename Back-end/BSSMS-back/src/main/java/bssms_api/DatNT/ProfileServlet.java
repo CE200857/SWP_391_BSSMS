@@ -3,6 +3,9 @@ package bssms_api.DatNT;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import bssms_persistence.DatNT.ProfileDAO;
+import bssms_persistence.DatNT.RegisterDAO;
+import bssms_security.PasswordUtil;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Map;
@@ -14,18 +17,22 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-@WebServlet(name = "ProfileServlet", urlPatterns = {"/api/profile"})
+@WebServlet(name = "ProfileServlet", urlPatterns = {
+    "/api/profile",
+    "/api/update-profile",
+    "/api/change-password"
+})
 public class ProfileServlet extends HttpServlet {
 
     private Gson gson = new Gson();
 
     private void setAccessControlHeaders(HttpServletResponse resp) {
-        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); 
-        resp.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS"); // Thêm POST
+        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        resp.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
         resp.setHeader("Access-Control-Allow-Headers", "Content-Type");
-        resp.setHeader("Access-Control-Allow-Credentials", "true"); // Thêm dòng này để xử lý Session
+        resp.setHeader("Access-Control-Allow-Credentials", "true");
     }
-    
+
     private String formatFullName(String name) {
         if (name == null || name.trim().isEmpty()) return "";
         String[] words = name.trim().split("\\s+");
@@ -40,6 +47,15 @@ public class ProfileServlet extends HttpServlet {
         return formatted.toString().trim();
     }
 
+    private int extractAccountId(Map<String, Object> user) {
+        if (user.containsKey("account_id")) {
+            return ((Number) user.get("account_id")).intValue();
+        } else if (user.containsKey("accountId")) {
+            return ((Number) user.get("accountId")).intValue();
+        }
+        return -1;
+    }
+
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         setAccessControlHeaders(resp);
@@ -52,14 +68,14 @@ public class ProfileServlet extends HttpServlet {
         setAccessControlHeaders(response);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        
+
         try {
             int accountId = Integer.parseInt(request.getParameter("accountId"));
             String role = request.getParameter("role");
 
             ProfileDAO dao = new ProfileDAO();
             Map<String, Object> profile = dao.getProfileByAccountId(accountId, role);
-            
+
             PrintWriter out = response.getWriter();
             if (profile != null && !profile.isEmpty()) {
                 response.setStatus(HttpServletResponse.SC_OK);
@@ -94,28 +110,56 @@ public class ProfileServlet extends HttpServlet {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> user = (Map<String, Object>) session.getAttribute("user");
-            
-            int accountId = -1;
-            if (user.containsKey("account_id")) {
-                accountId = ((Number) user.get("account_id")).intValue();
-            } else if (user.containsKey("accountId")) {
-                accountId = ((Number) user.get("accountId")).intValue();
-            }
+            int accountId = extractAccountId(user);
+            String role = (String) user.get("role");
+            String uri = request.getRequestURI();
 
             JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
+
+            if (uri.endsWith("/change-password")) {
+                String oldPassword = jsonObject.get("oldPassword").getAsString();
+                String newPassword = jsonObject.get("newPassword").getAsString();
+
+                if (newPassword == null || newPassword.length() < 6) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"message\": \"Mật khẩu mới phải có ít nhất 6 ký tự!\"}");
+                    out.flush();
+                    return;
+                }
+                if (oldPassword.equals(newPassword)) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"message\": \"Mật khẩu mới không được trùng với mật khẩu hiện tại!\"}");
+                    out.flush();
+                    return;
+                }
+
+                RegisterDAO authDao = new RegisterDAO();
+                boolean isChanged = authDao.changePassword(
+                        accountId,
+                        PasswordUtil.hashMD5(oldPassword),
+                        PasswordUtil.hashMD5(newPassword)
+                );
+
+                if (isChanged) {
+                    response.setStatus(HttpServletResponse.SC_OK);
+                    out.print("{\"message\": \"Đổi mật khẩu thành công!\"}");
+                } else {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"message\": \"Mật khẩu hiện tại không chính xác!\"}");
+                }
+                out.flush();
+                return;
+            }
+
             String fullName = jsonObject.get("fullName").getAsString().trim();
             String phone = jsonObject.get("phone").getAsString().trim();
-            String dob = jsonObject.get("dob").getAsString();
-            String gender = jsonObject.get("gender").getAsString();
-            String address = jsonObject.get("address").getAsString();
-            
+
             if (fullName.split("\\s+").length < 2) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 out.print("{\"message\": \"Họ và tên bắt buộc phải có từ 2 từ trở lên!\"}");
                 out.flush();
                 return;
             }
-
             if (!phone.matches("^0[1-9]\\d{8}$")) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 out.print("{\"message\": \"Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0, số thứ hai khác 0)!\"}");
@@ -125,14 +169,65 @@ public class ProfileServlet extends HttpServlet {
 
             String standardizedName = formatFullName(fullName);
             ProfileDAO dao = new ProfileDAO();
-            
-            boolean isCreated = dao.createCustomerProfile(accountId, standardizedName, dob, gender, phone, address);
 
+            if (uri.endsWith("/update-profile")) {
+                String username = jsonObject.has("username") ? jsonObject.get("username").getAsString().trim() : "";
+                if (username.length() < 3 || username.contains(" ")) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"message\": \"Tên đăng nhập phải có ít nhất 3 ký tự và không chứa khoảng trắng!\"}");
+                    out.flush();
+                    return;
+                }
+
+                String duplicateField = dao.checkDuplicate(username, null, phone, accountId);
+                if (duplicateField != null) {
+                    response.setStatus(HttpServletResponse.SC_CONFLICT);
+                    out.print("{\"message\": \"" + duplicateField + " này đã được người khác sử dụng!\"}");
+                    out.flush();
+                    return;
+                }
+
+                boolean isUpdated;
+                if ("Customer".equals(role)) {
+                    String dob = jsonObject.get("dob").getAsString();
+                    String gender = jsonObject.get("gender").getAsString();
+                    String address = jsonObject.get("address").getAsString();
+                    isUpdated = dao.updateCustomerProfile(accountId, standardizedName, dob, gender, phone, address, username);
+                } else {
+                    isUpdated = dao.updateStaffProfile(accountId, standardizedName, phone, username);
+                }
+
+                if (isUpdated) {
+                    user.put("fullName", standardizedName);
+                    user.put("username", username);
+                    session.setAttribute("user", user);
+                    response.setStatus(HttpServletResponse.SC_OK);
+                    out.print(gson.toJson(user));
+                } else {
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    out.print("{\"message\": \"Không thể lưu thông tin. Vui lòng thử lại!\"}");
+                }
+                out.flush();
+                return;
+            }
+
+            String dob = jsonObject.get("dob").getAsString();
+            String gender = jsonObject.get("gender").getAsString();
+            String address = jsonObject.get("address").getAsString();
+
+            String duplicateField = dao.checkDuplicate(null, null, phone, accountId);
+            if (duplicateField != null) {
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                out.print("{\"message\": \"" + duplicateField + " này đã được sử dụng bởi tài khoản khác!\"}");
+                out.flush();
+                return;
+            }
+
+            boolean isCreated = dao.createCustomerProfile(accountId, standardizedName, dob, gender, phone, address);
             if (isCreated) {
                 user.put("role", "Customer");
                 user.put("fullName", standardizedName);
                 session.setAttribute("user", user);
-                
                 response.setStatus(HttpServletResponse.SC_OK);
                 out.print(gson.toJson(user));
             } else {

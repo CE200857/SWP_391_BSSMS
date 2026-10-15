@@ -196,7 +196,7 @@ public class StaffServlet extends HttpServlet {
                     
                     StaffDAO dao = new StaffDAO();
                     
-                    String duplicateField = dao.checkDuplicate(username, email, phone, null);
+                    String duplicateField = dao.checkDuplicate(null, email, phone, null);
                     
                     if (duplicateField != null) {
                         response.setStatus(HttpServletResponse.SC_CONFLICT);

@@ -59,9 +59,11 @@ public class CustomerDAO extends DBContext {
         try {
             if (conn != null) {
                 conn.setAutoCommit(false);
+                
+                String finalUsername = getUniqueUsername(username);
 
                 PreparedStatement psAcc = conn.prepareStatement(insertAccount, java.sql.Statement.RETURN_GENERATED_KEYS);
-                psAcc.setString(1, username);
+                psAcc.setString(1, finalUsername);
                 psAcc.setString(2, bssms_security.PasswordUtil.hashMD5(password));
                 psAcc.setString(3, email);
                 psAcc.setString(4, phone);
@@ -189,6 +191,10 @@ public class CustomerDAO extends DBContext {
     }
     
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        if (username != null && username.trim().isEmpty()) username = null;
+        if (email != null && email.trim().isEmpty()) email = null;
+        if (phone != null && phone.trim().isEmpty()) phone = null;
+
         String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
         
         if (excludeAccountId != null) {
@@ -208,7 +214,7 @@ public class CustomerDAO extends DBContext {
                 
                 ResultSet rs = ps.executeQuery();
                 
-                if (rs.next()) {
+                while (rs.next()) {
                     String dbUsername = rs.getString("username");
                     String dbEmail = rs.getString("email");
                     String dbPhone = rs.getString("phone");
@@ -228,5 +234,28 @@ public class CustomerDAO extends DBContext {
             e.printStackTrace();
         }
         return null;
+    }
+    
+    private String getUniqueUsername(String baseUsername) {
+        String username = baseUsername;
+        int counter = 1;
+        String checkSql = "SELECT account_id FROM Account WHERE username = ?";
+        try {
+            if (conn != null) {
+                while (true) {
+                    PreparedStatement ps = conn.prepareStatement(checkSql);
+                    ps.setString(1, username);
+                    ResultSet rs = ps.executeQuery();
+                    if (!rs.next()) {
+                        break;
+                    }
+                    username = baseUsername + counter;
+                    counter++;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return username;
     }
 }
