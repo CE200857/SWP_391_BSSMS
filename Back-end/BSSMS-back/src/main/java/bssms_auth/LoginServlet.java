@@ -2,7 +2,7 @@ package bssms_auth;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import bssms_persistence.DatNT.LoginDAO;
+import bssms_persistence.DatNT.RegisterDAO;
 import bssms_security.PasswordUtil;
 
 import java.io.IOException;
@@ -16,21 +16,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-/**
- * 
- * @author Nguyen Tien Dat - CE200858
- */
-
-@WebServlet(name = "LoginServlet", urlPatterns = {"/api/login"})
+@WebServlet(name = "LoginServlet", urlPatterns = {"/api/login", "/api/logout"})
 public class LoginServlet extends HttpServlet {
 
     private Gson gson = new Gson();
 
     private void setAccessControlHeaders(HttpServletResponse resp) {
-        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); 
+        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
         resp.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         resp.setHeader("Access-Control-Allow-Headers", "Content-Type");
-        // THÊM DÒNG NÀY ĐỂ CHO PHÉP LƯU SESSION (COOKIE)
         resp.setHeader("Access-Control-Allow-Credentials", "true");
     }
 
@@ -46,13 +40,25 @@ public class LoginServlet extends HttpServlet {
         setAccessControlHeaders(response);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        
+
         PrintWriter out = response.getWriter();
-        
+        String uri = request.getRequestURI();
+
+        if (uri.endsWith("/logout")) {
+            HttpSession session = request.getSession(false);
+            if (session != null) {
+                session.invalidate();
+            }
+            response.setStatus(HttpServletResponse.SC_OK);
+            out.print("{\"message\": \"Đăng xuất thành công\"}");
+            out.flush();
+            return;
+        }
+
         try {
             JsonObject jsonObject = gson.fromJson(request.getReader(), JsonObject.class);
-            
-            String identifier = jsonObject.get("email").getAsString().trim(); 
+
+            String identifier = jsonObject.get("email").getAsString().trim();
             String rawPassword = jsonObject.get("password").getAsString();
 
             boolean isValidEmail = identifier.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
@@ -67,17 +73,17 @@ public class LoginServlet extends HttpServlet {
 
             String hashedPassword = PasswordUtil.hashMD5(rawPassword);
 
-            LoginDAO dao = new LoginDAO();
+            RegisterDAO dao = new RegisterDAO();
             Map<String, Object> user = dao.authenticateUser(identifier, hashedPassword);
-            
+
             if (user != null) {
                 if ("Inactive".equals(user.get("status"))) {
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     out.print("{\"message\": \"Tài khoản của bạn đã bị khóa hoặc chưa kích hoạt.\"}");
-                } else {             
+                } else {
                     HttpSession session = request.getSession(true);
                     session.setAttribute("user", user);
-                    
+
                     response.setStatus(HttpServletResponse.SC_OK);
                     out.print(gson.toJson(user));
                 }
@@ -88,7 +94,7 @@ public class LoginServlet extends HttpServlet {
             out.flush();
         } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+            out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
         }
     }
 }

@@ -1,20 +1,77 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, Form, Button, Alert } from "react-bootstrap";
+import { Card, Form, Button, Alert, InputGroup } from "react-bootstrap";
 import axios from "axios";
 
 const Register = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  const handleSendCode = async () => {
+    setError("");
+    setSuccessMsg("");
+
+    const trimmedEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError("Vui lòng nhập đúng định dạng Email trước khi gửi mã!");
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const response = await axios.post(
+        "/api/register",
+        {
+          action: "send-code",
+          username: username.trim(),
+          email: trimmedEmail,
+        },
+        { withCredentials: true },
+      );
+
+      if (response.status === 200) {
+        setIsCodeSent(true);
+        setCountdown(60);
+        setSuccessMsg("Mã xác thực đã được gửi tới Email của bạn!");
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Không thể gửi mã xác thực. Vui lòng thử lại!",
+      );
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccessMsg("");
 
     const trimmedUsername = username.trim();
     if (trimmedUsername.length < 3) {
@@ -32,6 +89,11 @@ const Register = () => {
       return;
     }
 
+    if (!isCodeSent || !verificationCode.trim()) {
+      setError("Vui lòng gửi và nhập mã xác thực Email!");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp!");
       return;
@@ -44,15 +106,15 @@ const Register = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post("api/register",
+      const response = await axios.post(
+        "/api/register",
         {
           username: trimmedUsername,
-          email: email,
+          email: email.trim(),
           password: password,
+          verificationCode: verificationCode.trim(),
         },
-        {
-          withCredentials: true,
-        },
+        { withCredentials: true },
       );
 
       if (response.status === 201) {
@@ -76,7 +138,7 @@ const Register = () => {
     >
       <Card
         className="p-4 shadow-sm"
-        style={{ width: "400px", borderRadius: "12px", border: "none" }}
+        style={{ width: "430px", borderRadius: "12px", border: "none" }}
       >
         <h3 className="text-center mb-4 fw-bold" style={{ color: "#3a2a2f" }}>
           ĐĂNG KÝ
@@ -85,6 +147,11 @@ const Register = () => {
         {error && (
           <Alert variant="danger" className="py-2 text-center fs-6">
             {error}
+          </Alert>
+        )}
+        {successMsg && (
+          <Alert variant="success" className="py-2 text-center fs-6">
+            {successMsg}
           </Alert>
         )}
 
@@ -107,13 +174,56 @@ const Register = () => {
             <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
               Email*
             </Form.Label>
+            <InputGroup>
+              <Form.Control
+                type="email"
+                placeholder="Vui lòng nhập email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setIsCodeSent(false);
+                }}
+                required
+                style={{ fontSize: "14px", padding: "10px" }}
+              />
+              <Button
+                variant={countdown > 0 ? "secondary" : "danger"}
+                onClick={handleSendCode}
+                disabled={isSendingCode || countdown > 0 || !email.trim()}
+                style={{
+                  backgroundColor: countdown > 0 ? undefined : "#a61e4d",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  width: "105px",
+                }}
+              >
+                {isSendingCode
+                  ? "Đang gửi"
+                  : countdown > 0
+                    ? `${countdown}s`
+                    : "Gửi mã"}
+              </Button>
+            </InputGroup>
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+              Mã xác thực Email*
+            </Form.Label>
             <Form.Control
-              type="email"
-              placeholder="Vui lòng nhập email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              placeholder="Nhập mã 6 chữ số"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              maxLength={6}
               required
-              style={{ fontSize: "14px", padding: "10px" }}
+              disabled={!isCodeSent}
+              style={{
+                fontSize: "14px",
+                padding: "10px",
+                backgroundColor: !isCodeSent ? "#e9ecef" : "white",
+              }}
             />
           </Form.Group>
 
@@ -149,12 +259,12 @@ const Register = () => {
             type="submit"
             className="w-100 fw-bold"
             style={{
-              backgroundColor: "#a61e4d", // Màu đỏ đô giống nút Đăng nhập
+              backgroundColor: "#a61e4d",
               border: "none",
               borderRadius: "6px",
               padding: "10px",
             }}
-            disabled={loading}
+            disabled={loading || !isCodeSent}
           >
             {loading ? "Đang xử lý..." : "Đăng ký"}
           </Button>
@@ -170,7 +280,7 @@ const Register = () => {
               color: "#0d6efd",
               cursor: "pointer",
             }}
-            onClick={() => navigate("/Login")}
+            onClick={() => navigate("/login")}
           >
             Đăng nhập
           </span>

@@ -227,6 +227,10 @@ public class StaffDAO extends DBContext {
     }
     
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        if (username != null && username.trim().isEmpty()) username = null;
+        if (email != null && email.trim().isEmpty()) email = null;
+        if (phone != null && phone.trim().isEmpty()) phone = null;
+
         String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
         
         if (excludeAccountId != null) {
@@ -246,7 +250,7 @@ public class StaffDAO extends DBContext {
                 
                 ResultSet rs = ps.executeQuery();
                 
-                if (rs.next()) {
+                while (rs.next()) {
                     String dbUsername = rs.getString("username");
                     String dbEmail = rs.getString("email");
                     String dbPhone = rs.getString("phone");
