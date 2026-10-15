@@ -12,8 +12,8 @@ import jakarta.mail.internet.MimeMessage;
 
 public class EmailUtil {
 
-    private static final String FROM_EMAIL = "your_email@gmail.com";
-    private static final String APP_PASSWORD = "xxxx xxxx xxxx xxxx";
+    public static final String FROM_EMAIL = "zonestevegamer1@gmail.com";
+    private static final String APP_PASSWORD = "fvlv fomk rurw ckts";
 
     public static String generateOTP() {
         Random rnd = new Random();
@@ -57,8 +57,9 @@ public class EmailUtil {
             Transport.send(message);
             return true;
         } catch (Exception e) {
+            e.printStackTrace();
             System.err.println("Không gửi được qua SMTP (hãy kiểm tra lại App Password), dùng mã ở Console để test: " + otpCode);
-            return true;
+            return false;
         }
     }
 }
