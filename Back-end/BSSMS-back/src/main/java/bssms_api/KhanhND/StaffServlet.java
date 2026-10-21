@@ -67,7 +67,7 @@ public class StaffServlet extends HttpServlet {
         out.flush();
     }
 
-    @Override
+   @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
@@ -79,27 +79,22 @@ public class StaffServlet extends HttpServlet {
             int staffId = Integer.parseInt(request.getParameter("id"));
 
             StaffDAO dao = new StaffDAO();
-
-            boolean isSuccess = dao.deactivateStaff(staffId);
+            boolean isSuccess = dao.deleteStaff(staffId);
 
             PrintWriter out = response.getWriter();
 
             if (isSuccess) {
-                out.print("{\"message\":\"Vô hiệu hóa tài khoản nhân viên thành công\",\"status\":200}");
+                out.print("{\"message\":\"Đã xóa vĩnh viễn hồ sơ và tài khoản nhân viên!\",\"status\":200}");
             } else {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                out.print("{\"message\":\"Không tìm thấy nhân viên để xóa\",\"status\":400}");
+                out.print("{\"message\":\"Không thể xóa nhân viên này!\",\"status\":400}");
             }
 
             out.flush();
 
         } catch (NumberFormatException e) {
-
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-
-            response.getWriter().print(
-                    "{\"message\":\"Thiếu hoặc sai định dạng Staff ID\"}"
-            );
+            response.getWriter().print("{\"message\":\"Thiếu hoặc sai định dạng Staff ID\"}");
         }
     }
 
@@ -147,6 +142,24 @@ public class StaffServlet extends HttpServlet {
             try {
                 com.google.gson.JsonObject jsonObject = gson.fromJson(request.getReader(), com.google.gson.JsonObject.class);
                 String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : null;
+                
+                if ("update-status".equals(action)) {
+                    int accountId = jsonObject.get("accountId").getAsInt();
+                    String status = jsonObject.get("status").getAsString();
+
+                    StaffDAO dao = new StaffDAO();
+                    boolean isUpdated = dao.updateStaffStatus(accountId, status);
+
+                    if (isUpdated) {
+                        response.setStatus(HttpServletResponse.SC_OK);
+                        out.print("{\"message\": \"Cập nhật trạng thái thành công!\"}");
+                    } else {
+                        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        out.print("{\"message\": \"Lỗi: Không thể cập nhật trạng thái!\"}");
+                    }
+                    out.flush();
+                    return;
+                }
                 
                 if ("update".equals(action)) {
                     int accountId = jsonObject.get("accountId").getAsInt();
