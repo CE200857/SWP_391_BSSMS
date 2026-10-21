@@ -2,6 +2,7 @@ package bssms_security;
 
 import java.io.IOException;
 import java.util.Map;
+
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -76,6 +77,7 @@ public class AuthorizationFilter implements Filter {
          */
         if (path.contains("/api/invoices")) {
             boolean isReceptionist = "Receptionist".equals(role);
+            boolean isManager = "Manager".equals(role);
 
             boolean isInvoiceSetupRequest
                     = "GET".equalsIgnoreCase(req.getMethod())
@@ -87,8 +89,21 @@ public class AuthorizationFilter implements Filter {
                     && (path.endsWith("/api/invoices")
                     || path.endsWith("/api/invoices/"));
 
+            boolean isRefundRequest
+                    = "POST".equalsIgnoreCase(req.getMethod())
+                    && path.matches(".*/api/invoices/\\d+/refund/?$");
+
+            boolean isCancelRequest
+                    = "POST".equalsIgnoreCase(req.getMethod())
+                    && path.matches(".*/api/invoices/\\d+/cancel/?$");
+
             if ((isInvoiceSetupRequest || isCreateInvoiceRequest)
                     && !isReceptionist) {
+                sendForbiddenError(res);
+                return;
+            }
+
+            if ((isRefundRequest || isCancelRequest) && !isManager) {
                 sendForbiddenError(res);
                 return;
             }

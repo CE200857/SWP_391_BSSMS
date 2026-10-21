@@ -162,6 +162,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
               {openAdmin && !collapsed && (
                 <div className="d-flex flex-column gap-2 ms-3 mt-1 border-start ps-2">
                   <NavLink to="/staffs" className={navClass}><i className="bi bi-person-badge-fill fs-6"></i>{renderMenuLabel("Nhân viên")}</NavLink>
+                  <NavLink to="/manager/invoices" className={navClass}><i className="bi bi-receipt fs-6"></i>{renderMenuLabel("Hóa đơn & Thanh toán")}</NavLink>
                   <NavLink to="/manager/products" className={navClass}><i className="bi bi-box-seam fs-6"></i>{renderMenuLabel("Sản phẩm")}</NavLink>
                   <NavLink to="/manager/suppliers" className={navClass}><i className="bi bi-truck fs-6"></i>{renderMenuLabel("Nhà cung cấp")}</NavLink>
                   <NavLink to="/treatment-packages" className={navClass}><i className="bi bi-box2-heart-fill fs-6"></i>{renderMenuLabel("Gói liệu trình")}</NavLink>

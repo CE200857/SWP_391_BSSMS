@@ -44,6 +44,7 @@ import CreateStaff from "../pages/Dashboard/Manager/StaffAdmin/CreateStaff";
 import StaffDetail from "../pages/Dashboard/Manager/StaffAdmin/StaffDetail";
 import EditStaffProfile from "../pages/Dashboard/Manager/StaffAdmin/EditStaffProfile";
 import CreateInvoice from "../pages/Dashboard/Receptionist/CreateInvoice";
+import InvoiceManagement from "../pages/Dashboard/Manager/InvoiceManagement";
 
 // Nhóm 5 chức năng mới (Iteration 2)
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
@@ -553,7 +554,7 @@ export default function AppRoutes({ user, setUser }) {
 
         {/* --- 4 CHỨC NĂNG BOOKING MANAGEMENT (ITERATION 4 - DAT TT) --- */}
 
-        {/* 1. Check Slot Availability: Customer & Receptionist (Guest xem ở /guest/slots) */}
+        {/* 1. Check Slot Availability: Customer & Receptionist */}
         <Route
           path="/slots"
           element={
@@ -576,12 +577,25 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* 3 & 4. Check-in & Status Update + Coordinate Service: Receptionist & Manager */}
+        {/* 3 & 4. Check-in & Status Update + Coordinate Service */}
         <Route
           path="/receptionist/coordination"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
               <ReceptionistBookingDesk />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Invoice Management: chỉ Manager */}
+        <Route
+          path="/manager/invoices"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <InvoiceManagement />
             </ProtectedRoute>
           }
         />
