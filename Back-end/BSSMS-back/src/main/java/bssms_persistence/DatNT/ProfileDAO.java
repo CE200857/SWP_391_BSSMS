@@ -114,8 +114,8 @@ public class ProfileDAO extends DBContext {
         return false;
     }
 
-    public boolean updateCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address, String username) {
-        String updateAccountSql = "UPDATE Account SET phone = ?, username = ? WHERE account_id = ?";
+    public boolean updateCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address, String username, String email) {
+        String updateAccountSql = "UPDATE Account SET phone = ?, username = ?, email = ? WHERE account_id = ?";
         String updateCustomerSql = "UPDATE Customer SET full_name = ?, date_of_birth = ?, gender = ?, address = ?, phone = ? WHERE account_id = ?";
 
         try {
@@ -125,7 +125,8 @@ public class ProfileDAO extends DBContext {
                 PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
                 psAccount.setString(1, phone);
                 psAccount.setString(2, username);
-                psAccount.setInt(3, accountId);
+                psAccount.setString(3, email);
+                psAccount.setInt(4, accountId);
                 psAccount.executeUpdate();
 
                 PreparedStatement psCustomer = conn.prepareStatement(updateCustomerSql);
@@ -206,6 +207,14 @@ public class ProfileDAO extends DBContext {
     }
     
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        if (username != null && username.trim().isEmpty()) username = null;
+        if (email != null && email.trim().isEmpty()) email = null;
+        if (phone != null && phone.trim().isEmpty()) phone = null;
+        
+        if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
+            return "Email (Trùng với email hệ thống)";
+        }
+
         String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
         
         if (excludeAccountId != null) {
@@ -225,7 +234,7 @@ public class ProfileDAO extends DBContext {
                 
                 ResultSet rs = ps.executeQuery();
                 
-                if (rs.next()) {
+                while (rs.next()) {
                     String dbUsername = rs.getString("username");
                     String dbEmail = rs.getString("email");
                     String dbPhone = rs.getString("phone");

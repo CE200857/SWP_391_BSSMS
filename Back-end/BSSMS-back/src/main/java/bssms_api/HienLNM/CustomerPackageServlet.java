@@ -135,4 +135,43 @@ public class CustomerPackageServlet extends HttpServlet {
         }
 
     }
+
+    @Override
+    protected void doPut(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+        setAccessControlHeaders(resp);
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+        PrintWriter out = resp.getWriter();
+
+        // DEBUG: In ra request info
+        System.out.println("=== CustomerPackageServlet.doPut ===");
+        System.out.println("requestURI: " + req.getRequestURI());
+        System.out.println("pathInfo: " + req.getPathInfo());
+        System.out.println("===================================");
+
+        try {
+            com.google.gson.JsonObject jsonObject = gson.fromJson(req.getReader(), com.google.gson.JsonObject.class);
+            System.out.println("JSON received: " + jsonObject.toString());
+
+            int customerPackageId = jsonObject.get("customerPackageId").getAsInt();
+            int remainingSessions = jsonObject.get("remainingSessions").getAsInt();
+            String expiryDate = jsonObject.has("expiryDate") && !jsonObject.get("expiryDate").isJsonNull()
+                              ? jsonObject.get("expiryDate").getAsString() : null;
+            String status = jsonObject.has("status") ? jsonObject.get("status").getAsString() : "Active";
+
+            boolean success = dao.updateCustomerPackage(customerPackageId, remainingSessions, expiryDate, status);
+            if (success) {
+                out.print("{\"message\": \"Cập nhật hồ sơ liệu trình thành công!\"}");
+            } else {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                out.print("{\"message\": \"Cập nhật thất bại!\"}");
+            }
+        } catch (Exception e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+            e.printStackTrace();
+        }
+        out.flush();
+    }
 }

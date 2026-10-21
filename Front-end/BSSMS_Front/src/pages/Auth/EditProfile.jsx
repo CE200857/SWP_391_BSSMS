@@ -7,8 +7,10 @@ import {
   Button,
   Form,
   Modal,
+  InputGroup,
 } from "react-bootstrap";
 import { useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
 
 const formatDobForInput = (dobString) => {
   if (!dobString) return "";
@@ -27,23 +29,35 @@ const EditProfile = ({ user, setUser }) => {
   const location = useLocation();
 
   const initialData = location.state?.profileData || null;
+  const originalEmail = initialData?.email || "";
 
   const [formData, setFormData] = useState({
     username: initialData?.username || "",
     fullName: initialData?.fullName || "",
     email: initialData?.email || "",
     phone: initialData?.phone || "",
-    dob: formatDobForInput(initialData?.dob) || "", // SỬA TẠI ĐÂY
+    dob: formatDobForInput(initialData?.dob) || "",
     gender: initialData?.gender || "Male",
     address: initialData?.address || "",
     role: initialData?.role || user?.role || "",
     status: initialData?.status || "",
   });
 
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  const isCustomer = formData.role === "Customer";
+  const isEmailChanged =
+    isCustomer &&
+    formData.email.trim().toLowerCase() !== originalEmail.trim().toLowerCase();
 
   useEffect(() => {
     if (!initialData) {
@@ -51,9 +65,63 @@ const EditProfile = ({ user, setUser }) => {
     }
   }, [initialData, navigate]);
 
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
     setErrorMsg("");
+    setSuccessMsg("");
+
+    if (name === "email") {
+      setIsCodeSent(false);
+      setVerificationCode("");
+    }
+  };
+
+  const handleSendEmailCode = async () => {
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    const trimmedEmail = formData.email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setErrorMsg("Email mới không đúng định dạng!");
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const response = await axios.post(
+        "/api/update-profile",
+        {
+          action: "send-email-code",
+          email: trimmedEmail,
+        },
+        { withCredentials: true }
+      );
+
+      if (response.status === 200) {
+        setIsCodeSent(true);
+        setCountdown(60);
+        setSuccessMsg("Mã xác thực đã được gửi đến Email mới của bạn!");
+      }
+    } catch (err) {
+      setErrorMsg(
+        err.response?.data?.message ||
+          "Không thể gửi mã xác thực. Vui lòng thử lại!"
+      );
+    } finally {
+      setIsSendingCode(false);
+    }
   };
 
   const validateForm = () => {
@@ -73,7 +141,21 @@ const EditProfile = ({ user, setUser }) => {
       return "Số điện thoại không hợp lệ (Gồm 10 số, bắt đầu bằng 0, số thứ 2 khác 0)!";
     }
 
-    if (formData.role === "Customer") {
+    if (isCustomer) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        return "Email không đúng định dạng!";
+      }
+
+      if (isEmailChanged) {
+        if (!isCodeSent) {
+          return "Bạn đã thay đổi Email, vui lòng bấm 'Gửi mã' để nhận mã xác thực!";
+        }
+        if (verificationCode.trim().length !== 6) {
+          return "Vui lòng nhập đủ 6 chữ số mã xác thực cho Email mới!";
+        }
+      }
+
       if (!formData.dob || !formData.address.trim()) {
         return "Vui lòng nhập đầy đủ Ngày sinh và Địa chỉ!";
       }
@@ -84,6 +166,8 @@ const EditProfile = ({ user, setUser }) => {
 
   const handlePreSubmit = (e) => {
     e.preventDefault();
+    setErrorMsg("");
+    setSuccessMsg("");
     const error = validateForm();
     if (error) {
       setErrorMsg(error);
@@ -96,27 +180,26 @@ const EditProfile = ({ user, setUser }) => {
     setShowUpdateModal(false);
 
     try {
-      const response = await fetch(
-        "http://localhost:8080/BSSMS-back/api/update-profile",
+      const response = await axios.post(
+        "/api/update-profile",
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(formData),
+          ...formData,
+          email: formData.email.trim(),
+          verificationCode: isEmailChanged ? verificationCode.trim() : "",
         },
+        { withCredentials: true }
       );
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setUser(data);
+      if (response.status === 200) {
+        const updatedUser = response.data;
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        setUser(updatedUser);
         navigate("/profile");
-      } else {
-        setErrorMsg(data.message || "Đã xảy ra lỗi khi cập nhật!");
       }
-    } catch (error) {
-      console.error("Lỗi khi cập nhật:", error);
-      setErrorMsg("Có lỗi xảy ra khi kết nối đến máy chủ.");
+    } catch (err) {
+      setErrorMsg(
+        err.response?.data?.message || "Đã xảy ra lỗi khi cập nhật hồ sơ!"
+      );
     }
   };
 
@@ -137,6 +220,15 @@ const EditProfile = ({ user, setUser }) => {
               role="alert"
             >
               {errorMsg}
+            </div>
+          )}
+
+          {successMsg && (
+            <div
+              className="alert alert-success text-center fw-bold"
+              role="alert"
+            >
+              {successMsg}
             </div>
           )}
 
@@ -189,18 +281,75 @@ const EditProfile = ({ user, setUser }) => {
                   />
                 </Form.Group>
 
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-muted fw-bold mb-1">
-                    Email
-                  </Form.Label>
-                  {/* Email thường dùng làm tài khoản đăng nhập nên khóa lại hoặc cho hiển thị */}
-                  <Form.Control
-                    type="email"
-                    value={formData.email}
-                    disabled
-                    className="bg-light"
-                  />
-                </Form.Group>
+                {isCustomer ? (
+                  <>
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-muted fw-bold mb-1">
+                        Email (*)
+                      </Form.Label>
+                      <InputGroup>
+                        <Form.Control
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          placeholder="Nhập địa chỉ email"
+                        />
+                        <Button
+                          variant={
+                            !isEmailChanged || countdown > 0
+                              ? "secondary"
+                              : "danger"
+                          }
+                          onClick={handleSendEmailCode}
+                          disabled={
+                            !isEmailChanged || isSendingCode || countdown > 0
+                          }
+                          style={{ width: "110px", fontWeight: "bold" }}
+                        >
+                          {isSendingCode
+                            ? "Đang gửi"
+                            : countdown > 0
+                              ? `${countdown}s`
+                              : "Gửi mã"}
+                        </Button>
+                      </InputGroup>
+                    </Form.Group>
+
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-muted fw-bold mb-1">
+                        Mã xác thực Email mới
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        placeholder={
+                          isEmailChanged
+                            ? "Nhập mã 6 chữ số được gửi về email mới"
+                            : "Chỉ cần nhập mã khi bạn thay đổi Email"
+                        }
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                        maxLength={6}
+                        disabled={!isEmailChanged || !isCodeSent}
+                        className={
+                          !isEmailChanged || !isCodeSent ? "bg-light" : ""
+                        }
+                      />
+                    </Form.Group>
+                  </>
+                ) : (
+                  <Form.Group className="mb-3">
+                    <Form.Label className="text-muted fw-bold mb-1">
+                      Email
+                    </Form.Label>
+                    <Form.Control
+                      type="email"
+                      value={formData.email}
+                      disabled
+                      className="bg-light"
+                    />
+                  </Form.Group>
+                )}
 
                 <Form.Group className="mb-3">
                   <Form.Label className="text-muted fw-bold mb-1">
@@ -215,7 +364,7 @@ const EditProfile = ({ user, setUser }) => {
                   />
                 </Form.Group>
 
-                {formData.role === "Customer" && (
+                {isCustomer && (
                   <>
                     <Row>
                       <Col md={6} className="mb-3">

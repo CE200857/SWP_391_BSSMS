@@ -53,30 +53,96 @@ public class StaffDAO extends DBContext {
 
         return list;
     }
-
-    // Deactivate Staff Account
-    public boolean deactivateStaff(int staffId) {
-
-        String query = "UPDATE Account SET status = 'Inactive' "
-                + "WHERE account_id = ("
-                + "SELECT account_id FROM Staff WHERE staff_id = ?"
-                + ")";
-
+    
+    //Change Staff Status
+    public boolean updateStaffStatus(int accountId, String newStatus) {
+        String sql = "UPDATE Account SET status = ? WHERE account_id = ?";
         try {
             if (conn != null) {
-
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, staffId);
-
-                int rowsAffected = ps.executeUpdate();
-
-                return rowsAffected > 0;
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ps.setString(1, newStatus);
+                ps.setInt(2, accountId);
+                return ps.executeUpdate() > 0;
             }
-
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return false;
+    }
 
+    //Delete Staff Account
+    public boolean deleteStaff(int staffId) {
+        String getAccIdSql = "SELECT account_id FROM Staff WHERE staff_id = ?";
+        String delStaffServiceSql = "DELETE FROM StaffService WHERE staff_id = ?";
+        String delStaffShiftSql = "DELETE FROM StaffShift WHERE staff_id = ?";
+        String delAppStaffSql = "DELETE FROM AppointmentStaff WHERE staff_id = ?";
+        String delCommissionSql = "DELETE FROM Commission WHERE staff_id = ?";
+        String delStaffSql = "DELETE FROM Staff WHERE staff_id = ?";
+        String delAccountSql = "DELETE FROM Account WHERE account_id = ?";
+
+        try {
+            if (conn != null) {
+                conn.setAutoCommit(false);
+
+                int accountId = -1;
+                try (PreparedStatement psGet = conn.prepareStatement(getAccIdSql)) {
+                    psGet.setInt(1, staffId);
+                    try (ResultSet rs = psGet.executeQuery()) {
+                        if (rs.next()) {
+                            accountId = rs.getInt("account_id");
+                        }
+                    }
+                }
+
+                if (accountId == -1) {
+                    conn.rollback();
+                    return false;
+                }
+
+                try (PreparedStatement ps1 = conn.prepareStatement(delStaffServiceSql)) {
+                    ps1.setInt(1, staffId);
+                    ps1.executeUpdate();
+                }
+                try (PreparedStatement ps2 = conn.prepareStatement(delStaffShiftSql)) {
+                    ps2.setInt(1, staffId);
+                    ps2.executeUpdate();
+                }
+                try (PreparedStatement ps3 = conn.prepareStatement(delAppStaffSql)) {
+                    ps3.setInt(1, staffId);
+                    ps3.executeUpdate();
+                }
+                try (PreparedStatement ps4 = conn.prepareStatement(delCommissionSql)) {
+                    ps4.setInt(1, staffId);
+                    ps4.executeUpdate();
+                }
+
+                try (PreparedStatement psStaff = conn.prepareStatement(delStaffSql)) {
+                    psStaff.setInt(1, staffId);
+                    psStaff.executeUpdate();
+                }
+
+                try (PreparedStatement psAcc = conn.prepareStatement(delAccountSql)) {
+                    psAcc.setInt(1, accountId);
+                    psAcc.executeUpdate();
+                }
+
+                conn.commit();
+                return true;
+            }
+        } catch (Exception e) {
+            try {
+                if (conn != null) conn.rollback();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            try {
+                if (conn != null) conn.setAutoCommit(true);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
         return false;
     }
     
@@ -227,6 +293,14 @@ public class StaffDAO extends DBContext {
     }
     
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        if (username != null && username.trim().isEmpty()) username = null;
+        if (email != null && email.trim().isEmpty()) email = null;
+        if (phone != null && phone.trim().isEmpty()) phone = null;
+        
+        if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
+            return "Email (Trùng với email hệ thống)";
+        }
+
         String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
         
         if (excludeAccountId != null) {
@@ -246,7 +320,7 @@ public class StaffDAO extends DBContext {
                 
                 ResultSet rs = ps.executeQuery();
                 
-                if (rs.next()) {
+                while (rs.next()) {
                     String dbUsername = rs.getString("username");
                     String dbEmail = rs.getString("email");
                     String dbPhone = rs.getString("phone");

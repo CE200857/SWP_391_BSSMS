@@ -58,6 +58,11 @@ import CheckSlotAvailability from "../pages/Dashboard/Appointment/CheckSlotAvail
 import CreateOnlineAppointment from "../pages/Dashboard/Appointment/CreateOnlineAppointment";
 import ReceptionistBookingDesk from "../pages/Dashboard/Receptionist/ReceptionistBookingDesk";
 
+// Nhóm chức năng mới (Voucher, Birthday Promotion & Treatment Profile - Hien LNM)
+import VoucherList from "../pages/Dashboard/Manager/VoucherManagement/VoucherList";
+import BirthdayPromotion from "../pages/Dashboard/Manager/BirthdayPromotion/BirthdayPromotion";
+import CustomerTreatmentProfile from "../pages/Dashboard/Manager/CustomerTreatmentProfile/CustomerTreatmentProfile";
+
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
 const ProtectedRoute = ({ user, allowedRoles, children }) => {
@@ -596,6 +601,53 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
               <InvoiceManagement />
+        {/* --- NHÓM CHỨC NĂNG VOUCHER, BIRTHDAY PROMOTION & TREATMENT PROFILE (HIEN LNM) --- */}
+
+        {/* 1. View/Manage Vouchers: Manager & Receptionist */}
+        <Route
+          path="/vouchers"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Manager", "Receptionist"]}
+            >
+              <VoucherList />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 2. Birthday Month Promotion Management: Manager */}
+        <Route
+          path="/birthday-promotions"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <BirthdayPromotion />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3. View/Update Customer Treatment Profile: All roles can view, Manager & Technician can edit */}
+        <Route
+          path="/treatment-profile/:customerId"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Manager", "Receptionist", "Technician", "Customer"]}
+            >
+              <CustomerTreatmentProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Default treatment profile route (for Customer viewing their own profile) */}
+        <Route
+          path="/my-treatment-profile"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}
+            >
+              <CustomerTreatmentProfile />
             </ProtectedRoute>
           }
         />
