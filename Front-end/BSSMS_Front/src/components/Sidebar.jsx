@@ -205,6 +205,10 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                     <i className="bi bi-person-badge-fill fs-6"></i>
                     {renderMenuLabel("Nhân viên")}
                   </NavLink>
+                  <NavLink to="/manager/invoices" className={navClass}>
+                  <i className="bi bi-receipt fs-6">
+                  </i>{renderMenuLabel("Hóa đơn & Thanh toán")}
+                  </NavLink>
                   <NavLink to="/manager/products" className={navClass}>
                     <i className="bi bi-box-seam fs-6"></i>
                     {renderMenuLabel("Sản phẩm")}
