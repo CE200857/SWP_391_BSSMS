@@ -51,6 +51,21 @@ import UpdateRoomBedStatus from "../pages/Dashboard/Technician/UpdateRoomBedStat
 import RecordTreatmentOutcome from "../pages/Dashboard/Technician/RecordTreatmentOutcome";
 import SellTreatmentPackage from "../pages/Dashboard/Receptionist/SellTreatmentPackage";
 
+<<<<<<< Updated upstream
+=======
+// Nhóm 4 chức năng Booking Management (Iteration 4 - Dat TT)
+import CheckSlotAvailability from "../pages/Dashboard/Appointment/CheckSlotAvailability";
+import CreateOnlineAppointment from "../pages/Dashboard/Appointment/CreateOnlineAppointment";
+import ReceptionistBookingDesk from "../pages/Dashboard/Receptionist/ReceptionistBookingDesk";
+
+// Nhóm chức năng mới (Voucher, Birthday Promotion & Treatment Profile - Hien LNM)
+import VoucherList from "../pages/Dashboard/Manager/VoucherManagement/VoucherList";
+import BirthdayPromotion from "../pages/Dashboard/Manager/BirthdayPromotion/BirthdayPromotion";
+import CustomerTreatmentProfile from "../pages/Dashboard/Manager/CustomerTreatmentProfile/CustomerTreatmentProfile";
+// Nhóm 5 chức năng Billing & Commission (Iteration 4 - Khanh LTQ)
+import CommissionReport from '../pages/Dashboard/Manager/CommissionReport';
+import PersonalCommission from '../pages/Dashboard/Technician/PersonalCommission';
+>>>>>>> Stashed changes
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
 const ProtectedRoute = ({ user, allowedRoles, children }) => {
@@ -532,6 +547,114 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
+<<<<<<< Updated upstream
+=======
+
+        {/* --- BILLING & COMMISSION (KHANH ND) --- */}
+        <Route
+          path="/invoices/create"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist"]}
+            >
+              <CreateInvoice />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- 4 CHỨC NĂNG BOOKING MANAGEMENT (ITERATION 4 - DAT TT) --- */}
+
+        {/* 1. Check Slot Availability: Customer & Receptionist (Guest xem ở /guest/slots) */}
+        <Route
+          path="/slots"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Customer", "Receptionist", "Manager"]}
+            >
+              <CheckSlotAvailability />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 2. Create Online Appointment: Chỉ Customer */}
+        <Route
+          path="/appointments/online"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Customer"]}>
+              <CreateOnlineAppointment />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3 & 4. Check-in & Status Update + Coordinate Service: Receptionist & Manager */}
+        <Route
+          path="/receptionist/coordination"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+              <ReceptionistBookingDesk />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- NHÓM CHỨC NĂNG VOUCHER, BIRTHDAY PROMOTION & TREATMENT PROFILE (HIEN LNM) --- */}
+
+        {/* 1. View/Manage Vouchers: Manager & Receptionist */}
+        <Route
+          path="/vouchers"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Manager", "Receptionist"]}
+            >
+              <VoucherList />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 2. Birthday Month Promotion Management: Manager */}
+        <Route
+          path="/birthday-promotions"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <BirthdayPromotion />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3. View/Update Customer Treatment Profile: All roles can view, Manager & Technician can edit */}
+        <Route
+          path="/treatment-profile/:customerId"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Manager", "Receptionist", "Technician", "Customer"]}
+            >
+              <CustomerTreatmentProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Default treatment profile route (for Customer viewing their own profile) */}
+        <Route
+          path="/my-treatment-profile"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}
+            >
+              <CustomerTreatmentProfile />
+            </ProtectedRoute>
+          }
+        />
+        // Nhóm 5 chức năng Billing & Commission (Iteration 4 - Khanh LTQ)
+        {/* Tuyến đường dành cho Manager */}
+        <Route path="/manager/commission/report" element={<CommissionReport />} />
+
+        {/* Tuyến đường dành cho Technician */}
+        <Route path="/technician/commission" element={<PersonalCommission />} />
+>>>>>>> Stashed changes
       </Route>
     </Routes>
   );

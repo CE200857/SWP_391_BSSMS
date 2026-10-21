@@ -82,7 +82,58 @@ const Sidebar = ({ user }) => {
             </NavLink>
           )}
 
+<<<<<<< Updated upstream
           {/* MENU CHỈ DÀNH CHO MANAGER */}
+=======
+          {/* NHÓM 1: NGHIỆP VỤ KỸ THUẬT (Dành cho Technician & Manager) */}
+          {(isTechnician || isManager) && (
+            <>
+              <div
+                className="d-flex align-items-center px-3 py-3 rounded text-dark fw-bold mt-2 shadow-sm"
+                style={{ cursor: "pointer", backgroundColor: "#f8f9fa" }}
+                onClick={() => setOpenTech(!openTech)}
+              >
+                <i className="bi bi-heart-pulse fs-5"></i>
+                {!collapsed && (
+                  <>
+                    <span className="ms-2">Nghiệp vụ KTV</span>
+                    <i className={`bi bi-chevron-${openTech ? "up" : "down"} ms-auto`}></i>
+                  </>
+                )}
+              </div>
+
+              {/* Các menu con sẽ sổ xuống khi bấm vào nút trên */}
+              {openTech && !collapsed && (
+                <div className="d-flex flex-column gap-2 ms-3 mt-1 border-start ps-2">
+                  <NavLink to="/treatment-status" className={navClass}>
+                    <i className="bi bi-clipboard-pulse fs-6"></i>
+                    {renderMenuLabel("Trạng thái điều trị")}
+                  </NavLink>
+                  <NavLink to="/update-room-bed-status" className={navClass}>
+                    <i className="bi bi-door-open fs-6"></i>
+                    {renderMenuLabel("Phòng & Giường")}
+                  </NavLink>
+                  <NavLink to="/record-treatment-outcome" className={navClass}>
+                    <i className="bi bi-clipboard-check fs-6"></i>
+                    {renderMenuLabel("Ghi nhận kết quả")}
+                  </NavLink>
+                  <NavLink to="/my-treatment-profile" className={navClass}>
+                    <i className="bi bi-clipboard-data fs-6"></i>
+                    {renderMenuLabel("Hồ sơ liệu trình")}
+                  </NavLink>
+                  {isTechnician && (
+                    <NavLink to="/technician/commission" className={navClass}>
+                      <i className="bi bi-cash-coin fs-6"></i>
+                      {renderMenuLabel("Hoa hồng cá nhân")}
+                    </NavLink>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* NHÓM 2: QUẢN LÝ NÂNG CAO (Chỉ Manager mới thấy) */}
+>>>>>>> Stashed changes
           {isManager && (
             <>
               <NavLink to="/staffs" className={navClass}>
@@ -90,12 +141,56 @@ const Sidebar = ({ user }) => {
                 <span className="app-nav-label">Danh sách nhân viên</span>
               </NavLink>
 
+<<<<<<< Updated upstream
               <NavLink to="/manager/products" className={navClass}>
                 <i className="bi bi-box-seam me-2"></i>
                 <span className="app-nav-label">Quản lý Sản phẩm</span>
               </NavLink>
 
             
+=======
+              {/* Các menu con của Manager */}
+              {openAdmin && !collapsed && (
+                <div className="d-flex flex-column gap-2 ms-3 mt-1 border-start ps-2">
+                  <NavLink to="/staffs" className={navClass}>
+                    <i className="bi bi-person-badge-fill fs-6"></i>
+                    {renderMenuLabel("Nhân viên")}
+                  </NavLink>
+                  <NavLink to="/manager/products" className={navClass}>
+                    <i className="bi bi-box-seam fs-6"></i>
+                    {renderMenuLabel("Sản phẩm")}
+                  </NavLink>
+                  <NavLink to="/manager/suppliers" className={navClass}>
+                    <i className="bi bi-truck fs-6"></i>
+                    {renderMenuLabel("Nhà cung cấp")}
+                  </NavLink>
+                  <NavLink to="/treatment-packages" className={navClass}>
+                    <i className="bi bi-box2-heart-fill fs-6"></i>
+                    {renderMenuLabel("Gói liệu trình")}
+                  </NavLink>
+                  <NavLink to="/manager/update-service-status" className={navClass}>
+                    <i className="bi bi-toggle-on fs-6"></i>
+                    {renderMenuLabel("Trạng thái dịch vụ")}
+                  </NavLink>
+                  <NavLink to="/manager/resources" className={navClass}>
+                    <i className="bi bi-building"></i>
+                    {renderMenuLabel("Quản lý Tài nguyên")}
+                  </NavLink>
+                  <NavLink to="/birthday-promotions" className={navClass}>
+                    <i className="bi bi-calendar-heart fs-6"></i>
+                    {renderMenuLabel("KM Sinh nhật")}
+                  </NavLink>
+                  <NavLink to="/my-treatment-profile" className={navClass}>
+                    <i className="bi bi-clipboard-pulse fs-6"></i>
+                    {renderMenuLabel("Hồ sơ liệu trình")}
+                  </NavLink>
+                  <NavLink to="/manager/commission/report" className={navClass}>
+                    <i className="bi bi-graph-up-arrow fs-6"></i>
+                    {renderMenuLabel("Báo cáo hoa hồng")}
+                  </NavLink>
+                </div>
+              )}
+>>>>>>> Stashed changes
             </>
           )}
 
