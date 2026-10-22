@@ -63,6 +63,10 @@ import VoucherList from "../pages/Dashboard/Manager/VoucherManagement/VoucherLis
 import BirthdayPromotion from "../pages/Dashboard/Manager/BirthdayPromotion/BirthdayPromotion";
 import CustomerTreatmentProfile from "../pages/Dashboard/Manager/CustomerTreatmentProfile/CustomerTreatmentProfile";
 
+// Nhóm chức năng Billing & Commission (Iteration 4 - Khanh LTQ)
+import CommissionReport from "../pages/Dashboard/Manager/CommissionReport";
+import PersonalCommission from "../pages/Dashboard/Technician/PersonalCommission";
+
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
 const ProtectedRoute = ({ user, allowedRoles, children }) => {
@@ -557,9 +561,19 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
+        {/* Invoice Management: chỉ Manager */}
+        <Route
+          path="/manager/invoices"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <InvoiceManagement />
+            </ProtectedRoute>
+          }
+        />
+
         {/* --- 4 CHỨC NĂNG BOOKING MANAGEMENT (ITERATION 4 - DAT TT) --- */}
 
-        {/* 1. Check Slot Availability: Customer & Receptionist */}
+        {/* 1. Check Slot Availability: Customer & Receptionist (Guest xem ở /guest/slots) */}
         <Route
           path="/slots"
           element={
@@ -582,7 +596,7 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* 3 & 4. Check-in & Status Update + Coordinate Service */}
+        {/* 3 & 4. Check-in & Status Update + Coordinate Service: Receptionist & Manager */}
         <Route
           path="/receptionist/coordination"
           element={
@@ -595,12 +609,6 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* Invoice Management: chỉ Manager */}
-        <Route
-          path="/manager/invoices"
-          element={
-            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <InvoiceManagement />
         {/* --- NHÓM CHỨC NĂNG VOUCHER, BIRTHDAY PROMOTION & TREATMENT PROFILE (HIEN LNM) --- */}
 
         {/* 1. View/Manage Vouchers: Manager & Receptionist */}
@@ -648,6 +656,27 @@ export default function AppRoutes({ user, setUser }) {
               allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}
             >
               <CustomerTreatmentProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- NHÓM CHỨC NĂNG BILLING & COMMISSION (ITERATION 4 - KHANH LTQ) --- */}
+        {/* Tuyến đường dành cho Manager */}
+        <Route
+          path="/manager/commission/report"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <CommissionReport />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Tuyến đường dành cho Technician */}
+        <Route
+          path="/technician/commission"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Technician", "Manager"]}>
+              <PersonalCommission />
             </ProtectedRoute>
           }
         />
