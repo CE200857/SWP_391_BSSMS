@@ -42,7 +42,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
         <div className="app-sidebar-heading d-flex align-items-center justify-content-between mb-4">
           <p
             className="app-sidebar-title text-muted fw-bold text-uppercase mb-0 ms-2"
-            style={{ fontSize: "13px" }}
+            style={{ fontSize: "1rem" }}
           >
             {isCustomer
               ? "Menu Khách hàng"

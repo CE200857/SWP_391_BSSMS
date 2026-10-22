@@ -389,7 +389,7 @@ export default function ProductList({ user }) {
                   {cart.map(item => (
                     <div key={item.productId} className="d-flex justify-content-between align-items-center border-bottom pb-2">
                       <div>
-                        <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '14px' }}>{item.productName}</h6>
+                        <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '1rem' }}>{item.productName}</h6>
                         <small className="text-danger fw-semibold">{(item.unitPrice * item.quantity).toLocaleString('vi-VN')} VNĐ</small>
                       </div>
                       <div className="d-flex align-items-center gap-1">

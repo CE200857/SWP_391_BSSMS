@@ -1,5 +1,9 @@
 :root {
-  font-family: Inter, "Segoe UI", Roboto, sans-serif;
+  /* System fonts support Vietnamese without an external font download. */
+  --app-font-sans: Arial, "Helvetica Neue", "Segoe UI", sans-serif;
+  --bs-font-sans-serif: var(--app-font-sans);
+  --bs-body-font-family: var(--app-font-sans);
+  font-family: var(--app-font-sans);
   color: #342631;
   background: #fcf9f7;
   font-synthesis: none;
@@ -37,6 +41,7 @@ body {
 }
 
 body {
+  font-family: var(--app-font-sans);
   color: var(--seoul-ink);
   background:
     radial-gradient(ellipse at 10% 0%, rgba(255, 232, 241, 0.38), transparent 38rem),
@@ -78,4 +83,16 @@ p {
 ::selection {
   color: #fff;
   background: var(--seoul-600);
+}
+
+/* Keep compact Bootstrap controls legible without changing icon fonts. */
+.btn-sm, .form-control-sm, .form-select-sm {
+  font-size: 0.9375rem;
+}
+small, .small, .form-text {
+  font-size: 0.875rem;
+}
+.tooltip, .popover {
+  --bs-tooltip-font-size: 0.875rem;
+  --bs-popover-font-size: 0.875rem;
 }

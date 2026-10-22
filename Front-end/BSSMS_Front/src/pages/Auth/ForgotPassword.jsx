@@ -159,7 +159,7 @@ const ForgotPassword = () => {
 
           <Form onSubmit={handleConfirm}>
             <Form.Group className="mb-3 text-start">
-              <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
                 Email*
               </Form.Label>
               <InputGroup>
@@ -189,7 +189,7 @@ const ForgotPassword = () => {
             </Form.Group>
 
             <Form.Group className="mb-4 text-start">
-              <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
                 Mã xác thực*
               </Form.Label>
               <Form.Control
