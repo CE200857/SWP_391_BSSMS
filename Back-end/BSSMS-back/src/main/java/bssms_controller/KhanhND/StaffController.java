@@ -116,6 +116,24 @@ public class StaffController extends ControllerSupport {
                 com.google.gson.JsonObject jsonObject = gson.fromJson(request.bodyReader(), com.google.gson.JsonObject.class);
                 String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : null;
                 
+                if ("update-status".equals(action)) {
+                    int accountId = jsonObject.get("accountId").getAsInt();
+                    String status = jsonObject.get("status").getAsString();
+
+                    StaffDAO dao = use(new StaffDAO());
+                    boolean isUpdated = dao.updateStaffStatus(accountId, status);
+
+                    if (isUpdated) {
+                        response.status(200);
+                        out.print("{\"message\": \"Cập nhật trạng thái thành công!\"}");
+                    } else {
+                        response.status(400);
+                        out.print("{\"message\": \"Không thể cập nhật trạng thái nhân viên!\"}");
+                    }
+                    out.flush();
+                    return;
+                }
+
                 if ("update".equals(action)) {
                     int accountId = jsonObject.get("accountId").getAsInt();
                     String fullName = jsonObject.get("fullName").getAsString().trim();

@@ -60,7 +60,6 @@ public class StaffDAO extends DBContext implements AutoCloseable {
 
         return list;
     }
-
     // Deactivate Staff Account
     public boolean deactivateStaff(int staffId) {
         requireConnection();
@@ -70,21 +69,103 @@ public class StaffDAO extends DBContext implements AutoCloseable {
                 + "SELECT account_id FROM Staff WHERE staff_id = ?"
                 + ")";
 
-        try {
-            if (conn != null) {
-
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, staffId);
-
-                int rowsAffected = ps.executeUpdate();
-
-                return rowsAffected > 0;
-            }
-
+        try (PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, staffId);
+            return ps.executeUpdate() > 0;
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
+            return false;
         }
+    }
 
+    // Change Staff Status
+    public boolean updateStaffStatus(int accountId, String newStatus) {
+        requireConnection();
+
+        String sql = "UPDATE Account SET status = ? WHERE account_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newStatus);
+            ps.setInt(2, accountId);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            DataAccessException.rethrowIfDatabase(e);
+            return false;
+        }
+    }
+
+    //Delete Staff Account
+    public boolean deleteStaff(int staffId) {
+        String getAccIdSql = "SELECT account_id FROM Staff WHERE staff_id = ?";
+        String delStaffServiceSql = "DELETE FROM StaffService WHERE staff_id = ?";
+        String delStaffShiftSql = "DELETE FROM StaffShift WHERE staff_id = ?";
+        String delAppStaffSql = "DELETE FROM AppointmentStaff WHERE staff_id = ?";
+        String delCommissionSql = "DELETE FROM Commission WHERE staff_id = ?";
+        String delStaffSql = "DELETE FROM Staff WHERE staff_id = ?";
+        String delAccountSql = "DELETE FROM Account WHERE account_id = ?";
+
+        try {
+            if (conn != null) {
+                conn.setAutoCommit(false);
+
+                int accountId = -1;
+                try (PreparedStatement psGet = conn.prepareStatement(getAccIdSql)) {
+                    psGet.setInt(1, staffId);
+                    try (ResultSet rs = psGet.executeQuery()) {
+                        if (rs.next()) {
+                            accountId = rs.getInt("account_id");
+                        }
+                    }
+                }
+
+                if (accountId == -1) {
+                    conn.rollback();
+                    return false;
+                }
+
+                try (PreparedStatement ps1 = conn.prepareStatement(delStaffServiceSql)) {
+                    ps1.setInt(1, staffId);
+                    ps1.executeUpdate();
+                }
+                try (PreparedStatement ps2 = conn.prepareStatement(delStaffShiftSql)) {
+                    ps2.setInt(1, staffId);
+                    ps2.executeUpdate();
+                }
+                try (PreparedStatement ps3 = conn.prepareStatement(delAppStaffSql)) {
+                    ps3.setInt(1, staffId);
+                    ps3.executeUpdate();
+                }
+                try (PreparedStatement ps4 = conn.prepareStatement(delCommissionSql)) {
+                    ps4.setInt(1, staffId);
+                    ps4.executeUpdate();
+                }
+
+                try (PreparedStatement psStaff = conn.prepareStatement(delStaffSql)) {
+                    psStaff.setInt(1, staffId);
+                    psStaff.executeUpdate();
+                }
+
+                try (PreparedStatement psAcc = conn.prepareStatement(delAccountSql)) {
+                    psAcc.setInt(1, accountId);
+                    psAcc.executeUpdate();
+                }
+
+                conn.commit();
+                return true;
+            }
+        } catch (Exception e) {
+            try {
+                if (conn != null) conn.rollback();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            try {
+                if (conn != null) conn.setAutoCommit(true);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
         return false;
     }
     

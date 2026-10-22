@@ -176,6 +176,12 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                     <i className="bi bi-clipboard-data fs-6"></i>
                     {renderMenuLabel("Hồ sơ liệu trình")}
                   </NavLink>
+                  {isTechnician && (
+                    <NavLink to="/technician/commission" className={navClass}>
+                      <i className="bi bi-cash-coin fs-6"></i>
+                      {renderMenuLabel("Hoa hồng cá nhân")}
+                    </NavLink>
+                  )}
                 </div>
               )}
             </>
@@ -205,6 +211,10 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                     <i className="bi bi-person-badge-fill fs-6"></i>
                     {renderMenuLabel("Nhân viên")}
                   </NavLink>
+                  <NavLink to="/manager/invoices" className={navClass}>
+                    <i className="bi bi-receipt fs-6"></i>
+                    {renderMenuLabel("Hóa đơn & Thanh toán")}
+                  </NavLink>
                   <NavLink to="/manager/products" className={navClass}>
                     <i className="bi bi-box-seam fs-6"></i>
                     {renderMenuLabel("Sản phẩm")}
@@ -232,6 +242,10 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                   <NavLink to="/my-treatment-profile" className={navClass}>
                     <i className="bi bi-clipboard-pulse fs-6"></i>
                     {renderMenuLabel("Hồ sơ liệu trình")}
+                  </NavLink>
+                  <NavLink to="/manager/commission/report" className={navClass}>
+                    <i className="bi bi-graph-up-arrow fs-6"></i>
+                    {renderMenuLabel("Báo cáo hoa hồng")}
                   </NavLink>
                 </div>
               )}

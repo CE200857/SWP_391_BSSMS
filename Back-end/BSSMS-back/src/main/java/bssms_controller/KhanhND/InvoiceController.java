@@ -76,6 +76,37 @@ public class InvoiceController extends ControllerSupport {
                 return;
             }
 
+            if (path.equals("/api/invoices") || path.equals("/api/invoices/")) {
+                if (!isCurrentUserManager(request)) {
+                    sendError(response, 403,
+                            "Only Managers can view invoice management.");
+                    return;
+                }
+                sendJson(response, 200, dao.getInvoices());
+                return;
+            }
+
+            if (path.matches("/api/invoices/\\d+/?")) {
+                if (!isCurrentUserManager(request)) {
+                    sendError(response, 403,
+                            "Only Managers can view invoice details.");
+                    return;
+                }
+                int invoiceId;
+                try {
+                    invoiceId = Integer.parseInt(path.split("/")[3]);
+                } catch (NumberFormatException ex) {
+                    sendError(response, 400, "Invalid invoice ID.");
+                    return;
+                }
+                try {
+                    sendJson(response, 200, dao.getInvoiceDetails(invoiceId));
+                } catch (IllegalArgumentException ex) {
+                    sendError(response, 404, ex.getMessage());
+                }
+                return;
+            }
+
             sendError(
                     response,
                     404,
@@ -98,6 +129,26 @@ public class InvoiceController extends ControllerSupport {
     ) throws IOException {
 
         String path = getApiPath(request);
+
+        if (path.matches("/api/invoices/\\d+/refund")) {
+            if (!isCurrentUserManager(request)) {
+                sendError(response, 403,
+                        "Only Managers can refund invoices.");
+                return;
+            }
+            handleRefund(request, response, path);
+            return;
+        }
+
+        if (path.matches("/api/invoices/\\d+/cancel")) {
+            if (!isCurrentUserManager(request)) {
+                sendError(response, 403,
+                        "Only Managers can cancel invoices.");
+                return;
+            }
+            handleCancel(request, response, path);
+            return;
+        }
 
         if (!path.equals("/api/invoices")
                 && !path.equals("/api/invoices/")) {
@@ -244,6 +295,128 @@ public class InvoiceController extends ControllerSupport {
                     "Invalid request data."
             );
         }
+    }
+
+    private void handleRefund(
+            ActionRequest request,
+            ActionResult response,
+            String path
+    ) throws IOException {
+        try {
+            int invoiceId = extractInvoiceId(path);
+            JsonObject data = JsonParser.parseString(
+                    request.bodyReader().lines()
+                            .collect(java.util.stream.Collectors.joining("\n"))
+            ).getAsJsonObject();
+            BigDecimal amount = requireDecimal(data, "amount");
+
+            String reason = requireReason(data, "Refund reason is required.");
+            int accountId = getCurrentAccountId(request);
+
+            InvoiceDAO dao = use(new InvoiceDAO());
+            dao.refundInvoice(invoiceId, amount, reason, accountId);
+
+            JsonObject result = new JsonObject();
+            result.addProperty("message", "Invoice refund processed successfully.");
+            result.addProperty("invoiceId", invoiceId);
+            result.addProperty("amount", amount);
+            sendJson(response, 200, result);
+        } catch (IllegalArgumentException ex) {
+            sendError(response, 400, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            sendError(response, 409, ex.getMessage());
+        } catch (SQLException ex) {
+            sendError(response, 500, "Unable to process invoice refund.");
+        } catch (Exception ex) {
+            DataAccessException.rethrowIfDatabase(ex);
+            InputValidation.rethrowIfInvalid(ex);
+            sendError(response, 400, "Invalid refund request.");
+        }
+    }
+
+    private void handleCancel(
+            ActionRequest request,
+            ActionResult response,
+            String path
+    ) throws IOException {
+        try {
+            int invoiceId = extractInvoiceId(path);
+            JsonObject data = JsonParser.parseString(
+                    request.bodyReader().lines()
+                            .collect(java.util.stream.Collectors.joining("\n"))
+            ).getAsJsonObject();
+            String reason = requireReason(data, "Cancellation reason is required.");
+            int accountId = getCurrentAccountId(request);
+
+            InvoiceDAO dao = use(new InvoiceDAO());
+            dao.cancelInvoice(invoiceId, reason, accountId);
+
+            JsonObject result = new JsonObject();
+            result.addProperty("message", "Invoice cancelled successfully.");
+            result.addProperty("invoiceId", invoiceId);
+            sendJson(response, 200, result);
+        } catch (IllegalArgumentException ex) {
+            sendError(response, 400, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            sendError(response, 409, ex.getMessage());
+        } catch (SQLException ex) {
+            sendError(response, 500, "Unable to cancel invoice.");
+        } catch (Exception ex) {
+            DataAccessException.rethrowIfDatabase(ex);
+            InputValidation.rethrowIfInvalid(ex);
+            sendError(response, 400, "Invalid cancellation request.");
+        }
+    }
+
+    private String requireReason(JsonObject data, String message) {
+        if (!data.has("reason")
+                || data.get("reason").isJsonNull()
+                || !data.get("reason").isJsonPrimitive()) {
+            throw new IllegalArgumentException(message);
+        }
+
+        String reason = data.get("reason").getAsString().trim();
+        if (reason.isEmpty()) {
+            throw new IllegalArgumentException(message);
+        }
+        return reason;
+    }
+
+    private int extractInvoiceId(String path) {
+        int invoiceId = Integer.parseInt(path.split("/")[3]);
+        if (invoiceId <= 0) {
+            throw new IllegalArgumentException("Invoice ID must be positive.");
+        }
+        return invoiceId;
+    }
+
+    private boolean isCurrentUserManager(ActionRequest request) {
+        SessionState session = request.session(false);
+        if (session == null || !(session.get("user") instanceof Map)) {
+            return false;
+        }
+
+        Object role = ((Map<?, ?>) session.get("user")).get("role");
+        return role instanceof String
+                && "Manager".equalsIgnoreCase(((String) role).trim());
+    }
+
+    private int getCurrentAccountId(ActionRequest request) {
+        SessionState session = request.session(false);
+        if (session == null || !(session.get("user") instanceof Map)) {
+            throw new IllegalStateException("Please log in again.");
+        }
+
+        Object accountId = ((Map<?, ?>) session.get("user")).get("accountId");
+        if (!(accountId instanceof Number)) {
+            throw new IllegalStateException("Account information is missing.");
+        }
+
+        int id = ((Number) accountId).intValue();
+        if (id <= 0) {
+            throw new IllegalStateException("Invalid account information.");
+        }
+        return id;
     }
 
     private int requireInt(JsonObject data, String key) {
