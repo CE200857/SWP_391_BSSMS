@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import servicePhoto from '../../../assets/figma/service-card-exact-02.png';
 
 const ServiceForm = ({ isReadOnly = false }) => {
     const { id } = useParams(); 
@@ -13,13 +14,33 @@ const ServiceForm = ({ isReadOnly = false }) => {
         duration: '',
         status: 'Active'
     });
+    const [loadError, setLoadError] = useState('');
+    const [loadedId, setLoadedId] = useState(null);
+    const isLoading = Boolean(id) && loadedId !== id;
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const isManager = user?.role === 'Manager';
 
     useEffect(() => {
-        if (id) {
-            axios.get(`/api/service?id=${id}`)
-                .then(res => setFormData(res.data))
-                .catch(err => console.error("Lỗi lấy dữ liệu:", err));
-        }
+        if (!id) return;
+        let cancelled = false;
+        axios.get(`/api/service?id=${id}`)
+            .then(res => {
+                if (!cancelled) {
+                    setFormData(res.data);
+                    setLoadError('');
+                }
+            })
+            .catch(err => {
+                console.error("Lỗi lấy dữ liệu:", err);
+                if (!cancelled) setLoadError('Không thể tải thông tin dịch vụ. Vui lòng thử lại.');
+            })
+            .finally(() => {
+                if (!cancelled) setLoadedId(id);
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, [id]);
 
     const handleChange = (e) => {
@@ -46,6 +67,68 @@ const ServiceForm = ({ isReadOnly = false }) => {
     const pageTitle = isReadOnly 
         ? 'Chi tiết Dịch vụ' 
         : (id ? 'Cập nhật Dịch vụ' : 'Thêm Dịch vụ mới');
+
+    if (isReadOnly && !isManager) {
+        return (
+            <main className="public-service-detail-page">
+                <section className="customer-page-banner">
+                    <div className="customer-page-container">
+                        <div className="customer-breadcrumb">
+                            <Link to="/bssms-guest">Trang chủ</Link>
+                            <i className="bi bi-chevron-right" aria-hidden="true" />
+                            <Link to="/guest/services">Danh sách dịch vụ</Link>
+                            <i className="bi bi-chevron-right" aria-hidden="true" />
+                            <strong>Chi tiết dịch vụ</strong>
+                        </div>
+                        <div className="public-detail-banner-title">
+                            <h1>Chi tiết dịch vụ</h1>
+                            <button type="button" onClick={() => navigate(-1)}>
+                                <i className="bi bi-arrow-left" aria-hidden="true" /> Quay lại
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                <section className="public-detail-content">
+                    {isLoading ? (
+                        <div className="customer-empty-state" role="status">
+                            <i className="bi bi-arrow-repeat" aria-hidden="true" />
+                            <strong>Đang tải thông tin dịch vụ</strong>
+                        </div>
+                    ) : loadError ? (
+                        <div className="customer-empty-state" role="alert">
+                            <i className="bi bi-wifi-off" aria-hidden="true" />
+                            <strong>{loadError}</strong>
+                            <Link className="home-button home-button-white" to="/guest/services">Quay lại danh sách</Link>
+                        </div>
+                    ) : (
+                        <div className="public-detail-grid">
+                            <div className="public-detail-image">
+                                <img src={servicePhoto} alt={`Trải nghiệm dịch vụ ${formData.serviceName}`} />
+                                <div><span>SEOUL CENTER · SALON &amp; SPA</span><small>Hình ảnh dịch vụ mang tính minh họa.</small></div>
+                            </div>
+                            <div className="public-detail-copy">
+                                <span className="home-eyebrow">DỊCH VỤ</span>
+                                <h2>{formData.serviceName}</h2>
+                                <span className="public-detail-description-label">Mô tả</span>
+                                <p>{formData.description || 'Thông tin chi tiết sẽ được tư vấn theo nhu cầu của bạn.'}</p>
+                                <div className="public-detail-facts">
+                                    <span><small>Giá tiền</small><strong>{Number(formData.price || 0).toLocaleString('vi-VN')} VNĐ</strong></span>
+                                    <span><small>Thời lượng</small><strong><i className="bi bi-clock" aria-hidden="true" /> {formData.duration || 0} phút</strong></span>
+                                </div>
+                                <Link
+                                    className="home-button home-button-primary public-detail-booking"
+                                    to={user?.role === 'Customer' ? '/appointments/online' : '/guest/slots'}
+                                >
+                                    <i className="bi bi-calendar2-check" aria-hidden="true" /> Đặt lịch hẹn
+                                    <i className="bi bi-arrow-right" aria-hidden="true" />
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+                </section>
+            </main>
+        );
+    }
 
     return (
         <div className="container mt-4" style={{ maxWidth: '800px' }}>

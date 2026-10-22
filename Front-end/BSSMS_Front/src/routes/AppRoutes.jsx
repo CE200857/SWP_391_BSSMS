@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import Sidebar from "../components/Sidebar";
@@ -90,11 +90,16 @@ const ProtectedRoute = ({ user, allowedRoles, children }) => {
 };
 
 // --- 2. CÁC KHUNG GIAO DIỆN (LAYOUTS) ---
-const GuestLayout = () => {
+const GuestLayout = ({ user }) => {
+  const location = useLocation();
+
   return (
     <div className="app-guest-layout">
+      <Header user={user} />
       <main className="app-guest-main">
-        <Outlet />
+        <div key={location.pathname} className="app-route-enter">
+          <Outlet />
+        </div>
       </main>
       <Footer />
     </div>
@@ -103,8 +108,23 @@ const GuestLayout = () => {
 
 const DashboardLayout = ({ user }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const location = useLocation();
 
   if (!user) return <Navigate to="/bssms-guest" replace />;
+
+  if (user.role === "Customer") {
+    return (
+      <div className="app-guest-layout app-customer-layout">
+        <Header user={user} />
+        <main className="app-guest-main app-customer-main">
+          <div key={location.pathname} className="app-route-enter">
+            <Outlet />
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -117,11 +137,12 @@ const DashboardLayout = ({ user }) => {
         onToggle={() => setSidebarCollapsed((prev) => !prev)}
       />
       <div className="flex-grow-1 d-flex flex-column" style={{ minWidth: 0 }}>
-        <Header user={user} />
+        <Header user={user} dashboard />
         <main className="app-dashboard-content p-3 flex-grow-1">
-          <Outlet />
+          <div key={location.pathname} className="app-route-enter">
+            <Outlet />
+          </div>
         </main>
-        <Footer />
       </div>
     </div>
   );
@@ -132,7 +153,7 @@ export default function AppRoutes({ user, setUser }) {
   return (
     <Routes>
       {/* NHÁNH 1: KHÁCH VÃNG LAI (GUEST) */}
-      <Route element={<GuestLayout />}>
+      <Route element={<GuestLayout user={user} />}>
         <Route path="/bssms-guest" element={<GuestHome />} />
         <Route path="/" element={<Navigate to="/bssms-guest" replace />} />
         <Route path="/login" element={<Login setUser={setUser} />} />
