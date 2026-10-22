@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import SeoulBrand from "./SeoulBrand";
 
 const Sidebar = ({ user, collapsed = false, onToggle }) => {
   // Thêm State để điều khiển việc đóng/mở các menu con
@@ -33,6 +34,9 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
       }}
     >
       <div className="app-sidebar-inner p-3 mt-2 text-start">
+        <NavLink className="app-sidebar-brand" to={isCustomer ? "/customer/home" : "/manager/dashboard"} aria-label="Seoul Center">
+          <SeoulBrand />
+        </NavLink>
 
         {/* KHU VỰC TIÊU ĐỀ & NÚT THU GỌN */}
         <div className="app-sidebar-heading d-flex align-items-center justify-content-between mb-4">

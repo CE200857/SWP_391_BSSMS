@@ -1,24 +1,24 @@
 :root {
   font-family: Inter, "Segoe UI", Roboto, sans-serif;
   color: #342631;
-  background: #fff8fb;
+  background: #fcf9f7;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --seoul-50: #fff7fa;
-  --seoul-100: #fcecf2;
-  --seoul-200: #f6d8e3;
-  --seoul-300: #eeb4cb;
-  --seoul-500: #c52d69;
-  --seoul-600: #ad1c56;
-  --seoul-700: #8f174b;
-  --seoul-800: #71143f;
+  --seoul-50: #fff8fc;
+  --seoul-100: #fceaf4;
+  --seoul-200: #f6d8e6;
+  --seoul-300: #e8b7cc;
+  --seoul-500: #e51c78;
+  --seoul-600: #cf1769;
+  --seoul-700: #851343;
+  --seoul-800: #71113c;
   --seoul-900: #50112f;
-  --seoul-ink: #342631;
-  --seoul-muted: #786a75;
-  --seoul-border: #eedde5;
+  --seoul-ink: #292536;
+  --seoul-muted: #8a8190;
+  --seoul-border: #eedfe5;
   --seoul-shadow: 0 12px 30px rgba(112, 24, 67, 0.08);
 
   color-scheme: light;
@@ -39,8 +39,8 @@ body {
 body {
   color: var(--seoul-ink);
   background:
-    radial-gradient(ellipse at 10% 0%, rgba(255, 232, 241, 0.55), transparent 38rem),
-    #fffafd;
+    radial-gradient(ellipse at 10% 0%, rgba(255, 232, 241, 0.38), transparent 38rem),
+    #fcf9f7;
   font-size: 16px;
   line-height: 1.55;
 }
