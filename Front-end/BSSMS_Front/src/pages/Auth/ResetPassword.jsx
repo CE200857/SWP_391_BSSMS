@@ -40,7 +40,7 @@ const ResetPassword = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/BSSMS-back/api/forgot-password/reset", {
+      const response = await fetch("/api/forgot-password/reset", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

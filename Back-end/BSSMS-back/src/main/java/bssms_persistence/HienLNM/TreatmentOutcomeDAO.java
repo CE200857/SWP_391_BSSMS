@@ -1,18 +1,25 @@
 package bssms_persistence.HienLNM;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
 /**
  * @author HienLNM
  */
-public class TreatmentOutcomeDAO extends DBContext {
+public class TreatmentOutcomeDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     /**
      * Kiểm tra appointment có tồn tại hay không.
      */
     public boolean appointmentExists(int appointmentId) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in TreatmentOutcomeDAO.appointmentExists()");
             return false;
@@ -31,7 +38,7 @@ public class TreatmentOutcomeDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
@@ -45,6 +52,7 @@ public class TreatmentOutcomeDAO extends DBContext {
      * @return true nếu cập nhật thành công
      */
     public boolean recordOutcome(int appointmentId, String notes, String status) throws Exception {
+        requireConnection();
         if (conn == null) {
             throw new Exception("Database connection is null in TreatmentOutcomeDAO.recordOutcome()");
         }
@@ -65,7 +73,7 @@ public class TreatmentOutcomeDAO extends DBContext {
             ps.close();
             return rows > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
             throw e;
         }
     }
@@ -74,6 +82,7 @@ public class TreatmentOutcomeDAO extends DBContext {
      * Lấy kết quả điều trị (notes + status) của 1 appointment.
      */
     public String getOutcomeByAppointmentId(int appointmentId) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in TreatmentOutcomeDAO.getOutcomeByAppointmentId()");
             return null;
@@ -93,7 +102,7 @@ public class TreatmentOutcomeDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }

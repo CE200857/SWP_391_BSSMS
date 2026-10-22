@@ -1,6 +1,7 @@
 package bssms_persistence.KhanhND;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -8,10 +9,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class StaffDAO extends DBContext {
+public class StaffDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     // View Staff Account
     public List<Map<String, Object>> getAllStaffDetails() {
+        requireConnection();
 
         List<Map<String, Object>> list = new ArrayList<>();
 
@@ -48,26 +55,42 @@ public class StaffDAO extends DBContext {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
 
         return list;
     }
-    
-    //Change Staff Status
-    public boolean updateStaffStatus(int accountId, String newStatus) {
-        String sql = "UPDATE Account SET status = ? WHERE account_id = ?";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ps.setString(1, newStatus);
-                ps.setInt(2, accountId);
-                return ps.executeUpdate() > 0;
-            }
+    // Deactivate Staff Account
+    public boolean deactivateStaff(int staffId) {
+        requireConnection();
+
+        String query = "UPDATE Account SET status = 'Inactive' "
+                + "WHERE account_id = ("
+                + "SELECT account_id FROM Staff WHERE staff_id = ?"
+                + ")";
+
+        try (PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, staffId);
+            return ps.executeUpdate() > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
+            return false;
         }
-        return false;
+    }
+
+    // Change Staff Status
+    public boolean updateStaffStatus(int accountId, String newStatus) {
+        requireConnection();
+
+        String sql = "UPDATE Account SET status = ? WHERE account_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newStatus);
+            ps.setInt(2, accountId);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            DataAccessException.rethrowIfDatabase(e);
+            return false;
+        }
     }
 
     //Delete Staff Account
@@ -147,6 +170,7 @@ public class StaffDAO extends DBContext {
     }
     
     public boolean assignRole(int accountId, String newRole) {
+        requireConnection();
         String updateAccountSql = "UPDATE Account SET role = ? WHERE account_id = ?";
         String updateStaffSql = "UPDATE Staff SET position = ? WHERE account_id = ?";
         
@@ -171,14 +195,14 @@ public class StaffDAO extends DBContext {
             try {
                 if (conn != null) conn.rollback();
             } catch (Exception ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         } finally {
             try {
                 if (conn != null) conn.setAutoCommit(true);
             } catch (Exception ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
         }
         return false;
@@ -203,12 +227,13 @@ public class StaffDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return username;
     }
     
     public String createStaff(String baseUsername, String password, String email, String phone, String fullName, String role, double salary) {
+        requireConnection();
         String insertAccount = "INSERT INTO Account (username, password, email, phone, status, role) VALUES (?, ?, ?, ?, 'Active', ?)";
         String insertStaff = "INSERT INTO Staff (account_id, full_name, phone, email, position, salary, hire_date) VALUES (?, ?, ?, ?, ?, ?, GETDATE())";
 
@@ -247,15 +272,16 @@ public class StaffDAO extends DBContext {
                 return finalUsername;
             }
         } catch (Exception e) {
-            try { if (conn != null) conn.rollback(); } catch (Exception ex) { ex.printStackTrace(); }
-            e.printStackTrace();
+            try { if (conn != null) conn.rollback(); } catch (Exception ex) { DataAccessException.rethrowIfDatabase(ex); }
+            DataAccessException.rethrowIfDatabase(e);
         } finally {
-            try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { ex.printStackTrace(); }
+            try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { DataAccessException.rethrowIfDatabase(ex); }
         }
         return null;
     }
     
     public Map<String, Object> getStaffById(int staffId) {
+        requireConnection();
         Map<String, Object> map = new HashMap<>();
         
         String query = "SELECT s.staff_id, s.account_id, a.username, a.password, s.full_name, "
@@ -287,12 +313,13 @@ public class StaffDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return map;
     }
     
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        requireConnection();
         if (username != null && username.trim().isEmpty()) username = null;
         if (email != null && email.trim().isEmpty()) email = null;
         if (phone != null && phone.trim().isEmpty()) phone = null;
@@ -337,12 +364,13 @@ public class StaffDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
     
     public boolean updateStaff(int accountId, String fullName, String phone, String email, String role, String hireDate, double salary, String username, String hashedPassword) {
+        requireConnection();
         String updateAccountSql = hashedPassword != null && !hashedPassword.isEmpty() 
                 ? "UPDATE Account SET phone = ?, email = ?, role = ?, username = ?, password = ? WHERE account_id = ?"
                 : "UPDATE Account SET phone = ?, email = ?, role = ?, username = ? WHERE account_id = ?";
@@ -387,10 +415,10 @@ public class StaffDAO extends DBContext {
                 return true;
             }
         } catch (Exception e) {
-            try { if (conn != null) conn.rollback(); } catch (Exception ex) { ex.printStackTrace(); }
-            e.printStackTrace();
+            try { if (conn != null) conn.rollback(); } catch (Exception ex) { DataAccessException.rethrowIfDatabase(ex); }
+            DataAccessException.rethrowIfDatabase(e);
         } finally {
-            try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { ex.printStackTrace(); }
+            try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { DataAccessException.rethrowIfDatabase(ex); }
         }
         return false;
     }

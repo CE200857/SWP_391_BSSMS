@@ -1,6 +1,7 @@
 package bssms_persistence.HienLNM;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -8,10 +9,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class VoucherDAO extends DBContext {
+public class VoucherDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     // Lấy tất cả voucher
     public List<Map<String, Object>> getAllVouchers() {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         String query = "SELECT v.voucher_id, v.customer_id, v.voucher_code, v.voucher_name, "
                      + "v.discount_type, v.discount_value, v.start_date, v.end_date, v.status, "
@@ -39,13 +46,14 @@ public class VoucherDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
 
     // Lấy voucher theo ID
     public Map<String, Object> getVoucherById(int voucherId) {
+        requireConnection();
         Map<String, Object> map = new HashMap<>();
         String query = "SELECT v.voucher_id, v.customer_id, v.voucher_code, v.voucher_name, "
                      + "v.discount_type, v.discount_value, v.start_date, v.end_date, v.status, "
@@ -72,7 +80,7 @@ public class VoucherDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return map;
     }
@@ -80,6 +88,7 @@ public class VoucherDAO extends DBContext {
     // Tạo voucher mới
     public boolean createVoucher(Integer customerId, String voucherCode, String voucherName, 
                                 String discountType, double discountValue, String startDate, String endDate) {
+        requireConnection();
         String query = "INSERT INTO Voucher (customer_id, voucher_code, voucher_name, discount_type, "
                       + "discount_value, start_date, end_date, status) "
                       + "VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')";
@@ -101,7 +110,7 @@ public class VoucherDAO extends DBContext {
                 return rowsAffected > 0;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
@@ -109,6 +118,7 @@ public class VoucherDAO extends DBContext {
     // Cập nhật voucher
     public boolean updateVoucher(int voucherId, Integer customerId, String voucherCode, String voucherName, 
                                 String discountType, double discountValue, String startDate, String endDate, String status) {
+        requireConnection();
         String query = "UPDATE Voucher SET customer_id = ?, voucher_code = ?, voucher_name = ?, "
                       + "discount_type = ?, discount_value = ?, start_date = ?, end_date = ?, status = ? "
                       + "WHERE voucher_id = ?";
@@ -132,13 +142,14 @@ public class VoucherDAO extends DBContext {
                 return rowsAffected > 0;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     // Xóa voucher
     public boolean deleteVoucher(int voucherId) {
+        requireConnection();
         String query = "DELETE FROM Voucher WHERE voucher_id = ?";
         try {
             if (conn != null) {
@@ -148,13 +159,14 @@ public class VoucherDAO extends DBContext {
                 return rowsAffected > 0;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     // Kiểm tra voucher code đã tồn tại
     public boolean isVoucherCodeExists(String voucherCode, Integer excludeVoucherId) {
+        requireConnection();
         String query = "SELECT voucher_id FROM Voucher WHERE voucher_code = ?";
         if (excludeVoucherId != null) {
             query += " AND voucher_id != ?";
@@ -170,7 +182,7 @@ public class VoucherDAO extends DBContext {
                 return rs.next();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }

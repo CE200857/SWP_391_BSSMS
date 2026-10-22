@@ -1,15 +1,22 @@
 package bssms_persistence.KhanhLTQ;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import bssms_inventory.Product;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ProductDAO extends DBContext {
+public class ProductDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     // 1. Lấy tất cả sản phẩm
     public List<Product> getAllProducts() {
+        requireConnection();
         List<Product> list = new ArrayList<>();
         String sql = "SELECT p.*, "
                    + "(SELECT TOP 1 po.supplier_id "
@@ -38,13 +45,14 @@ public class ProductDAO extends DBContext {
                 list.add(p);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
 
     // 2. Lấy sản phẩm theo ID
     public Product getProductById(int id) {
+        requireConnection();
         String sql = "SELECT p.*, "
                    + "(SELECT TOP 1 po.supplier_id "
                    + " FROM PurchaseOrderProduct pop "
@@ -73,13 +81,14 @@ public class ProductDAO extends DBContext {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
 
     // 3. Thêm mới sản phẩm
     public boolean createProduct(Product product) {
+        requireConnection();
         String sql = "INSERT INTO Product (product_name, description, unit_price, stock_quantity, reorder_level, status) "
                 + "VALUES (?, ?, ?, ?, ?, ?)";
 
@@ -97,13 +106,14 @@ public class ProductDAO extends DBContext {
 
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     // 4. Cập nhật thông tin sản phẩm
     public boolean updateProduct(Product product) {
+        requireConnection();
         String sql = "UPDATE Product SET product_name = ?, description = ?, unit_price = ?, "
                 + "stock_quantity = ?, reorder_level = ?, status = ? WHERE product_id = ?";
 
@@ -122,13 +132,14 @@ public class ProductDAO extends DBContext {
 
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     // 5. Xóa sản phẩm
     public boolean deleteProduct(int id) {
+        requireConnection();
         String sql = "DELETE FROM Product WHERE product_id = ?";
 
         if (this.conn == null) {
@@ -139,13 +150,14 @@ public class ProductDAO extends DBContext {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     // 6. Cập nhật số lượng tồn kho
     public boolean updateStockQuantity(int productId, int quantityToAdd) {
+        requireConnection();
         String query = "UPDATE Product SET stock_quantity = stock_quantity + ? WHERE product_id = ?";
 
         if (this.conn == null) {
@@ -157,8 +169,28 @@ public class ProductDAO extends DBContext {
             ps.setInt(2, productId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
+    }
+
+    /** Apply an entire stock receipt atomically; the original endpoint only updates stock. */
+    public void receiveStock(java.util.Map<Integer,Integer> quantities) throws SQLException {
+        requireConnection();
+        boolean originalAutoCommit=conn.getAutoCommit();
+        try {
+            conn.setAutoCommit(false);
+            try (PreparedStatement ps=conn.prepareStatement(
+                    "UPDATE Product SET stock_quantity = stock_quantity + ? WHERE product_id = ?")) {
+                for(java.util.Map.Entry<Integer,Integer> item:quantities.entrySet()) {
+                    ps.setInt(1,item.getValue()); ps.setInt(2,item.getKey());
+                    if(ps.executeUpdate()!=1) throw new IllegalArgumentException("Product not found: " + item.getKey());
+                }
+            }
+            conn.commit();
+        } catch(SQLException | RuntimeException error) {
+            try { conn.rollback(); } catch(SQLException rollback) { error.addSuppressed(rollback); }
+            throw error;
+        } finally { conn.setAutoCommit(originalAutoCommit); }
     }
 }

@@ -5,7 +5,7 @@
 package bssms_persistence.DatTT;
 
 import bssms_persistence.DBContext;
-import bssms_persistence.HienLNM.RoomBedStatusDAO;
+
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -14,10 +14,17 @@ import java.util.*;
 /**
  * @author Trần Thành Đạt - CE200857
  */
-public class BookingManagementDAO extends DBContext {
+public class BookingManagementDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() throws SQLException {
+        if (conn == null || conn.isClosed()) throw new SQLException("Database connection unavailable");
+    }
+
+    @Override public void close() throws SQLException { if (conn != null) conn.close(); }
 
     // Lấy customer_id từ account_id (dùng cho Customer đang đăng nhập)
-    public int getCustomerIdByAccountId(int accountId) {
+    public int getCustomerIdByAccountId(int accountId) throws SQLException {
+        requireConnection();
         String sql = "SELECT customer_id FROM Customer WHERE account_id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, accountId);
@@ -26,14 +33,15 @@ public class BookingManagementDAO extends DBContext {
                     return rs.getInt("customer_id");
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            throw e;
         }
         return -1;
     }
 
     // Lấy danh sách gói liệu trình còn hiệu lực của Customer kèm tên gói và service_id
-    public List<Map<String, Object>> getActivePackagesByCustomer(int customerId) {
+    public List<Map<String, Object>> getActivePackagesByCustomer(int customerId) throws SQLException {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT cp.customer_package_id, cp.treatment_package_id, cp.remaining_sessions, "
                    + "cp.expiry_date, tp.package_name, tp.service_id, s.service_name, s.duration "
@@ -58,8 +66,8 @@ public class BookingManagementDAO extends DBContext {
                     list.add(map);
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            throw e;
         }
         return list;
     }
@@ -93,10 +101,10 @@ public class BookingManagementDAO extends DBContext {
         List<Map<String, Object>> eligibleTechs = getEligibleTechnicians(serviceId, requestedTechId);
 
         // 3. Lấy tổng số phòng Available
-        int totalAvailableRooms = 1;
+        int totalAvailableRooms = 0;
         try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM Room WHERE status = 'Available'");
              ResultSet rs = ps.executeQuery()) {
-            if (rs.next() && rs.getInt(1) > 0) {
+            if (rs.next()) {
                 totalAvailableRooms = rs.getInt(1);
             }
         }
@@ -106,7 +114,10 @@ public class BookingManagementDAO extends DBContext {
         LocalTime openTime = LocalTime.of(8, 30);
         LocalTime closeTime = LocalTime.of(20, 30);
 
-        for (LocalTime slotStart = openTime; !slotStart.plusMinutes(duration).isAfter(closeTime); slotStart = slotStart.plusMinutes(30)) {
+        if (duration <= 0 || duration > 720) throw new IllegalArgumentException("Invalid service duration for opening hours.");
+        for (int minute = openTime.toSecondOfDay() / 60;
+                minute + duration <= closeTime.toSecondOfDay() / 60; minute += 30) {
+            LocalTime slotStart = LocalTime.of(minute / 60, minute % 60);
             LocalTime slotEnd = slotStart.plusMinutes(duration);
             Time sqlStart = Time.valueOf(slotStart);
             Time sqlEnd = Time.valueOf(slotEnd);
@@ -251,6 +262,10 @@ public class BookingManagementDAO extends DBContext {
                 }
             }
 
+            if (duration <= 0 || startTime.isBefore(LocalTime.of(8, 30))
+                    || startTime.toSecondOfDay() + (long) duration * 60 > LocalTime.of(20, 30).toSecondOfDay()) {
+                throw new IllegalArgumentException("Appointment must fit within opening hours (08:30-20:30).");
+            }
             LocalTime endTime = startTime.plusMinutes(duration);
             java.sql.Date sqlDate = java.sql.Date.valueOf(apptDate);
             Time sqlStart = Time.valueOf(startTime);
@@ -261,11 +276,13 @@ public class BookingManagementDAO extends DBContext {
                 String pkgSql = "SELECT COUNT(*) FROM CustomerPackage cp "
                               + "JOIN TreatmentPackage tp ON cp.treatment_package_id = tp.treatment_package_id "
                               + "WHERE cp.customer_package_id = ? AND cp.customer_id = ? "
-                              + "AND cp.status = 'Active' AND cp.remaining_sessions > 0 AND tp.service_id = ?";
+                              + "AND cp.status = 'Active' AND cp.remaining_sessions > 0 AND tp.service_id = ? "
+                              + "AND (cp.expiry_date IS NULL OR CAST(cp.expiry_date AS DATE) >= ?)";
                 try (PreparedStatement ps = conn.prepareStatement(pkgSql)) {
                     ps.setInt(1, customerPackageId);
                     ps.setInt(2, customerId);
                     ps.setInt(3, serviceId);
+                    ps.setDate(4, sqlDate);
                     try (ResultSet rs = ps.executeQuery()) {
                         if (!rs.next() || rs.getInt(1) == 0) {
                             throw new IllegalArgumentException("Gói liệu trình không hợp lệ hoặc đã hết buổi.");
@@ -335,6 +352,8 @@ public class BookingManagementDAO extends DBContext {
                     if (keys.next()) appointmentId = keys.getInt(1);
                 }
             }
+
+            if (appointmentId <= 0) throw new SQLException("Missing generated appointment id");
 
             // 6. Gán KTV vào AppointmentStaff
             String insertStaff = "INSERT INTO AppointmentStaff (appointment_id, staff_id, role) VALUES (?, ?, 'Main Technician')";
@@ -474,6 +493,7 @@ public class BookingManagementDAO extends DBContext {
     // 4. COORDINATE SERVICE (Receptionist: Phân bổ KTV, Phòng, Giường, Thiết bị)
     // =========================================================================
     public Map<String, Object> getCoordinationResources(int appointmentId) throws Exception {
+        requireConnection();
         Map<String, Object> data = new HashMap<>();
 
         // 1. Thông tin lịch hẹn hiện tại
@@ -585,12 +605,12 @@ public class BookingManagementDAO extends DBContext {
         data.put("technicians", allTechnicians);
 
         // 5. Danh sách Phòng và Giường
-        RoomBedStatusDAO rbDao = new RoomBedStatusDAO();
-        data.put("roomsWithBeds", rbDao.getAllRoomsWithBeds());
+        data.put("roomsWithBeds", getRoomsWithBeds());
 
-        // 6. Danh sách Thiết bị
-        EquipmentDAO eqDao = new EquipmentDAO();
-        data.put("equipments", eqDao.getAllEquipments());
+        // 6. Danh sách Thiết bị (separate request-scoped connection, always closed)
+        try (EquipmentDAO eqDao = new EquipmentDAO()) {
+            data.put("equipments", eqDao.getAllEquipments());
+        }
 
         return data;
     }
@@ -628,6 +648,16 @@ public class BookingManagementDAO extends DBContext {
         try {
             conn.setAutoCommit(false);
 
+            if (bedId != null) {
+                try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM Bed WHERE bed_id = ? AND room_id = ?")) {
+                    ps.setInt(1, bedId);
+                    if (roomId == null) throw new IllegalArgumentException("A room is required for the selected bed.");
+                    ps.setInt(2, roomId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next() || rs.getInt(1) == 0) throw new IllegalArgumentException("Bed does not belong to the selected room.");
+                    }
+                }
+            }
             // 1. Cập nhật room_id, bed_id và chuyển status từ 'Booked'/'Scheduled' sang 'Confirmed'
             String updateApptSql = "UPDATE Appointment SET room_id = ?, bed_id = ?, "
                                  + "status = CASE WHEN status IN ('Booked', 'Scheduled') THEN 'Confirmed' ELSE status END "
@@ -640,7 +670,10 @@ public class BookingManagementDAO extends DBContext {
                 else ps.setNull(2, Types.INTEGER);
 
                 ps.setInt(3, appointmentId);
-                ps.executeUpdate();
+                if (ps.executeUpdate() == 0) {
+                    conn.rollback();
+                    return false;
+                }
             }
 
             // 2. Cập nhật Kỹ thuật viên trong AppointmentStaff
@@ -687,7 +720,8 @@ public class BookingManagementDAO extends DBContext {
     }
 
     // Lấy toàn bộ danh sách lịch hẹn chi tiết phục vụ trang Điều phối & Check-in của Lễ tân
-    public List<Map<String, Object>> getAllAppointmentsForCoordination() {
+    public List<Map<String, Object>> getAllAppointmentsForCoordination() throws SQLException {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT a.appointment_id, a.customer_id, c.full_name AS customer_name, a.phone_override, acc.phone, "
                    + "a.service_id, s.service_name, s.duration, a.customer_package_id, "
@@ -746,9 +780,43 @@ public class BookingManagementDAO extends DBContext {
                 map.put("notes", rs.getString("notes"));
                 list.add(map);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            throw e;
         }
         return list;
+    }
+
+    private List<Map<String, Object>> getRoomsWithBeds() throws SQLException {
+        List<Map<String, Object>> rooms = new ArrayList<>();
+        Map<Integer, Map<String, Object>> byId = new LinkedHashMap<>();
+        try (PreparedStatement ps = conn.prepareStatement("SELECT room_id, room_name, room_type, status FROM Room ORDER BY room_id");
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> room = new HashMap<>();
+                int id = rs.getInt("room_id");
+                room.put("roomId", id);
+                room.put("roomName", rs.getString("room_name"));
+                room.put("roomType", rs.getString("room_type"));
+                room.put("status", rs.getString("status"));
+                room.put("beds", new ArrayList<Map<String, Object>>());
+                rooms.add(room); byId.put(id, room);
+            }
+        }
+        try (PreparedStatement ps = conn.prepareStatement("SELECT bed_id, room_id, bed_number, status FROM Bed ORDER BY bed_number");
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> room = byId.get(rs.getInt("room_id"));
+                if (room == null) continue;
+                Map<String, Object> bed = new HashMap<>();
+                bed.put("bedId", rs.getInt("bed_id"));
+                bed.put("roomId", rs.getInt("room_id"));
+                bed.put("bedNumber", rs.getString("bed_number"));
+                bed.put("status", rs.getString("status"));
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> beds = (List<Map<String, Object>>) room.get("beds");
+                beds.add(bed);
+            }
+        }
+        return rooms;
     }
 }

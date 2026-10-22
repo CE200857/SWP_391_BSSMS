@@ -1,6 +1,7 @@
 package bssms_persistence.DatNT;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -8,9 +9,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class CustomerDAO extends DBContext {
+public class CustomerDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     public List<Map<String, Object>> getAllCustomerDetails() {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         String query = "SELECT c.customer_id, c.full_name, a.phone, a.email, a.status "
                      + "FROM Customer c "
@@ -31,12 +38,13 @@ public class CustomerDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
 
     public boolean deactivateCustomer(int customerId) {
+        requireConnection();
         String query = "UPDATE Account SET status = 'Inactive' "
                 + "WHERE account_id = (SELECT account_id FROM Customer WHERE customer_id = ?)";
         try {
@@ -47,12 +55,13 @@ public class CustomerDAO extends DBContext {
                 return rowsAffected > 0;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
     
     public boolean createWalkInCustomer(String username, String password, String email, String phone, String fullName, String dob, String gender) {
+        requireConnection();
         String insertAccount = "INSERT INTO Account (username, password, email, phone, status, role) VALUES (?, ?, ?, ?, 'Active', 'Customer')";
         String insertCustomer = "INSERT INTO Customer (account_id, membership_tier_id, full_name, date_of_birth, gender, phone) VALUES (?, 1, ?, ?, ?, ?)";
 
@@ -89,15 +98,16 @@ public class CustomerDAO extends DBContext {
                 return true;
             }
         } catch (Exception e) {
-            try { if (conn != null) conn.rollback(); } catch (Exception ex) { ex.printStackTrace(); }
-            e.printStackTrace();
+            try { if (conn != null) conn.rollback(); } catch (Exception ex) { DataAccessException.rethrowIfDatabase(ex); }
+            DataAccessException.rethrowIfDatabase(e);
         } finally {
-            try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { ex.printStackTrace(); }
+            try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { DataAccessException.rethrowIfDatabase(ex); }
         }
         return false;
     }
     
     public Map<String, Object> getCustomerById(int customerId) {
+        requireConnection();
         Map<String, Object> map = new HashMap<>();
         
         String query = "SELECT c.customer_id, c.account_id, c.full_name, c.gender, "
@@ -132,12 +142,13 @@ public class CustomerDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return map;
     }
     
     public boolean updateCustomer(int accountId, String fullName, String phone, String email, String gender, String dob, String address, String status) {
+        requireConnection();
         String updateAccountSql = "UPDATE Account SET phone = ?, email = ?, status = ? WHERE account_id = ?";
         String updateCustomerSql = "UPDATE Customer SET full_name = ?, gender = ?, date_of_birth = ?, address = ? WHERE account_id = ?";
         
@@ -177,20 +188,21 @@ public class CustomerDAO extends DBContext {
             try {
                 if (conn != null) conn.rollback();
             } catch (Exception ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         } finally {
             try {
                 if (conn != null) conn.setAutoCommit(true);
             } catch (Exception ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
         }
         return false;
     }
     
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        requireConnection();
         if (username != null && username.trim().isEmpty()) username = null;
         if (email != null && email.trim().isEmpty()) email = null;
         if (phone != null && phone.trim().isEmpty()) phone = null;
@@ -235,7 +247,7 @@ public class CustomerDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
@@ -258,7 +270,7 @@ public class CustomerDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return username;
     }

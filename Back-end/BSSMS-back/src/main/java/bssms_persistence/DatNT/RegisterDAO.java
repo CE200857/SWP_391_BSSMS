@@ -1,14 +1,21 @@
 package bssms_persistence.DatNT;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.HashMap;
 import java.util.Map;
 
-public class RegisterDAO extends DBContext {
+public class RegisterDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        requireConnection();
         if (username != null && username.trim().isEmpty()) username = null;
         if (email != null && email.trim().isEmpty()) email = null;
         if (phone != null && phone.trim().isEmpty()) phone = null;
@@ -50,12 +57,13 @@ public class RegisterDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
 
     public Map<String, Object> authenticateUser(String emailOrPhone, String password) {
+        requireConnection();
         Map<String, Object> userMap = null;
         String query = "SELECT a.account_id, a.email, a.status, a.role, "
                      + "c.full_name AS customer_name, "
@@ -89,12 +97,13 @@ public class RegisterDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return userMap;
     }
 
     public boolean createAccount(String username, String password, String email) {
+        requireConnection();
         String sql = "INSERT INTO Account (username, password, email, status, role) VALUES (?, ?, ?, 'Active', 'Customer')";
         try {
             if (conn != null) {
@@ -105,12 +114,13 @@ public class RegisterDAO extends DBContext {
                 return ps.executeUpdate() > 0;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     public boolean saveVerificationCode(String email, String otpCode) {
+        requireConnection();
         String sql = "IF EXISTS (SELECT 1 FROM VerificationCode WHERE email = ?) "
                    + "UPDATE VerificationCode SET otp_code = ?, expiry_time = DATEADD(MINUTE, 5, GETDATE()), created_at = GETDATE() WHERE email = ? "
                    + "ELSE "
@@ -126,12 +136,13 @@ public class RegisterDAO extends DBContext {
                 return ps.executeUpdate() > 0;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     public boolean verifyCode(String email, String otpCode) {
+        requireConnection();
         String sql = "SELECT otp_code FROM VerificationCode WHERE email = ? AND otp_code = ? AND expiry_time > GETDATE()";
         try {
             if (conn != null) {
@@ -142,12 +153,13 @@ public class RegisterDAO extends DBContext {
                 return rs.next();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     public void deleteVerificationCode(String email) {
+        requireConnection();
         String sql = "DELETE FROM VerificationCode WHERE email = ?";
         try {
             if (conn != null) {
@@ -156,11 +168,12 @@ public class RegisterDAO extends DBContext {
                 ps.executeUpdate();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
     }
 
     public boolean isSameOldPasswordByEmail(String email, String newPasswordHashed) {
+        requireConnection();
         String sql = "SELECT account_id FROM Account WHERE email = ? AND password = ?";
         try {
             if (conn != null) {
@@ -171,12 +184,13 @@ public class RegisterDAO extends DBContext {
                 return rs.next();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     public boolean changePassword(int accountId, String oldPasswordHashed, String newPasswordHashed) {
+        requireConnection();
         String checkSql = "SELECT account_id FROM Account WHERE account_id = ? AND password = ?";
         String updateSql = "UPDATE Account SET password = ? WHERE account_id = ?";
         try {
@@ -194,12 +208,13 @@ public class RegisterDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     public boolean resetPasswordByEmail(String email, String newPasswordHashed) {
+        requireConnection();
         String updateSql = "UPDATE Account SET password = ? WHERE email = ?";
         try {
             if (conn != null) {
@@ -209,7 +224,7 @@ public class RegisterDAO extends DBContext {
                 return psUpdate.executeUpdate() > 0;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
