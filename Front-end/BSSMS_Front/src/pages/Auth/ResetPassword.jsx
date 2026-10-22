@@ -83,7 +83,7 @@ const ResetPassword = () => {
             </h4>
           </div>
 
-          <p className="text-muted text-center mb-4" style={{ fontSize: "14px" }}>
+          <p className="text-muted text-center mb-4" style={{ fontSize: "1rem" }}>
             Vui lòng nhập mật khẩu mới cho tài khoản: <br/> 
             <strong className="text-danger">{email}</strong>
           </p>
@@ -93,7 +93,7 @@ const ResetPassword = () => {
 
           <Form onSubmit={handleResetPassword}>
             <Form.Group className="mb-3 text-start">
-              <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>Mật khẩu mới*</Form.Label>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Mật khẩu mới*</Form.Label>
               <Form.Control
                 type="password"
                 placeholder="Nhập ít nhất 6 ký tự"
@@ -105,7 +105,7 @@ const ResetPassword = () => {
             </Form.Group>
 
             <Form.Group className="mb-4 text-start">
-              <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>Xác nhận mật khẩu mới*</Form.Label>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Xác nhận mật khẩu mới*</Form.Label>
               <Form.Control
                 type="password"
                 placeholder="Nhập lại mật khẩu mới"

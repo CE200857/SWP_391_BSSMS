@@ -199,7 +199,7 @@ const Login = ({ setUser }) => {
 
           <div
             className="d-flex flex-column text-start"
-            style={{ fontSize: "15px" }}
+            style={{ fontSize: "1rem" }}
           >
             <Link className="auth-inline-link mb-2" to="/forgot-password">
               Quên mật khẩu?
