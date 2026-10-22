@@ -1,125 +1,47 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/JSP_Servlet/Servlet.java to edit this template
- */
 package bssms_api.DatTT;
-
 import bssms_catalog.Room;
+import bssms_controller.DatTT.RoomController;
 import bssms_persistence.DatTT.RoomDAO;
-import com.google.gson.Gson;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import jakarta.servlet.ServletException;
+import bssms_api.common.BaseApiServlet;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-/**
- *
- * @author Trần Thành Đạt - CE200857
- */
+import jakarta.servlet.http.*;
+import java.io.IOException;
+
 @WebServlet(name = "RoomServlet", urlPatterns = {"/api/rooms"})
-public class RoomServlet extends HttpServlet {
-
-    private RoomDAO roomDAO = new RoomDAO();
-    private Gson gson = new Gson();
-
-    private void setCorsHeaders(HttpServletResponse resp) {
-        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
-        resp.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        resp.setHeader("Access-Control-Allow-Headers", "Content-Type");
-        resp.setHeader("Access-Control-Allow-Credentials", "true");
-        resp.setContentType("application/json;charset=UTF-8");
-    }
-
-    @Override
-    protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        setCorsHeaders(resp);
-        resp.setStatus(HttpServletResponse.SC_OK);
-    }
-    
-    private boolean isManager(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        if (session != null && session.getAttribute("user") != null) {
-            Map<String, Object> user = (Map<String, Object>) session.getAttribute("user");
-            return "Manager".equals(user.get("role"));
-        }
-        return false;
-    }
-
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        setCorsHeaders(resp);
-        List<Room> list = roomDAO.getAllRooms();
-        resp.getWriter().print(gson.toJson(list));
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        setCorsHeaders(resp);
-        if (!isManager(req)) {
-            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            resp.getWriter().print("{\"message\": \"Bạn không có quyền thêm phòng!\"}");
-            return;
-        }
-
-        BufferedReader reader = req.getReader();
-        Room newRoom = gson.fromJson(reader, Room.class);
-        
-        if (roomDAO.addRoom(newRoom)) {
-            resp.setStatus(HttpServletResponse.SC_CREATED);
-            resp.getWriter().print("{\"message\": \"Thêm phòng thành công!\"}");
-        } else {
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            resp.getWriter().print("{\"message\": \"Thêm phòng thất bại!\"}");
-        }
-    }
-
-    @Override
-    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        setCorsHeaders(resp);
-        if (!isManager(req)) {
-            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            resp.getWriter().print("{\"message\": \"Bạn không có quyền cập nhật phòng!\"}");
-            return;
-        }
-
-        BufferedReader reader = req.getReader();
-        Room updatedRoom = gson.fromJson(reader, Room.class);
-        
-        if (roomDAO.updateRoom(updatedRoom)) {
-            resp.setStatus(HttpServletResponse.SC_OK);
-            resp.getWriter().print("{\"message\": \"Cập nhật phòng thành công!\"}");
-        } else {
-            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            resp.getWriter().print("{\"message\": \"Cập nhật thất bại!\"}");
-        }
-    }
-
-    @Override
-    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        setCorsHeaders(resp);
-        if (!isManager(req)) {
-            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            resp.getWriter().print("{\"message\": \"Bạn không có quyền xóa phòng!\"}");
-            return;
-        }
-
-        String idParam = req.getParameter("id");
-        if (idParam != null) {
-            if (roomDAO.deleteRoom(Integer.parseInt(idParam))) {
-                resp.setStatus(HttpServletResponse.SC_OK);
-                resp.getWriter().print("{\"message\": \"Xóa phòng thành công!\"}");
-            } else {
-                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                resp.getWriter().print("{\"message\": \"Xóa thất bại! Vui lòng kiểm tra lại dữ liệu ràng buộc.\"}");
+public class RoomServlet extends BaseApiServlet {
+    @Override protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        handle(request, response, 200, () -> {
+            try (RoomDAO dao = new RoomDAO()) {
+                RoomController controller = new RoomController(dao);
+                return controller.getAllRooms();
             }
-        } else {
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            resp.getWriter().print("{\"message\": \"Thiếu ID phòng cần xóa!\"}");
-        }
+        });
+    }
+    @Override protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        handle(request, response, 201, () -> {
+            try (RoomDAO dao = new RoomDAO()) {
+                RoomController controller = new RoomController(dao);
+                controller.create(user(request), body(request, Room.class));
+                return message("Created successfully.");
+            }
+        });
+    }
+    @Override protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        handle(request, response, 200, () -> {
+            try (RoomDAO dao = new RoomDAO()) {
+                RoomController controller = new RoomController(dao);
+                controller.update(user(request), body(request, Room.class));
+                return message("Updated successfully.");
+            }
+        });
+    }
+    @Override protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        handle(request, response, 200, () -> {
+            try (RoomDAO dao = new RoomDAO()) {
+                RoomController controller = new RoomController(dao);
+                controller.delete(user(request), id(request, "id"));
+                return message("Deleted successfully.");
+            }
+        });
     }
 }

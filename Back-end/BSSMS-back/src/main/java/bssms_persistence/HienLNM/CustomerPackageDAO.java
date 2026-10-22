@@ -2,6 +2,7 @@ package bssms_persistence.HienLNM;
 
 import bssms_catalog.CustomerPackage;
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -12,12 +13,18 @@ import java.util.Map;
 /**
  * @author HienLNM
  */
-public class CustomerPackageDAO extends DBContext {
+public class CustomerPackageDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     /**
      * Kiểm tra customer có tồn tại hay không.
      */
     public boolean customerExists(int customerId) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in CustomerPackageDAO.customerExists()");
             return false;
@@ -36,7 +43,7 @@ public class CustomerPackageDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
@@ -46,6 +53,7 @@ public class CustomerPackageDAO extends DBContext {
      * Trả về Map: packageName, price, numberOfSessions.
      */
     public Map<String, Object> getTreatmentPackageInfo(int treatmentPackageId) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in CustomerPackageDAO.getTreatmentPackageInfo()");
             return null;
@@ -70,7 +78,7 @@ public class CustomerPackageDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
@@ -84,6 +92,7 @@ public class CustomerPackageDAO extends DBContext {
      * @return Map chứa customerPackageId và invoiceId vừa tạo
      */
     public Map<String, Object> sellTreatmentPackage(int customerId, int treatmentPackageId, int expiryMonths) throws Exception {
+        requireConnection();
         if (conn == null) {
             throw new Exception("Database connection is null in CustomerPackageDAO.sellTreatmentPackage()");
         }
@@ -215,15 +224,15 @@ public class CustomerPackageDAO extends DBContext {
             try {
                 conn.rollback();
             } catch (Exception ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
             throw e;
         } finally {
             try {
                 conn.setAutoCommit(true);
             } catch (Exception ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
         }
     }
@@ -232,6 +241,7 @@ public class CustomerPackageDAO extends DBContext {
      * Lấy danh sách CustomerPackage của 1 khách hàng.
      */
     public List<CustomerPackage> getCustomerPackagesByCustomerId(int customerId) {
+        requireConnection();
         List<CustomerPackage> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in CustomerPackageDAO.getCustomerPackagesByCustomerId()");
@@ -258,7 +268,7 @@ public class CustomerPackageDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -269,21 +279,15 @@ public class CustomerPackageDAO extends DBContext {
      */
     public boolean updateCustomerPackage(int customerPackageId, int remainingSessions,
                                          String expiryDate, String status) {
+        requireConnection();
         // Đảm bảo status không null/empty
         if (status == null || status.trim().isEmpty()) {
             status = "Active";
         }
-        String dbURL = "jdbc:sqlserver://localhost:1433;"
-                + "databaseName=BeautySalonDB;"
-                + "user=sa;"
-                + "password=123456;"
-                + "encrypt=true;trustServerCertificate=true;";
         String sql = "UPDATE CustomerPackage SET remaining_sessions = ?, expiry_date = ?, "
                    + "status = ? WHERE customer_package_id = ?";
-        java.sql.Connection newConn = null;
+        java.sql.Connection newConn = conn;
         try {
-            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-            newConn = java.sql.DriverManager.getConnection(dbURL);
             System.out.println("=== updateCustomerPackage DEBUG ===");
             System.out.println("customerPackageId: " + customerPackageId);
             System.out.println("remainingSessions: " + remainingSessions);
@@ -311,9 +315,7 @@ public class CustomerPackageDAO extends DBContext {
             return rows > 0;
         } catch (Exception e) {
             System.out.println("updateCustomerPackage ERROR: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            try { if (newConn != null) newConn.close(); } catch (Exception ex) { ex.printStackTrace(); }
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }

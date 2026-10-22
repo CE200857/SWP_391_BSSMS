@@ -1,6 +1,7 @@
 package bssms_persistence.HienLNM;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -11,12 +12,18 @@ import java.util.Map;
 /**
  * @author HienLNM
  */
-public class RoomBedStatusDAO extends DBContext {
+public class RoomBedStatusDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     /**
      * Lấy danh sách tất cả Room kèm các Bed thuộc room đó.
      */
     public List<Map<String, Object>> getAllRoomsWithBeds() {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in RoomBedStatusDAO.getAllRoomsWithBeds()");
@@ -58,12 +65,13 @@ public class RoomBedStatusDAO extends DBContext {
             rsRoom.close();
             psRoom.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
 
     public boolean updateRoomStatus(int roomId, String status) throws Exception {
+        requireConnection();
         if (conn == null) {
             throw new Exception("Database connection is null in RoomBedStatusDAO.updateRoomStatus()");
         }
@@ -81,6 +89,7 @@ public class RoomBedStatusDAO extends DBContext {
     }
 
     public boolean updateBedStatus(int bedId, String status) throws Exception {
+        requireConnection();
         if (conn == null) {
             throw new Exception("Database connection is null in RoomBedStatusDAO.updateBedStatus()");
         }
