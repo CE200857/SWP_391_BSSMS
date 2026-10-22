@@ -10,7 +10,7 @@ import {
 } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 
-const CustomerList = () => {
+const CustomerList = ({ user }) => {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -94,12 +94,14 @@ const CustomerList = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </InputGroup>
-        <Button
-          variant="danger"
-          onClick={() => navigate("/receptionist/create")}
-        >
-          <i className="bi bi-plus-lg me-1"></i> Thêm khách mới
-        </Button>
+        {user?.role === "Receptionist" && (
+            <Button
+              variant="danger"
+              onClick={() => navigate("/receptionist/create-walkin")}
+            >
+              <i className="bi bi-person-plus-fill me-1"></i> Thêm khách vãng lai
+            </Button>
+        )}
       </div>
 
       <Table striped bordered hover responsive className="align-middle">
@@ -129,13 +131,17 @@ const CustomerList = () => {
                   )}
                 </td>
                 <td>
-                  <Button
-                    variant="warning"
-                    size="sm"
-                    className="me-2 text-white"
-                  >
-                    <i className="bi bi-pencil-square"></i> Chỉnh sửa
-                  </Button>
+                  {(user?.role === "Manager" ||
+                    user?.role === "Receptionist") && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="me-2"
+                      onClick={() => navigate(`/customers/edit/${c.customerId}`)}
+                    >
+                      <i className="bi bi-pencil-square"></i> Chỉnh sửa
+                    </Button>
+                  )}
                   <Button
                     variant="danger"
                     size="sm"

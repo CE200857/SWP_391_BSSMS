@@ -6,7 +6,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
-
+/**
+ *
+ * @author Trần Thành Đạt - CE200857
+ */
 public class ServiceDAO extends DBContext {
 
     public List<Service> getAllServices() {

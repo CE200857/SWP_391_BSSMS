@@ -59,9 +59,11 @@ public class CustomerDAO extends DBContext {
         try {
             if (conn != null) {
                 conn.setAutoCommit(false);
+                
+                String finalUsername = getUniqueUsername(username);
 
                 PreparedStatement psAcc = conn.prepareStatement(insertAccount, java.sql.Statement.RETURN_GENERATED_KEYS);
-                psAcc.setString(1, username);
+                psAcc.setString(1, finalUsername);
                 psAcc.setString(2, bssms_security.PasswordUtil.hashMD5(password));
                 psAcc.setString(3, email);
                 psAcc.setString(4, phone);
@@ -93,5 +95,171 @@ public class CustomerDAO extends DBContext {
             try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { ex.printStackTrace(); }
         }
         return false;
+    }
+    
+    public Map<String, Object> getCustomerById(int customerId) {
+        Map<String, Object> map = new HashMap<>();
+        
+        String query = "SELECT c.customer_id, c.account_id, c.full_name, c.gender, "
+                     + "c.date_of_birth, c.address, a.phone, a.email, a.status, a.username "
+                     + "FROM Customer c "
+                     + "JOIN Account a ON c.account_id = a.account_id "
+                     + "WHERE c.customer_id = ?";
+                     
+        try {
+            if (conn != null) {
+                PreparedStatement ps = conn.prepareStatement(query);
+                ps.setInt(1, customerId);
+                ResultSet rs = ps.executeQuery();
+                
+                if (rs.next()) {
+                    map.put("customerId", rs.getInt("customer_id"));
+                    map.put("accountId", rs.getInt("account_id"));
+                    map.put("fullName", rs.getString("full_name"));
+                    map.put("phone", rs.getString("phone"));
+                    map.put("email", rs.getString("email"));
+                    map.put("status", rs.getString("status"));
+                    map.put("gender", rs.getString("gender"));
+                    map.put("address", rs.getString("address"));
+                    map.put("username", rs.getString("username"));
+                    
+                    java.sql.Date dob = rs.getDate("date_of_birth");
+                    if (dob != null) {
+                        map.put("dob", dob.toString());
+                    } else {
+                        map.put("dob", "");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return map;
+    }
+    
+    public boolean updateCustomer(int accountId, String fullName, String phone, String email, String gender, String dob, String address, String status) {
+        String updateAccountSql = "UPDATE Account SET phone = ?, email = ?, status = ? WHERE account_id = ?";
+        String updateCustomerSql = "UPDATE Customer SET full_name = ?, gender = ?, date_of_birth = ?, address = ? WHERE account_id = ?";
+        
+        try {
+            if (conn != null) {
+                conn.setAutoCommit(false);
+               
+                PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
+                psAccount.setString(1, phone);
+                psAccount.setString(2, email);
+                psAccount.setString(3, status);
+                psAccount.setInt(4, accountId);
+                psAccount.executeUpdate();
+
+                PreparedStatement psCustomer = conn.prepareStatement(updateCustomerSql);
+                psCustomer.setString(1, fullName);
+                psCustomer.setString(2, gender);
+                
+                if (dob != null && !dob.trim().isEmpty() && !dob.equals("null")) {
+                    try {
+                        psCustomer.setDate(3, java.sql.Date.valueOf(dob.trim()));
+                    } catch (IllegalArgumentException e) {
+                        psCustomer.setNull(3, java.sql.Types.DATE);
+                    }
+                } else {
+                    psCustomer.setNull(3, java.sql.Types.DATE);
+                }
+                
+                psCustomer.setString(4, address);
+                psCustomer.setInt(5, accountId);
+                psCustomer.executeUpdate();
+
+                conn.commit();
+                return true;
+            }
+        } catch (Exception e) {
+            try {
+                if (conn != null) conn.rollback();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            try {
+                if (conn != null) conn.setAutoCommit(true);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+        return false;
+    }
+    
+    public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        if (username != null && username.trim().isEmpty()) username = null;
+        if (email != null && email.trim().isEmpty()) email = null;
+        if (phone != null && phone.trim().isEmpty()) phone = null;
+        
+        if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
+            return "Email (Trùng với email hệ thống)";
+        }
+
+        String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
+        
+        if (excludeAccountId != null) {
+            sql += " AND account_id != ?";
+        }
+        
+        try {
+            if (conn != null) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ps.setString(1, username);
+                ps.setString(2, email);
+                ps.setString(3, phone);
+                
+                if (excludeAccountId != null) {
+                    ps.setInt(4, excludeAccountId);
+                }
+                
+                ResultSet rs = ps.executeQuery();
+                
+                while (rs.next()) {
+                    String dbUsername = rs.getString("username");
+                    String dbEmail = rs.getString("email");
+                    String dbPhone = rs.getString("phone");
+                    
+                    if (username != null && username.equalsIgnoreCase(dbUsername)) {
+                        return "Tên đăng nhập (Username)";
+                    }
+                    if (phone != null && phone.equals(dbPhone)) {
+                        return "Số điện thoại";
+                    }
+                    if (email != null && email.equalsIgnoreCase(dbEmail)) {
+                        return "Email";
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    private String getUniqueUsername(String baseUsername) {
+        String username = baseUsername;
+        int counter = 1;
+        String checkSql = "SELECT account_id FROM Account WHERE username = ?";
+        try {
+            if (conn != null) {
+                while (true) {
+                    PreparedStatement ps = conn.prepareStatement(checkSql);
+                    ps.setString(1, username);
+                    ResultSet rs = ps.executeQuery();
+                    if (!rs.next()) {
+                        break;
+                    }
+                    username = baseUsername + counter;
+                    counter++;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return username;
     }
 }

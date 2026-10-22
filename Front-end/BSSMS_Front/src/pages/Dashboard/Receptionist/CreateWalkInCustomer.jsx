@@ -7,17 +7,18 @@ const CreateWalkInCustomer = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     fullName: "",
-    email: "",
     phone: "",
-    dob: "",
     gender: "Female",
   });
-  
+
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [accountInfo, setAccountInfo] = useState({ username: "", password: "" });
+  const [accountInfo, setAccountInfo] = useState({
+    username: "",
+    password: "",
+  });
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -28,7 +29,8 @@ const CreateWalkInCustomer = () => {
     return name
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/đ/g, "d").replace(/Đ/g, "D")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
       .toLowerCase()
       .replace(/\s+/g, "");
   };
@@ -48,23 +50,21 @@ const CreateWalkInCustomer = () => {
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email.trim())) {
-      setError("Email không đúng định dạng!");
-      return;
-    }
-
     const generatedUsername = generateUsername(trimmedName);
-    
-    const formattedName = trimmedName.split(/\s+/).map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+
+    const formattedName = trimmedName
+      .split(/\s+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
 
     setIsLoading(true);
     try {
       const response = await axios.post(
         "http://localhost:8080/BSSMS-back/api/customers",
         {
-          ...formData,
           fullName: formattedName,
+          phone: formData.phone.trim(),
+          gender: formData.gender,
           username: generatedUsername,
           password: "123456"
         },
@@ -76,7 +76,10 @@ const CreateWalkInCustomer = () => {
         setShowSuccessModal(true);
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Có lỗi xảy ra, email hoặc SĐT có thể đã tồn tại!");
+      setError(
+        err.response?.data?.message ||
+          "Có lỗi xảy ra, SĐT có thể đã tồn tại!",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -98,34 +101,36 @@ const CreateWalkInCustomer = () => {
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Họ và tên (*)</Form.Label>
-              <Form.Control type="text" name="fullName" value={formData.fullName} onChange={handleChange} required />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Email (*)</Form.Label>
-              <Form.Control type="email" name="email" value={formData.email} onChange={handleChange} required />
+              <Form.Control 
+                type="text" 
+                name="fullName" 
+                value={formData.fullName} 
+                onChange={handleChange} 
+                placeholder="Nhập họ và tên khách hàng"
+                required 
+              />
             </Form.Group>
 
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Số điện thoại (*)</Form.Label>
-              <Form.Control type="text" name="phone" value={formData.phone} onChange={handleChange} required />
+              <Form.Control 
+                type="text" 
+                name="phone" 
+                value={formData.phone} 
+                onChange={handleChange} 
+                placeholder="Nhập số điện thoại 10 số"
+                required 
+              />
             </Form.Group>
 
-            <div className="d-flex gap-3 mb-4">
-              <Form.Group className="flex-grow-1">
-                <Form.Label className="fw-bold">Ngày sinh (*)</Form.Label>
-                <Form.Control type="date" name="dob" value={formData.dob} onChange={handleChange} required />
-              </Form.Group>
-
-              <Form.Group style={{ width: "150px" }}>
-                <Form.Label className="fw-bold">Giới tính (*)</Form.Label>
-                <Form.Select name="gender" value={formData.gender} onChange={handleChange}>
-                  <option value="Female">Nữ</option>
-                  <option value="Male">Nam</option>
-                  <option value="Other">Khác</option>
-                </Form.Select>
-              </Form.Group>
-            </div>
+            <Form.Group className="mb-4">
+              <Form.Label className="fw-bold">Giới tính (*)</Form.Label>
+              <Form.Select name="gender" value={formData.gender} onChange={handleChange}>
+                <option value="Female">Nữ</option>
+                <option value="Male">Nam</option>
+                <option value="Other">Khác</option>
+              </Form.Select>
+            </Form.Group>
 
             <div className="d-flex justify-content-end gap-2 mt-4">
               <Button variant="secondary" onClick={() => navigate("/customers")}>Quay lại</Button>
@@ -140,16 +145,18 @@ const CreateWalkInCustomer = () => {
       <Modal show={showSuccessModal} onHide={handleCloseSuccess} centered backdrop="static" keyboard={false}>
         <Modal.Header>
           <Modal.Title className="text-success fw-bold">
-            <i className="bi bi-check-circle-fill me-2"></i> Tạo tài khoản thành công
+            <i className="bi bi-check-circle-fill me-2"></i> Tạo hồ sơ thành công
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Tài khoản khách hàng đã được khởi tạo trên hệ thống.</p>
+          <p>Hồ sơ khách hàng vãng lai đã được tạo nhanh trên hệ thống.</p>
           <div className="bg-light p-3 rounded border">
             <p className="mb-2"><strong>Tài khoản:</strong> <span className="text-primary fs-5">{accountInfo.username}</span></p>
             <p className="mb-0"><strong>Mật khẩu mặc định:</strong> <span className="text-danger fs-5">{accountInfo.password}</span></p>
           </div>
-          <p className="mt-3 mb-0 text-muted small"><i className="bi bi-info-circle me-1"></i> Vui lòng cung cấp thông tin này cho khách hàng để họ có thể đăng nhập.</p>
+          <p className="mt-3 mb-0 text-muted small">
+            <i className="bi bi-info-circle me-1"></i> SĐT hoặc Tài khoản trên có thể dùng để định danh hoặc cho khách tự đăng nhập nếu muốn.
+          </p>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="primary" onClick={handleCloseSuccess}>

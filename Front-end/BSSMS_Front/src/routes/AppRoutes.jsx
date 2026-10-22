@@ -43,16 +43,16 @@ import ResourceManagement from "../pages/Dashboard/Manager/ResourceAdmin/Resourc
 import CreateStaff from "../pages/Dashboard/Manager/StaffAdmin/CreateStaff";
 import StaffDetail from "../pages/Dashboard/Manager/StaffAdmin/StaffDetail";
 import EditStaffProfile from "../pages/Dashboard/Manager/StaffAdmin/EditStaffProfile";
+import CreateInvoice from "../pages/Dashboard/Receptionist/CreateInvoice";
+import InvoiceManagement from "../pages/Dashboard/Manager/InvoiceManagement";
 
-// Nhóm 5 chức năng mới
+// Nhóm 5 chức năng mới (Iteration 2)
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
 import UpdateServiceStatus from "../pages/Dashboard/Manager/UpdateServiceStatus";
 import UpdateRoomBedStatus from "../pages/Dashboard/Technician/UpdateRoomBedStatus";
 import RecordTreatmentOutcome from "../pages/Dashboard/Technician/RecordTreatmentOutcome";
 import SellTreatmentPackage from "../pages/Dashboard/Receptionist/SellTreatmentPackage";
 
-<<<<<<< Updated upstream
-=======
 // Nhóm 4 chức năng Booking Management (Iteration 4 - Dat TT)
 import CheckSlotAvailability from "../pages/Dashboard/Appointment/CheckSlotAvailability";
 import CreateOnlineAppointment from "../pages/Dashboard/Appointment/CreateOnlineAppointment";
@@ -62,10 +62,11 @@ import ReceptionistBookingDesk from "../pages/Dashboard/Receptionist/Receptionis
 import VoucherList from "../pages/Dashboard/Manager/VoucherManagement/VoucherList";
 import BirthdayPromotion from "../pages/Dashboard/Manager/BirthdayPromotion/BirthdayPromotion";
 import CustomerTreatmentProfile from "../pages/Dashboard/Manager/CustomerTreatmentProfile/CustomerTreatmentProfile";
-// Nhóm 5 chức năng Billing & Commission (Iteration 4 - Khanh LTQ)
-import CommissionReport from '../pages/Dashboard/Manager/CommissionReport';
-import PersonalCommission from '../pages/Dashboard/Technician/PersonalCommission';
->>>>>>> Stashed changes
+
+// Nhóm chức năng Billing & Commission (Iteration 4 - Khanh LTQ)
+import CommissionReport from "../pages/Dashboard/Manager/CommissionReport";
+import PersonalCommission from "../pages/Dashboard/Technician/PersonalCommission";
+
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
 const ProtectedRoute = ({ user, allowedRoles, children }) => {
@@ -143,13 +144,14 @@ export default function AppRoutes({ user, setUser }) {
           element={<CreateProfile setUser={setUser} />}
         />
 
-        {/* Guest được phép View Services & View Other Customers' Feedback */}
+        {/* Guest được phép View Services, View Other Customers' Feedback & Check Slot Availability */}
         <Route path="/guest/services" element={<ServiceList />} />
         <Route
           path="/guest/services/:id"
           element={<ServiceForm isReadOnly={true} />}
         />
         <Route path="/guest/feedback" element={<PublicFeedbackList />} />
+        <Route path="/guest/slots" element={<CheckSlotAvailability />} />
       </Route>
 
       {/* NHÁNH 2: KHUNG ĐÃ ĐĂNG NHẬP (CÓ SIDEBAR) */}
@@ -237,34 +239,18 @@ export default function AppRoutes({ user, setUser }) {
 
         {/* --- ACCOUNT MANAGEMENT --- */}
         {/* View Customer Account: Receptionist & Manager */}
-       <Route
-          path="/manager/products"
+        <Route
+          path="/customers"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <ProductList user={user} />
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
+              <CustomerList user={user} />
             </ProtectedRoute>
           }
         />
 
-        {/* 2. Trang Bán lẻ sản phẩm POS (Receptionist & Manager) */}
-        <Route
-          path="/products"
-          element={
-            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
-              <ProductList user={user} />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* 3. Trang Quản lý Nhà cung cấp */}
-        <Route
-          path="/manager/suppliers"
-          element={
-            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <SupplierList />
-            </ProtectedRoute>
-          }
-        />
         {/* Update Customer Account: Receptionist & Manager */}
         <Route
           path="/customers/edit/:id"
@@ -277,6 +263,7 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
+
         {/* Staff List: Chỉ Manager */}
         <Route
           path="/staffs"
@@ -286,6 +273,7 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
+
         {/* Staff Detail: Xem chi tiết nhân viên (Chỉ Manager) */}
         <Route
           path="/staffs/detail/:id"
@@ -402,15 +390,28 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO) --- */}
+        {/* --- INVENTORY MANAGEMENT (QUẢN LÝ KHO - KHANHLTQ) --- */}
+        {/* 1. Trang Quản lý Sản phẩm (Manager) */}
         <Route
           path="/manager/products"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <ProductList />
+              <ProductList user={user} />
             </ProtectedRoute>
           }
         />
+
+        {/* 2. Trang Bán lẻ sản phẩm POS (Receptionist & Manager) */}
+        <Route
+          path="/products"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+              <ProductList user={user} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 3. Trang Quản lý Nhà cung cấp (Manager) */}
         <Route
           path="/manager/suppliers"
           element={
@@ -488,8 +489,7 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* --- 5 CHỨC NĂNG MỚI --- */}
-
+        {/* --- 5 CHỨC NĂNG MỚI (ITERATION 2) --- */}
         {/* 1. View Treatment Status - Tất cả role */}
         <Route
           path="/treatment-status"
@@ -547,8 +547,6 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
-<<<<<<< Updated upstream
-=======
 
         {/* --- BILLING & COMMISSION (KHANH ND) --- */}
         <Route
@@ -559,6 +557,16 @@ export default function AppRoutes({ user, setUser }) {
               allowedRoles={["Receptionist"]}
             >
               <CreateInvoice />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Invoice Management: chỉ Manager */}
+        <Route
+          path="/manager/invoices"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <InvoiceManagement />
             </ProtectedRoute>
           }
         />
@@ -592,7 +600,10 @@ export default function AppRoutes({ user, setUser }) {
         <Route
           path="/receptionist/coordination"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
               <ReceptionistBookingDesk />
             </ProtectedRoute>
           }
@@ -648,13 +659,27 @@ export default function AppRoutes({ user, setUser }) {
             </ProtectedRoute>
           }
         />
-        // Nhóm 5 chức năng Billing & Commission (Iteration 4 - Khanh LTQ)
+
+        {/* --- NHÓM CHỨC NĂNG BILLING & COMMISSION (ITERATION 4 - KHANH LTQ) --- */}
         {/* Tuyến đường dành cho Manager */}
-        <Route path="/manager/commission/report" element={<CommissionReport />} />
+        <Route
+          path="/manager/commission/report"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <CommissionReport />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Tuyến đường dành cho Technician */}
-        <Route path="/technician/commission" element={<PersonalCommission />} />
->>>>>>> Stashed changes
+        <Route
+          path="/technician/commission"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Technician", "Manager"]}>
+              <PersonalCommission />
+            </ProtectedRoute>
+          }
+        />
       </Route>
     </Routes>
   );
