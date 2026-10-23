@@ -1,15 +1,22 @@
 package bssms_persistence.DatNT;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ProfileDAO extends DBContext {
+public class ProfileDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     public Map<String, Object> getProfileByAccountId(int accountId, String role) {
+        requireConnection();
         Map<String, Object> map = new HashMap<>();
         String query;
 
@@ -92,13 +99,14 @@ public class ProfileDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
 
         return map;
     }
 
     public boolean isUsernameTaken(String username, int currentAccountId) {
+        requireConnection();
         String sql = "SELECT account_id FROM Account WHERE username = ? AND account_id != ?";
         try {
             if (conn != null) {
@@ -109,12 +117,13 @@ public class ProfileDAO extends DBContext {
                 return rs.next();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     public boolean createCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address) {
+        requireConnection();
         String updateAccountSql = "UPDATE Account SET phone = ? WHERE account_id = ?";
         String insertCustomerSql = "INSERT INTO Customer (account_id, membership_tier_id, full_name, date_of_birth, gender, address, phone) VALUES (?, 1, ?, ?, ?, ?, ?)";
 
@@ -145,22 +154,23 @@ public class ProfileDAO extends DBContext {
                     conn.rollback();
                 }
             } catch (SQLException ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         } finally {
             try {
                 if (conn != null) {
                     conn.setAutoCommit(true);
                 }
             } catch (SQLException ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
         }
         return false;
     }
 
     public boolean updateCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address, String username, String email) {
+        requireConnection();
         String updateAccountSql = "UPDATE Account SET phone = ?, username = ?, email = ? WHERE account_id = ?";
         String updateCustomerSql = "UPDATE Customer SET full_name = ?, date_of_birth = ?, gender = ?, address = ?, phone = ? WHERE account_id = ?";
 
@@ -193,22 +203,23 @@ public class ProfileDAO extends DBContext {
                     conn.rollback();
                 }
             } catch (SQLException ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         } finally {
             try {
                 if (conn != null) {
                     conn.setAutoCommit(true);
                 }
             } catch (SQLException ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
         }
         return false;
     }
 
     public boolean updateStaffProfile(int accountId, String fullName, String phone, String username) {
+        requireConnection();
         String updateAccountSql = "UPDATE Account SET phone = ?, username = ? WHERE account_id = ?";
         String updateStaffSql = "UPDATE Staff SET full_name = ?, phone = ? WHERE account_id = ?";
 
@@ -237,32 +248,35 @@ public class ProfileDAO extends DBContext {
                     conn.rollback();
                 }
             } catch (SQLException ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         } finally {
             try {
                 if (conn != null) {
                     conn.setAutoCommit(true);
                 }
             } catch (SQLException ex) {
-                ex.printStackTrace();
+                DataAccessException.rethrowIfDatabase(ex);
             }
         }
         return false;
     }
 
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
+        requireConnection();
+
         if (username != null && username.trim().isEmpty()) {
             username = null;
         }
+
         if (email != null && email.trim().isEmpty()) {
             email = null;
         }
+
         if (phone != null && phone.trim().isEmpty()) {
             phone = null;
         }
-
         if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
             return "Email (Trùng với email hệ thống)";
         }
@@ -303,7 +317,7 @@ public class ProfileDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }

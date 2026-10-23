@@ -2,6 +2,7 @@ package bssms_persistence.HienLNM;
 
 import bssms_catalog.Service;
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -10,9 +11,15 @@ import java.util.List;
 /**
  * @author HienLNM
  */
-public class ServiceStatusDAO extends DBContext {
+public class ServiceStatusDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     public List<Service> getAllServices() {
+        requireConnection();
         List<Service> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in ServiceStatusDAO.getAllServices()");
@@ -35,7 +42,7 @@ public class ServiceStatusDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -47,6 +54,7 @@ public class ServiceStatusDAO extends DBContext {
      * @return true nếu cập nhật thành công
      */
     public boolean updateServiceStatus(int serviceId, String status) throws Exception {
+        requireConnection();
         if (conn == null) {
             throw new Exception("Database connection is null in ServiceStatusDAO.updateServiceStatus()");
         }
@@ -64,7 +72,7 @@ public class ServiceStatusDAO extends DBContext {
             ps.close();
             return rows > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
             throw e;
         }
     }

@@ -2,6 +2,7 @@ package bssms_persistence.HienLNM;
 
 import bssms_feedback.Feedback;
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -12,13 +13,19 @@ import java.util.Map;
 /**
  * @author HienLNM
  */
-public class FeedbackDAO extends DBContext {
+public class FeedbackDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     /**
      * Lấy danh sách Appointment đã hoàn thành (Completed) của 1 customer
      * mà chưa có feedback - để user chọn khi tạo feedback.
      */
     public List<Map<String, Object>> getAvailableAppointmentsForFeedback(int customerId) {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getAvailableAppointmentsForFeedback()");
@@ -52,7 +59,7 @@ public class FeedbackDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -61,6 +68,7 @@ public class FeedbackDAO extends DBContext {
      * Lấy danh sách tất cả Feedback kèm thông tin chi tiết.
      */
     public List<Map<String, Object>> getAllFeedbackDetails() {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getAllFeedbackDetails()");
@@ -93,7 +101,7 @@ public class FeedbackDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -102,6 +110,7 @@ public class FeedbackDAO extends DBContext {
      * Lấy danh sách Feedback theo customerId.
      */
     public List<Map<String, Object>> getFeedbackByCustomerId(int customerId) {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getFeedbackByCustomerId()");
@@ -136,7 +145,7 @@ public class FeedbackDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -145,6 +154,7 @@ public class FeedbackDAO extends DBContext {
      * Lấy chi tiết 1 Feedback.
      */
     public Feedback getFeedbackById(int id) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getFeedbackById()");
             return null;
@@ -170,7 +180,7 @@ public class FeedbackDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
@@ -179,6 +189,7 @@ public class FeedbackDAO extends DBContext {
      * Lấy Feedback theo appointmentId.
      */
     public Feedback getFeedbackByAppointmentId(int appointmentId) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getFeedbackByAppointmentId()");
             return null;
@@ -204,7 +215,7 @@ public class FeedbackDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
@@ -219,6 +230,7 @@ public class FeedbackDAO extends DBContext {
      * 5. rating 1-5
      */
     public int addFeedback(Feedback fb) throws Exception {
+        requireConnection();
         if (conn == null) {
             throw new Exception("Database connection is null in FeedbackDAO.addFeedback()");
         }
@@ -289,7 +301,7 @@ public class FeedbackDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
@@ -298,6 +310,7 @@ public class FeedbackDAO extends DBContext {
      * Cập nhật Feedback.
      */
     public int updateFeedback(Feedback fb) throws Exception {
+        requireConnection();
         if (conn == null) {
             throw new Exception("Database connection is null in FeedbackDAO.updateFeedback()");
         }
@@ -324,6 +337,7 @@ public class FeedbackDAO extends DBContext {
      * Xóa Feedback.
      */
     public boolean deleteFeedback(int id) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.deleteFeedback()");
             return false;
@@ -336,7 +350,7 @@ public class FeedbackDAO extends DBContext {
             ps.close();
             return rows > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }

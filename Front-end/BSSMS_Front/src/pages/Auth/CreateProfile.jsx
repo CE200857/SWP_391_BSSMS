@@ -110,7 +110,7 @@ const CreateProfile = ({ setUser }) => {
 
         <Form onSubmit={handleProfileSubmit}>
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
               Họ và tên*
             </Form.Label>
             <Form.Control
@@ -125,7 +125,7 @@ const CreateProfile = ({ setUser }) => {
 
           <div className="d-flex gap-3 mb-3">
             <Form.Group className="flex-grow-1">
-              <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
                 Ngày sinh*
               </Form.Label>
               <Form.Control
@@ -138,7 +138,7 @@ const CreateProfile = ({ setUser }) => {
             </Form.Group>
 
             <Form.Group style={{ width: "150px" }}>
-              <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
                 Giới tính*
               </Form.Label>
               <Form.Select
@@ -154,7 +154,7 @@ const CreateProfile = ({ setUser }) => {
           </div>
 
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
               Số điện thoại*
             </Form.Label>
             <Form.Control
@@ -168,7 +168,7 @@ const CreateProfile = ({ setUser }) => {
           </Form.Group>
 
           <Form.Group className="mb-4">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
               Địa chỉ
             </Form.Label>
             <Form.Control

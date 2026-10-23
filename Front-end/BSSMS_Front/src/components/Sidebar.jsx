@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import SeoulBrand from "./SeoulBrand";
 
 const Sidebar = ({ user, collapsed = false, onToggle }) => {
   // Thêm State để điều khiển việc đóng/mở các menu con
@@ -32,12 +33,15 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
       }}
     >
       <div className="app-sidebar-inner p-3 mt-2 text-start">
+        <NavLink className="app-sidebar-brand" to={isCustomer ? "/customer/home" : "/manager/dashboard"} aria-label="Seoul Center">
+          <SeoulBrand />
+        </NavLink>
 
         {/* KHU VỰC TIÊU ĐỀ & NÚT THU GỌN */}
         <div className="app-sidebar-heading d-flex align-items-center justify-content-between mb-4">
           <p
             className="app-sidebar-title text-muted fw-bold text-uppercase mb-0 ms-2"
-            style={{ fontSize: "13px" }}
+            style={{ fontSize: "1rem" }}
           >
             {isCustomer
               ? "Menu Khách hàng"
@@ -193,6 +197,12 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                     <i className="bi bi-clipboard-data fs-6"></i>
                     {renderMenuLabel("Hồ sơ liệu trình")}
                   </NavLink>
+                  {isTechnician && (
+                    <NavLink to="/technician/commission" className={navClass}>
+                      <i className="bi bi-cash-coin fs-6"></i>
+                      {renderMenuLabel("Hoa hồng cá nhân")}
+                    </NavLink>
+                  )}
                 </div>
               )}
             </>
@@ -230,8 +240,8 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                     {renderMenuLabel("Quản lý hạng thành viên")}
                   </NavLink>
                   <NavLink to="/manager/invoices" className={navClass}>
-                    <i className="bi bi-receipt fs-6">
-                    </i>{renderMenuLabel("Hóa đơn & Thanh toán")}
+                    <i className="bi bi-receipt fs-6"></i>
+                    {renderMenuLabel("Hóa đơn & Thanh toán")}
                   </NavLink>
                   <NavLink to="/manager/products" className={navClass}>
                     <i className="bi bi-box-seam fs-6"></i>
@@ -260,6 +270,10 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                   <NavLink to="/my-treatment-profile" className={navClass}>
                     <i className="bi bi-clipboard-pulse fs-6"></i>
                     {renderMenuLabel("Hồ sơ liệu trình")}
+                  </NavLink>
+                  <NavLink to="/manager/commission/report" className={navClass}>
+                    <i className="bi bi-graph-up-arrow fs-6"></i>
+                    {renderMenuLabel("Báo cáo hoa hồng")}
                   </NavLink>
                 </div>
               )}

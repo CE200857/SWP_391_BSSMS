@@ -16,9 +16,15 @@ import java.util.UUID;
 
 import bssms_billing.InvoiceProduct;
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 
 //Handles invoice creation, product details, and front-desk payments.
-public class InvoiceDAO extends DBContext {
+public class InvoiceDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     // Returns invoice rows for the Manager invoice-management screen.
     public List<Map<String, Object>> getInvoices() throws SQLException {
@@ -196,6 +202,7 @@ public class InvoiceDAO extends DBContext {
     // Returns completed appointments that do not have an invoice.
     public List<Map<String, Object>> getCompletedAppointmentsWithoutInvoice()
             throws SQLException {
+        requireConnection();
 
         List<Map<String, Object>> list = new ArrayList<>();
 
@@ -261,6 +268,7 @@ public class InvoiceDAO extends DBContext {
 
     public List<Map<String, Object>> getActiveProducts()
             throws SQLException {
+        requireConnection();
 
         List<Map<String, Object>> list = new ArrayList<>();
 
@@ -300,6 +308,7 @@ public class InvoiceDAO extends DBContext {
             BigDecimal receivedAmount,
             List<InvoiceProduct> productItems
     ) throws SQLException {
+        requireConnection();
 
         if (conn == null) {
             throw new SQLException("Không kết nối được database.");

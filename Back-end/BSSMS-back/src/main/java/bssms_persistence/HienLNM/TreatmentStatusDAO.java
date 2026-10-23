@@ -1,6 +1,7 @@
 package bssms_persistence.HienLNM;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -11,11 +12,17 @@ import java.util.Map;
 /**
  * @author HienLNM
  */
-public class TreatmentStatusDAO extends DBContext {
+public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     
     public List<Map<String, Object>> getTreatmentStatusList(Integer customerId, String status,
                                                             String fromDate, String toDate) {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in TreatmentStatusDAO.getTreatmentStatusList()");
@@ -85,7 +92,7 @@ public class TreatmentStatusDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -94,6 +101,7 @@ public class TreatmentStatusDAO extends DBContext {
      * Lấy chi tiết 1 buổi điều trị theo appointmentId.
      */
     public Map<String, Object> getTreatmentStatusById(int appointmentId) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in TreatmentStatusDAO.getTreatmentStatusById()");
             return null;
@@ -142,7 +150,7 @@ public class TreatmentStatusDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }

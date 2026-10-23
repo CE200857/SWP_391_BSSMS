@@ -14,11 +14,18 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 
-public class AppointmentDAO extends DBContext {
+public class AppointmentDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     // View Appointment List
     public List<Map<String, Object>> getAllAppointmentDetails() {
+        requireConnection();
 
         List<Map<String, Object>> list = new ArrayList<>();
 
@@ -87,7 +94,7 @@ public class AppointmentDAO extends DBContext {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
 
         return list;
@@ -95,6 +102,7 @@ public class AppointmentDAO extends DBContext {
 
     // View Appointment Details
     public Map<String, Object> getAppointmentDetails(int appointmentId) {
+        requireConnection();
 
         Map<String, Object> map = null;
 
@@ -169,7 +177,7 @@ public class AppointmentDAO extends DBContext {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
 
         return map;
@@ -181,6 +189,7 @@ public class AppointmentDAO extends DBContext {
             String appointmentDate,
             String startTime,
             String endTime) {
+        requireConnection();
 
         String query = "UPDATE Appointment "
                 + "SET appointment_date = ?, "
@@ -204,7 +213,7 @@ public class AppointmentDAO extends DBContext {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
 
         return false;
@@ -212,6 +221,7 @@ public class AppointmentDAO extends DBContext {
 
     // Cancel Appointment
     public boolean cancelAppointment(int appointmentId) {
+        requireConnection();
 
         String query = "UPDATE Appointment "
                 + "SET status = 'Cancelled' "
@@ -231,7 +241,7 @@ public class AppointmentDAO extends DBContext {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
 
         return false;
@@ -246,6 +256,7 @@ public class AppointmentDAO extends DBContext {
             String startTime,
             Integer technicianId,
             String notes) throws Exception {
+        requireConnection();
 
         if (conn == null) {
             throw new SQLException("Database connection is not available.");
