@@ -183,6 +183,74 @@ const Profile = ({ user, setUser }) => {
                   </div>
                 </div>
 
+                {/* Membership Information - Customer only */}
+                {profileData.role === "Customer" && (
+                  <Card className="border-0 bg-light mb-4">
+                    <Card.Body>
+                      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <h5 className="fw-bold mb-0">
+                          Membership Information
+                        </h5>
+
+                        <span
+                          className={`badge px-3 py-2 ${profileData.membership
+                              ? "bg-success"
+                              : "bg-secondary"
+                            }`}
+                        >
+                          {profileData.membership?.tierName ||
+                            (profileData.membershipTierId != null
+                              ? "Chưa xác định hạng"
+                              : "Chưa có hạng")}
+                        </span>
+                      </div>
+
+                      {profileData.membership ? (
+                        <>
+                          <Row>
+                            <Col sm={6} className="mb-3">
+                              <div className="text-muted small mb-1">
+                                Discount
+                              </div>
+                              <div className="fw-bold fs-5">
+                                {Number(
+                                  profileData.membership.discountPercent
+                                ).toLocaleString("vi-VN")}
+                                %
+                              </div>
+                            </Col>
+
+                            <Col sm={6} className="mb-3">
+                              <div className="text-muted small mb-1">
+                                Minimum Spending
+                              </div>
+                              <div className="fw-bold">
+                                {Number(
+                                  profileData.membership.minSpending
+                                ).toLocaleString("vi-VN")}{" "}
+                                ₫
+                              </div>
+                            </Col>
+                          </Row>
+
+                          <div className="text-muted small mb-1">
+                            Benefits / Description
+                          </div>
+                          <p className="mb-0">
+                            {profileData.membership.description ||
+                              "Chưa có mô tả quyền lợi."}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-muted mb-0">
+                          Chưa có thông tin hạng thành viên.
+                          Vui lòng liên hệ lễ tân để được hỗ trợ.
+                        </p>
+                      )}
+                    </Card.Body>
+                  </Card>
+                )}
+
                 {/* Khu vực nút bấm */}
                 <div className="d-flex justify-content-between mt-auto pt-3 flex-wrap gap-2">
                   <Button

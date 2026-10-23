@@ -46,6 +46,10 @@ import EditStaffProfile from "../pages/Dashboard/Manager/StaffAdmin/EditStaffPro
 import CreateInvoice from "../pages/Dashboard/Receptionist/CreateInvoice";
 import InvoiceManagement from "../pages/Dashboard/Manager/InvoiceManagement";
 
+import ServiceHistory from "../pages/Dashboard/ServiceHistory/ServiceHistory";
+import MembershipBenefits from "../pages/Shared/Membership/MembershipBenefits";
+import MembershipManagementPage from "../pages/Dashboard/Manager/MembershipAdmin/MembershipManagementPage";
+
 // Nhóm 5 chức năng mới (Iteration 2)
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
 import UpdateServiceStatus from "../pages/Dashboard/Manager/UpdateServiceStatus";
@@ -462,6 +466,46 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
+        {/* --- SERVICE HISTORY --- */}
+        <Route
+          path="/service-history"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Customer", "Technician", "Receptionist", "Manager"]}
+            >
+              <ServiceHistory user={user} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- MEMBERSHIP --- */}
+        <Route
+          path="/membership-benefits"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={[
+                "Customer",
+                "Receptionist",
+                "Manager",
+              ]}
+            >
+              <MembershipBenefits />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- MEMBERSHIP TIER MANAGEMENT: Chỉ Manager --- */}
+        <Route
+          path="/manager/membership-tiers"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <MembershipManagementPage />
+            </ProtectedRoute>
+          }
+        />
+
         {/* --- TREATMENT PACKAGE MANAGEMENT --- */}
         {/* Manager: CRUD gói liệu trình */}
         <Route
@@ -601,7 +645,11 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
               <InvoiceManagement />
-        {/* --- NHÓM CHỨC NĂNG VOUCHER, BIRTHDAY PROMOTION & TREATMENT PROFILE (HIEN LNM) --- */}
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- NHÓM CHỨC NĂNG VOUCHER, BIRTHDAY PROMOTION & TREATMENT PROFILE --- */}
 
         {/* 1. View/Manage Vouchers: Manager & Receptionist */}
         <Route
@@ -626,7 +674,7 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* 3. View/Update Customer Treatment Profile: All roles can view, Manager & Technician can edit */}
+        {/* 3. View/Update Customer Treatment Profile */}
         <Route
           path="/treatment-profile/:customerId"
           element={
@@ -639,7 +687,7 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* Default treatment profile route (for Customer viewing their own profile) */}
+        {/* Default treatment profile route */}
         <Route
           path="/my-treatment-profile"
           element={

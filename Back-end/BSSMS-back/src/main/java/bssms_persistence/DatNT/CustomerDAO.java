@@ -12,20 +12,33 @@ public class CustomerDAO extends DBContext {
 
     public List<Map<String, Object>> getAllCustomerDetails() {
         List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT c.customer_id, c.full_name, a.phone, a.email, a.status "
-                     + "FROM Customer c "
-                     + "JOIN Account a ON c.account_id = a.account_id";
+
+        String query = "SELECT c.customer_id, c.full_name, "
+                + "c.membership_tier_id AS customer_membership_tier_id, "
+                + "a.phone, a.email, a.status, "
+                + "mt.membership_tier_id AS tier_id, "
+                + "mt.tier_name, mt.description AS tier_description, "
+                + "mt.discount_percent, mt.min_spending "
+                + "FROM Customer c "
+                + "JOIN Account a ON c.account_id = a.account_id "
+                + "LEFT JOIN MembershipTier mt "
+                + "ON c.membership_tier_id = mt.membership_tier_id";
+
         try {
-            if (conn != null) { 
+            if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
                 ResultSet rs = ps.executeQuery();
+
                 while (rs.next()) {
                     Map<String, Object> map = new HashMap<>();
+
                     map.put("customerId", rs.getInt("customer_id"));
                     map.put("fullName", rs.getString("full_name"));
                     map.put("phone", rs.getString("phone"));
                     map.put("email", rs.getString("email"));
                     map.put("status", rs.getString("status"));
+
+                    addMembershipToMap(map, rs);
 
                     list.add(map);
                 }
@@ -33,6 +46,7 @@ public class CustomerDAO extends DBContext {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return list;
     }
 
@@ -51,7 +65,7 @@ public class CustomerDAO extends DBContext {
         }
         return false;
     }
-    
+
     public boolean createWalkInCustomer(String username, String password, String email, String phone, String fullName, String dob, String gender) {
         String insertAccount = "INSERT INTO Account (username, password, email, phone, status, role) VALUES (?, ?, ?, ?, 'Active', 'Customer')";
         String insertCustomer = "INSERT INTO Customer (account_id, membership_tier_id, full_name, date_of_birth, gender, phone) VALUES (?, 1, ?, ?, ?, ?)";
@@ -59,7 +73,7 @@ public class CustomerDAO extends DBContext {
         try {
             if (conn != null) {
                 conn.setAutoCommit(false);
-                
+
                 String finalUsername = getUniqueUsername(username);
 
                 PreparedStatement psAcc = conn.prepareStatement(insertAccount, java.sql.Statement.RETURN_GENERATED_KEYS);
@@ -89,29 +103,49 @@ public class CustomerDAO extends DBContext {
                 return true;
             }
         } catch (Exception e) {
-            try { if (conn != null) conn.rollback(); } catch (Exception ex) { ex.printStackTrace(); }
+            try {
+                if (conn != null) {
+                    conn.rollback();
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
             e.printStackTrace();
         } finally {
-            try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { ex.printStackTrace(); }
+            try {
+                if (conn != null) {
+                    conn.setAutoCommit(true);
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
         return false;
     }
-    
+
     public Map<String, Object> getCustomerById(int customerId) {
         Map<String, Object> map = new HashMap<>();
-        
-        String query = "SELECT c.customer_id, c.account_id, c.full_name, c.gender, "
-                     + "c.date_of_birth, c.address, a.phone, a.email, a.status, a.username "
-                     + "FROM Customer c "
-                     + "JOIN Account a ON c.account_id = a.account_id "
-                     + "WHERE c.customer_id = ?";
-                     
+
+        String query = "SELECT c.customer_id, c.account_id, "
+                + "c.full_name, c.gender, c.date_of_birth, c.address, "
+                + "c.membership_tier_id AS customer_membership_tier_id, "
+                + "a.phone, a.email, a.status, a.username, "
+                + "mt.membership_tier_id AS tier_id, "
+                + "mt.tier_name, mt.description AS tier_description, "
+                + "mt.discount_percent, mt.min_spending "
+                + "FROM Customer c "
+                + "JOIN Account a ON c.account_id = a.account_id "
+                + "LEFT JOIN MembershipTier mt "
+                + "ON c.membership_tier_id = mt.membership_tier_id "
+                + "WHERE c.customer_id = ?";
+
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
                 ps.setInt(1, customerId);
+
                 ResultSet rs = ps.executeQuery();
-                
+
                 if (rs.next()) {
                     map.put("customerId", rs.getInt("customer_id"));
                     map.put("accountId", rs.getInt("account_id"));
@@ -122,29 +156,68 @@ public class CustomerDAO extends DBContext {
                     map.put("gender", rs.getString("gender"));
                     map.put("address", rs.getString("address"));
                     map.put("username", rs.getString("username"));
-                    
+
                     java.sql.Date dob = rs.getDate("date_of_birth");
-                    if (dob != null) {
-                        map.put("dob", dob.toString());
-                    } else {
-                        map.put("dob", "");
-                    }
+                    map.put("dob", dob != null ? dob.toString() : "");
+
+                    addMembershipToMap(map, rs);
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return map;
     }
-    
+
+    private void addMembershipToMap(
+            Map<String, Object> map,
+            ResultSet rs
+    ) throws java.sql.SQLException {
+
+        map.put(
+                "membershipTierId",
+                rs.getObject("customer_membership_tier_id")
+        );
+
+        Map<String, Object> membership = null;
+
+        if (rs.getObject("tier_id") != null) {
+            membership = new HashMap<>();
+
+            membership.put(
+                    "membershipTierId",
+                    rs.getInt("tier_id")
+            );
+            membership.put(
+                    "tierName",
+                    rs.getString("tier_name")
+            );
+            membership.put(
+                    "description",
+                    rs.getString("tier_description")
+            );
+            membership.put(
+                    "discountPercent",
+                    rs.getBigDecimal("discount_percent")
+            );
+            membership.put(
+                    "minSpending",
+                    rs.getBigDecimal("min_spending")
+            );
+        }
+
+        map.put("membership", membership);
+    }
+
     public boolean updateCustomer(int accountId, String fullName, String phone, String email, String gender, String dob, String address, String status) {
         String updateAccountSql = "UPDATE Account SET phone = ?, email = ?, status = ? WHERE account_id = ?";
         String updateCustomerSql = "UPDATE Customer SET full_name = ?, gender = ?, date_of_birth = ?, address = ? WHERE account_id = ?";
-        
+
         try {
             if (conn != null) {
                 conn.setAutoCommit(false);
-               
+
                 PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
                 psAccount.setString(1, phone);
                 psAccount.setString(2, email);
@@ -155,7 +228,7 @@ public class CustomerDAO extends DBContext {
                 PreparedStatement psCustomer = conn.prepareStatement(updateCustomerSql);
                 psCustomer.setString(1, fullName);
                 psCustomer.setString(2, gender);
-                
+
                 if (dob != null && !dob.trim().isEmpty() && !dob.equals("null")) {
                     try {
                         psCustomer.setDate(3, java.sql.Date.valueOf(dob.trim()));
@@ -165,7 +238,7 @@ public class CustomerDAO extends DBContext {
                 } else {
                     psCustomer.setNull(3, java.sql.Types.DATE);
                 }
-                
+
                 psCustomer.setString(4, address);
                 psCustomer.setInt(5, accountId);
                 psCustomer.executeUpdate();
@@ -175,54 +248,64 @@ public class CustomerDAO extends DBContext {
             }
         } catch (Exception e) {
             try {
-                if (conn != null) conn.rollback();
+                if (conn != null) {
+                    conn.rollback();
+                }
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
             e.printStackTrace();
         } finally {
             try {
-                if (conn != null) conn.setAutoCommit(true);
+                if (conn != null) {
+                    conn.setAutoCommit(true);
+                }
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
         }
         return false;
     }
-    
+
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
-        if (username != null && username.trim().isEmpty()) username = null;
-        if (email != null && email.trim().isEmpty()) email = null;
-        if (phone != null && phone.trim().isEmpty()) phone = null;
-        
+        if (username != null && username.trim().isEmpty()) {
+            username = null;
+        }
+        if (email != null && email.trim().isEmpty()) {
+            email = null;
+        }
+        if (phone != null && phone.trim().isEmpty()) {
+            phone = null;
+        }
+
         if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
             return "Email (Trùng với email hệ thống)";
         }
 
         String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
-        
+
         if (excludeAccountId != null) {
             sql += " AND account_id != ?";
         }
-        
+
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(sql);
                 ps.setString(1, username);
                 ps.setString(2, email);
                 ps.setString(3, phone);
-                
+
                 if (excludeAccountId != null) {
                     ps.setInt(4, excludeAccountId);
                 }
-                
+
                 ResultSet rs = ps.executeQuery();
-                
+
                 while (rs.next()) {
                     String dbUsername = rs.getString("username");
                     String dbEmail = rs.getString("email");
                     String dbPhone = rs.getString("phone");
-                    
+
                     if (username != null && username.equalsIgnoreCase(dbUsername)) {
                         return "Tên đăng nhập (Username)";
                     }
@@ -239,7 +322,7 @@ public class CustomerDAO extends DBContext {
         }
         return null;
     }
-    
+
     private String getUniqueUsername(String baseUsername) {
         String username = baseUsername;
         int counter = 1;

@@ -24,8 +24,8 @@ public class InvoiceDAO extends DBContext {
     public List<Map<String, Object>> getInvoices() throws SQLException {
         List<Map<String, Object>> list = new ArrayList<>();
 
-        String sql =
-                "SELECT i.invoice_id, i.appointment_id, i.invoice_date, "
+        String sql
+                = "SELECT i.invoice_id, i.appointment_id, i.invoice_date, "
                 + "i.subtotal, i.discount, i.total_amount, i.status, "
                 + "a.appointment_date, a.start_time, a.end_time, "
                 + "c.customer_id, c.full_name AS customer_name, "
@@ -46,8 +46,7 @@ public class InvoiceDAO extends DBContext {
             throw new SQLException("Không kết nối được database.");
         }
 
-        try (PreparedStatement ps = conn.prepareStatement(sql);
-                ResultSet rs = ps.executeQuery()) {
+        try (PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("invoiceId", rs.getInt("invoice_id"));
@@ -85,8 +84,8 @@ public class InvoiceDAO extends DBContext {
         Map<String, Object> result = new LinkedHashMap<>();
         Map<String, Object> invoice = new LinkedHashMap<>();
 
-        String invoiceSql =
-                "SELECT i.invoice_id, i.appointment_id, i.voucher_id, i.invoice_date, "
+        String invoiceSql
+                = "SELECT i.invoice_id, i.appointment_id, i.voucher_id, i.invoice_date, "
                 + "i.subtotal, i.discount, i.total_amount, i.status, "
                 + "a.appointment_date, a.start_time, a.end_time, "
                 + "c.customer_id, c.full_name AS customer_name, "
@@ -123,8 +122,8 @@ public class InvoiceDAO extends DBContext {
         }
 
         List<Map<String, Object>> payments = new ArrayList<>();
-        String paymentSql =
-                "SELECT payment_id, payment_method, amount, payment_date, "
+        String paymentSql
+                = "SELECT payment_id, payment_method, amount, payment_date, "
                 + "transaction_code, status FROM Payment "
                 + "WHERE invoice_id = ? ORDER BY payment_date DESC, payment_id DESC";
         try (PreparedStatement ps = conn.prepareStatement(paymentSql)) {
@@ -144,8 +143,8 @@ public class InvoiceDAO extends DBContext {
         }
 
         List<Map<String, Object>> products = new ArrayList<>();
-        String productSql =
-                "SELECT ip.product_id, p.product_name, ip.quantity, "
+        String productSql
+                = "SELECT ip.product_id, p.product_name, ip.quantity, "
                 + "ip.unit_price, ip.subtotal FROM InvoiceProduct ip "
                 + "JOIN Product p ON p.product_id = ip.product_id "
                 + "WHERE ip.invoice_id = ? ORDER BY p.product_name";
@@ -165,8 +164,8 @@ public class InvoiceDAO extends DBContext {
         }
 
         List<Map<String, Object>> actions = new ArrayList<>();
-        String actionSql =
-                "SELECT action_id, payment_id, action_type, amount, reason, "
+        String actionSql
+                = "SELECT action_id, payment_id, action_type, amount, reason, "
                 + "performed_by_account_id, created_at FROM InvoiceActionLog "
                 + "WHERE invoice_id = ? ORDER BY created_at DESC, action_id DESC";
         try (PreparedStatement ps = conn.prepareStatement(actionSql)) {
@@ -204,9 +203,15 @@ public class InvoiceDAO extends DBContext {
                 = "SELECT a.appointment_id, a.appointment_date, "
                 + "a.start_time, a.end_time, a.customer_id, "
                 + "c.full_name AS customer_name, c.phone AS customer_phone, "
+                + "c.membership_tier_id AS customer_membership_tier_id, "
+                + "mt.membership_tier_id AS tier_id, "
+                + "mt.tier_name, mt.description AS tier_description, "
+                + "mt.discount_percent, mt.min_spending, "
                 + "s.service_name, s.price AS service_price "
                 + "FROM Appointment a "
                 + "JOIN Customer c ON c.customer_id = a.customer_id "
+                + "LEFT JOIN MembershipTier mt "
+                + "ON mt.membership_tier_id = c.membership_tier_id "
                 + "JOIN Service s ON s.service_id = a.service_id "
                 + "LEFT JOIN Invoice i ON i.appointment_id = a.appointment_id "
                 + "WHERE a.status = N'Completed' "
@@ -229,6 +234,21 @@ public class InvoiceDAO extends DBContext {
                 item.put("customerId", rs.getInt("customer_id"));
                 item.put("customerName", rs.getString("customer_name"));
                 item.put("customerPhone", rs.getString("customer_phone"));
+
+                item.put("membershipTierId",rs.getObject("customer_membership_tier_id"));
+
+                Map<String, Object> membership = null;
+
+                if (rs.getObject("tier_id") != null) {
+                    membership = new HashMap<>();
+
+                    membership.put("membershipTierId", rs.getInt("tier_id"));
+                    membership.put("tierName", rs.getString("tier_name"));
+                    membership.put("description", rs.getString("tier_description"));
+                    membership.put("discountPercent", rs.getBigDecimal("discount_percent"));
+                    membership.put("minSpending", rs.getBigDecimal("min_spending"));
+                }
+                item.put("membership", membership);
                 item.put("serviceName", rs.getString("service_name"));
                 item.put("servicePrice", rs.getBigDecimal("service_price"));
 

@@ -11,15 +11,25 @@ public class ProfileDAO extends DBContext {
 
     public Map<String, Object> getProfileByAccountId(int accountId, String role) {
         Map<String, Object> map = new HashMap<>();
-        String query = "";
+        String query;
 
         if ("Customer".equals(role)) {
-            query = "SELECT a.username, a.email, a.phone, a.status, c.full_name, c.date_of_birth, c.gender, c.address "
-                    + "FROM Account a JOIN Customer c ON a.account_id = c.account_id "
+            query = "SELECT a.username, a.email, a.phone, a.status, "
+                    + "c.full_name, c.date_of_birth, c.gender, c.address, "
+                    + "c.membership_tier_id AS customer_membership_tier_id, "
+                    + "mt.membership_tier_id AS tier_id, "
+                    + "mt.tier_name, mt.description, "
+                    + "mt.discount_percent, mt.min_spending "
+                    + "FROM Account a "
+                    + "JOIN Customer c ON a.account_id = c.account_id "
+                    + "LEFT JOIN MembershipTier mt "
+                    + "ON c.membership_tier_id = mt.membership_tier_id "
                     + "WHERE a.account_id = ?";
         } else {
-            query = "SELECT a.username, a.email, a.status, s.full_name, s.phone, s.position AS role "
-                    + "FROM Account a JOIN Staff s ON a.account_id = s.account_id "
+            query = "SELECT a.username, a.email, a.status, "
+                    + "s.full_name, s.phone, s.position AS role "
+                    + "FROM Account a "
+                    + "JOIN Staff s ON a.account_id = s.account_id "
                     + "WHERE a.account_id = ?";
         }
 
@@ -27,6 +37,7 @@ public class ProfileDAO extends DBContext {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
                 ps.setInt(1, accountId);
+
                 ResultSet rs = ps.executeQuery();
 
                 if (rs.next()) {
@@ -41,6 +52,40 @@ public class ProfileDAO extends DBContext {
                         map.put("gender", rs.getString("gender"));
                         map.put("address", rs.getString("address"));
                         map.put("role", "Customer");
+
+                        Object customerTierId
+                                = rs.getObject("customer_membership_tier_id");
+
+                        map.put("membershipTierId", customerTierId);
+
+                        Map<String, Object> membership = null;
+
+                        if (rs.getObject("tier_id") != null) {
+                            membership = new HashMap<>();
+
+                            membership.put(
+                                    "membershipTierId",
+                                    rs.getInt("tier_id")
+                            );
+                            membership.put(
+                                    "tierName",
+                                    rs.getString("tier_name")
+                            );
+                            membership.put(
+                                    "description",
+                                    rs.getString("description")
+                            );
+                            membership.put(
+                                    "discountPercent",
+                                    rs.getBigDecimal("discount_percent")
+                            );
+                            membership.put(
+                                    "minSpending",
+                                    rs.getBigDecimal("min_spending")
+                            );
+                        }
+
+                        map.put("membership", membership);
                     } else {
                         map.put("role", rs.getString("role"));
                     }
@@ -49,6 +94,7 @@ public class ProfileDAO extends DBContext {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return map;
     }
 
@@ -205,40 +251,46 @@ public class ProfileDAO extends DBContext {
         }
         return false;
     }
-    
+
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
-        if (username != null && username.trim().isEmpty()) username = null;
-        if (email != null && email.trim().isEmpty()) email = null;
-        if (phone != null && phone.trim().isEmpty()) phone = null;
-        
+        if (username != null && username.trim().isEmpty()) {
+            username = null;
+        }
+        if (email != null && email.trim().isEmpty()) {
+            email = null;
+        }
+        if (phone != null && phone.trim().isEmpty()) {
+            phone = null;
+        }
+
         if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
             return "Email (Trùng với email hệ thống)";
         }
 
         String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
-        
+
         if (excludeAccountId != null) {
             sql += " AND account_id != ?";
         }
-        
+
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(sql);
                 ps.setString(1, username);
                 ps.setString(2, email);
                 ps.setString(3, phone);
-                
+
                 if (excludeAccountId != null) {
                     ps.setInt(4, excludeAccountId);
                 }
-                
+
                 ResultSet rs = ps.executeQuery();
-                
+
                 while (rs.next()) {
                     String dbUsername = rs.getString("username");
                     String dbEmail = rs.getString("email");
                     String dbPhone = rs.getString("phone");
-                    
+
                     if (username != null && username.equalsIgnoreCase(dbUsername)) {
                         return "Tên đăng nhập (Username)";
                     }
