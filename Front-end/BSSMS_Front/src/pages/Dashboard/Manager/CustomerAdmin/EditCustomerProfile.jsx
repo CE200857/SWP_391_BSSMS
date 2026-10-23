@@ -34,6 +34,7 @@ const EditCustomerProfile = ({ user }) => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [membership, setMembership] = useState(null);
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -49,6 +50,7 @@ const EditCustomerProfile = ({ user }) => {
         );
         if (response.ok) {
           const data = await response.json();
+          setMembership(data.membership || null);
           setFormData({
             customerId: data.customerId || "",
             accountId: data.accountId || "",
@@ -57,7 +59,7 @@ const EditCustomerProfile = ({ user }) => {
             email: data.email || "",
             gender: data.gender
               ? data.gender.trim().charAt(0).toUpperCase() +
-                data.gender.trim().slice(1).toLowerCase()
+              data.gender.trim().slice(1).toLowerCase()
               : "",
             dob: data.dob ? data.dob.substring(0, 10) : "",
             address: data.address || "",
@@ -184,6 +186,53 @@ const EditCustomerProfile = ({ user }) => {
                       ? "Đang hoạt động"
                       : "Không hoạt động"}
                   </Badge>
+                </div>
+                <div className="mt-3 p-3 rounded border bg-light w-100">
+                  <div className="text-muted small mb-2">
+                    <i className="bi bi-award me-1"></i>
+                    Hạng thành viên
+                  </div>
+
+                  {membership ? (
+                    <>
+                      <Badge
+                        bg="warning"
+                        text="dark"
+                        className="px-3 py-2 text-wrap"
+                      >
+                        {membership.tierName}
+                      </Badge>
+
+                      <div className="mt-2 fw-bold text-danger">
+                        <i className="bi bi-percent me-1"></i>
+                        Giảm giá:{" "}
+                        {Number(
+                          membership.discountPercent ?? 0
+                        ).toLocaleString("vi-VN")}%
+                      </div>
+
+                      <div className="text-muted small mt-2">
+                        <div>
+                          Mức chi tiêu yêu cầu:
+                        </div>
+                        <strong>
+                          {Number(
+                            membership.minSpending ?? 0
+                          ).toLocaleString("vi-VN")} ₫
+                        </strong>
+                      </div>
+
+                      {membership.description && (
+                        <div className="text-muted small mt-2">
+                          {membership.description}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-muted small">
+                      Chưa có thông tin hạng thành viên.
+                    </div>
+                  )}
                 </div>
                 <div className="mt-2 text-muted small">
                   ID Khách hàng: #{formData.customerId}
