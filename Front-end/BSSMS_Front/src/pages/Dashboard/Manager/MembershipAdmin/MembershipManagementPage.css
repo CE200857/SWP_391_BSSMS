@@ -1,0 +1,88 @@
+.membership-management-page {
+    min-width: 0;
+}
+
+.membership-management-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.membership-summary-card {
+    border: 1px solid #f0e5e8;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+}
+
+.membership-summary-number {
+    color: #a61e4d;
+    font-size: 1.8rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.membership-summary-currency {
+    font-size: 1.35rem;
+}
+
+.membership-table-card {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.membership-table-card .table th {
+    white-space: nowrap;
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+.membership-table-card .table td {
+    vertical-align: middle;
+}
+
+.membership-id-column {
+    width: 65px;
+}
+
+.membership-description-cell {
+    min-width: 180px;
+    max-width: 320px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.membership-discount-badge {
+    font-size: 0.85rem;
+    padding: 0.45rem 0.6rem;
+}
+
+.membership-management-page .btn-danger {
+    background-color: #a61e4d;
+    border-color: #a61e4d;
+}
+
+.membership-management-page .btn-danger:hover {
+    background-color: #86183e;
+    border-color: #86183e;
+}
+
+@media (max-width: 768px) {
+    .membership-management-page {
+        padding-right: 1rem !important;
+        padding-left: 1rem !important;
+    }
+
+    .membership-management-heading {
+        align-items: stretch;
+    }
+
+    .membership-management-heading > div:last-child {
+        width: 100%;
+    }
+
+    .membership-management-heading > div:last-child .btn {
+        flex: 1;
+    }
+}

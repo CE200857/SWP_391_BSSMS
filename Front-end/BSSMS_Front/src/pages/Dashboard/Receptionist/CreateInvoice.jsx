@@ -411,6 +411,67 @@ const CreateInvoice = () => {
                                         </Col>
                                     </Row>
                                 )}
+
+                                {selectedAppointment && (
+                                    <Card className="border-0 bg-light mt-3">
+                                        <Card.Body>
+                                            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                                <h6 className="fw-bold mb-0">
+                                                    Membership Information
+                                                </h6>
+
+                                                <span className={`badge px-3 py-2 ${selectedAppointment.membership
+                                                    ? "bg-success"
+                                                    : "bg-secondary"
+                                                    }`}>
+                                                    {selectedAppointment.membership?.tierName
+                                                        || "Chưa có thông tin hạng"}
+                                                </span>
+                                            </div>
+
+                                            {selectedAppointment.membership ? (
+                                                <>
+                                                    <Row>
+                                                        <Col md={6} className="mb-3">
+                                                            <div className="text-muted small">
+                                                                Discount
+                                                            </div>
+                                                            <div className="fw-bold fs-5">
+                                                                {Number(
+                                                                    selectedAppointment.membership.discountPercent
+                                                                ).toLocaleString("vi-VN")}%
+                                                            </div>
+                                                        </Col>
+
+                                                        <Col md={6} className="mb-3">
+                                                            <div className="text-muted small">
+                                                                Minimum Spending
+                                                            </div>
+                                                            <div className="fw-bold">
+                                                                {formatCurrency(
+                                                                    selectedAppointment.membership.minSpending
+                                                                )}
+                                                            </div>
+                                                        </Col>
+                                                    </Row>
+
+                                                    <div className="text-muted small mb-1">
+                                                        Benefits / Description
+                                                    </div>
+                                                    <p className="mb-0">
+                                                        {selectedAppointment.membership.description
+                                                            || "Chưa có mô tả quyền lợi."}
+                                                    </p>
+                                                </>
+                                            ) : (
+                                                <p className="text-muted mb-0">
+                                                    Chưa tìm thấy thông tin hạng thành viên của khách.
+                                                </p>
+                                            )}
+                                        </Card.Body>
+                                    </Card>
+                                )}
+
                             </Card.Body>
                         </Card>
 
