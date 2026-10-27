@@ -45,6 +45,7 @@ public class TreatmentOutcomeDAO extends DBContext {
      * @return true nếu cập nhật thành công
      */
     public boolean recordOutcome(int appointmentId, String notes, String status) throws Exception {
+<<<<<<< Updated upstream
         if (conn == null) {
             throw new Exception("Database connection is null in TreatmentOutcomeDAO.recordOutcome()");
         }
@@ -68,12 +69,24 @@ public class TreatmentOutcomeDAO extends DBContext {
             e.printStackTrace();
             throw e;
         }
+=======
+        workflow().roles("Technician");
+        workflow().appointmentAccess(appointmentId);
+        if (!"In-progress".equals(status) && !"Completed".equals(status))
+            throw new IllegalArgumentException("Chỉ được bắt đầu hoặc hoàn thành điều trị.");
+        if ("Completed".equals(status) && (notes==null || notes.trim().isEmpty()))
+            throw new IllegalArgumentException("Vui lòng nhập kết quả điều trị.");
+        if (notes!=null && notes.length()>500) throw new IllegalArgumentException("Kết quả tối đa 500 ký tự.");
+        workflow().call("usp_ChangeAppointmentStatus",requireActorAccountId(),appointmentId,status,null,notes,null);
+        return true;
+>>>>>>> Stashed changes
     }
 
     /**
      * Lấy kết quả điều trị (notes + status) của 1 appointment.
      */
     public String getOutcomeByAppointmentId(int appointmentId) {
+<<<<<<< Updated upstream
         if (conn == null) {
             System.out.println("Database connection is null in TreatmentOutcomeDAO.getOutcomeByAppointmentId()");
             return null;
@@ -96,5 +109,12 @@ public class TreatmentOutcomeDAO extends DBContext {
             e.printStackTrace();
         }
         return null;
+=======
+        try {
+            workflow().appointmentAccess(appointmentId);
+            java.util.Map<String,Object> row=workflow().one("SELECT a.status,tr.result_notes FROM Appointment a LEFT JOIN " + bssms_persistence.common.SchemaSql.TREATMENTS + " tr ON tr.appointment_id=a.appointment_id WHERE a.appointment_id=?",appointmentId);
+            return java.util.Objects.toString(row.get("resultNotes"),"")+"|||"+row.get("status");
+        } catch(java.sql.SQLException e) {throw new DataAccessException(e);}
+>>>>>>> Stashed changes
     }
 }
