@@ -1,5 +1,7 @@
 package bssms_api.common;
 
+import bssms_account.Account;
+import bssms_common.SessionUsers;
 import bssms_controller.DatTT.ControllerException;
 import bssms_controller.DatTT.ServiceController.NotFoundException;
 import com.google.gson.Gson;
@@ -40,6 +42,8 @@ public abstract class BaseApiServlet extends HttpServlet {
         Object result;
         try {
             result = action.run();
+        } catch (bssms_persistence.common.WorkflowException e) {
+            error(response,e.status,e.getMessage()); return;
         } catch (ControllerException e) {
             error(response, e.getStatus(), e.getMessage()); return;
         } catch (NotFoundException e) {
@@ -91,10 +95,10 @@ public abstract class BaseApiServlet extends HttpServlet {
         return value == null || value.isEmpty() ? null : id(request, name);
     }
     @SuppressWarnings("unchecked")
-    protected Map<String, Object> user(HttpServletRequest request) {
+    protected Account user(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         Object value = session == null ? null : session.getAttribute("user");
-        return value instanceof Map ? (Map<String, Object>) value : null;
+        return SessionUsers.from(value);
     }
     protected Object unsupported() { throw new ControllerException(405, "Method not supported for this endpoint."); }
 }

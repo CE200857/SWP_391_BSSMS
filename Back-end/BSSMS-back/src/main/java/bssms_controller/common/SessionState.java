@@ -8,7 +8,7 @@ public final class SessionState {
     private final Set<String> removals=new HashSet<>();
     private boolean invalidated;
     public SessionState(Map<String,Object> original) {
-        original.forEach((key,value)->values.put(key, value instanceof Map ? new HashMap<>((Map<?,?>)value) : value));
+        original.forEach((key,value)->values.put(key, value instanceof bssms_account.Account ? bssms_common.SessionUsers.copy((bssms_account.Account)value) : value instanceof Map ? new HashMap<>((Map<?,?>)value) : value));
     }
     public Object get(String key) { return values.get(key); }
     public void set(String key,Object value) { values.put(key,value); changes.put(key,value); removals.remove(key); }
