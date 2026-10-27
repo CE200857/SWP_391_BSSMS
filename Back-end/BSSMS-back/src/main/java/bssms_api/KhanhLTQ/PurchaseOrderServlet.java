@@ -16,6 +16,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+<<<<<<< Updated upstream
 @WebServlet("/PurchaseOrderServlet")
 public class PurchaseOrderServlet extends HttpServlet {
 
@@ -31,6 +32,19 @@ public class PurchaseOrderServlet extends HttpServlet {
         resp.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         resp.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
         resp.setHeader("Access-Control-Allow-Credentials", "true");
+=======
+@WebServlet(urlPatterns={"/PurchaseOrderServlet","/api/purchase-orders"})
+public class PurchaseOrderServlet extends ControllerServlet {
+    @Override protected void doGet(HttpServletRequest request,HttpServletResponse response) throws IOException {
+        dispatch(request,response,(input,result)->{try(PurchaseOrderController controller=new PurchaseOrderController()){controller.get(input,result);}});
+    }
+    @Override protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        dispatch(request, response, (input, result) -> {
+            try (PurchaseOrderController controller = new PurchaseOrderController()) {
+                controller.post(input, result);
+            }
+        });
+>>>>>>> Stashed changes
     }
 
     @Override

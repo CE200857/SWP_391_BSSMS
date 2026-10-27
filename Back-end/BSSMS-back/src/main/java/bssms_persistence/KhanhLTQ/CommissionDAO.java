@@ -102,36 +102,20 @@ public class CommissionDAO extends DBContext {
 
     // 4. Thêm mới một bản ghi hoa hồng
     public boolean createCommission(Commission commission) {
-        String sql = "INSERT INTO Commission (invoice_id, staff_id, commission_rate, commission_amount, created_at) "
-                   + "VALUES (?, ?, ?, ?, GETDATE())";
-
-        if (this.conn == null) {
-            return false;
-        }
-
-        try (PreparedStatement ps = this.conn.prepareStatement(sql)) {
-            ps.setInt(1, commission.getInvoiceId());
-            ps.setInt(2, commission.getStaffId());
-            ps.setDouble(3, commission.getCommissionRate());
-            ps.setDouble(4, commission.getCommissionAmount());
-
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return false;
+        throw new bssms_persistence.common.WorkflowException(409,"Commission is created by payment/completion procedures, not manually.");
     }
 
     // 5. UC77 - Báo cáo hoa hồng theo khoảng thời gian
     public List<CommissionReportDTO> getCommissionReport(String startDate, String endDate) {
         List<CommissionReportDTO> list = new ArrayList<>();
-        String sql = "SELECT c.staff_id, a.username AS full_name, "
+        String sql = "SELECT c.staff_id, a.full_name AS full_name, "
                    + "COUNT(c.invoice_id) AS total_invoices, "
-                   + "SUM(c.commission_amount) AS total_commission "
+                   + "SUM(c.commission_amount + COALESCE(adj.amount,0)) AS total_commission "
                    + "FROM Commission c "
-                   + "JOIN Account a ON c.staff_id = a.account_id "
-                   + "WHERE c.created_at BETWEEN ? AND ? "
-                   + "GROUP BY c.staff_id, a.username";
+                   + "JOIN " + bssms_persistence.common.SchemaSql.STAFF + " a ON c.staff_id = a.staff_id "
+                   + "OUTER APPLY (SELECT SUM(ca.amount) AS amount FROM CommissionAdjustment ca WHERE ca.commission_id=c.commission_id) adj "
+                   + "WHERE c.status<>'Reversed' AND c.created_at BETWEEN ? AND ? "
+                   + "GROUP BY c.staff_id, a.full_name";
 
         if (this.conn == null) {
             return list;
