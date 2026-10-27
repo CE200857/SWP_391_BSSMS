@@ -1,6 +1,7 @@
 package bssms_persistence.HienLNM;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -8,15 +9,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TreatmentProfileDAO extends DBContext {
+public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     // Lấy hồ sơ điều trị theo customer ID
     public List<Map<String, Object>> getTreatmentProfilesByCustomerId(int customerId) {
-<<<<<<< Updated upstream
-=======
         try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
->>>>>>> Stashed changes
         List<Map<String, Object>> list = new ArrayList<>();
         String query = "SELECT a.appointment_id, a.appointment_date, a.start_time, a.end_time, a.status AS appointment_status, "
                      + "a.notes, tr.result_notes, s.service_name, s.price, "
@@ -59,18 +62,15 @@ public class TreatmentProfileDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
 
     // Lấy tổng quan hồ sơ điều trị
     public Map<String, Object> getTreatmentSummary(int customerId) {
-<<<<<<< Updated upstream
-=======
         try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
->>>>>>> Stashed changes
         Map<String, Object> map = new HashMap<>();
         String query = "SELECT c.customer_id,c.full_name,c.date_of_birth,c.gender,c.phone,c.email, "
             + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id) AS total_appointments, "
@@ -101,18 +101,15 @@ public class TreatmentProfileDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return map;
     }
 
     // Cập nhật ghi chú điều trị
     public boolean updateAppointmentNotes(int appointmentId, String notes) {
-<<<<<<< Updated upstream
-=======
         try {workflow().roles("Receptionist","Technician","Manager");workflow().appointmentAccess(appointmentId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
->>>>>>> Stashed changes
         String query = "UPDATE Appointment SET notes = ? WHERE appointment_id = ?";
         try {
             if (conn != null) {
@@ -123,18 +120,15 @@ public class TreatmentProfileDAO extends DBContext {
                 return rowsAffected > 0;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     // Lấy lịch sử điều trị
     public List<Map<String, Object>> getTreatmentHistory(int customerId) {
-<<<<<<< Updated upstream
-=======
         try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
->>>>>>> Stashed changes
         List<Map<String, Object>> list = new ArrayList<>();
         String query = "SELECT a.appointment_id, a.appointment_date, a.status, s.service_name, "
                      + "tp.package_name, st.full_name AS staff_name, f.rating, f.comment "
@@ -166,7 +160,7 @@ public class TreatmentProfileDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }

@@ -7,6 +7,7 @@ import {
   Button,
   Modal,
   Dropdown,
+  Badge,
 } from "react-bootstrap";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -25,13 +26,20 @@ const StaffList = ({ user }) => {
     newRole: "",
   });
 
-  const [message, setMessage] = useState("");
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusChangeData, setStatusChangeData] = useState({
+    accountId: null,
+    staffName: "",
+    newStatus: "",
+  });
 
+  const [message, setMessage] = useState("");
   const [refresh, setRefresh] = useState(0);
 
   const availableRoles = ["Manager", "Receptionist", "Technician"];
-
   const navigate = useNavigate();
+
+  const currentUserAccountId = user?.account_id || user?.accountId;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,9 +71,7 @@ const StaffList = ({ user }) => {
   };
 
   const confirmDelete = async () => {
-    if (!selectedStaff) {
-      return;
-    }
+    if (!selectedStaff) return;
 
     try {
       const response = await fetch(`/api/staff?id=${selectedStaff.staffId}`, {
@@ -74,19 +80,16 @@ const StaffList = ({ user }) => {
       });
 
       if (response.ok) {
-        // Cập nhật trạng thái ngay trên giao diện
         setStaffs((prevStaffs) =>
-          prevStaffs.map((staff) =>
-            staff.staffId === selectedStaff.staffId
-              ? { ...staff, status: "Inactive" }
-              : staff,
-          ),
+          prevStaffs.filter((staff) => staff.staffId !== selectedStaff.staffId)
         );
+        setMessage(`Đã xóa vĩnh viễn nhân viên ${selectedStaff.fullName}!`);
+        setTimeout(() => setMessage(""), 3000);
       } else {
-        alert("Lỗi: Không thể vô hiệu hóa tài khoản nhân viên.");
+        alert("Lỗi: Không thể xóa tài khoản nhân viên.");
       }
     } catch (error) {
-      console.error("Lỗi khi vô hiệu hóa nhân viên:", error);
+      console.error("Lỗi khi xóa nhân viên:", error);
       alert("Không thể kết nối đến Backend.");
     } finally {
       handleCloseModal();
@@ -123,18 +126,66 @@ const StaffList = ({ user }) => {
       console.error("Lỗi khi đổi quyền:", error);
       alert("Đổi quyền thất bại. Vui lòng thử lại!");
     } finally {
-      handleCloseRoleModal(); // Gọi API xong thì đóng Modal
+      handleCloseRoleModal();
+    }
+  };
+
+  const handleShowStatusModal = (staff) => {
+    const nextStatus = staff.status === "Active" ? "Inactive" : "Active";
+    setStatusChangeData({
+      accountId: staff.accountId,
+      staffName: staff.fullName,
+      newStatus: nextStatus,
+    });
+    setShowStatusModal(true);
+  };
+
+  const handleCloseStatusModal = () => {
+    setShowStatusModal(false);
+    setStatusChangeData({ accountId: null, staffName: "", newStatus: "" });
+  };
+
+  const confirmStatusChange = async () => {
+    try {
+      const { accountId, newStatus, staffName } = statusChangeData;
+      const response = await axios.post(
+        "http://localhost:8080/BSSMS-back/api/staff",
+        {
+          action: "update-status",
+          accountId: accountId,
+          status: newStatus,
+        },
+        { withCredentials: true }
+      );
+
+      if (response.status === 200) {
+        setStaffs((prevStaffs) =>
+          prevStaffs.map((s) =>
+            s.accountId === accountId ? { ...s, status: newStatus } : s
+          )
+        );
+        const statusText =
+          newStatus === "Active" ? "Đang hoạt động" : "Không hoạt động";
+        setMessage(
+          `Đã chuyển trạng thái của ${staffName} sang "${statusText}"!`
+        );
+        setTimeout(() => setMessage(""), 3000);
+      }
+    } catch (error) {
+      console.error("Lỗi khi đổi trạng thái:", error);
+      alert("Đổi trạng thái thất bại. Vui lòng thử lại!");
+    } finally {
+      handleCloseStatusModal();
     }
   };
 
   const filteredStaffs = staffs.filter(
     (s) =>
-      s.status === "Active" &&
-      (s.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.phone?.includes(searchTerm) ||
       s.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.position?.toLowerCase().includes(searchTerm.toLowerCase())),
+      s.position?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -162,7 +213,6 @@ const StaffList = ({ user }) => {
           />
         </InputGroup>
 
-        {/* Chỉ Manager mới được phép thấy và bấm nút Thêm nhân viên */}
         {user?.role === "Manager" && (
           <Button
             variant="danger"
@@ -182,6 +232,7 @@ const StaffList = ({ user }) => {
             <th>Email</th>
             <th>Số điện thoại</th>
             <th>Chức vụ</th>
+            <th>Trạng thái</th>
             <th>Hành động</th>
           </tr>
         </thead>
@@ -210,8 +261,8 @@ const StaffList = ({ user }) => {
                         className="w-100 text-start d-flex justify-content-between align-items-center"
                         disabled={
                           s.status !== "Active" ||
-                          s.accountId === user?.account_id
-                        } // Không tự đổi quyền chính mình
+                          s.accountId === currentUserAccountId
+                        }
                       >
                         {s.position}
                       </Dropdown.Toggle>
@@ -235,13 +286,39 @@ const StaffList = ({ user }) => {
                   )}
                 </td>
 
+                <td className="text-center">
+                  {user?.role === "Manager" ? (
+                    <Button
+                      variant={s.status === "Active" ? "success" : "secondary"}
+                      size="sm"
+                      className="w-100 fw-bold"
+                      onClick={() => handleShowStatusModal(s)}
+                      disabled={
+                        s.position === "Manager" ||
+                        s.accountId === currentUserAccountId
+                      }
+                      title="Bấm để đổi trạng thái"
+                    >
+                      {s.status === "Active"
+                        ? "Đang hoạt động"
+                        : "Không hoạt động"}
+                    </Button>
+                  ) : (
+                    <Badge bg={s.status === "Active" ? "success" : "secondary"}>
+                      {s.status === "Active"
+                        ? "Đang hoạt động"
+                        : "Không hoạt động"}
+                    </Badge>
+                  )}
+                </td>
+
                 <td>
                   <Button
                     variant="info"
                     size="sm"
                     className="me-2 text-white"
                     onClick={() => navigate(`/staffs/detail/${s.staffId}`)}
-                    disabled={s.accountId === user?.account_id}
+                    disabled={s.accountId === currentUserAccountId}
                   >
                     <i className="bi bi-eye"></i> Xem
                   </Button>
@@ -251,6 +328,7 @@ const StaffList = ({ user }) => {
                     size="sm"
                     className="me-2 text-white"
                     onClick={() => navigate(`/staffs/edit/${s.staffId}`)}
+                    disabled={s.accountId === currentUserAccountId}
                   >
                     <i className="bi bi-pencil-square"></i> Chỉnh sửa
                   </Button>
@@ -259,7 +337,10 @@ const StaffList = ({ user }) => {
                     variant="danger"
                     size="sm"
                     onClick={() => handleShowModal(s)}
-                    disabled={s.status !== "Active" || s.position === "Manager"}
+                    disabled={
+                      s.position === "Manager" ||
+                      s.accountId === currentUserAccountId
+                    }
                   >
                     <i className="bi bi-trash"></i> Xóa
                   </Button>
@@ -268,7 +349,7 @@ const StaffList = ({ user }) => {
             ))
           ) : (
             <tr>
-              <td colSpan="7" className="text-center text-muted">
+              <td colSpan="8" className="text-center text-muted">
                 Không tìm thấy nhân viên nào.
               </td>
             </tr>
@@ -280,16 +361,17 @@ const StaffList = ({ user }) => {
         <Modal.Header closeButton>
           <Modal.Title className="text-danger fw-bold">
             <i className="bi bi-exclamation-triangle-fill me-2"></i>
-            Xác nhận xóa nhân viên
+            Xác nhận xóa vĩnh viễn nhân viên
           </Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
-          Bạn có chắc chắn muốn vô hiệu hóa tài khoản của nhân viên{" "}
+          Bạn có chắc chắn muốn <strong>xóa vĩnh viễn</strong> hồ sơ và tài khoản
+          của nhân viên{" "}
           <span className="fw-bold text-primary">
             {selectedStaff?.fullName}
           </span>{" "}
-          không?
+          khỏi cơ sở dữ liệu không? Hành động này không thể hoàn tác.
         </Modal.Body>
 
         <Modal.Footer>
@@ -298,7 +380,42 @@ const StaffList = ({ user }) => {
           </Button>
 
           <Button variant="danger" onClick={confirmDelete}>
-            Xóa nhân viên
+            Xóa vĩnh viễn
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showStatusModal} onHide={handleCloseStatusModal} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="text-warning fw-bold">
+            <i className="bi bi-arrow-repeat me-2"></i> Xác nhận đổi trạng thái
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Bạn có chắc chắn muốn chuyển trạng thái của nhân viên{" "}
+          <span className="fw-bold text-primary">
+            {statusChangeData.staffName}
+          </span>{" "}
+          sang{" "}
+          <span
+            className={`fw-bold ${
+              statusChangeData.newStatus === "Active"
+                ? "text-success"
+                : "text-danger"
+            }`}
+          >
+            {statusChangeData.newStatus === "Active"
+              ? "Đang hoạt động"
+              : "Không hoạt động"}
+          </span>{" "}
+          không?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseStatusModal}>
+            Hủy bỏ
+          </Button>
+          <Button variant="primary" onClick={confirmStatusChange}>
+            Xác nhận
           </Button>
         </Modal.Footer>
       </Modal>

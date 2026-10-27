@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import Sidebar from "../components/Sidebar";
@@ -44,6 +44,11 @@ import CreateStaff from "../pages/Dashboard/Manager/StaffAdmin/CreateStaff";
 import StaffDetail from "../pages/Dashboard/Manager/StaffAdmin/StaffDetail";
 import EditStaffProfile from "../pages/Dashboard/Manager/StaffAdmin/EditStaffProfile";
 import CreateInvoice from "../pages/Dashboard/Receptionist/CreateInvoice";
+import InvoiceManagement from "../pages/Dashboard/Manager/InvoiceManagement";
+
+import ServiceHistory from "../pages/Dashboard/ServiceHistory/ServiceHistory";
+import MembershipBenefits from "../pages/Shared/Membership/MembershipBenefits";
+import MembershipManagementPage from "../pages/Dashboard/Manager/MembershipAdmin/MembershipManagementPage";
 
 // Nhóm 5 chức năng mới (Iteration 2)
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
@@ -61,6 +66,10 @@ import ReceptionistBookingDesk from "../pages/Dashboard/Receptionist/Receptionis
 import VoucherList from "../pages/Dashboard/Manager/VoucherManagement/VoucherList";
 import BirthdayPromotion from "../pages/Dashboard/Manager/BirthdayPromotion/BirthdayPromotion";
 import CustomerTreatmentProfile from "../pages/Dashboard/Manager/CustomerTreatmentProfile/CustomerTreatmentProfile";
+
+// Nhóm chức năng Billing & Commission (Iteration 4 - Khanh LTQ)
+import CommissionReport from "../pages/Dashboard/Manager/CommissionReport";
+import PersonalCommission from "../pages/Dashboard/Technician/PersonalCommission";
 
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
@@ -85,11 +94,16 @@ const ProtectedRoute = ({ user, allowedRoles, children }) => {
 };
 
 // --- 2. CÁC KHUNG GIAO DIỆN (LAYOUTS) ---
-const GuestLayout = () => {
+const GuestLayout = ({ user }) => {
+  const location = useLocation();
+
   return (
     <div className="app-guest-layout">
+      <Header user={user} />
       <main className="app-guest-main">
-        <Outlet />
+        <div key={location.pathname} className="app-route-enter">
+          <Outlet />
+        </div>
       </main>
       <Footer />
     </div>
@@ -98,8 +112,23 @@ const GuestLayout = () => {
 
 const DashboardLayout = ({ user }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const location = useLocation();
 
   if (!user) return <Navigate to="/bssms-guest" replace />;
+
+  if (user.role === "Customer") {
+    return (
+      <div className="app-guest-layout app-customer-layout">
+        <Header user={user} />
+        <main className="app-guest-main app-customer-main">
+          <div key={location.pathname} className="app-route-enter">
+            <Outlet />
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -112,11 +141,12 @@ const DashboardLayout = ({ user }) => {
         onToggle={() => setSidebarCollapsed((prev) => !prev)}
       />
       <div className="flex-grow-1 d-flex flex-column" style={{ minWidth: 0 }}>
-        <Header user={user} />
+        <Header user={user} dashboard />
         <main className="app-dashboard-content p-3 flex-grow-1">
-          <Outlet />
+          <div key={location.pathname} className="app-route-enter">
+            <Outlet />
+          </div>
         </main>
-        <Footer />
       </div>
     </div>
   );
@@ -127,7 +157,7 @@ export default function AppRoutes({ user, setUser }) {
   return (
     <Routes>
       {/* NHÁNH 1: KHÁCH VÃNG LAI (GUEST) */}
-      <Route element={<GuestLayout />}>
+      <Route element={<GuestLayout user={user} />}>
         <Route path="/bssms-guest" element={<GuestHome />} />
         <Route path="/" element={<Navigate to="/bssms-guest" replace />} />
         <Route path="/login" element={<Login setUser={setUser} />} />
@@ -461,6 +491,46 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
+        {/* --- SERVICE HISTORY --- */}
+        <Route
+          path="/service-history"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Customer", "Technician", "Receptionist", "Manager"]}
+            >
+              <ServiceHistory user={user} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- MEMBERSHIP --- */}
+        <Route
+          path="/membership-benefits"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={[
+                "Customer",
+                "Receptionist",
+                "Manager",
+              ]}
+            >
+              <MembershipBenefits />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- MEMBERSHIP TIER MANAGEMENT: Chỉ Manager --- */}
+        <Route
+          path="/manager/membership-tiers"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <MembershipManagementPage />
+            </ProtectedRoute>
+          }
+        />
+
         {/* --- TREATMENT PACKAGE MANAGEMENT --- */}
         {/* Manager: CRUD gói liệu trình */}
         <Route
@@ -556,6 +626,16 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
+        {/* Invoice Management: chỉ Manager */}
+        <Route
+          path="/manager/invoices"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <InvoiceManagement />
+            </ProtectedRoute>
+          }
+        />
+
         {/* --- 4 CHỨC NĂNG BOOKING MANAGEMENT (ITERATION 4 - DAT TT) --- */}
 
         {/* 1. Check Slot Availability: Customer & Receptionist (Guest xem ở /guest/slots) */}
@@ -585,8 +665,21 @@ export default function AppRoutes({ user, setUser }) {
         <Route
           path="/receptionist/coordination"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
               <ReceptionistBookingDesk />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Invoice Management: chỉ Manager */}
+        <Route
+          path="/manager/invoices"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <InvoiceManagement />
             </ProtectedRoute>
           }
         />
@@ -616,7 +709,7 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* 3. View/Update Customer Treatment Profile: All roles can view, Manager & Technician can edit */}
+        {/* 3. View/Update Customer Treatment Profile */}
         <Route
           path="/treatment-profile/:customerId"
           element={
@@ -629,7 +722,7 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* Default treatment profile route (for Customer viewing their own profile) */}
+        {/* Default treatment profile route */}
         <Route
           path="/my-treatment-profile"
           element={
@@ -638,6 +731,27 @@ export default function AppRoutes({ user, setUser }) {
               allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}
             >
               <CustomerTreatmentProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* --- NHÓM CHỨC NĂNG BILLING & COMMISSION (ITERATION 4 - KHANH LTQ) --- */}
+        {/* Tuyến đường dành cho Manager */}
+        <Route
+          path="/manager/commission/report"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <CommissionReport />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Tuyến đường dành cho Technician */}
+        <Route
+          path="/technician/commission"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Technician", "Manager"]}>
+              <PersonalCommission />
             </ProtectedRoute>
           }
         />

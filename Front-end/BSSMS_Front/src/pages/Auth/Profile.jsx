@@ -63,6 +63,99 @@ const Profile = ({ user, setUser }) => {
   const displayName = profileData?.fullName || user?.fullName || "User";
   const initial = displayName.charAt(0).toUpperCase();
 
+  if (profileData?.role === "Customer") {
+    return (
+      <main className="customer-profile-page">
+        <section className="customer-page-banner customer-profile-banner">
+          <div className="customer-page-container">
+            <div className="customer-breadcrumb">
+              <button type="button" onClick={() => navigate("/customer/home")}>Trang chủ</button>
+              <i className="bi bi-chevron-right" aria-hidden="true" />
+              <strong>Hồ sơ cá nhân</strong>
+            </div>
+            <div className="customer-profile-banner-row">
+              <div>
+                <span className="home-eyebrow">TÀI KHOẢN CỦA BẠN</span>
+                <h1>Hồ sơ cá nhân</h1>
+                <p>Thông tin của bạn, cho những trải nghiệm chăm sóc thật riêng tại Seoul Center.</p>
+              </div>
+              <Button variant="light" onClick={() => navigate(-1)}>
+                <i className="bi bi-arrow-left" aria-hidden="true" /> Quay lại
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <div className="customer-profile-container">
+          <aside className="customer-profile-menu">
+            <div className="customer-profile-identity">
+              <span>{initial}</span>
+              <h2>{displayName}</h2>
+              <small>{profileData.role}</small>
+            </div>
+            <div className="customer-profile-menu-divider" />
+            <button className="is-active" type="button" aria-current="page">
+              <i className="bi bi-person" aria-hidden="true" /> Hồ sơ cá nhân
+            </button>
+            <button type="button" onClick={() => navigate("/change-password")}>
+              <i className="bi bi-key" aria-hidden="true" /> Đổi mật khẩu
+            </button>
+            <div className="customer-profile-menu-divider" />
+            <button className="customer-profile-logout" type="button" onClick={handleLogout}>
+              <i className="bi bi-box-arrow-right" aria-hidden="true" /> Đăng xuất
+            </button>
+          </aside>
+
+          <section className="customer-profile-details">
+            <div className="customer-profile-details-heading">
+              <div>
+                <h2>Thông tin cá nhân</h2>
+                <p>Thông tin liên hệ và tài khoản của bạn tại Seoul Center.</p>
+              </div>
+              <span><i className="bi bi-person" aria-hidden="true" /></span>
+            </div>
+
+            <div className="customer-profile-data-grid">
+              <div><small>Tên đăng nhập</small><strong>{profileData.username || "—"}</strong></div>
+              <div><small>Họ và tên</small><strong>{profileData.fullName || "—"}</strong></div>
+              <div><small>Email</small><strong>{profileData.email || "—"}</strong></div>
+              <div><small>Số điện thoại</small><strong>{profileData.phone || "Chưa cập nhật"}</strong></div>
+              <div><small>Ngày sinh</small><strong>{profileData.dob || "Chưa cập nhật"}</strong></div>
+              <div>
+                <small>Giới tính</small>
+                <strong>
+                  {profileData.gender === "Male" ? "Nam" : profileData.gender === "Female" ? "Nữ" : "Khác"}
+                </strong>
+              </div>
+              <div><small>Địa chỉ</small><strong>{profileData.address || "Chưa cập nhật"}</strong></div>
+              <div>
+                <small>Trạng thái tài khoản</small>
+                <strong>
+                  <span className={`customer-profile-status${profileData.status === "Active" ? " is-active" : ""}`}>
+                    <i className="bi bi-check-circle" aria-hidden="true" />
+                    {profileData.status === "Active" ? "Đang hoạt động" : "Không hoạt động"}
+                  </span>
+                </strong>
+              </div>
+            </div>
+
+            <div className="customer-profile-actions">
+              <Button variant="outline-danger" onClick={() => navigate("/change-password")}>
+                <i className="bi bi-key" aria-hidden="true" /> Đổi mật khẩu
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => navigate("/edit-profile", { state: { profileData } })}
+              >
+                <i className="bi bi-pencil-square" aria-hidden="true" /> Chỉnh sửa
+              </Button>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <Container fluid className="mt-4 px-4">
       <Card className="shadow-sm border-0" style={{ borderRadius: "15px" }}>
@@ -182,6 +275,74 @@ const Profile = ({ user, setUser }) => {
                       : "Không hoạt động"}
                   </div>
                 </div>
+
+                {/* Membership Information - Customer only */}
+                {profileData.role === "Customer" && (
+                  <Card className="border-0 bg-light mb-4">
+                    <Card.Body>
+                      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <h5 className="fw-bold mb-0">
+                          Membership Information
+                        </h5>
+
+                        <span
+                          className={`badge px-3 py-2 ${profileData.membership
+                              ? "bg-success"
+                              : "bg-secondary"
+                            }`}
+                        >
+                          {profileData.membership?.tierName ||
+                            (profileData.membershipTierId != null
+                              ? "Chưa xác định hạng"
+                              : "Chưa có hạng")}
+                        </span>
+                      </div>
+
+                      {profileData.membership ? (
+                        <>
+                          <Row>
+                            <Col sm={6} className="mb-3">
+                              <div className="text-muted small mb-1">
+                                Discount
+                              </div>
+                              <div className="fw-bold fs-5">
+                                {Number(
+                                  profileData.membership.discountPercent
+                                ).toLocaleString("vi-VN")}
+                                %
+                              </div>
+                            </Col>
+
+                            <Col sm={6} className="mb-3">
+                              <div className="text-muted small mb-1">
+                                Minimum Spending
+                              </div>
+                              <div className="fw-bold">
+                                {Number(
+                                  profileData.membership.minSpending
+                                ).toLocaleString("vi-VN")}{" "}
+                                ₫
+                              </div>
+                            </Col>
+                          </Row>
+
+                          <div className="text-muted small mb-1">
+                            Benefits / Description
+                          </div>
+                          <p className="mb-0">
+                            {profileData.membership.description ||
+                              "Chưa có mô tả quyền lợi."}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-muted mb-0">
+                          Chưa có thông tin hạng thành viên.
+                          Vui lòng liên hệ lễ tân để được hỗ trợ.
+                        </p>
+                      )}
+                    </Card.Body>
+                  </Card>
+                )}
 
                 {/* Khu vực nút bấm */}
                 <div className="d-flex justify-content-between mt-auto pt-3 flex-wrap gap-2">

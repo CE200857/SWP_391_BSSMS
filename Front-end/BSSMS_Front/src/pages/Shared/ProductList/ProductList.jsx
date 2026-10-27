@@ -4,18 +4,29 @@ const API_URL = 'http://localhost:8080/BSSMS-back/api/products';
 const SUPPLIER_API_URL = 'http://localhost:8080/BSSMS-back/api/suppliers';
 const PURCHASE_ORDER_API_URL = 'http://localhost:8080/BSSMS-back/PurchaseOrderServlet';
 
-// Thêm prop { user } để lấy role từ hệ thống
 export default function ProductList({ user }) {
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'purchase'
+  const [activeTab, setActiveTab] = useState('products'); // 'products' | 'purchaseOrders'
 
   const [products, setProducts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [poSearchTerm, setPoSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
+
+  // Dữ liệu Đơn nhập hàng (Purchase Orders)
+  const [purchaseOrders, setPurchaseOrders] = useState([
+    { id: 'PO001', supplierName: 'Công ty Dược Mỹ Phẩm A', orderDate: '10/10/2026', totalAmount: 15000000, status: 'Hoàn thành' },
+    { id: 'PO002', supplierName: 'Nhà phân phối Thiết bị Spa B', orderDate: '12/10/2026', totalAmount: 32000000, status: 'Chờ xử lý' },
+    { id: 'PO003', supplierName: 'Mỹ phẩm Thiên nhiên C', orderDate: '14/10/2026', totalAmount: 8500000, status: 'Đang giao' },
+  ]);
+
+  // State phục vụ việc CẬP NHẬT Đơn nhập hàng
+  const [editingPO, setEditingPO] = useState(null);
 
   const [formData, setFormData] = useState({
     productId: 0,
@@ -40,14 +51,10 @@ export default function ProductList({ user }) {
       setLoading(true);
       try {
         const resProducts = await fetch(API_URL, { credentials: 'include' });
-
         if (resProducts.ok) {
           const data = await resProducts.json();
           setProducts(Array.isArray(data) ? data : []);
-        } else {
-          console.error('Lỗi API Products status:', resProducts.status);
         }
-
         try {
           const resSuppliers = await fetch(SUPPLIER_API_URL, { credentials: 'include' });
           if (resSuppliers.ok) {
@@ -57,7 +64,6 @@ export default function ProductList({ user }) {
         } catch (supErr) {
           console.warn('Không thể tải danh sách Supplier từ API:', supErr);
         }
-
       } catch (err) {
         console.error('Lỗi khi tải dữ liệu sản phẩm:', err);
       } finally {
@@ -159,6 +165,7 @@ export default function ProductList({ user }) {
     }
   };
 
+  // Các hàm xử lý Đơn nhập hàng (Purchase Order)
   const handleOpenPurchaseOrder = () => {
     setPoSupplierId(suppliers.length > 0 ? (suppliers[0].supplierId || suppliers[0].id) : '');
     setPoNote('');
@@ -249,6 +256,7 @@ export default function ProductList({ user }) {
       if (res.ok) {
         alert('Tạo đơn nhập hàng thành công!');
         setViewMode('list');
+        setActiveTab('purchaseOrders');
         setRefresh(prev => prev + 1);
       } else {
         alert('Có lỗi xảy ra khi tạo đơn nhập hàng.');
@@ -261,91 +269,95 @@ export default function ProductList({ user }) {
     }
   };
 
+  // Thao tác với Purchase Order (Xem, Sửa, Xóa)
+  const handleViewPO = (poId) => {
+    const po = purchaseOrders.find(o => o.id === poId);
+    alert(`[CHI TIẾT ĐƠN NHẬP HÀNG ${poId}]\n- Nhà cung cấp: ${po?.supplierName}\n- Ngày nhập: ${po?.orderDate}\n- Tổng tiền: ${po?.totalAmount?.toLocaleString('vi-VN')} VNĐ\n- Trạng thái: ${po?.status}`);
+  };
+
+  // Bấm Sửa -> Mở Modal
+  const handleUpdatePO = (poId) => {
+    const po = purchaseOrders.find(o => o.id === poId);
+    if (po) {
+      setEditingPO({ ...po });
+    }
+  };
+
+  // Lưu thông tin sau khi Sửa Đơn Nhập Hàng
+  const handleSaveUpdatePO = (e) => {
+    e.preventDefault();
+    setPurchaseOrders(prev => prev.map(o => o.id === editingPO.id ? editingPO : o));
+    setEditingPO(null);
+    alert(`Cập nhật thành công đơn nhập hàng ${editingPO.id}!`);
+  };
+
+  const handleDeletePO = (poId) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa đơn nhập hàng ${poId} không?`)) {
+      setPurchaseOrders(prev => prev.filter(o => o.id !== poId));
+      alert(`Đã xóa thành công đơn nhập hàng ${poId}!`);
+    }
+  };
+
   const filteredProducts = products.filter(p =>
     p.productName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredPOs = purchaseOrders.filter(po =>
+    po.id.toLowerCase().includes(poSearchTerm.toLowerCase()) ||
+    po.supplierName.toLowerCase().includes(poSearchTerm.toLowerCase())
+  );
+
   // =====================================================================
-  // 1. GIAO DIỆN DÀNH RIÊNG CHO LỄ TÂN (RECEPTIONIST) - BÁN LẺ (POS)
+  // 1. RECEPTIONIST VIEW: BÁN LẺ SẢN PHẨM (POS)
   // =====================================================================
   if (user?.role === 'Receptionist') {
-    // State quản lý giỏ hàng của Lễ tân
     const [cart, setCart] = useState([]);
 
-    // Thêm sản phẩm vào giỏ hàng
     const handleAddToCart = (product) => {
       setCart(prevCart => {
         const existingItem = prevCart.find(item => item.productId === product.productId);
         if (existingItem) {
-          // Nếu đã có trong giỏ thì tăng số lượng lên 1 (không vượt quá tồn kho)
           if (existingItem.quantity < product.stockQuantity) {
             return prevCart.map(item => 
-              item.productId === product.productId 
-                ? { ...item, quantity: item.quantity + 1 } 
-                : item
+              item.productId === product.productId ? { ...item, quantity: item.quantity + 1 } : item
             );
           }
           return prevCart;
         } else {
-          // Nếu chưa có thì thêm mới với số lượng = 1
           return [...prevCart, { ...product, quantity: 1 }];
         }
       });
     };
 
-    // Xóa sản phẩm khỏi giỏ hàng
-    const handleRemoveFromCart = (productId) => {
-      setCart(prevCart => prevCart.filter(item => item.productId !== productId));
-    };
+    const handleRemoveFromCart = (productId) => setCart(prevCart => prevCart.filter(item => item.productId !== productId));
 
-    // Thay đổi số lượng trực tiếp trong giỏ
     const handleQuantityChange = (productId, delta) => {
-      setCart(prevCart => {
-        return prevCart.map(item => {
-          if (item.productId === productId) {
-            const newQty = item.quantity + delta;
-            if (newQty > 0 && newQty <= item.stockQuantity) {
-              return { ...item, quantity: newQty };
-            }
-          }
-          return item;
-        });
-      });
+      setCart(prevCart => prevCart.map(item => {
+        if (item.productId === productId) {
+          const newQty = item.quantity + delta;
+          if (newQty > 0 && newQty <= item.stockQuantity) return { ...item, quantity: newQty };
+        }
+        return item;
+      }));
     };
 
-    // Tính tổng tiền giỏ hàng
-    const calculateCartTotal = () => {
-      return cart.reduce((total, item) => total + (item.unitPrice || 0) * item.quantity, 0);
-    };
+    const calculateCartTotal = () => cart.reduce((total, item) => total + (item.unitPrice || 0) * item.quantity, 0);
 
-    // Xác nhận thanh toán đơn hàng
     const handleCheckout = () => {
-      if (cart.length === 0) {
-        alert('Giỏ hàng đang trống!');
-        return;
-      }
+      if (cart.length === 0) return alert('Giỏ hàng đang trống!');
       alert('Thanh toán đơn hàng thành công!');
-      setCart([]); // Reset giỏ hàng sau khi thanh toán
+      setCart([]);
     };
 
     return (
       <div className="container-fluid py-4">
         <h2 className="fw-bold mb-4" style={{ color: '#800020' }}>Bán lẻ sản phẩm (POS)</h2>
-        
         <div className="row mb-4">
           <div className="col-md-5">
-            <input
-              type="text"
-              className="form-control shadow-sm"
-              placeholder="Tìm kiếm sản phẩm để bán..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <input type="text" className="form-control shadow-sm" placeholder="Tìm kiếm sản phẩm để bán..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
         </div>
-
         <div className="row">
-          {/* Cột Danh sách sản phẩm */}
           <div className="col-md-8">
             <div className="row g-3">
               {filteredProducts.map(p => (
@@ -353,17 +365,10 @@ export default function ProductList({ user }) {
                   <div className="card h-100 shadow-sm border-0">
                     <div className="card-body d-flex flex-column text-center">
                       <h6 className="fw-bold text-dark">{p.productName}</h6>
-                      <p className="text-danger fw-bold fs-5 mb-1">
-                        {p.unitPrice ? p.unitPrice.toLocaleString('vi-VN') : '0'} VNĐ
-                      </p>
+                      <p className="text-danger fw-bold fs-5 mb-1">{p.unitPrice ? p.unitPrice.toLocaleString('vi-VN') : '0'} VNĐ</p>
                       <small className="text-muted mb-3">Tồn kho: {p.stockQuantity}</small>
-                      <button 
-                        className="btn btn-outline-danger mt-auto fw-bold"
-                        disabled={p.stockQuantity <= 0}
-                        onClick={() => handleAddToCart(p)}
-                      >
-                        <i className="bi bi-cart-plus me-1"></i> 
-                        {p.stockQuantity > 0 ? 'Thêm vào giỏ' : 'Hết hàng'}
+                      <button className="btn btn-outline-danger mt-auto fw-bold" disabled={p.stockQuantity <= 0} onClick={() => handleAddToCart(p)}>
+                        <i className="bi bi-cart-plus me-1"></i> {p.stockQuantity > 0 ? 'Thêm vào giỏ' : 'Hết hàng'}
                       </button>
                     </div>
                   </div>
@@ -371,14 +376,9 @@ export default function ProductList({ user }) {
               ))}
             </div>
           </div>
-
-          {/* Cột Giỏ hàng động */}
           <div className="col-md-4">
             <div className="card shadow-sm border-0 p-3 sticky-top" style={{ top: '20px' }}>
-              <h5 className="fw-bold border-bottom pb-3 mb-3">
-                <i className="bi bi-cart3 me-2"></i> Giỏ hàng hiện tại
-              </h5>
-
+              <h5 className="fw-bold border-bottom pb-3 mb-3"><i className="bi bi-cart3 me-2"></i> Giỏ hàng hiện tại</h5>
               {cart.length === 0 ? (
                 <div className="text-center py-5">
                   <i className="bi bi-cart-x text-muted" style={{ fontSize: '3rem' }}></i>
@@ -389,33 +389,24 @@ export default function ProductList({ user }) {
                   {cart.map(item => (
                     <div key={item.productId} className="d-flex justify-content-between align-items-center border-bottom pb-2">
                       <div>
-                        <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '14px' }}>{item.productName}</h6>
+                        <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '1rem' }}>{item.productName}</h6>
                         <small className="text-danger fw-semibold">{(item.unitPrice * item.quantity).toLocaleString('vi-VN')} VNĐ</small>
                       </div>
                       <div className="d-flex align-items-center gap-1">
                         <button className="btn btn-sm btn-outline-secondary px-2 py-0" onClick={() => handleQuantityChange(item.productId, -1)}>-</button>
                         <span className="fw-bold px-2">{item.quantity}</span>
                         <button className="btn btn-sm btn-outline-secondary px-2 py-0" onClick={() => handleQuantityChange(item.productId, 1)}>+</button>
-                        <button className="btn btn-sm text-danger ms-1 p-0" onClick={() => handleRemoveFromCart(item.productId)}>
-                          <i className="bi bi-trash"></i>
-                        </button>
+                        <button className="btn btn-sm text-danger ms-1 p-0" onClick={() => handleRemoveFromCart(item.productId)}><i className="bi bi-trash"></i></button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-
               <hr />
               <div className="d-flex justify-content-between mb-3 fw-bold fs-5">
-                <span>Tổng tiền:</span>
-                <span className="text-danger">{calculateCartTotal().toLocaleString('vi-VN')} VNĐ</span>
+                <span>Tổng tiền:</span><span className="text-danger">{calculateCartTotal().toLocaleString('vi-VN')} VNĐ</span>
               </div>
-              <button 
-                className="btn text-white w-100 fw-bold py-2" 
-                style={{ backgroundColor: '#800020' }}
-                onClick={handleCheckout}
-                disabled={cart.length === 0}
-              >
+              <button className="btn text-white w-100 fw-bold py-2" style={{ backgroundColor: '#800020' }} onClick={handleCheckout} disabled={cart.length === 0}>
                 Xác nhận thanh toán
               </button>
             </div>
@@ -426,7 +417,7 @@ export default function ProductList({ user }) {
   }
 
   // =====================================================================
-  // 2. GIAO DIỆN MANAGER: CHẾ ĐỘ TẠO ĐƠN NHẬP HÀNG (PURCHASE ORDER)
+  // 2. MANAGER VIEW: TẠO ĐƠN NHẬP HÀNG MỚI (PURCHASE ORDER FORM)
   // =====================================================================
   if (viewMode === 'purchase') {
     return (
@@ -434,9 +425,9 @@ export default function ProductList({ user }) {
         <div className="d-flex align-items-center gap-3 mb-4">
           <button 
             className="btn btn-outline-secondary btn-sm"
-            onClick={() => setViewMode('list')}
+            onClick={() => { setViewMode('list'); setActiveTab('purchaseOrders'); }}
           >
-            ← Quay lại Quản lý sản phẩm
+            ← Quay lại Danh Sách Đơn Nhập
           </button>
           <h2 className="fw-bold mb-0" style={{ color: '#800020' }}>Tạo Đơn Nhập Hàng Mới (Purchase Order)</h2>
         </div>
@@ -446,29 +437,16 @@ export default function ProductList({ user }) {
             <div className="row mb-3">
               <div className="col-md-6">
                 <label className="form-label fw-bold">Nhà Cung Cấp <span className="text-danger">*</span></label>
-                <select 
-                  className="form-select"
-                  value={poSupplierId}
-                  onChange={(e) => setPoSupplierId(e.target.value)}
-                  required
-                >
+                <select className="form-select" value={poSupplierId} onChange={(e) => setPoSupplierId(e.target.value)} required>
                   <option value="">-- Chọn nhà cung cấp --</option>
                   {suppliers.map((s) => (
-                    <option key={s.supplierId || s.id} value={s.supplierId || s.id}>
-                      {s.supplierName || s.name}
-                    </option>
+                    <option key={s.supplierId || s.id} value={s.supplierId || s.id}>{s.supplierName || s.name}</option>
                   ))}
                 </select>
               </div>
               <div className="col-md-6">
                 <label className="form-label fw-bold">Ghi Chú Đơn Nhập</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  placeholder="Ví dụ: Nhập bổ sung hàng tồn kho tháng..."
-                  value={poNote}
-                  onChange={(e) => setPoNote(e.target.value)}
-                />
+                <input type="text" className="form-control" placeholder="Ví dụ: Nhập bổ sung hàng tồn kho tháng..." value={poNote} onChange={(e) => setPoNote(e.target.value)} />
               </div>
             </div>
 
@@ -476,12 +454,7 @@ export default function ProductList({ user }) {
 
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5 className="fw-bold mb-0" style={{ color: '#800020' }}>Danh Sách Sản Phẩm Nhập Hàng</h5>
-              <button 
-                type="button" 
-                className="btn btn-sm text-white fw-bold"
-                style={{ backgroundColor: '#800020' }}
-                onClick={handleAddPoItem}
-              >
+              <button type="button" className="btn btn-sm text-white fw-bold" style={{ backgroundColor: '#800020' }} onClick={handleAddPoItem}>
                 + Thêm sản phẩm
               </button>
             </div>
@@ -508,47 +481,21 @@ export default function ProductList({ user }) {
                       return (
                         <tr key={index}>
                           <td>
-                            <select 
-                              className="form-select"
-                              value={item.productId}
-                              onChange={(e) => handlePoItemChange(index, 'productId', e.target.value)}
-                            >
+                            <select className="form-select" value={item.productId} onChange={(e) => handlePoItemChange(index, 'productId', e.target.value)}>
                               {products.map((p) => (
-                                <option key={p.productId} value={p.productId}>
-                                  {p.productName} (Tồn kho hiện tại: {p.stockQuantity})
-                                </option>
+                                <option key={p.productId} value={p.productId}>{p.productName} (Tồn kho hiện tại: {p.stockQuantity})</option>
                               ))}
                             </select>
                           </td>
                           <td>
-                            <input 
-                              type="number" 
-                              min="1" 
-                              className="form-control"
-                              value={item.quantity}
-                              onChange={(e) => handlePoItemChange(index, 'quantity', e.target.value)}
-                            />
+                            <input type="number" min="1" className="form-control" value={item.quantity} onChange={(e) => handlePoItemChange(index, 'quantity', e.target.value)} />
                           </td>
                           <td>
-                            <input 
-                              type="number" 
-                              min="0" 
-                              className="form-control"
-                              value={item.importPrice}
-                              onChange={(e) => handlePoItemChange(index, 'importPrice', e.target.value)}
-                            />
+                            <input type="number" min="0" className="form-control" value={item.importPrice} onChange={(e) => handlePoItemChange(index, 'importPrice', e.target.value)} />
                           </td>
-                          <td className="text-end fw-bold text-danger">
-                            {itemTotal.toLocaleString('vi-VN')}
-                          </td>
+                          <td className="text-end fw-bold text-danger">{itemTotal.toLocaleString('vi-VN')}</td>
                           <td className="text-center">
-                            <button 
-                              type="button" 
-                              className="btn btn-sm btn-outline-danger"
-                              onClick={() => handleRemovePoItem(index)}
-                            >
-                              ✕
-                            </button>
+                            <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => handleRemovePoItem(index)}>✕</button>
                           </td>
                         </tr>
                       );
@@ -557,9 +504,7 @@ export default function ProductList({ user }) {
                   <tfoot>
                     <tr>
                       <td colSpan="3" className="text-end fw-bold fs-5">Tổng Số Tiền Nhập Hàng:</td>
-                      <td className="text-end fw-bold fs-5 text-danger">
-                        {calculateTotalPoAmount().toLocaleString('vi-VN')} VNĐ
-                      </td>
+                      <td className="text-end fw-bold fs-5 text-danger">{calculateTotalPoAmount().toLocaleString('vi-VN')} VNĐ</td>
                       <td></td>
                     </tr>
                   </tfoot>
@@ -568,19 +513,8 @@ export default function ProductList({ user }) {
             )}
 
             <div className="d-flex justify-content-end gap-2">
-              <button 
-                type="button" 
-                className="btn btn-secondary px-4"
-                onClick={() => setViewMode('list')}
-              >
-                Hủy
-              </button>
-              <button 
-                type="submit" 
-                className="btn text-white px-4 fw-bold"
-                style={{ backgroundColor: '#800020' }}
-                disabled={submittingPO}
-              >
+              <button type="button" className="btn btn-secondary px-4" onClick={() => { setViewMode('list'); setActiveTab('purchaseOrders'); }}>Hủy</button>
+              <button type="submit" className="btn text-white px-4 fw-bold" style={{ backgroundColor: '#800020' }} disabled={submittingPO}>
                 {submittingPO ? 'Đang gửi...' : 'Xác Nhận Tạo Đơn Nhập'}
               </button>
             </div>
@@ -591,126 +525,230 @@ export default function ProductList({ user }) {
   }
 
   // =====================================================================
-  // 3. GIAO DIỆN MANAGER: QUẢN LÝ KHO (INVENTORY & PRODUCT LIST)
+  // 3. MANAGER MAIN VIEW (2 TABS: KHO SẢN PHẨM & ĐƠN NHẬP HÀNG)
   // =====================================================================
   return (
     <div className="container-fluid py-4">
+      {/* THANH TAB CHUYỂN ĐỔI CHÍNH */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="fw-bold" style={{ color: '#800020' }}>Quản lý Sản phẩm</h2>
-
-        <div className="d-flex gap-2">
+        <h2 className="fw-bold m-0" style={{ color: '#800020' }}>
+          {activeTab === 'products' ? 'Quản lý Kho Sản phẩm' : 'Quản lý Đơn nhập hàng'}
+        </h2>
+        
+        <div className="btn-group shadow-sm">
           <button 
-            className="btn text-white fw-bold shadow-sm" 
-            style={{ backgroundColor: '#800020' }}
-            onClick={handleOpenPurchaseOrder}
+            className={`btn fw-bold px-3 py-2 ${activeTab === 'products' ? 'btn-danger' : 'btn-outline-danger'}`}
+            style={activeTab === 'products' ? { backgroundColor: '#800020', borderColor: '#800020', color: 'white' } : { color: '#800020', borderColor: '#800020' }}
+            onClick={() => setActiveTab('products')}
           >
-            <i className="bi bi-cart-plus me-1"></i> Tạo đơn nhập hàng
+            <i className="bi bi-box-seam me-2"></i> Kho Sản Phẩm
           </button>
-
           <button 
-            className="btn text-white fw-bold shadow-sm" 
-            style={{ backgroundColor: '#800020' }}
-            onClick={() => window.location.href = '/manager/suppliers'}
+            className={`btn fw-bold px-3 py-2 ${activeTab === 'purchaseOrders' ? 'btn-danger' : 'btn-outline-danger'}`}
+            style={activeTab === 'purchaseOrders' ? { backgroundColor: '#800020', borderColor: '#800020', color: 'white' } : { color: '#800020', borderColor: '#800020' }}
+            onClick={() => setActiveTab('purchaseOrders')}
           >
-            <i className="bi bi-truck me-1"></i> Quản lý Nhà cung cấp
-          </button>
-
-          <button 
-            className="btn text-white fw-bold shadow-sm" 
-            style={{ backgroundColor: '#800020' }}
-            onClick={handleOpenAdd}
-          >
-            <i className="bi bi-plus-lg me-1"></i> Thêm sản phẩm mới
+            <i className="bi bi-file-earmark-text me-2"></i> Danh Sách Đơn Nhập Hàng
           </button>
         </div>
       </div>
 
-      <div className="row mb-4">
-        <div className="col-md-4">
-          <input
-            type="text"
-            className="form-control shadow-sm"
-            placeholder="Tìm kiếm sản phẩm..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
+      {/* ================= TAB 1: KHO SẢN PHẨM ================= */}
+      {activeTab === 'products' && (
+        <>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <div className="col-md-4">
+              <input type="text" className="form-control shadow-sm" placeholder="Tìm kiếm sản phẩm..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+            <div className="d-flex gap-2">
+              <button className="btn text-white fw-bold shadow-sm" style={{ backgroundColor: '#800020' }} onClick={handleOpenPurchaseOrder}>
+                <i className="bi bi-cart-plus me-1"></i> Tạo đơn nhập hàng
+              </button>
+              <button className="btn text-white fw-bold shadow-sm" style={{ backgroundColor: '#800020' }} onClick={() => window.location.href = '/manager/suppliers'}>
+                <i className="bi bi-truck me-1"></i> Quản lý Nhà cung cấp
+              </button>
+              <button className="btn text-white fw-bold shadow-sm" style={{ backgroundColor: '#800020' }} onClick={handleOpenAdd}>
+                <i className="bi bi-plus-lg me-1"></i> Thêm sản phẩm mới
+              </button>
+            </div>
+          </div>
 
-      <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
-        <div className="card-body p-0">
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0">
-              <thead style={{ backgroundColor: '#800020', color: '#ffffff' }}>
-                <tr>
-                  <th className="ps-3 py-3">ID</th>
-                  <th className="py-3">Tên sản phẩm</th>
-                  <th className="py-3">Đơn giá (VNĐ)</th>
-                  <th className="py-3">Tồn kho</th>
-                  <th className="py-3">Ngưỡng đặt lại</th>
-                  <th className="py-3">Trạng thái</th>
-                  <th className="text-center pe-3 py-3">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="7" className="text-center py-4 text-muted">Đang tải dữ liệu sản phẩm...</td>
-                  </tr>
-                ) : filteredProducts.length > 0 ? (
-                  filteredProducts.map((p) => (
-                    <tr key={p.productId}>
-                      <td className="ps-3 font-monospace">#{p.productId}</td>
-                      <td className="fw-bold text-dark">{p.productName}</td>
-                      <td className="fw-semibold text-danger">
-                        {p.unitPrice ? p.unitPrice.toLocaleString('vi-VN') : '0'}
-                      </td>
-                      <td>
-                        <span className={`badge ${p.stockQuantity <= p.reorderLevel ? 'bg-danger' : 'bg-success'}`}>
-                          {p.stockQuantity}
-                        </span>
-                      </td>
-                      <td>{p.reorderLevel}</td>
-                      <td>
-                        <span className={`badge ${p.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="text-center pe-3">
-                        <button
-                          className="btn btn-sm btn-outline-info me-2"
-                          onClick={() => setSelectedProductDetail(p)}
-                        >
-                          Xem
-                        </button>
-                        <button 
-                          className="btn btn-sm btn-outline-warning me-2" 
-                          onClick={() => handleOpenEdit(p)}
-                        >
-                          Sửa
-                        </button>
-                        <button 
-                          className="btn btn-sm btn-outline-danger" 
-                          onClick={() => handleDelete(p.productId)}
-                        >
-                          Xóa
-                        </button>
-                      </td>
+          <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
+            <div className="card-body p-0">
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0">
+                  <thead style={{ backgroundColor: '#800020', color: '#ffffff' }}>
+                    <tr>
+                      <th className="ps-3 py-3">ID</th>
+                      <th className="py-3">Tên sản phẩm</th>
+                      <th className="py-3">Đơn giá (VNĐ)</th>
+                      <th className="py-3">Tồn kho</th>
+                      <th className="py-3">Ngưỡng đặt lại</th>
+                      <th className="py-3">Trạng thái</th>
+                      <th className="text-center pe-3 py-3">Thao tác</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="text-center text-muted py-4">
-                      Chưa có dữ liệu sản phẩm
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr><td colSpan="7" className="text-center py-4 text-muted">Đang tải dữ liệu sản phẩm...</td></tr>
+                    ) : filteredProducts.length > 0 ? (
+                      filteredProducts.map((p) => (
+                        <tr key={p.productId}>
+                          <td className="ps-3 font-monospace">#{p.productId}</td>
+                          <td className="fw-bold text-dark">{p.productName}</td>
+                          <td className="fw-semibold text-danger">{p.unitPrice ? p.unitPrice.toLocaleString('vi-VN') : '0'}</td>
+                          <td>
+                            <span className={`badge ${p.stockQuantity <= p.reorderLevel ? 'bg-danger' : 'bg-success'}`}>{p.stockQuantity}</span>
+                          </td>
+                          <td>{p.reorderLevel}</td>
+                          <td>
+                            <span className={`badge ${p.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>{p.status}</span>
+                          </td>
+                          <td className="text-center pe-3">
+                            <button className="btn btn-sm btn-outline-info me-2 fw-bold" onClick={() => setSelectedProductDetail(p)}>Xem</button>
+                            <button className="btn btn-sm btn-outline-warning me-2 fw-bold" onClick={() => handleOpenEdit(p)}>Sửa</button>
+                            <button className="btn btn-sm btn-outline-danger fw-bold" onClick={() => handleDelete(p.productId)}>Xóa</button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan="7" className="text-center text-muted py-4">Chưa có dữ liệu sản phẩm</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ================= TAB 2: ĐƠN NHẬP HÀNG (PURCHASE ORDERS) ================= */}
+      {activeTab === 'purchaseOrders' && (
+        <>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <div className="col-md-4">
+              <input type="text" className="form-control shadow-sm" placeholder="Tìm mã đơn hoặc nhà cung cấp..." value={poSearchTerm} onChange={(e) => setPoSearchTerm(e.target.value)} />
+            </div>
+            <div className="d-flex gap-2">
+              <button className="btn text-white fw-bold shadow-sm" style={{ backgroundColor: '#800020' }} onClick={handleOpenPurchaseOrder}>
+                <i className="bi bi-cart-plus me-1"></i> Tạo đơn nhập hàng mới
+              </button>
+            </div>
+          </div>
+
+          <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
+            <div className="card-body p-0">
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0">
+                  <thead style={{ backgroundColor: '#800020', color: '#ffffff' }}>
+                    <tr>
+                      <th className="ps-3 py-3">Mã Đơn</th>
+                      <th className="py-3">Nhà cung cấp</th>
+                      <th className="py-3">Ngày nhập</th>
+                      <th className="py-3">Tổng tiền (VNĐ)</th>
+                      <th className="py-3">Trạng thái</th>
+                      <th className="text-center pe-3 py-3">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPOs.length > 0 ? (
+                      filteredPOs.map(order => (
+                        <tr key={order.id}>
+                          <td className="ps-3 fw-bold font-monospace text-secondary">{order.id}</td>
+                          <td className="fw-semibold text-dark">{order.supplierName}</td>
+                          <td>{order.orderDate}</td>
+                          <td className="fw-bold text-danger">{order.totalAmount.toLocaleString('vi-VN')}</td>
+                          <td>
+                            <span className={`badge ${order.status === 'Hoàn thành' ? 'bg-success' : order.status === 'Chờ xử lý' ? 'bg-warning text-dark' : 'bg-primary'}`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="text-center pe-3">
+                            <button className="btn btn-sm btn-outline-info me-2 fw-bold" onClick={() => handleViewPO(order.id)}>Xem</button>
+                            <button className="btn btn-sm btn-outline-warning me-2 fw-bold" onClick={() => handleUpdatePO(order.id)}>Sửa</button>
+                            <button className="btn btn-sm btn-outline-danger fw-bold" onClick={() => handleDeletePO(order.id)}>Xóa</button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan="6" className="text-center py-4 text-muted">Không tìm thấy đơn nhập hàng nào.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ================= MODAL CẬP NHẬT ĐƠN NHẬP HÀNG (PO EDIT MODAL) ================= */}
+      {editingPO && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header text-white" style={{ backgroundColor: '#800020' }}>
+                <h5 className="modal-title fw-bold">Cập Nhật Đơn Nhập Hàng #{editingPO.id}</h5>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setEditingPO(null)}></button>
+              </div>
+              <form onSubmit={handleSaveUpdatePO}>
+                <div className="modal-body p-4">
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Nhà Cung Cấp</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={editingPO.supplierName} 
+                      onChange={(e) => setEditingPO({ ...editingPO, supplierName: e.target.value })} 
+                      required 
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Ngày Nhập Hàng</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={editingPO.orderDate} 
+                      onChange={(e) => setEditingPO({ ...editingPO, orderDate: e.target.value })} 
+                      required 
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Tổng Số Tiền (VNĐ)</label>
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      value={editingPO.totalAmount} 
+                      onChange={(e) => setEditingPO({ ...editingPO, totalAmount: Number(e.target.value) })} 
+                      required 
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Trạng Thái Đơn Hàng</label>
+                    <select 
+                      className="form-select" 
+                      value={editingPO.status} 
+                      onChange={(e) => setEditingPO({ ...editingPO, status: e.target.value })}
+                    >
+                      <option value="Chờ xử lý">Chờ xử lý</option>
+                      <option value="Đang giao">Đang giao</option>
+                      <option value="Hoàn thành">Hoàn thành</option>
+                      <option value="Đã hủy">Đã hủy</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="modal-footer bg-light">
+                  <button type="button" className="btn btn-secondary px-4" onClick={() => setEditingPO(null)}>Hủy</button>
+                  <button type="submit" className="btn text-white px-4 fw-bold" style={{ backgroundColor: '#800020' }}>
+                    Lưu Thay Đổi
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
+      {/* ================= MODAL XEM CHI TIẾT SẢN PHẨM ================= */}
       {selectedProductDetail && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
           <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -740,14 +778,13 @@ export default function ProductList({ user }) {
         </div>
       )}
 
+      {/* ================= MODAL THÊM / SỬA SẢN PHẨM ================= */}
       {showModal && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow">
               <div className="modal-header bg-light">
-                <h5 className="modal-title fw-bold" style={{ color: '#800020' }}>
-                  {isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'}
-                </h5>
+                <h5 className="modal-title fw-bold" style={{ color: '#800020' }}>{isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
               </div>
               <form onSubmit={handleSubmit}>
@@ -758,17 +795,10 @@ export default function ProductList({ user }) {
                   </div>
                   <div className="mb-3">
                     <label className="form-label fw-bold">Nhà cung cấp</label>
-                    <select 
-                      className="form-select" 
-                      name="supplierId" 
-                      value={formData.supplierId} 
-                      onChange={handleChange}
-                    >
+                    <select className="form-select" name="supplierId" value={formData.supplierId} onChange={handleChange}>
                       <option value="">-- Chọn Nhà cung cấp --</option>
                       {suppliers.map((s) => (
-                        <option key={s.supplierId || s.id} value={s.supplierId || s.id}>
-                          {s.supplierName || s.name}
-                        </option>
+                        <option key={s.supplierId || s.id} value={s.supplierId || s.id}>{s.supplierName || s.name}</option>
                       ))}
                     </select>
                   </div>
@@ -802,9 +832,7 @@ export default function ProductList({ user }) {
                 </div>
                 <div className="modal-footer bg-light">
                   <button type="button" className="btn btn-secondary px-4" onClick={() => setShowModal(false)}>Hủy</button>
-                  <button type="submit" className="btn text-white px-4" style={{ backgroundColor: '#800020' }}>
-                    {isEdit ? 'Lưu thay đổi' : 'Tạo mới'}
-                  </button>
+                  <button type="submit" className="btn text-white px-4" style={{ backgroundColor: '#800020' }}>{isEdit ? 'Lưu thay đổi' : 'Tạo mới'}</button>
                 </div>
               </form>
             </div>

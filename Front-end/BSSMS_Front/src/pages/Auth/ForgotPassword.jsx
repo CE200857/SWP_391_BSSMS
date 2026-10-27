@@ -1,7 +1,15 @@
 /* eslint-disable no-unused-vars */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Container, Form, Button, Card, Alert, InputGroup } from "react-bootstrap";
+import {
+  Container,
+  Form,
+  Button,
+  Card,
+  Alert,
+  InputGroup,
+} from "react-bootstrap";
+import axios from "axios";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -12,7 +20,7 @@ const ForgotPassword = () => {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isEmailVerified, setIsEmailVerified] = useState(false);
-  
+
   const [countdown, setCountdown] = useState(0);
   const [isSendingCode, setIsSendingCode] = useState(false);
 
@@ -40,35 +48,37 @@ const ForgotPassword = () => {
     setIsSendingCode(true);
 
     try {
-      const response = await fetch("http://localhost:8080/BSSMS-back/api/forgot-password/check-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await axios.post(
+        "/api/forgot-password/check-email",
+        {
+          action: "send-code",
+          email: inputEmail,
         },
-        credentials: "include",
-        body: JSON.stringify({ email: inputEmail }),
-      });
+        { withCredentials: true },
+      );
 
-      if (response.ok) {
+      if (response.status === 200) {
         setIsEmailVerified(true);
         setCountdown(60);
-        setSuccessMsg("Email hợp lệ! Vui lòng nhập mã xác thực được gửi thông qua email");
-      } else {
-        const data = await response.json();
-        setError(data.message || "Email này không tồn tại trong hệ thống.");
+        setSuccessMsg(
+          "Email hợp lệ! Vui lòng nhập mã xác thực được gửi thông qua email",
+        );
       }
     } catch (err) {
-      setError("Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng!");
+      setError(
+        err.response?.data?.message ||
+          "Không thể gửi mã xác thực. Vui lòng kiểm tra lại!",
+      );
     } finally {
       setIsSendingCode(false);
     }
   };
 
-  const handleConfirm = (e) => {
+  const handleConfirm = async (e) => {
     e.preventDefault();
     setError("");
     setSuccessMsg("");
-    
+
     const inputEmail = email.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,20 +88,33 @@ const ForgotPassword = () => {
     }
 
     if (!isEmailVerified) {
-       setError("Vui lòng nhấn nút Gửi mã trước.");
-       return;
-    }
-
-    if (verificationCode.trim() !== "123123") {
-      setError("Mã xác thực không hợp lệ. Vui lòng kiểm tra lại.");
+      setError("Vui lòng nhấn nút Gửi mã trước.");
       return;
     }
 
-    setSuccessMsg("Xác thực thành công! Đang chuyển hướng...");
-    
-    setTimeout(() => {
-      navigate("/reset-password", { state: { email: inputEmail } });
-    }, 1000);
+    try {
+      const response = await axios.post(
+        "/api/forgot-password/check-email",
+        {
+          action: "verify-code",
+          email: inputEmail,
+          code: verificationCode.trim(),
+        },
+        { withCredentials: true },
+      );
+
+      if (response.status === 200) {
+        setSuccessMsg("Xác thực thành công! Đang chuyển hướng...");
+        setTimeout(() => {
+          navigate("/reset-password", { state: { email: inputEmail } });
+        }, 1000);
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Mã xác thực không hợp lệ. Vui lòng kiểm tra lại.",
+      );
+    }
   };
 
   return (
@@ -101,7 +124,12 @@ const ForgotPassword = () => {
     >
       <Card
         className="shadow-sm"
-        style={{ width: "450px", padding: "30px", borderRadius: "12px", border: "none" }}
+        style={{
+          width: "450px",
+          padding: "30px",
+          borderRadius: "12px",
+          border: "none",
+        }}
       >
         <Card.Body>
           <div className="position-relative mb-4">
@@ -118,7 +146,10 @@ const ForgotPassword = () => {
               onClick={() => navigate("/login")}
               title="Quay lại Đăng nhập"
             ></i>
-            <h4 className="text-center fw-bold text-uppercase m-0" style={{ color: "#3a2a2f" }}>
+            <h4
+              className="text-center fw-bold text-uppercase m-0"
+              style={{ color: "#3a2a2f" }}
+            >
               Quên Mật Khẩu
             </h4>
           </div>
@@ -128,7 +159,9 @@ const ForgotPassword = () => {
 
           <Form onSubmit={handleConfirm}>
             <Form.Group className="mb-3 text-start">
-              <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>Email*</Form.Label>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
+                Email*
+              </Form.Label>
               <InputGroup>
                 <Form.Control
                   type="email"
@@ -140,19 +173,25 @@ const ForgotPassword = () => {
                   }}
                   required
                 />
-                <Button 
+                <Button
                   variant={countdown > 0 ? "secondary" : "danger"}
                   onClick={handleSendCode}
                   disabled={isSendingCode || countdown > 0 || !email.trim()}
                   style={{ width: "110px", fontWeight: "bold" }}
                 >
-                  {isSendingCode ? "Đang xử lý" : countdown > 0 ? `${countdown}s` : "Gửi mã"}
+                  {isSendingCode
+                    ? "Đang xử lý"
+                    : countdown > 0
+                      ? `${countdown}s`
+                      : "Gửi mã"}
                 </Button>
               </InputGroup>
             </Form.Group>
 
             <Form.Group className="mb-4 text-start">
-              <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>Mã xác thực*</Form.Label>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
+                Mã xác thực*
+              </Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Nhập mã 6 chữ số"
@@ -161,13 +200,15 @@ const ForgotPassword = () => {
                 maxLength={6}
                 required
                 disabled={!isEmailVerified} // KHÓA ĐẾN KHI EMAIL ĐƯỢC XÁC NHẬN TỒN TẠI VÀ BẤM GỬI
-                style={{ backgroundColor: !isEmailVerified ? "#e9ecef" : "white" }}
+                style={{
+                  backgroundColor: !isEmailVerified ? "#e9ecef" : "white",
+                }}
               />
             </Form.Group>
 
             <div className="d-flex gap-2">
-              <Button 
-                variant="outline-secondary" 
+              <Button
+                variant="outline-secondary"
                 className="w-50 fw-bold"
                 onClick={() => navigate("/login")}
               >

@@ -1,11 +1,38 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import servicePhoto01 from '../../../assets/figma/service-card-exact-01.png';
+import servicePhoto02 from '../../../assets/figma/service-card-exact-02.png';
+import servicePhoto03 from '../../../assets/figma/service-card-exact-03.png';
+import servicePhoto04 from '../../../assets/figma/service-card-exact-04.png';
+import servicePhoto05 from '../../../assets/figma/service-card-exact-05.png';
+import servicePhoto06 from '../../../assets/figma/service-card-exact-06.png';
+import servicePhoto07 from '../../../assets/figma/service-card-exact-07.png';
+import servicePhoto08 from '../../../assets/figma/service-card-exact-08.png';
+import servicePhoto09 from '../../../assets/figma/service-card-exact-09.png';
+import servicePhoto10 from '../../../assets/figma/service-card-exact-10.png';
+import servicePhoto11 from '../../../assets/figma/service-card-exact-11.png';
+
+const servicePhotos = [
+    servicePhoto01,
+    servicePhoto02,
+    servicePhoto03,
+    servicePhoto04,
+    servicePhoto05,
+    servicePhoto06,
+    servicePhoto07,
+    servicePhoto08,
+    servicePhoto09,
+    servicePhoto10,
+    servicePhoto11,
+];
 
 const ServiceList = () => {
     const [services, setServices] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [priceFilter, setPriceFilter] = useState('all');
+    const [durationFilter, setDurationFilter] = useState('all');
     const [loadError, setLoadError] = useState(false);
 
     // 1. THÊM BIẾN REFRESH ĐỂ KÍCH HOẠT LOAD LẠI DATA
@@ -23,7 +50,17 @@ const ServiceList = () => {
             String(service.serviceId).toLowerCase().includes(search) ||
             service.serviceName?.toLowerCase().includes(search);
         const matchesStatus = statusFilter === 'all' || service.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        const price = Number(service.price);
+        const duration = Number(service.duration);
+        const matchesPrice = priceFilter === 'all' ||
+            (priceFilter === 'under500' && price < 500000) ||
+            (priceFilter === '500to1m' && price >= 500000 && price <= 1000000) ||
+            (priceFilter === 'over1m' && price > 1000000);
+        const matchesDuration = durationFilter === 'all' ||
+            (durationFilter === 'under60' && duration < 60) ||
+            (durationFilter === '60to90' && duration >= 60 && duration <= 90) ||
+            (durationFilter === 'over90' && duration > 90);
+        return matchesSearch && matchesStatus && matchesPrice && matchesDuration;
     });
 
     // 2. ĐƯA TOÀN BỘ LOGIC GỌI API VÀO TRONG useEffect
@@ -41,6 +78,141 @@ const ServiceList = () => {
 
         fetchServices();
     }, [refresh]); // <-- Lắng nghe biến refresh. Mỗi lần biến này đổi, API sẽ tự động gọi lại.
+
+    if (!isManager) {
+        const publicServices = filteredServices.filter(service => service.status === 'Active');
+
+        return (
+            <main className="public-service-page">
+                <section className="public-service-hero">
+                    <div className="public-service-hero-copy">
+                        <span className="seoul-eyebrow">TRẢI NGHIỆM · DỊCH VỤ</span>
+                        <h1>Dành thời gian cho chính mình.</h1>
+                        <p>
+                            Từ buổi thư giãn đến chăm sóc sắc đẹp, tìm dịch vụ phù hợp
+                            với bạn tại Seoul Center.
+                        </p>
+                        <span className="public-service-hero-note">
+                            <i className="bi bi-heart" aria-hidden="true" /> Tư vấn tận tâm · Không cần đăng nhập
+                        </span>
+                    </div>
+                    <img src={servicePhoto01} alt="Chăm sóc da tại Seoul Center" />
+                </section>
+
+                <section className="public-service-content">
+                    <div className="public-service-filter-card">
+                        <div className="public-service-filter-title">
+                            <strong><i className="bi bi-sliders" aria-hidden="true" /> Tìm dịch vụ dành cho bạn</strong>
+                            <span>Được tư vấn theo nhu cầu của bạn</span>
+                        </div>
+                        <label className="public-service-search">
+                            <span className="visually-hidden">Tìm kiếm dịch vụ</span>
+                            <i className="bi bi-search" aria-hidden="true" />
+                            <input
+                                type="search"
+                                placeholder="Tìm theo tên hoặc ID dịch vụ..."
+                                value={searchTerm}
+                                onChange={event => setSearchTerm(event.target.value)}
+                            />
+                        </label>
+                        <label>
+                            <span>Giá tiền</span>
+                            <select value={priceFilter} onChange={event => setPriceFilter(event.target.value)}>
+                                <option value="all">Tất cả mức giá</option>
+                                <option value="under500">Dưới 500.000 đ</option>
+                                <option value="500to1m">500.000 – 1.000.000 đ</option>
+                                <option value="over1m">Trên 1.000.000 đ</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Thời lượng</span>
+                            <select value={durationFilter} onChange={event => setDurationFilter(event.target.value)}>
+                                <option value="all">Tất cả thời lượng</option>
+                                <option value="under60">Dưới 60 phút</option>
+                                <option value="60to90">60 – 90 phút</option>
+                                <option value="over90">Trên 90 phút</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div className="public-service-list-heading">
+                        <div>
+                            <h2>Khám phá dịch vụ</h2>
+                            <span className="public-service-count">{publicServices.length} dịch vụ</span>
+                        </div>
+                        <span className="public-service-updated">Hiển thị dịch vụ đang hoạt động</span>
+                    </div>
+
+                    {loadError ? (
+                        <div className="public-service-state" role="alert">
+                            <i className="bi bi-wifi-off" aria-hidden="true" />
+                            <strong>Không tải được danh sách dịch vụ</strong>
+                            <span>Hãy kiểm tra kết nối rồi thử lại.</span>
+                            <button type="button" onClick={() => setRefresh(value => value + 1)}>
+                                Thử lại
+                            </button>
+                        </div>
+                    ) : services.length === 0 ? (
+                        <div className="public-service-state">
+                            <i className="bi bi-flower1" aria-hidden="true" />
+                            <strong>Chưa có dịch vụ để hiển thị</strong>
+                            <span>Vui lòng quay lại sau.</span>
+                        </div>
+                    ) : publicServices.length === 0 ? (
+                        <div className="public-service-state">
+                            <i className="bi bi-search" aria-hidden="true" />
+                            <strong>Không tìm thấy dịch vụ phù hợp</strong>
+                            <span>Thử thay đổi từ khóa hoặc bộ lọc.</span>
+                        </div>
+                    ) : (
+                        <div className="public-service-grid">
+                            {publicServices.map((service) => {
+                                const imageIndex = Math.max(
+                                    0,
+                                    services.findIndex(item => item.serviceId === service.serviceId),
+                                ) % servicePhotos.length;
+
+                                return (
+                                    <article className="public-service-card" key={service.serviceId}>
+                                        <Link
+                                            to={`/guest/services/${service.serviceId}`}
+                                            className="public-service-card-image"
+                                            aria-label={`Xem dịch vụ ${service.serviceName}`}
+                                        >
+                                            <img src={servicePhotos[imageIndex]} alt="" />
+                                        </Link>
+                                        <div className="public-service-card-body">
+                                            <span className="public-service-code">ID {service.serviceId}</span>
+                                            <h3>{service.serviceName}</h3>
+                                            <div className="public-service-card-meta">
+                                                <strong>{Number(service.price).toLocaleString('vi-VN')} <small>VNĐ</small></strong>
+                                                <span><i className="bi bi-clock" aria-hidden="true" /> {service.duration} phút</span>
+                                            </div>
+                                            <Link to={`/guest/services/${service.serviceId}`} className="public-service-detail-link">
+                                                Xem chi tiết <i className="bi bi-arrow-up-right" aria-hidden="true" />
+                                            </Link>
+                                        </div>
+                                    </article>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    <p className="public-service-footnote">
+                        Giá niêm yết bằng VNĐ · Thời lượng tính bằng phút · Thông tin được xác nhận trước khi đặt lịch.
+                    </p>
+                    <div className="public-service-cta">
+                        <span><i className="bi bi-stars" aria-hidden="true" /> BẠN MUỐN ĐƯỢC TƯ VẤN?</span>
+                        <h2>Bạn chưa biết bắt đầu từ đâu?</h2>
+                        <p>Chia sẻ nhu cầu của bạn, đội ngũ Seoul Center sẽ giúp bạn lựa chọn trải nghiệm phù hợp.</p>
+                        <a href="tel:+84914269346" className="home-button home-button-white">
+                            Liên hệ tư vấn <i className="bi bi-arrow-up-right" aria-hidden="true" />
+                        </a>
+                    </div>
+                </section>
+            </main>
+        );
+    }
 
     const handleDelete = async (id) => {
         if (window.confirm('Bạn có chắc chắn muốn xóa dịch vụ này?')) {

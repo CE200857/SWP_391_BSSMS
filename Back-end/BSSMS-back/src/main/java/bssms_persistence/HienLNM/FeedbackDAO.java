@@ -2,6 +2,7 @@ package bssms_persistence.HienLNM;
 
 import bssms_feedback.Feedback;
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -12,9 +13,6 @@ import java.util.Map;
 /**
  * @author HienLNM
  */
-<<<<<<< Updated upstream
-public class FeedbackDAO extends DBContext {
-=======
 public class FeedbackDAO extends DBContext implements AutoCloseable {
 
     public boolean moderate(int id,boolean hidden,String reason) throws java.sql.SQLException {
@@ -26,18 +24,14 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
         if (conn == null) throw new DataAccessException("Database connection unavailable");
     }
     @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
->>>>>>> Stashed changes
 
     /**
      * Lấy danh sách Appointment đã hoàn thành (Completed) của 1 customer
      * mà chưa có feedback - để user chọn khi tạo feedback.
      */
     public List<Map<String, Object>> getAvailableAppointmentsForFeedback(int customerId) {
-<<<<<<< Updated upstream
-=======
         try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
->>>>>>> Stashed changes
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getAvailableAppointmentsForFeedback()");
@@ -71,7 +65,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -80,6 +74,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * Lấy danh sách tất cả Feedback kèm thông tin chi tiết.
      */
     public List<Map<String, Object>> getAllFeedbackDetails() {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getAllFeedbackDetails()");
@@ -112,7 +107,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -121,11 +116,8 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * Lấy danh sách Feedback theo customerId.
      */
     public List<Map<String, Object>> getFeedbackByCustomerId(int customerId) {
-<<<<<<< Updated upstream
-=======
         try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
->>>>>>> Stashed changes
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getFeedbackByCustomerId()");
@@ -160,7 +152,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -169,6 +161,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * Lấy chi tiết 1 Feedback.
      */
     public Feedback getFeedbackById(int id) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getFeedbackById()");
             return null;
@@ -194,7 +187,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
@@ -203,6 +196,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * Lấy Feedback theo appointmentId.
      */
     public Feedback getFeedbackByAppointmentId(int appointmentId) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.getFeedbackByAppointmentId()");
             return null;
@@ -228,7 +222,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
@@ -243,60 +237,12 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * 5. rating 1-5
      */
     public int addFeedback(Feedback fb) throws Exception {
-<<<<<<< Updated upstream
-        if (conn == null) {
-            throw new Exception("Database connection is null in FeedbackDAO.addFeedback()");
-        }
-
-        // Validate rating
-        if (fb.getRating() < 1 || fb.getRating() > 5) {
-            throw new Exception("Rating phai nam trong khoang 1 den 5");
-        }
-
-        // Validate appointment tồn tại
-        Map<String, Object> appt = getAppointmentInfo(fb.getAppointmentId());
-        if (appt == null) {
-            throw new Exception("Khong tim thay appointment voi id = " + fb.getAppointmentId());
-        }
-
-        // Validate appointment thuộc về customer
-        int apptCustomerId = (Integer) appt.get("customerId");
-        if (apptCustomerId != fb.getCustomerId()) {
-            throw new Exception("Appointment khong thuoc ve customer nay");
-        }
-
-        // Validate appointment đã hoàn thành
-        String apptStatus = (String) appt.get("status");
-        if (!"Completed".equalsIgnoreCase(apptStatus)) {
-            throw new Exception("Chi co the danh gia appointment da hoan thanh");
-        }
-
-        // Validate chưa có feedback
-        Feedback existing = getFeedbackByAppointmentId(fb.getAppointmentId());
-        if (existing != null) {
-            throw new Exception("Appointment nay da co feedback roi");
-        }
-
-        String sql = "INSERT INTO Feedback (customer_id, appointment_id, rating, comment) "
-                   + "VALUES (?, ?, ?, ?)";
-        PreparedStatement ps = conn.prepareStatement(sql);
-
-        ps.setInt(1, fb.getCustomerId());
-        ps.setInt(2, fb.getAppointmentId());
-        ps.setInt(3, fb.getRating());
-        ps.setString(4, fb.getComment());
-
-        int rows = ps.executeUpdate();
-        ps.close();
-        return rows;
-=======
         workflow().roles("Customer"); workflow().customerAccess(fb.getCustomerId());
         workflow().appointmentAccess(fb.getAppointmentId());
         if(fb.getRating()<1 || fb.getRating()>5) throw new IllegalArgumentException("Rating must be 1-5");
         int changed=workflow().update("UPDATE Appointment SET feedback_rating=?,feedback_comment=?,feedback_created_at=GETDATE() WHERE appointment_id=? AND customer_id=? AND status='Completed' AND feedback_id IS NULL AND feedback_rating IS NULL",fb.getRating(),fb.getComment(),fb.getAppointmentId(),fb.getCustomerId());
         if(changed!=1) throw new bssms_persistence.common.WorkflowException(409,"Completed appointment required or feedback already exists.");
         return changed;
->>>>>>> Stashed changes
     }
 
     /**
@@ -322,7 +268,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
@@ -331,15 +277,12 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * Cập nhật Feedback.
      */
     public int updateFeedback(Feedback fb) throws Exception {
-<<<<<<< Updated upstream
-=======
         java.util.Map<String,Object> existing=workflow().one("SELECT customer_id,appointment_id FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " Feedback WHERE feedback_id=?",fb.getFeedbackId());
         workflow().customerAccess(((Number)existing.get("customerId")).intValue());
         if(((Number)existing.get("customerId")).intValue()!=fb.getCustomerId() || ((Number)existing.get("appointmentId")).intValue()!=fb.getAppointmentId()) throw new IllegalArgumentException("Feedback owner and appointment cannot be changed.");
         workflow().roles("Customer");workflow().customerAccess(fb.getCustomerId());
         workflow().appointmentAccess(fb.getAppointmentId());
         requireConnection();
->>>>>>> Stashed changes
         if (conn == null) {
             throw new Exception("Database connection is null in FeedbackDAO.updateFeedback()");
         }
@@ -364,14 +307,11 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * Xóa Feedback.
      */
     public boolean deleteFeedback(int id) {
-<<<<<<< Updated upstream
-=======
         try {
             workflow().roles("Customer");
             workflow().customerAccess(((Number)workflow().one("SELECT customer_id FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " Feedback WHERE feedback_id=?",id).get("customerId")).intValue());
         } catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
->>>>>>> Stashed changes
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.deleteFeedback()");
             return false;
@@ -384,7 +324,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             ps.close();
             return rows > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }

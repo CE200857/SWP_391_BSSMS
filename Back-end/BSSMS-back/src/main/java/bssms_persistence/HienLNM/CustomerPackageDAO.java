@@ -2,6 +2,7 @@ package bssms_persistence.HienLNM;
 
 import bssms_catalog.CustomerPackage;
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -12,12 +13,18 @@ import java.util.Map;
 /**
  * @author HienLNM
  */
-public class CustomerPackageDAO extends DBContext {
+public class CustomerPackageDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     /**
      * Kiểm tra customer có tồn tại hay không.
      */
     public boolean customerExists(int customerId) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in CustomerPackageDAO.customerExists()");
             return false;
@@ -36,7 +43,7 @@ public class CustomerPackageDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
@@ -46,6 +53,7 @@ public class CustomerPackageDAO extends DBContext {
      * Trả về Map: packageName, price, numberOfSessions.
      */
     public Map<String, Object> getTreatmentPackageInfo(int treatmentPackageId) {
+        requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in CustomerPackageDAO.getTreatmentPackageInfo()");
             return null;
@@ -70,7 +78,7 @@ public class CustomerPackageDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
@@ -84,167 +92,19 @@ public class CustomerPackageDAO extends DBContext {
      * @return Map chứa customerPackageId và invoiceId vừa tạo
      */
     public Map<String, Object> sellTreatmentPackage(int customerId, int treatmentPackageId, int expiryMonths) throws Exception {
-<<<<<<< Updated upstream
-        if (conn == null) {
-            throw new Exception("Database connection is null in CustomerPackageDAO.sellTreatmentPackage()");
-        }
-        if (expiryMonths <= 0) {
-            expiryMonths = 12;
-        }
-
-        // 1. Kiểm tra customer tồn tại
-        if (!customerExists(customerId)) {
-            throw new Exception("Khong tim thay customer voi id = " + customerId);
-        }
-
-        // 2. Lấy thông tin gói liệu trình
-        Map<String, Object> pkg = getTreatmentPackageInfo(treatmentPackageId);
-        if (pkg == null) {
-            throw new Exception("Khong tim thay treatment package voi id = " + treatmentPackageId);
-        }
-        int numberOfSessions = (Integer) pkg.get("numberOfSessions");
-        double price = (Double) pkg.get("price");
-
-        try {
-            // Tắt auto-commit để dùng transaction
-            conn.setAutoCommit(false);
-
-            // 3. INSERT CustomerPackage
-            String cpSql = "INSERT INTO CustomerPackage (customer_id, treatment_package_id, "
-                         + "purchase_date, remaining_sessions, expiry_date, status) "
-                         + "VALUES (?, ?, GETDATE(), ?, DATEADD(MONTH, ?, GETDATE()), 'Active')";
-            PreparedStatement psCp = conn.prepareStatement(cpSql, PreparedStatement.RETURN_GENERATED_KEYS);
-            psCp.setInt(1, customerId);
-            psCp.setInt(2, treatmentPackageId);
-            psCp.setInt(3, numberOfSessions);
-            psCp.setInt(4, expiryMonths);
-            int cpRows = psCp.executeUpdate();
-            if (cpRows == 0) {
-                conn.rollback();
-                psCp.close();
-                throw new Exception("Tao CustomerPackage that bai");
-            }
-
-            int customerPackageId;
-            ResultSet generatedKeys = psCp.getGeneratedKeys();
-            if (generatedKeys.next()) {
-                customerPackageId = generatedKeys.getInt(1);
-            } else {
-                conn.rollback();
-                generatedKeys.close();
-                psCp.close();
-                throw new Exception("Khong lay duoc customer_package_id vua tao");
-            }
-            generatedKeys.close();
-            psCp.close();
-
-            // 3.5. INSERT Appointment (mặc định) để làm khóa ngoại cho Invoice
-            //      Vì Invoice.appointment_id là FK NOT NULL, cần appointment thật
-            String aptSql = "INSERT INTO Appointment (customer_id, service_id, customer_package_id, "
-                          + "room_id, bed_id, appointment_date, start_time, end_time, status, notes) "
-                          + "VALUES (?, NULL, NULL, NULL, NULL, GETDATE(), GETDATE(), NULL, 'Completed', "
-                          + "N'Bán gói liệu trình')";
-            PreparedStatement psApt = conn.prepareStatement(aptSql, PreparedStatement.RETURN_GENERATED_KEYS);
-            psApt.setInt(1, customerId);
-            int aptRows = psApt.executeUpdate();
-            if (aptRows == 0) {
-                conn.rollback();
-                psApt.close();
-                throw new Exception("Tao Appointment mac dinh that bai");
-            }
-            int appointmentId;
-            ResultSet aptKeys = psApt.getGeneratedKeys();
-            if (aptKeys.next()) {
-                appointmentId = aptKeys.getInt(1);
-            } else {
-                conn.rollback();
-                aptKeys.close();
-                psApt.close();
-                throw new Exception("Khong lay duoc appointment_id vua tao");
-            }
-            aptKeys.close();
-            psApt.close();
-
-            // 3.6. UPDATE Appointment de lien ket voi customer_package vua tao
-            String updAptSql = "UPDATE Appointment SET customer_package_id = ? WHERE appointment_id = ?";
-            PreparedStatement psUpdApt = conn.prepareStatement(updAptSql);
-            psUpdApt.setInt(1, customerPackageId);
-            psUpdApt.setInt(2, appointmentId);
-            psUpdApt.executeUpdate();
-            psUpdApt.close();
-
-            // 4. INSERT Invoice (dung appointment_id vua tao o buoc 3.5)
-            //    total_amount = subtotal = price, discount = 0
-            String invSql = "INSERT INTO Invoice (appointment_id, voucher_id, invoice_date, "
-                          + "subtotal, discount, total_amount, status) "
-                          + "VALUES (?, NULL, GETDATE(), ?, 0, ?, 'Unpaid')";
-            PreparedStatement psInv = conn.prepareStatement(invSql, PreparedStatement.RETURN_GENERATED_KEYS);
-            psInv.setInt(1, appointmentId);
-            psInv.setDouble(2, price);
-            psInv.setDouble(3, price);
-            int invRows = psInv.executeUpdate();
-            if (invRows == 0) {
-                conn.rollback();
-                psInv.close();
-                throw new Exception("Tao Invoice that bai");
-            }
-
-            int invoiceId;
-            ResultSet invKeys = psInv.getGeneratedKeys();
-            if (invKeys.next()) {
-                invoiceId = invKeys.getInt(1);
-            } else {
-                conn.rollback();
-                invKeys.close();
-                psInv.close();
-                throw new Exception("Khong lay duoc invoice_id vua tao");
-            }
-            invKeys.close();
-            psInv.close();
-
-            // Commit transaction
-            conn.commit();
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("customerPackageId", customerPackageId);
-            result.put("invoiceId", invoiceId);
-            result.put("remainingSessions", numberOfSessions);
-            result.put("totalAmount", price);
-            result.put("packageName", pkg.get("packageName"));
-            return result;
-        } catch (Exception e) {
-            try {
-                conn.rollback();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-            e.printStackTrace();
-            throw e;
-        } finally {
-            try {
-                conn.setAutoCommit(true);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-=======
         bssms_persistence.common.Workflow w=workflow();
         int invoiceId=((Number)w.call("usp_CreateInvoice",requireActorAccountId(),customerId,null,treatmentPackageId,"[]",null,false).get(0).get("invoiceId")).intValue();
         Map<String,Object> result=w.one("SELECT cp.*,ip.invoice_id FROM CustomerPackage cp JOIN " + bssms_persistence.common.SchemaSql.PACKAGE_SALES + " ip ON ip.customer_package_id=cp.customer_package_id WHERE ip.invoice_id=?",invoiceId);
         result.put("paymentStatus","Unpaid");
         result.put("message","Package invoice created. Pay the invoice before booking sessions. Validity follows TreatmentPackage.validity_days.");return result;
->>>>>>> Stashed changes
     }
 
     /**
      * Lấy danh sách CustomerPackage của 1 khách hàng.
      */
     public List<CustomerPackage> getCustomerPackagesByCustomerId(int customerId) {
-<<<<<<< Updated upstream
-=======
         try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
->>>>>>> Stashed changes
         List<CustomerPackage> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in CustomerPackageDAO.getCustomerPackagesByCustomerId()");
@@ -271,7 +131,7 @@ public class CustomerPackageDAO extends DBContext {
             rs.close();
             ps.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
@@ -282,57 +142,7 @@ public class CustomerPackageDAO extends DBContext {
      */
     public boolean updateCustomerPackage(int customerPackageId, int remainingSessions,
                                          String expiryDate, String status) {
-<<<<<<< Updated upstream
-        // Đảm bảo status không null/empty
-        if (status == null || status.trim().isEmpty()) {
-            status = "Active";
-        }
-        String dbURL = "jdbc:sqlserver://localhost:1433;"
-                + "databaseName=BeautySalonDB;"
-                + "user=sa;"
-                + "password=123456;"
-                + "encrypt=true;trustServerCertificate=true;";
-        String sql = "UPDATE CustomerPackage SET remaining_sessions = ?, expiry_date = ?, "
-                   + "status = ? WHERE customer_package_id = ?";
-        java.sql.Connection newConn = null;
-        try {
-            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-            newConn = java.sql.DriverManager.getConnection(dbURL);
-            System.out.println("=== updateCustomerPackage DEBUG ===");
-            System.out.println("customerPackageId: " + customerPackageId);
-            System.out.println("remainingSessions: " + remainingSessions);
-            System.out.println("expiryDate: " + expiryDate);
-            System.out.println("status: " + status);
-            PreparedStatement ps = newConn.prepareStatement(sql);
-            ps.setInt(1, remainingSessions);
-            if (expiryDate != null && !expiryDate.trim().isEmpty()) {
-                ps.setString(2, expiryDate);
-            } else {
-                ps.setNull(2, java.sql.Types.DATE);
-            }
-            ps.setString(3, status);
-            ps.setInt(4, customerPackageId);
-            
-            // Debug: In SQL
-            System.out.println("SQL: UPDATE CustomerPackage SET remaining_sessions = " + remainingSessions 
-                    + ", expiry_date = " + expiryDate + ", status = " + status 
-                    + " WHERE customer_package_id = " + customerPackageId);
-            
-            int rows = ps.executeUpdate();
-            ps.close();
-            System.out.println("Rows affected: " + rows);
-            System.out.println("=================================");
-            return rows > 0;
-        } catch (Exception e) {
-            System.out.println("updateCustomerPackage ERROR: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            try { if (newConn != null) newConn.close(); } catch (Exception ex) { ex.printStackTrace(); }
-        }
-        return false;
-=======
         throw new bssms_persistence.common.WorkflowException(409,"Sessions and status follow completion/refund workflows. Direct package editing is disabled.");
->>>>>>> Stashed changes
     }
 }
 

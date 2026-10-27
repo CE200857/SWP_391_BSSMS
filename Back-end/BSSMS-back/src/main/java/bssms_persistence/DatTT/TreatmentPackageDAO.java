@@ -1,99 +1,63 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_persistence.DatTT;
-
 import bssms_catalog.TreatmentPackage;
 import bssms_persistence.DBContext;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.List;
+import java.sql.*;
+import java.util.*;
 
-/**
- *
- * @author Trần Thành Đạt - CE200857
- */
-
-public class TreatmentPackageDAO extends DBContext {
-
-    // 1. VIEW: Xem danh sách gói liệu trình
-    public List<TreatmentPackage> getAllTreatmentPackages() {
-        List<TreatmentPackage> list = new ArrayList<>();
-        String sql = "SELECT * FROM TreatmentPackage";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    TreatmentPackage tp = new TreatmentPackage();
-                    tp.setTreatmentPackageId(rs.getInt("treatment_package_id"));
-                    tp.setServiceId(rs.getInt("service_id"));
-                    tp.setPackageName(rs.getString("package_name"));
-                    tp.setDescription(rs.getString("description"));
-                    tp.setPrice(rs.getDouble("price"));
-                    tp.setNumberOfSessions(rs.getInt("number_of_sessions"));
-                    list.add(tp);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return list;
+public class TreatmentPackageDAO extends DBContext implements AutoCloseable {
+    private void requireConnection() throws SQLException {
+        if (conn == null || conn.isClosed()) throw new SQLException("Database connection unavailable");
     }
-
-    // 2. CREATE: Thêm gói liệu trình mới
-    public boolean createTreatmentPackage(TreatmentPackage tp) {
-        String sql = "INSERT INTO TreatmentPackage (service_id, package_name, description, price, number_of_sessions) VALUES (?, ?, ?, ?, ?)";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ps.setInt(1, tp.getServiceId());
-                ps.setString(2, tp.getPackageName());
-                ps.setString(3, tp.getDescription());
-                ps.setDouble(4, tp.getPrice());
-                ps.setInt(5, tp.getNumberOfSessions());
-                return ps.executeUpdate() > 0;
+    public List<TreatmentPackage> getAllTreatmentPackages() throws SQLException {
+        requireConnection();
+        List<TreatmentPackage> result = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM TreatmentPackage ORDER BY treatment_package_id DESC");
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                TreatmentPackage value = new TreatmentPackage();
+                    value.setTreatmentPackageId(rs.getInt("treatment_package_id"));
+                    value.setServiceId(rs.getInt("service_id"));
+                    value.setPackageName(rs.getString("package_name"));
+                    value.setDescription(rs.getString("description"));
+                    value.setPrice(rs.getDouble("price"));
+                    value.setNumberOfSessions(rs.getInt("number_of_sessions"));
+                value.setValidityDays(rs.getInt("validity_days"));value.setStatus(rs.getString("status"));
+                result.add(value);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
-        return false;
+        return result;
     }
-
-    // 3. UPDATE: Cập nhật gói liệu trình
-    public boolean updateTreatmentPackage(TreatmentPackage tp) {
-        String sql = "UPDATE TreatmentPackage SET service_id = ?, package_name = ?, description = ?, price = ?, number_of_sessions = ? WHERE treatment_package_id = ?";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ps.setInt(1, tp.getServiceId());
-                ps.setString(2, tp.getPackageName());
-                ps.setString(3, tp.getDescription());
-                ps.setDouble(4, tp.getPrice());
-                ps.setInt(5, tp.getNumberOfSessions());
-                ps.setInt(6, tp.getTreatmentPackageId());
-                return ps.executeUpdate() > 0;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    public boolean createTreatmentPackage(TreatmentPackage value) throws SQLException {
+        requireConnection();
+        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO TreatmentPackage (service_id, package_name, description, price, number_of_sessions, validity_days, status) VALUES (?, ?, ?, ?, ?, COALESCE(?,180),COALESCE(?,'Active'))")) {
+            ps.setInt(1, value.getServiceId());
+            ps.setString(2, value.getPackageName());
+            ps.setString(3, value.getDescription());
+            ps.setDouble(4, value.getPrice());
+            ps.setInt(5, value.getNumberOfSessions());
+            ps.setObject(6,value.getValidityDays());ps.setString(7,value.getStatus());
+            return ps.executeUpdate() > 0;
         }
-        return false;
     }
-
-    // 4. DELETE: Xóa gói liệu trình
-    public boolean deleteTreatmentPackage(int id) {
-        String sql = "DELETE FROM TreatmentPackage WHERE treatment_package_id = ?";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ps.setInt(1, id);
-                return ps.executeUpdate() > 0;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    public boolean updateTreatmentPackage(TreatmentPackage value) throws SQLException {
+        requireConnection();
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE TreatmentPackage SET service_id = ?, package_name = ?, description = ?, price = ?, number_of_sessions = ?, validity_days=COALESCE(?,validity_days), status=COALESCE(?,status) WHERE treatment_package_id = ?")) {
+            ps.setInt(1, value.getServiceId());
+            ps.setString(2, value.getPackageName());
+            ps.setString(3, value.getDescription());
+            ps.setDouble(4, value.getPrice());
+            ps.setInt(5, value.getNumberOfSessions());
+            ps.setObject(6,value.getValidityDays());ps.setString(7,value.getStatus());
+            ps.setInt(8, value.getTreatmentPackageId());
+            return ps.executeUpdate() > 0;
         }
-        return false;
     }
+    public boolean deleteTreatmentPackage(int id) throws SQLException {
+        requireConnection();
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE TreatmentPackage SET status='Inactive' WHERE treatment_package_id = ?")) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        }
+    }
+    @Override public void close() throws SQLException { if (conn != null) conn.close(); }
 }

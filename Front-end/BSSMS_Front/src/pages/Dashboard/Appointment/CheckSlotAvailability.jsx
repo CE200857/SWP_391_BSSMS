@@ -44,18 +44,23 @@ const CheckSlotAvailability = () => {
     const loadServices = async () => {
       try {
         const res = await fetch("/api/service", { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          const activeList = Array.isArray(data)
-            ? data.filter((s) => s.status?.toLowerCase() === "active")
-            : [];
-          setServices(activeList);
-          if (activeList.length > 0) {
-            setSelectedServiceId(String(activeList[0].serviceId));
-          }
+        if (!res.ok) {
+          throw new Error(`Không thể tải danh sách dịch vụ (${res.status}).`);
+        }
+
+        const data = await res.json();
+        const activeList = Array.isArray(data)
+          ? data.filter((s) => s.status?.toLowerCase() === "active")
+          : [];
+        setServices(activeList);
+        if (activeList.length > 0) {
+          setSelectedServiceId((currentServiceId) =>
+            currentServiceId || String(activeList[0].serviceId)
+          );
         }
       } catch (err) {
         console.error("Lỗi tải danh sách dịch vụ:", err);
+        setError("Không thể tải danh sách dịch vụ. Vui lòng thử lại.");
       }
     };
     loadServices();
@@ -86,7 +91,8 @@ const CheckSlotAvailability = () => {
         } else {
           setError(data.message || "Không thể kiểm tra lịch trống.");
         }
-      } catch {
+      } catch (err) {
+        console.error("Lỗi kiểm tra lịch trống:", err);
         setError("Lỗi kết nối máy chủ khi kiểm tra lịch trống.");
       } finally {
         setLoading(false);
@@ -131,6 +137,150 @@ const CheckSlotAvailability = () => {
       navigate("/appointments/create");
     }
   };
+
+  const isPublicRoute = role === "Guest" || role === "Customer";
+  const selectedService = services.find(
+    (service) => String(service.serviceId) === String(selectedServiceId)
+  );
+
+  if (isPublicRoute) {
+    return (
+      <main className="public-slot-page">
+        <section className="customer-page-banner public-slot-banner">
+          <div className="customer-page-container">
+            <div className="customer-breadcrumb">
+              <button type="button" onClick={() => navigate(role === "Customer" ? "/customer/home" : "/bssms-guest")}>
+                Trang chủ
+              </button>
+              <i className="bi bi-chevron-right" aria-hidden="true" />
+              <strong>Tra cứu lịch trống</strong>
+            </div>
+            <div className="public-slot-banner-row">
+              <div>
+                <span className="home-eyebrow">DÀNH MỘT KHOẢNG THỜI GIAN CHO BẠN</span>
+                <h1>Tra cứu lịch trống</h1>
+                <p>Chọn dịch vụ, ngày hẹn và kỹ thuật viên bạn mong muốn.<br />Tìm khung giờ phù hợp để bắt đầu buổi chăm sóc tại Seoul Center.</p>
+              </div>
+              <div className="customer-summary-card public-slot-summary">
+                <span><i className="bi bi-calendar2-check" aria-hidden="true" /> Khung giờ ngày {selectedDate}</span>
+                <strong>{slotData?.slots?.filter((slot) => slot.available).length ?? "—"}</strong>
+                <small>khung giờ còn trống</small>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="customer-page-container public-slot-content">
+          {error && <Alert variant="danger">{error}</Alert>}
+          <section className="public-slot-filter-panel">
+            <div className="customer-filter-title">
+              <strong><i className="bi bi-sliders" aria-hidden="true" /> Tìm khung giờ dành cho bạn</strong>
+              <small>* Thông tin bắt buộc</small>
+            </div>
+            <div className="public-slot-filter-fields">
+              <Form.Group>
+                <Form.Label>Chọn dịch vụ *</Form.Label>
+                <Form.Select
+                  value={selectedServiceId}
+                  onChange={(event) => {
+                    setSelectedServiceId(event.target.value);
+                    setSelectedTechId("");
+                  }}
+                  required
+                >
+                  <option value="">-- Chọn dịch vụ --</option>
+                  {services.map((service) => (
+                    <option key={service.serviceId} value={service.serviceId}>
+                      {service.serviceName} ({service.duration} phút · {Number(service.price).toLocaleString("vi-VN")} đ)
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+              <Form.Group>
+                <Form.Label>Ngày hẹn *</Form.Label>
+                <Form.Control
+                  type="date"
+                  min={getTodayString()}
+                  value={selectedDate}
+                  onChange={(event) => setSelectedDate(event.target.value)}
+                  required
+                />
+              </Form.Group>
+              <Form.Group>
+                <Form.Label>Kỹ thuật viên (Tùy chọn)</Form.Label>
+                <Form.Select
+                  value={selectedTechId}
+                  onChange={(event) => setSelectedTechId(event.target.value)}
+                >
+                  <option value="">Tất cả kỹ thuật viên</option>
+                  {slotData?.technicians?.map((technician) => (
+                    <option key={technician.staffId} value={technician.staffId}>
+                      {technician.fullName}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </div>
+          </section>
+
+          {loading ? (
+            <div className="customer-empty-state public-slot-loading" role="status">
+              <Spinner animation="border" variant="danger" />
+              <strong>Đang tìm khung giờ phù hợp...</strong>
+            </div>
+          ) : slotData ? (
+            <section className="public-slot-results">
+              <div className="public-slot-results-heading">
+                <div>
+                  <h2>Khung giờ dành cho bạn <span>{slotData.slots?.filter((slot) => slot.available).length || 0} khung giờ</span></h2>
+                  <strong>{slotData.serviceName || selectedService?.serviceName}</strong>
+                  <small><i className="bi bi-calendar3" aria-hidden="true" /> {selectedDate} <i className="bi bi-clock" aria-hidden="true" /> Thời lượng: {slotData.duration || selectedService?.duration} phút</small>
+                </div>
+                <div className="public-slot-legend">
+                  <span><i className="is-available" /> Còn chỗ trống</span>
+                  <span><i className="is-unavailable" /> Đã kín lịch</span>
+                </div>
+              </div>
+
+              {slotData.slots?.length ? (
+                <div className="public-slot-grid">
+                  {slotData.slots.map((slot) => (
+                    <button
+                      key={slot.startTime}
+                      type="button"
+                      className={`public-slot-card${slot.available ? "" : " is-unavailable"}`}
+                      disabled={!slot.available}
+                      onClick={() => handleSelectSlot(slot)}
+                    >
+                      <strong>{slot.startTime}–{slot.endTime}</strong>
+                      <span className="public-slot-status">{slot.available ? "Còn trống" : "Đã kín"}</span>
+                      <small><i className="bi bi-person" aria-hidden="true" /> {slot.availableTechnicianCount} kỹ thuật viên rảnh</small>
+                      {slot.available && <span className="public-slot-cta">{role === "Guest" ? "Đăng nhập để đặt" : "Nhấn để đặt lịch online"} <i className="bi bi-arrow-right" aria-hidden="true" /></span>}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="customer-empty-state">
+                  <i className="bi bi-calendar-x" aria-hidden="true" />
+                  <strong>Không có khung giờ phù hợp</strong>
+                  <span>Thử chọn ngày hoặc kỹ thuật viên khác.</span>
+                </div>
+              )}
+              <div className="public-slot-footer-note">
+                <span>Bạn đang xem tất cả khung giờ trong ngày đã chọn.</span>
+                <span>Chọn một khung giờ trống để đặt lịch online.</span>
+              </div>
+            </section>
+          ) : !error ? (
+            <div className="customer-empty-state">
+              <i className="bi bi-calendar2-week" aria-hidden="true" />
+              <strong>Chọn dịch vụ để tra cứu lịch trống</strong>
+            </div>
+          ) : null}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <Container fluid className="py-4 px-4">
