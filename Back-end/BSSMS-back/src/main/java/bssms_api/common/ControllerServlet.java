@@ -57,6 +57,8 @@ public abstract class ControllerServlet extends HttpServlet {
                     }
                 }
             }
+        } catch(bssms_persistence.common.WorkflowException e) {
+            result.error(e.status,e.getMessage());
         } catch(DataAccessException | SQLException e) {
             log("Database operation failed",e);
             int code=0;
