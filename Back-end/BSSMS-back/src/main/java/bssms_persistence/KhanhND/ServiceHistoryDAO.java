@@ -24,7 +24,7 @@ public class ServiceHistoryDAO extends DBContext {
             + "ISNULL(NULLIF(STUFF(( "
             + "    SELECT N', ' + st2.full_name "
             + "    FROM AppointmentStaff ast2 "
-            + "    INNER JOIN Staff st2 ON st2.staff_id = ast2.staff_id "
+            + "    INNER JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st2 ON st2.staff_id = ast2.staff_id "
             + "    WHERE ast2.appointment_id = a.appointment_id "
             + "    ORDER BY st2.full_name "
             + "    FOR XML PATH(''), TYPE "
@@ -35,7 +35,7 @@ public class ServiceHistoryDAO extends DBContext {
             + "a.status, "
             + "a.notes "
             + "FROM Appointment a "
-            + "INNER JOIN Customer c ON c.customer_id = a.customer_id "
+            + "INNER JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON c.customer_id = a.customer_id "
             + "LEFT JOIN Service s ON s.service_id = a.service_id "
             + "WHERE LOWER(LTRIM(RTRIM(a.status))) = 'completed' ";
 
@@ -76,7 +76,7 @@ public class ServiceHistoryDAO extends DBContext {
      * Resolves the Customer record linked to a logged-in account.
      */
     public Integer findCustomerIdByAccountId(int accountId) throws SQLException {
-        String sql = "SELECT customer_id FROM Customer WHERE account_id = ?";
+        String sql = "SELECT customer_id FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " Customer WHERE account_id = ?";
 
         if (conn == null) {
             throw new SQLException("Database connection is not available.");
@@ -97,7 +97,7 @@ public class ServiceHistoryDAO extends DBContext {
      * Resolves the Staff record linked to a logged-in account.
      */
     public Integer findStaffIdByAccountId(int accountId) throws SQLException {
-        String sql = "SELECT staff_id FROM Staff WHERE account_id = ?";
+        String sql = "SELECT staff_id FROM " + bssms_persistence.common.SchemaSql.STAFF + " Staff WHERE account_id = ?";
 
         if (conn == null) {
             throw new SQLException("Database connection is not available.");

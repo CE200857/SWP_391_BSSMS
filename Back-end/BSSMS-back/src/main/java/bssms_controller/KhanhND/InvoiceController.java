@@ -1,5 +1,7 @@
 package bssms_controller.KhanhND;
 
+import bssms_account.Account;
+import bssms_common.SessionUsers;
 import bssms_controller.common.*;
 import bssms_persistence.common.DataAccessException;
 
@@ -52,6 +54,7 @@ public class InvoiceController extends ControllerSupport {
             ActionRequest request,
             ActionResult response
     ) throws IOException {
+        bind(request);
 
         String path = getApiPath(request);
 
@@ -77,21 +80,13 @@ public class InvoiceController extends ControllerSupport {
             }
 
             if (path.equals("/api/invoices") || path.equals("/api/invoices/")) {
-                if (!isCurrentUserManager(request)) {
-                    sendError(response, 403,
-                            "Only Managers can view invoice management.");
-                    return;
-                }
+
                 sendJson(response, 200, dao.getInvoices());
                 return;
             }
 
             if (path.matches("/api/invoices/\\d+/?")) {
-                if (!isCurrentUserManager(request)) {
-                    sendError(response, 403,
-                            "Only Managers can view invoice details.");
-                    return;
-                }
+
                 int invoiceId;
                 try {
                     invoiceId = Integer.parseInt(path.split("/")[3]);
@@ -127,8 +122,20 @@ public class InvoiceController extends ControllerSupport {
             ActionRequest request,
             ActionResult response
     ) throws IOException {
+        bind(request);
 
         String path = getApiPath(request);
+        if(path.matches("/api/invoices/\\d+/payments/?") || path.matches("/api/invoices/refunds/\\d+/complete/?")) {
+            try {
+                JsonObject data=JsonParser.parseReader(request.bodyReader()).getAsJsonObject();
+                InvoiceDAO dao=use(new InvoiceDAO());
+                if(path.contains("/refunds/")) {
+                    if(!data.has("confirmedReturned") || !data.get("confirmedReturned").getAsBoolean()) throw new IllegalArgumentException("Confirm that money has been returned.");
+                    sendJson(response,200,dao.completeRefund(Integer.parseInt(path.split("/")[4])));
+                } else sendJson(response,200,dao.pay(Integer.parseInt(path.split("/")[3]),data.get("paymentMethod").getAsString(),requireDecimal(data,"receivedAmount"),data.get("requestKey").getAsString(),data.has("transactionCode")?data.get("transactionCode").getAsString():null));
+            } catch(SQLException ex) {throw new DataAccessException(ex);}
+            return;
+        }
 
         if (path.matches("/api/invoices/\\d+/refund")) {
             if (!isCurrentUserManager(request)) {
@@ -181,7 +188,10 @@ public class InvoiceController extends ControllerSupport {
 
             JsonObject data = parsed.getAsJsonObject();
 
-            int appointmentId = requireInt(data, "appointmentId");
+            Integer appointmentId = optionalInt(data,"appointmentId");
+            Integer customerId = optionalInt(data,"customerId");
+            Integer packageId = optionalInt(data,"treatmentPackageId");
+            boolean birthday=data.has("useBirthday") && data.get("useBirthday").getAsBoolean();
 
             Integer voucherId = null;
 
@@ -197,18 +207,10 @@ public class InvoiceController extends ControllerSupport {
                 manualDiscount = requireDecimal(data, "manualDiscount");
             }
 
-            if (!data.has("paymentMethod")
-                    || data.get("paymentMethod").isJsonNull()) {
-                throw new IllegalArgumentException(
-                        "Payment method is required."
-                );
-            }
-
-            String paymentMethod
-                    = data.get("paymentMethod").getAsString();
-
-            BigDecimal receivedAmount
-                    = requireDecimal(data, "receivedAmount");
+            if(manualDiscount.signum()!=0) throw new IllegalArgumentException("Manual discounts are not supported by the new policy.");
+            String paymentMethod=data.has("paymentMethod")&&!data.get("paymentMethod").isJsonNull()?data.get("paymentMethod").getAsString():null;
+            BigDecimal receivedAmount=paymentMethod==null?null:requireDecimal(data,"receivedAmount");
+            String requestKey=data.has("requestKey")?data.get("requestKey").getAsString():null;
 
             List<InvoiceProduct> products = new ArrayList<>();
 
@@ -249,14 +251,7 @@ public class InvoiceController extends ControllerSupport {
             InvoiceDAO dao = use(new InvoiceDAO());
 
             Map<String, Object> result
-                    = dao.createInvoiceAndPayment(
-                            appointmentId,
-                            voucherId,
-                            manualDiscount,
-                            paymentMethod,
-                            receivedAmount,
-                            products
-                    );
+                    = dao.create(customerId,appointmentId,packageId,voucherId,birthday,products,paymentMethod,receivedAmount,requestKey);
 
             sendJson(
                     response,
@@ -314,13 +309,7 @@ public class InvoiceController extends ControllerSupport {
             int accountId = getCurrentAccountId(request);
 
             InvoiceDAO dao = use(new InvoiceDAO());
-            dao.refundInvoice(invoiceId, amount, reason, accountId);
-
-            JsonObject result = new JsonObject();
-            result.addProperty("message", "Invoice refund processed successfully.");
-            result.addProperty("invoiceId", invoiceId);
-            result.addProperty("amount", amount);
-            sendJson(response, 200, result);
+            sendJson(response,202,dao.refundInvoice(invoiceId, amount, reason, accountId));
         } catch (IllegalArgumentException ex) {
             sendError(response, 400, ex.getMessage());
         } catch (IllegalStateException ex) {
@@ -392,22 +381,22 @@ public class InvoiceController extends ControllerSupport {
 
     private boolean isCurrentUserManager(ActionRequest request) {
         SessionState session = request.session(false);
-        if (session == null || !(session.get("user") instanceof Map)) {
+        if (session == null || SessionUsers.from(session.get("user")) == null) {
             return false;
         }
 
-        Object role = ((Map<?, ?>) session.get("user")).get("role");
+        Object role = SessionUsers.from(session.get("user")).getRole();
         return role instanceof String
                 && "Manager".equalsIgnoreCase(((String) role).trim());
     }
 
     private int getCurrentAccountId(ActionRequest request) {
         SessionState session = request.session(false);
-        if (session == null || !(session.get("user") instanceof Map)) {
+        if (session == null || SessionUsers.from(session.get("user")) == null) {
             throw new IllegalStateException("Please log in again.");
         }
 
-        Object accountId = ((Map<?, ?>) session.get("user")).get("accountId");
+        Object accountId = SessionUsers.from(session.get("user")).getAccountId();
         if (!(accountId instanceof Number)) {
             throw new IllegalStateException("Account information is missing.");
         }
@@ -419,6 +408,9 @@ public class InvoiceController extends ControllerSupport {
         return id;
     }
 
+    private Integer optionalInt(JsonObject data,String key) {
+        return !data.has(key)||data.get(key).isJsonNull()?null:requireInt(data,key);
+    }
     private int requireInt(JsonObject data, String key) {
         if (!data.has(key)
                 || data.get(key).isJsonNull()
@@ -430,7 +422,7 @@ public class InvoiceController extends ControllerSupport {
         }
 
         try {
-            return data.get(key).getAsInt();
+            return data.get(key).getAsBigDecimal().intValueExact();
         } catch (RuntimeException ex) {
             throw new IllegalArgumentException(
                     "Invalid integer field: " + key
