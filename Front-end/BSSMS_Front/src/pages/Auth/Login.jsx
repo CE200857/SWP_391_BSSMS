@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Container, Form, Button, Card, Alert } from "react-bootstrap";
+import spaPhoto from "../../assets/figma/login-spa-original.jpeg";
 
 const Login = ({ setUser }) => {
   const [email, setEmail] = useState("");
@@ -115,10 +116,18 @@ const Login = ({ setUser }) => {
       className="app-login-surface d-flex justify-content-center align-items-center"
       style={{ minHeight: "100vh" }}
     >
-      <Card
-        className="app-login-card"
-        style={{ width: "400px", padding: "20px", border: "none" }}
-      >
+      <div className="auth-page-grid">
+        <section className="auth-page-intro">
+          <span className="home-eyebrow">CHÀO MỪNG TRỞ LẠI</span>
+          <h1>Một khoảng nghỉ<br />chỉ dành cho bạn.</h1>
+          <p>Đăng nhập để đặt lịch chăm sóc, theo dõi lịch hẹn và khám phá dịch vụ tại Seoul Center.</p>
+          <div className="auth-intro-note">
+            <i className="bi bi-heart" aria-hidden="true" />
+            <span><strong>Chăm sóc từ sự lắng nghe</strong><small>Một trải nghiệm dành riêng cho bạn.</small></span>
+          </div>
+          <img src={spaPhoto} alt="Trải nghiệm chăm sóc da tại Seoul Center" />
+        </section>
+        <Card className="app-login-card">
         <Card.Body>
           <div className="position-relative mb-4">
             <i
@@ -190,35 +199,21 @@ const Login = ({ setUser }) => {
 
           <div
             className="d-flex flex-column text-start"
-            style={{ fontSize: "15px" }}
+            style={{ fontSize: "1rem" }}
           >
-            <span
-              onClick={() => navigate("/forgot-password")}
-              style={{
-                textDecoration: "none",
-                color: "#0d6efd",
-                marginBottom: "8px",
-                cursor: "pointer",
-              }}
-            >
+            <Link className="auth-inline-link mb-2" to="/forgot-password">
               Quên mật khẩu?
-            </span>
+            </Link>
             <span>
               Chưa có tài khoản?{" "}
-              <span
-                onClick={() => navigate("/register")}
-                style={{
-                  textDecoration: "none",
-                  color: "#0d6efd",
-                  cursor: "pointer",
-                }}
-              >
+              <Link className="auth-inline-link" to="/register">
                 Đăng ký
-              </span>
+              </Link>
             </span>
           </div>
         </Card.Body>
       </Card>
+      </div>
     </Container>
   );
 };

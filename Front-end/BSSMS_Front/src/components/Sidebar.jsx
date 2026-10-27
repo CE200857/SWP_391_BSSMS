@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import SeoulBrand from "./SeoulBrand";
 
 const Sidebar = ({ user, collapsed = false, onToggle }) => {
   // Thêm State để điều khiển việc đóng/mở các menu con
@@ -16,8 +17,7 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
   const isManager = role === "Manager";
 
   const navClass = ({ isActive }) =>
-    `app-nav-link d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${
-      isActive ? "active bg-primary text-white shadow" : "text-dark"
+    `app-nav-link d-flex align-items-center px-3 py-3 rounded text-decoration-none fw-bold ${isActive ? "active bg-primary text-white shadow" : "text-dark"
     }`;
 
   const renderMenuLabel = (label) => (
@@ -33,20 +33,23 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
       }}
     >
       <div className="app-sidebar-inner p-3 mt-2 text-start">
+        <NavLink className="app-sidebar-brand" to={isCustomer ? "/customer/home" : "/manager/dashboard"} aria-label="Seoul Center">
+          <SeoulBrand />
+        </NavLink>
 
         {/* KHU VỰC TIÊU ĐỀ & NÚT THU GỌN */}
         <div className="app-sidebar-heading d-flex align-items-center justify-content-between mb-4">
           <p
             className="app-sidebar-title text-muted fw-bold text-uppercase mb-0 ms-2"
-            style={{ fontSize: "13px" }}
+            style={{ fontSize: "1rem" }}
           >
             {isCustomer
               ? "Menu Khách hàng"
               : isTechnician
-              ? "Menu Kỹ thuật viên"
-              : isReceptionist
-              ? "Menu Lễ tân"
-              : "Quản lý hệ thống"}
+                ? "Menu Kỹ thuật viên"
+                : isReceptionist
+                  ? "Menu Lễ tân"
+                  : "Quản lý hệ thống"}
           </p>
           <button
             type="button"
@@ -71,6 +74,14 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
             {renderMenuLabel("Danh sách lịch hẹn")}
           </NavLink>
 
+          {/* Service History: Customer, Technician, Receptionist & Manager */}
+          {(isCustomer || isTechnician || isReceptionist || isManager) && (
+            <NavLink to="/service-history" className={navClass}>
+              <i className="bi bi-clock-history fs-5"></i>
+              {renderMenuLabel("Lịch sử dịch vụ")}
+            </NavLink>
+          )}
+
           {/* Check Slot Availability: Dành cho Customer & Receptionist */}
           {(isCustomer || isReceptionist) && (
             <NavLink to="/slots" className={navClass}>
@@ -84,6 +95,16 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
             <NavLink to="/appointments/online" className={navClass}>
               <i className="bi bi-calendar-heart fs-5"></i>
               {renderMenuLabel("Đặt lịch Online")}
+            </NavLink>
+          )}
+
+          {(isCustomer || isReceptionist || isManager) && (
+            <NavLink
+              to="/membership-benefits"
+              className={navClass}
+            >
+              <i className="bi bi-award-fill fs-5"></i>
+              {renderMenuLabel("Quyền lợi thành viên")}
             </NavLink>
           )}
 
@@ -210,6 +231,13 @@ const Sidebar = ({ user, collapsed = false, onToggle }) => {
                   <NavLink to="/staffs" className={navClass}>
                     <i className="bi bi-person-badge-fill fs-6"></i>
                     {renderMenuLabel("Nhân viên")}
+                  </NavLink>
+                  <NavLink
+                    to="/manager/membership-tiers"
+                    className={navClass}
+                  >
+                    <i className="bi bi-award-fill fs-5"></i>
+                    {renderMenuLabel("Quản lý hạng thành viên")}
                   </NavLink>
                   <NavLink to="/manager/invoices" className={navClass}>
                     <i className="bi bi-receipt fs-6"></i>

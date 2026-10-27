@@ -157,7 +157,7 @@ const Register = () => {
 
         <Form onSubmit={handleRegister}>
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
               Tên đăng nhập*
             </Form.Label>
             <Form.Control
@@ -166,12 +166,12 @@ const Register = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              style={{ fontSize: "14px", padding: "10px" }}
+              style={{ fontSize: "1rem", padding: "10px" }}
             />
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
               Email*
             </Form.Label>
             <InputGroup>
@@ -184,7 +184,7 @@ const Register = () => {
                   setIsCodeSent(false);
                 }}
                 required
-                style={{ fontSize: "14px", padding: "10px" }}
+                style={{ fontSize: "1rem", padding: "10px" }}
               />
               <Button
                 variant={countdown > 0 ? "secondary" : "danger"}
@@ -193,7 +193,7 @@ const Register = () => {
                 style={{
                   backgroundColor: countdown > 0 ? undefined : "#a61e4d",
                   border: "none",
-                  fontSize: "14px",
+                  fontSize: "1rem",
                   fontWeight: "bold",
                   width: "105px",
                 }}
@@ -208,7 +208,7 @@ const Register = () => {
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
               Mã xác thực Email*
             </Form.Label>
             <Form.Control
@@ -220,7 +220,7 @@ const Register = () => {
               required
               disabled={!isCodeSent}
               style={{
-                fontSize: "14px",
+                fontSize: "1rem",
                 padding: "10px",
                 backgroundColor: !isCodeSent ? "#e9ecef" : "white",
               }}
@@ -228,7 +228,7 @@ const Register = () => {
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
               Mật khẩu*
             </Form.Label>
             <Form.Control
@@ -237,12 +237,12 @@ const Register = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{ fontSize: "14px", padding: "10px" }}
+              style={{ fontSize: "1rem", padding: "10px" }}
             />
           </Form.Group>
 
           <Form.Group className="mb-4">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
               Xác nhận mật khẩu*
             </Form.Label>
             <Form.Control
@@ -251,7 +251,7 @@ const Register = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              style={{ fontSize: "14px", padding: "10px" }}
+              style={{ fontSize: "1rem", padding: "10px" }}
             />
           </Form.Group>
 
@@ -271,7 +271,7 @@ const Register = () => {
         </Form>
 
         <div className="text-center mt-4">
-          <span style={{ fontSize: "14px", color: "#6c757d" }}>
+          <span style={{ fontSize: "1rem", color: "#6c757d" }}>
             Đã có tài khoản?{" "}
           </span>
           <span

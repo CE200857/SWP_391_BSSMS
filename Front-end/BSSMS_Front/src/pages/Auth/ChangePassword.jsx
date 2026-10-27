@@ -77,7 +77,7 @@ const ChangePassword = () => {
 
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>Mật khẩu hiện tại*</Form.Label>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Mật khẩu hiện tại*</Form.Label>
             <Form.Control
               type="password"
               placeholder="Nhập mật khẩu hiện tại"
@@ -89,7 +89,7 @@ const ChangePassword = () => {
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>Mật khẩu mới*</Form.Label>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Mật khẩu mới*</Form.Label>
             <Form.Control
               type="password"
               placeholder="Nhập mật khẩu mới"
@@ -101,7 +101,7 @@ const ChangePassword = () => {
           </Form.Group>
 
           <Form.Group className="mb-4">
-            <Form.Label className="fw-bold" style={{ fontSize: "14px" }}>Xác nhận mật khẩu mới*</Form.Label>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Xác nhận mật khẩu mới*</Form.Label>
             <Form.Control
               type="password"
               placeholder="Nhập lại mật khẩu mới"

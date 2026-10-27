@@ -1,0 +1,158 @@
+.service-history-page {
+    color: #253047;
+    min-width: 0;
+}
+
+.service-history-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.service-history-eyebrow {
+    color: #7b8494;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.4rem;
+}
+
+.service-history-title {
+    color: #1f2a3d;
+    font-size: clamp(1.55rem, 2vw, 2rem);
+    font-weight: 700;
+    margin: 0;
+}
+
+.service-history-subtitle {
+    color: #717b8c;
+    margin-top: 0.5rem;
+}
+
+.service-history-refresh {
+    flex-shrink: 0;
+}
+
+.service-history-filter-card,
+.service-history-results-card {
+    border-radius: 0.9rem;
+    box-shadow: 0 0.25rem 1.25rem rgba(28, 39, 60, 0.06);
+    overflow: hidden;
+}
+
+.service-history-label {
+    color: #455167;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.service-history-filter-hint,
+.service-history-muted {
+    color: #7b8494;
+    font-size: 0.82rem;
+}
+
+.service-history-results-header {
+    align-items: center;
+    border-bottom: 1px solid #edf0f4;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
+}
+
+.service-history-section-title {
+    color: #253047;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.service-history-completed-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.45rem 0.65rem;
+}
+
+.service-history-table {
+    font-size: 0.9rem;
+}
+
+.service-history-table thead th {
+    background: #f8f9fb;
+    border-bottom: 1px solid #e9edf3;
+    color: #566176;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 0.9rem 1rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.service-history-table tbody td {
+    border-color: #edf0f4;
+    color: #39455a;
+    padding: 0.9rem 1rem;
+    vertical-align: middle;
+}
+
+.service-history-id {
+    color: #5768a5 !important;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.service-history-service-name {
+    font-weight: 600;
+    min-width: 9rem;
+}
+
+.service-history-notes {
+    max-width: 15rem;
+    min-width: 8rem;
+    white-space: normal;
+}
+
+.service-history-loading,
+.service-history-empty {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    text-align: center;
+}
+
+.service-history-loading {
+    color: #677287;
+}
+
+.service-history-empty {
+    flex-direction: column;
+}
+
+.service-history-empty-icon {
+    align-items: center;
+    background: #f1f3f8;
+    border-radius: 50%;
+    color: #657399;
+    display: flex;
+    font-size: 2rem;
+    height: 3.5rem;
+    justify-content: center;
+    width: 3.5rem;
+}
+
+@media (max-width: 575.98px) {
+    .service-history-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .service-history-refresh {
+        align-self: flex-start;
+    }
+
+    .service-history-results-header {
+        align-items: flex-start;
+        padding: 1rem;
+    }
+}

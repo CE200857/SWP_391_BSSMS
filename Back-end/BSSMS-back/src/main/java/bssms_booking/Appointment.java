@@ -1,129 +1,124 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_booking;
-import java.util.Date;
-import java.sql.Time;
-/**
- *
- * @author admin
- */
-public class Appointment {
-    private int appointmentId;
-    private int customerId;
-    private int serviceId;
-    private Integer customerPackageId; 
+
+/** Typed data exchanged by DAO and controller; nullable fields represent absent SQL values. */
+public class Appointment implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+    private Integer appointmentId;
+    private Integer customerId;
+    private Integer serviceId;
+    private Integer customerPackageId;
     private Integer roomId;
     private Integer bedId;
-    private Date appointmentDate;
-    private Time startTime;
-    private Time endTime;
+    private String appointmentDate;
+    private String startTime;
+    private String endTime;
     private String status;
     private String notes;
+    private String createdAt;
+    private String updatedAt;
+    private String completedAt;
+    private String cancellationReason;
+    private Integer createdBy;
+    private String phoneOverride;
+    private String resultNotes;
+    private String customerName;
+    private String customerPhone;
+    private String phone;
+    private String serviceName;
+    private java.math.BigDecimal servicePrice;
+    private String staffName;
+    private Integer staffId;
+    private String roomName;
+    private String bedNumber;
+    private Integer duration;
+    private Integer technicianId;
+    private String technicianName;
 
-    public Appointment() {}
+    public Integer getAppointmentId() { return appointmentId; }
+    public void setAppointmentId(Integer appointmentId) { this.appointmentId = appointmentId; }
 
-    public Appointment(int appointmentId, int customerId, int serviceId, Integer customerPackageId, Integer roomId, Integer bedId, Date appointmentDate, Time startTime, Time endTime, String status, String notes) {
-        this.appointmentId = appointmentId;
-        this.customerId = customerId;
-        this.serviceId = serviceId;
-        this.customerPackageId = customerPackageId;
-        this.roomId = roomId;
-        this.bedId = bedId;
-        this.appointmentDate = appointmentDate;
-        this.startTime = startTime;
-        this.endTime = endTime;
-        this.status = status;
-        this.notes = notes;
-    }
+    public Integer getCustomerId() { return customerId; }
+    public void setCustomerId(Integer customerId) { this.customerId = customerId; }
 
-    public int getAppointmentId() {
-        return appointmentId;
-    }
+    public Integer getServiceId() { return serviceId; }
+    public void setServiceId(Integer serviceId) { this.serviceId = serviceId; }
 
-    public void setAppointmentId(int appointmentId) {
-        this.appointmentId = appointmentId;
-    }
+    public Integer getCustomerPackageId() { return customerPackageId; }
+    public void setCustomerPackageId(Integer customerPackageId) { this.customerPackageId = customerPackageId; }
 
-    public int getCustomerId() {
-        return customerId;
-    }
+    public Integer getRoomId() { return roomId; }
+    public void setRoomId(Integer roomId) { this.roomId = roomId; }
 
-    public void setCustomerId(int customerId) {
-        this.customerId = customerId;
-    }
+    public Integer getBedId() { return bedId; }
+    public void setBedId(Integer bedId) { this.bedId = bedId; }
 
-    public int getServiceId() {
-        return serviceId;
-    }
+    public String getAppointmentDate() { return appointmentDate; }
+    public void setAppointmentDate(String appointmentDate) { this.appointmentDate = appointmentDate; }
 
-    public void setServiceId(int serviceId) {
-        this.serviceId = serviceId;
-    }
+    public String getStartTime() { return startTime; }
+    public void setStartTime(String startTime) { this.startTime = startTime; }
 
-    public Integer getCustomerPackageId() {
-        return customerPackageId;
-    }
+    public String getEndTime() { return endTime; }
+    public void setEndTime(String endTime) { this.endTime = endTime; }
 
-    public void setCustomerPackageId(Integer customerPackageId) {
-        this.customerPackageId = customerPackageId;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public Integer getRoomId() {
-        return roomId;
-    }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
 
-    public void setRoomId(Integer roomId) {
-        this.roomId = roomId;
-    }
+    public String getCreatedAt() { return createdAt; }
+    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
 
-    public Integer getBedId() {
-        return bedId;
-    }
+    public String getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
 
-    public void setBedId(Integer bedId) {
-        this.bedId = bedId;
-    }
+    public Integer getCreatedBy() { return createdBy; }
+    public void setCreatedBy(Integer createdBy) { this.createdBy = createdBy; }
 
-    public Date getAppointmentDate() {
-        return appointmentDate;
-    }
+    public String getPhoneOverride() { return phoneOverride; }
+    public void setPhoneOverride(String phoneOverride) { this.phoneOverride = phoneOverride; }
 
-    public void setAppointmentDate(Date appointmentDate) {
-        this.appointmentDate = appointmentDate;
-    }
+    public String getResultNotes() { return resultNotes; }
+    public void setResultNotes(String resultNotes) { this.resultNotes = resultNotes; }
 
-    public Time getStartTime() {
-        return startTime;
-    }
+    public String getCustomerName() { return customerName; }
+    public void setCustomerName(String customerName) { this.customerName = customerName; }
 
-    public void setStartTime(Time startTime) {
-        this.startTime = startTime;
-    }
+    public String getCustomerPhone() { return customerPhone; }
+    public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
 
-    public Time getEndTime() {
-        return endTime;
-    }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 
-    public void setEndTime(Time endTime) {
-        this.endTime = endTime;
-    }
+    public String getServiceName() { return serviceName; }
+    public void setServiceName(String serviceName) { this.serviceName = serviceName; }
 
-    public String getStatus() {
-        return status;
-    }
+    public java.math.BigDecimal getServicePrice() { return servicePrice; }
+    public void setServicePrice(java.math.BigDecimal servicePrice) { this.servicePrice = servicePrice; }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
+    public String getStaffName() { return staffName; }
+    public void setStaffName(String staffName) { this.staffName = staffName; }
 
-    public String getNotes() {
-        return notes;
-    }
+    public Integer getStaffId() { return staffId; }
+    public void setStaffId(Integer staffId) { this.staffId = staffId; }
 
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
-    
+    public String getRoomName() { return roomName; }
+    public void setRoomName(String roomName) { this.roomName = roomName; }
+
+    public String getBedNumber() { return bedNumber; }
+    public void setBedNumber(String bedNumber) { this.bedNumber = bedNumber; }
+
+    public Integer getDuration() { return duration; }
+    public void setDuration(Integer duration) { this.duration = duration; }
+
+    public Integer getTechnicianId() { return technicianId; }
+    public void setTechnicianId(Integer technicianId) { this.technicianId = technicianId; }
+
+    public String getTechnicianName() { return technicianName; }
+    public void setTechnicianName(String technicianName) { this.technicianName = technicianName; }
+    public String getCompletedAt() { return completedAt; }
+    public void setCompletedAt(String value) { completedAt = value; }
+    public String getCancellationReason() { return cancellationReason; }
+    public void setCancellationReason(String value) { cancellationReason = value; }
 }
