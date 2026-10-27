@@ -1,5 +1,6 @@
 package bssms_controller.DatNT;
 
+import bssms_account.Customer;
 import bssms_controller.common.*;
 import bssms_persistence.common.DataAccessException;
 
@@ -8,7 +9,6 @@ import bssms_persistence.DatNT.CustomerDAO;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
-import java.util.Map;
 
 /**
  *
@@ -21,6 +21,7 @@ public class CustomerController extends ControllerSupport {
 
     public void get(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         CustomerDAO dao = use(new CustomerDAO());
         PrintWriter out = response.writer();
@@ -30,14 +31,14 @@ public class CustomerController extends ControllerSupport {
         if (idParam != null && !idParam.trim().isEmpty()) {
             try {
                 int customerId = Integer.parseInt(idParam);
-                Map<String, Object> customer = dao.getCustomerById(customerId);
+                Customer customer = dao.getCustomerById(customerId);
                 out.print(this.gson.toJson(customer));
             } catch (NumberFormatException e) {
                 response.status(400);
                 out.print("{\"message\": \"ID không hợp lệ\"}");
             }
         } else {
-            List<Map<String, Object>> customers = dao.getAllCustomerDetails();
+            List<Customer> customers = dao.getAllCustomerDetails();
             out.print(this.gson.toJson(customers));
         }
 
@@ -46,6 +47,7 @@ public class CustomerController extends ControllerSupport {
 
     public void delete(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         try {
             int customerId = Integer.parseInt(request.parameter("id"));
@@ -68,6 +70,7 @@ public class CustomerController extends ControllerSupport {
 
     public void post(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         try {

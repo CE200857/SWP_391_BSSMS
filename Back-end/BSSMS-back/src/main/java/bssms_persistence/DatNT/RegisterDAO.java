@@ -4,8 +4,8 @@ import bssms_persistence.DBContext;
 import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.HashMap;
-import java.util.Map;
+import bssms_account.*;
+
 
 public class RegisterDAO extends DBContext implements AutoCloseable {
 
@@ -24,7 +24,7 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
             return "Email (Trùng với email hệ thống)";
         }
 
-        String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
+        String sql = "SELECT username, email, phone FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE (username = ? OR email = ? OR phone = ?)";
         if (excludeAccountId != null) {
             sql += " AND account_id != ?";
         }
@@ -62,61 +62,27 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
         return null;
     }
 
-    public Map<String, Object> authenticateUser(String emailOrPhone, String password) {
+    public Account authenticateUser(String emailOrPhone, String password) {
         requireConnection();
-        Map<String, Object> userMap = null;
-        String query = "SELECT a.account_id, a.email, a.status, a.role, "
-                     + "c.full_name AS customer_name, "
-                     + "s.full_name AS staff_name "
-                     + "FROM Account a "
-                     + "LEFT JOIN Customer c ON a.account_id = c.account_id "
-                     + "LEFT JOIN Staff s ON a.account_id = s.account_id "
-                     + "WHERE (a.email = ? OR a.phone = ?) AND a.password = ?";
         try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setString(1, emailOrPhone);
-                ps.setString(2, emailOrPhone);
-                ps.setString(3, password);
-
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    userMap = new HashMap<>();
-                    userMap.put("accountId", rs.getInt("account_id"));
-                    userMap.put("email", rs.getString("email"));
-                    userMap.put("status", rs.getString("status"));
-
-                    String role = rs.getString("role");
-                    userMap.put("role", role);
-
-                    if ("Customer".equals(role)) {
-                        userMap.put("fullName", rs.getString("customer_name"));
-                    } else {
-                        userMap.put("fullName", rs.getString("staff_name"));
-                    }
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return userMap;
+            return new bssms_persistence.common.Workflow(conn,0).query(rs -> {
+                Account a=new Account();
+                a.setAccountId(rs.getInt("account_id")); a.setIdentityVersion(2);
+                a.setStaffId(rs.getObject("staff_id",Integer.class));
+                a.setCustomerId(rs.getObject("customer_id",Integer.class));
+                a.setUsername(rs.getString("username")); a.setFullName(rs.getString("full_name"));
+                a.setEmail(rs.getString("email")); a.setPhone(rs.getString("phone"));
+                a.setRole(rs.getString("role")); a.setStatus(rs.getString("status")); return a;
+            }, "SELECT * FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE (email=? OR phone=?) AND password=?",emailOrPhone,emailOrPhone,password)
+                .stream().findFirst().orElse(null);
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
     public boolean createAccount(String username, String password, String email) {
         requireConnection();
-        String sql = "INSERT INTO Account (username, password, email, status, role) VALUES (?, ?, ?, 'Active', 'Customer')";
         try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ps.setString(1, username);
-                ps.setString(2, password);
-                ps.setString(3, email);
-                return ps.executeUpdate() > 0;
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+            return new bssms_persistence.common.Workflow(conn,0).update("INSERT Customer(username,password,email,full_name,membership_tier_id) VALUES(?,?,?,?,1)", username,password,email,username) == 1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
     public boolean saveVerificationCode(String email, String otpCode) {
@@ -174,7 +140,7 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
 
     public boolean isSameOldPasswordByEmail(String email, String newPasswordHashed) {
         requireConnection();
-        String sql = "SELECT account_id FROM Account WHERE email = ? AND password = ?";
+        String sql = "SELECT account_id FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE email = ? AND password = ?";
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(sql);
@@ -191,41 +157,23 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
 
     public boolean changePassword(int accountId, String oldPasswordHashed, String newPasswordHashed) {
         requireConnection();
-        String checkSql = "SELECT account_id FROM Account WHERE account_id = ? AND password = ?";
-        String updateSql = "UPDATE Account SET password = ? WHERE account_id = ?";
         try {
-            if (conn != null) {
-                PreparedStatement psCheck = conn.prepareStatement(checkSql);
-                psCheck.setInt(1, accountId);
-                psCheck.setString(2, oldPasswordHashed);
-                ResultSet rs = psCheck.executeQuery();
-
-                if (rs.next()) {
-                    PreparedStatement psUpdate = conn.prepareStatement(updateSql);
-                    psUpdate.setString(1, newPasswordHashed);
-                    psUpdate.setInt(2, accountId);
-                    return psUpdate.executeUpdate() > 0;
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+            boolean customer=accountId%2==1;
+            int id=customer?bssms_common.LoginIdentity.customerId(accountId):bssms_common.LoginIdentity.staffId(accountId);
+            String sql=customer?"UPDATE Customer SET password=? WHERE customer_id=? AND password=?":"UPDATE Staff SET password=? WHERE staff_id=? AND password=?";
+            return new bssms_persistence.common.Workflow(conn,0).update(sql,newPasswordHashed,id,oldPasswordHashed)==1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
     public boolean resetPasswordByEmail(String email, String newPasswordHashed) {
         requireConnection();
-        String updateSql = "UPDATE Account SET password = ? WHERE email = ?";
         try {
-            if (conn != null) {
-                PreparedStatement psUpdate = conn.prepareStatement(updateSql);
-                psUpdate.setString(1, newPasswordHashed);
-                psUpdate.setString(2, email);
-                return psUpdate.executeUpdate() > 0;
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+            bssms_persistence.common.Workflow w=new bssms_persistence.common.Workflow(conn,0);
+            return w.transaction(() -> {
+                int count=w.update("UPDATE Staff SET password=? WHERE email=? AND username IS NOT NULL",newPasswordHashed,email);
+                count+=w.update("UPDATE Customer SET password=? WHERE email=? AND username IS NOT NULL",newPasswordHashed,email);
+                return count==1;
+            });
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 }

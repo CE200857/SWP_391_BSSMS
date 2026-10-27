@@ -17,6 +17,7 @@ public class ForgotPasswordController extends ControllerSupport {
 
     public void post(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         String uri = request.uri();

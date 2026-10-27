@@ -34,13 +34,13 @@ public class AuthenticationFilter implements Filter {
                 || path.contains("/api/forgot-password")
                 || path.contains("/api/booking/slots")
                 || (path.endsWith("/api/service") && "GET".equalsIgnoreCase(req.getMethod()))
-                || (path.contains("/api/feedback") && "GET".equalsIgnoreCase(req.getMethod()))) {
+                || ((path.endsWith("/api/feedback") || path.matches(".*/api/feedback/[0-9]+")) && "GET".equalsIgnoreCase(req.getMethod()))) {
             chain.doFilter(request, response);
             return;
         }
 
         HttpSession session = req.getSession(false);
-        boolean isLoggedIn = (session != null && session.getAttribute("user") != null);
+        boolean isLoggedIn = (session != null && bssms_common.SessionUsers.from(session.getAttribute("user")) != null);
 
         if (isLoggedIn) {
             chain.doFilter(request, response);
