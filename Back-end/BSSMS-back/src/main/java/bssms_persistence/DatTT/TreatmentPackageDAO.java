@@ -21,6 +21,7 @@ public class TreatmentPackageDAO extends DBContext implements AutoCloseable {
                     value.setDescription(rs.getString("description"));
                     value.setPrice(rs.getDouble("price"));
                     value.setNumberOfSessions(rs.getInt("number_of_sessions"));
+                value.setValidityDays(rs.getInt("validity_days"));value.setStatus(rs.getString("status"));
                 result.add(value);
             }
         }
@@ -28,30 +29,32 @@ public class TreatmentPackageDAO extends DBContext implements AutoCloseable {
     }
     public boolean createTreatmentPackage(TreatmentPackage value) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO TreatmentPackage (service_id, package_name, description, price, number_of_sessions) VALUES (?, ?, ?, ?, ?)")) {
+        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO TreatmentPackage (service_id, package_name, description, price, number_of_sessions, validity_days, status) VALUES (?, ?, ?, ?, ?, COALESCE(?,180),COALESCE(?,'Active'))")) {
             ps.setInt(1, value.getServiceId());
             ps.setString(2, value.getPackageName());
             ps.setString(3, value.getDescription());
             ps.setDouble(4, value.getPrice());
             ps.setInt(5, value.getNumberOfSessions());
+            ps.setObject(6,value.getValidityDays());ps.setString(7,value.getStatus());
             return ps.executeUpdate() > 0;
         }
     }
     public boolean updateTreatmentPackage(TreatmentPackage value) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE TreatmentPackage SET service_id = ?, package_name = ?, description = ?, price = ?, number_of_sessions = ? WHERE treatment_package_id = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE TreatmentPackage SET service_id = ?, package_name = ?, description = ?, price = ?, number_of_sessions = ?, validity_days=COALESCE(?,validity_days), status=COALESCE(?,status) WHERE treatment_package_id = ?")) {
             ps.setInt(1, value.getServiceId());
             ps.setString(2, value.getPackageName());
             ps.setString(3, value.getDescription());
             ps.setDouble(4, value.getPrice());
             ps.setInt(5, value.getNumberOfSessions());
-            ps.setInt(6, value.getTreatmentPackageId());
+            ps.setObject(6,value.getValidityDays());ps.setString(7,value.getStatus());
+            ps.setInt(8, value.getTreatmentPackageId());
             return ps.executeUpdate() > 0;
         }
     }
     public boolean deleteTreatmentPackage(int id) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM TreatmentPackage WHERE treatment_package_id = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE TreatmentPackage SET status='Inactive' WHERE treatment_package_id = ?")) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         }

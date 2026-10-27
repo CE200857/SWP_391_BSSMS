@@ -1,7 +1,7 @@
 package bssms_controller.DatTT;
 
+import bssms_account.Account;
 import java.util.Arrays;
-import java.util.Map;
 
 final class Validation {
     private Validation() {}
@@ -23,8 +23,8 @@ final class Validation {
         if (!Arrays.asList(allowed).contains(value)) throw new IllegalArgumentException("Invalid status.");
         return value;
     }
-    static void role(Map<String, Object> user, String... allowed) {
-        if (user == null || !Arrays.asList(allowed).contains(user.get("role"))) {
+    static void role(Account user, String... allowed) {
+        if (user == null || !Arrays.asList(allowed).contains(user.getRole())) {
             throw new ControllerException(403, "You do not have permission for this operation.");
         }
     }

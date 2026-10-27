@@ -9,6 +9,12 @@ package bssms_catalog;
  * @author admin
  */
 public class TreatmentPackage {
+    private Integer validityDays;
+    private String status;
+    public Integer getValidityDays(){return validityDays;}
+    public void setValidityDays(Integer value){validityDays=value;}
+    public String getStatus(){return status;}
+    public void setStatus(String value){status=value;}
     private int treatmentPackageId;
     private int serviceId;
     private String packageName;

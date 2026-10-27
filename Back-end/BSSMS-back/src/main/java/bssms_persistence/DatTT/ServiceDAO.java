@@ -17,9 +17,8 @@ public class ServiceDAO extends DBContext implements AutoCloseable {
     }
 
     private Service readService(ResultSet rs) throws SQLException {
-        return new Service(rs.getInt("service_id"), rs.getString("service_name"),
-                rs.getString("description"), rs.getDouble("price"),
-                rs.getInt("duration"), rs.getString("status"));
+        Service value=new Service(rs.getInt("service_id"),rs.getString("service_name"),rs.getString("description"),rs.getDouble("price"),rs.getInt("duration"),rs.getString("status"));
+        value.setCategory(rs.getString("category"));value.setRequiredRoomType(rs.getString("required_room_type"));return value;
     }
 
     public List<Service> getAllServices() throws SQLException {
@@ -49,11 +48,12 @@ public class ServiceDAO extends DBContext implements AutoCloseable {
         ps.setDouble(3, service.getPrice());
         ps.setInt(4, service.getDuration());
         ps.setString(5, service.getStatus());
+        ps.setString(6,service.getCategory());ps.setString(7,service.getRequiredRoomType());
     }
 
     public int addService(Service service) throws SQLException {
         requireConnection();
-        String sql = "INSERT INTO Service (service_name, description, price, duration, status) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO Service (service_name, description, price, duration, status, category, required_room_type) VALUES (?, ?, ?, ?, ?, COALESCE(?,'General'), NULLIF(?,''))";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             bindService(ps, service);
             return ps.executeUpdate();
@@ -62,17 +62,17 @@ public class ServiceDAO extends DBContext implements AutoCloseable {
 
     public int updateService(Service service) throws SQLException {
         requireConnection();
-        String sql = "UPDATE Service SET service_name = ?, description = ?, price = ?, duration = ?, status = ? WHERE service_id = ?";
+        String sql = "UPDATE Service SET service_name = ?, description = ?, price = ?, duration = ?, status = ?, category=COALESCE(?,category), required_room_type=NULLIF(COALESCE(?,required_room_type),'') WHERE service_id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             bindService(ps, service);
-            ps.setInt(6, service.getServiceId());
+            ps.setInt(8, service.getServiceId());
             return ps.executeUpdate();
         }
     }
 
     public int deleteService(int id) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM Service WHERE service_id = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE Service SET status='Inactive' WHERE service_id = ?")) {
             ps.setInt(1, id);
             return ps.executeUpdate();
         }

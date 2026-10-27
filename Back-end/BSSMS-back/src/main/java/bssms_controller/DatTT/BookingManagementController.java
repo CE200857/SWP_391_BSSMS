@@ -1,7 +1,9 @@
 package bssms_controller.DatTT;
 
+import bssms_account.Account;
 import bssms_persistence.DatTT.BookingManagementDAO;
 import java.time.LocalDate;
+import bssms_booking.*;
 import java.time.LocalTime;
 import java.util.*;
 
@@ -18,26 +20,28 @@ public class BookingManagementController {
     private String date(String value) {
         return LocalDate.parse(Validation.text(value, "date")).toString();
     }
-    private int customerId(Map<String, Object> user) throws Exception {
+    private void bind(Account user) {
+        if (user == null || user.getAccountId() == null || user.getAccountId() <= 0)
+            throw new ControllerException(403, "Please log in again.");
+        dao.setActorAccountId(user.getAccountId());
+    }
+    private int customerId(Account user) throws Exception {
+        bind(user);
         Validation.role(user, "Customer");
-        Object value = user.get("accountId");
-        if (!(value instanceof Number)) value = user.get("account_id");
-        if (!(value instanceof Number) || ((Number) value).intValue() <= 0) {
-            throw new ControllerException(403, "Invalid login session.");
-        }
-        int customerId = dao.getCustomerIdByAccountId(((Number) value).intValue());
+        int customerId = dao.getCustomerIdByAccountId(user.getAccountId());
         if (customerId <= 0) throw new IllegalArgumentException("Customer profile not found. Please update your profile.");
         return customerId;
     }
-    public Map<String, Object> checkSlots(int serviceId, String date, Integer technicianId) throws Exception {
+    public SlotAvailability checkSlots(int serviceId, String date, Integer technicianId) throws Exception {
         Validation.id(serviceId, "serviceId");
         Validation.optionalId(technicianId, "technicianId");
         return dao.checkSlotAvailability(serviceId, date(date), technicianId);
     }
-    public List<Map<String, Object>> myPackages(Map<String, Object> user) throws Exception {
+    public List<ActivePackage> myPackages(Account user) throws Exception {
         return dao.getActivePackagesByCustomer(customerId(user));
     }
-    public Map<String, Object> createOnline(Map<String, Object> user, BookingRequest value) throws Exception {
+    public Appointment createOnline(Account user, BookingRequest value) throws Exception {
+        bind(user);
         Validation.role(user, "Customer");
         Validation.body(value);
         int serviceId = requiredId(value.serviceId, "serviceId");
@@ -49,22 +53,25 @@ public class BookingManagementController {
         return dao.createOnlineAppointment(customerId(user), serviceId, value.customerPackageId,
                 date, time, value.technicianId, value.notes);
     }
-    public Object coordination(Map<String, Object> user, Integer appointmentId) throws Exception {
+    public Object coordination(Account user, Integer appointmentId) throws Exception {
+        bind(user);
         Validation.role(user, "Receptionist", "Manager");
         if (appointmentId == null) return dao.getAllAppointmentsForCoordination();
         Validation.id(appointmentId, "appointmentId");
         return dao.getCoordinationResources(appointmentId);
     }
-    public Map<String, String> checkIn(Map<String, Object> user, BookingRequest value) throws Exception {
-        Validation.role(user, "Receptionist", "Manager");
+    public Map<String, String> checkIn(Account user, BookingRequest value) throws Exception {
+        bind(user);
+        Validation.role(user, "Receptionist", "Manager", "Technician");
         Validation.body(value);
         int id = requiredId(value.appointmentId, "appointmentId");
-        Validation.status(value.status, "Scheduled", "Booked", "Confirmed", "Checked-in",
-                "In Progress", "Completed", "Cancelled", "No Show");
+        Validation.status(value.status, "Pending", "Confirmed", "Checked-in",
+                "In-progress", "Completed", "Cancelled", "No-show");
         Validation.found(dao.updateCheckInAndStatus(id, value.status, value.notes));
         return Collections.singletonMap("message", "Appointment status updated successfully.");
     }
-    public Map<String, String> coordinate(Map<String, Object> user, BookingRequest value) throws Exception {
+    public Map<String, String> coordinate(Account user, BookingRequest value) throws Exception {
+        bind(user);
         Validation.role(user, "Receptionist", "Manager");
         Validation.body(value);
         int id = requiredId(value.appointmentId, "appointmentId");
