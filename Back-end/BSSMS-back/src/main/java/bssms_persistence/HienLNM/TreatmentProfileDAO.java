@@ -12,19 +12,24 @@ public class TreatmentProfileDAO extends DBContext {
 
     // Lấy hồ sơ điều trị theo customer ID
     public List<Map<String, Object>> getTreatmentProfilesByCustomerId(int customerId) {
+<<<<<<< Updated upstream
+=======
+        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
+        requireConnection();
+>>>>>>> Stashed changes
         List<Map<String, Object>> list = new ArrayList<>();
         String query = "SELECT a.appointment_id, a.appointment_date, a.start_time, a.end_time, a.status AS appointment_status, "
-                     + "a.notes, s.service_name, s.price, "
+                     + "a.notes, tr.result_notes, s.service_name, s.price, "
                      + "tp.package_name, cp.remaining_sessions, "
                      + "st.full_name AS staff_name, st.position, "
                      + "f.rating, f.comment AS feedback_comment, f.created_at AS feedback_date "
-                     + "FROM Appointment a "
+                     + "FROM Appointment a LEFT JOIN " + bssms_persistence.common.SchemaSql.TREATMENTS + " tr ON tr.appointment_id=a.appointment_id "
                      + "LEFT JOIN Service s ON a.service_id = s.service_id "
                      + "LEFT JOIN CustomerPackage cp ON a.customer_package_id = cp.customer_package_id "
                      + "LEFT JOIN TreatmentPackage tp ON cp.treatment_package_id = tp.treatment_package_id "
-                     + "LEFT JOIN AppointmentStaff aps ON a.appointment_id = aps.appointment_id "
-                     + "LEFT JOIN Staff st ON aps.staff_id = st.staff_id "
-                     + "LEFT JOIN Feedback f ON a.appointment_id = f.appointment_id "
+                     + "LEFT JOIN AppointmentStaff aps ON a.appointment_id = aps.appointment_id AND aps.role='Main Technician' "
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON aps.staff_id = st.staff_id "
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.FEEDBACK + " f ON a.appointment_id = f.appointment_id "
                      + "WHERE a.customer_id = ? "
                      + "ORDER BY a.appointment_date DESC, a.start_time DESC";
         try {
@@ -40,6 +45,7 @@ public class TreatmentProfileDAO extends DBContext {
                     map.put("endTime", rs.getTime("end_time") != null ? rs.getTime("end_time").toString() : null);
                     map.put("appointmentStatus", rs.getString("appointment_status"));
                     map.put("notes", rs.getString("notes"));
+                    map.put("resultNotes", rs.getString("result_notes"));
                     map.put("serviceName", rs.getString("service_name"));
                     map.put("price", rs.getDouble("price"));
                     map.put("packageName", rs.getString("package_name"));
@@ -60,22 +66,20 @@ public class TreatmentProfileDAO extends DBContext {
 
     // Lấy tổng quan hồ sơ điều trị
     public Map<String, Object> getTreatmentSummary(int customerId) {
+<<<<<<< Updated upstream
+=======
+        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
+        requireConnection();
+>>>>>>> Stashed changes
         Map<String, Object> map = new HashMap<>();
-        String query = "SELECT c.customer_id, c.full_name, c.date_of_birth, c.gender, c.phone, "
-                     + "a.email, "
-                     + "COUNT(DISTINCT ap.appointment_id) AS total_appointments, "
-                     + "SUM(CASE WHEN ap.status = 'Completed' THEN 1 ELSE 0 END) AS completed_appointments, "
-                     + "SUM(CASE WHEN ap.status = 'Scheduled' THEN 1 ELSE 0 END) AS upcoming_appointments, "
-                     + "COUNT(DISTINCT cp.customer_package_id) AS total_packages, "
-                     + "COALESCE(SUM(cp.remaining_sessions), 0) AS total_remaining_sessions, "
-                     + "COALESCE(AVG(f.rating), 0) AS average_rating "
-                     + "FROM Customer c "
-                     + "JOIN Account a ON c.account_id = a.account_id "
-                     + "LEFT JOIN Appointment ap ON c.customer_id = ap.customer_id "
-                     + "LEFT JOIN CustomerPackage cp ON c.customer_id = cp.customer_id "
-                     + "LEFT JOIN Feedback f ON c.customer_id = f.customer_id "
-                     + "WHERE c.customer_id = ? "
-                     + "GROUP BY c.customer_id, c.full_name, c.date_of_birth, c.gender, c.phone, a.email";
+        String query = "SELECT c.customer_id,c.full_name,c.date_of_birth,c.gender,c.phone,c.email, "
+            + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id) AS total_appointments, "
+            + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id AND status='Completed') AS completed_appointments, "
+            + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id AND status IN ('Pending','Confirmed')) AS upcoming_appointments, "
+            + "(SELECT COUNT(*) FROM CustomerPackage WHERE customer_id=c.customer_id) AS total_packages, "
+            + "(SELECT COALESCE(SUM(remaining_sessions),0) FROM CustomerPackage WHERE customer_id=c.customer_id AND status='Active') AS total_remaining_sessions, "
+            + "(SELECT COALESCE(AVG(CAST(feedback_rating AS decimal(5,2))),0) FROM Appointment WHERE customer_id=c.customer_id AND feedback_is_hidden=0) AS average_rating "
+            + "FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c WHERE c.customer_id=?";
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
@@ -104,6 +108,11 @@ public class TreatmentProfileDAO extends DBContext {
 
     // Cập nhật ghi chú điều trị
     public boolean updateAppointmentNotes(int appointmentId, String notes) {
+<<<<<<< Updated upstream
+=======
+        try {workflow().roles("Receptionist","Technician","Manager");workflow().appointmentAccess(appointmentId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
+        requireConnection();
+>>>>>>> Stashed changes
         String query = "UPDATE Appointment SET notes = ? WHERE appointment_id = ?";
         try {
             if (conn != null) {
@@ -121,16 +130,21 @@ public class TreatmentProfileDAO extends DBContext {
 
     // Lấy lịch sử điều trị
     public List<Map<String, Object>> getTreatmentHistory(int customerId) {
+<<<<<<< Updated upstream
+=======
+        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
+        requireConnection();
+>>>>>>> Stashed changes
         List<Map<String, Object>> list = new ArrayList<>();
         String query = "SELECT a.appointment_id, a.appointment_date, a.status, s.service_name, "
                      + "tp.package_name, st.full_name AS staff_name, f.rating, f.comment "
-                     + "FROM Appointment a "
+                     + "FROM Appointment a LEFT JOIN " + bssms_persistence.common.SchemaSql.TREATMENTS + " tr ON tr.appointment_id=a.appointment_id "
                      + "LEFT JOIN Service s ON a.service_id = s.service_id "
                      + "LEFT JOIN CustomerPackage cp ON a.customer_package_id = cp.customer_package_id "
                      + "LEFT JOIN TreatmentPackage tp ON cp.treatment_package_id = tp.treatment_package_id "
-                     + "LEFT JOIN AppointmentStaff aps ON a.appointment_id = aps.appointment_id "
-                     + "LEFT JOIN Staff st ON aps.staff_id = st.staff_id "
-                     + "LEFT JOIN Feedback f ON a.appointment_id = f.appointment_id "
+                     + "LEFT JOIN AppointmentStaff aps ON a.appointment_id = aps.appointment_id AND aps.role='Main Technician' "
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON aps.staff_id = st.staff_id "
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.FEEDBACK + " f ON a.appointment_id = f.appointment_id "
                      + "WHERE a.customer_id = ? AND a.status = 'Completed' "
                      + "ORDER BY a.appointment_date DESC";
         try {
