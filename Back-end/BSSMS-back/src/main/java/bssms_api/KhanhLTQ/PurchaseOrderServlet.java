@@ -7,8 +7,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-@WebServlet("/PurchaseOrderServlet")
+@WebServlet(urlPatterns={"/PurchaseOrderServlet","/api/purchase-orders"})
 public class PurchaseOrderServlet extends ControllerServlet {
+    @Override protected void doGet(HttpServletRequest request,HttpServletResponse response) throws IOException {
+        dispatch(request,response,(input,result)->{try(PurchaseOrderController controller=new PurchaseOrderController()){controller.get(input,result);}});
+    }
     @Override protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         dispatch(request, response, (input, result) -> {
             try (PurchaseOrderController controller = new PurchaseOrderController()) {

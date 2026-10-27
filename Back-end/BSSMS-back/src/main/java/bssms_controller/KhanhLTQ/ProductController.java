@@ -18,6 +18,7 @@ public class ProductController extends ControllerSupport {
     private final Gson gson = new Gson();
 
     public void get(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         PrintWriter out = resp.writer();
         String pathInfo = req.pathInfo();
@@ -49,6 +50,7 @@ public class ProductController extends ControllerSupport {
     }
 
     public void post(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         BufferedReader reader = req.bodyReader();
         Product product = gson.fromJson(reader, Product.class);
@@ -68,10 +70,16 @@ public class ProductController extends ControllerSupport {
     }
 
     public void put(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         BufferedReader reader = req.bodyReader();
-        Product product = gson.fromJson(reader, Product.class);
-
+        com.google.gson.JsonObject body=com.google.gson.JsonParser.parseReader(reader).getAsJsonObject();
+        Product product=gson.fromJson(body,Product.class);
+        Product existing=productDAO.getProductById(product.getProductId());
+        if(existing==null) throw new IllegalArgumentException("Product not found.");
+        if(!body.has("productType")) product.setProductType(existing.getProductType());
+        if(!body.has("unit")) product.setUnit(existing.getUnit());
+        if(!body.has("stockQuantity")) product.setStockQuantity(existing.getStockQuantity());
         InputValidation.product(product,true);
         boolean success = productDAO.updateProduct(product);
         PrintWriter out = resp.writer();
@@ -86,6 +94,7 @@ public class ProductController extends ControllerSupport {
     }
 
     public void delete(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         PrintWriter out = resp.writer();
         String pathInfo = req.pathInfo();

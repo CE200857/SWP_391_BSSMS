@@ -9,9 +9,17 @@ public class Product {
     private String productName;
     private String description;
     private double unitPrice;
-    private int stockQuantity;
-    private int reorderLevel;
+    private java.math.BigDecimal stockQuantity=java.math.BigDecimal.ZERO;
+    private java.math.BigDecimal reorderLevel=java.math.BigDecimal.ZERO;
     private String status;
+    private String productType="Retail";
+    private String unit="piece";
+    public String getProductType(){return productType;}
+    public void setProductType(String value){productType=value;}
+    public String getUnit(){return unit;}
+    public void setUnit(String value){unit=value;}
+    public void setStockQuantity(java.math.BigDecimal value){stockQuantity=value;}
+    public void setReorderLevel(java.math.BigDecimal value){reorderLevel=value;}
     private int supplierId; // Thêm thuộc tính liên kết Nhà cung cấp
 
     public Product() {}
@@ -21,8 +29,8 @@ public class Product {
         this.productName = productName;
         this.description = description;
         this.unitPrice = unitPrice;
-        this.stockQuantity = stockQuantity;
-        this.reorderLevel = reorderLevel;
+        this.stockQuantity = java.math.BigDecimal.valueOf(stockQuantity);
+        this.reorderLevel = java.math.BigDecimal.valueOf(reorderLevel);
         this.status = status;
     }
 
@@ -31,8 +39,8 @@ public class Product {
         this.productName = productName;
         this.description = description;
         this.unitPrice = unitPrice;
-        this.stockQuantity = stockQuantity;
-        this.reorderLevel = reorderLevel;
+        this.stockQuantity = java.math.BigDecimal.valueOf(stockQuantity);
+        this.reorderLevel = java.math.BigDecimal.valueOf(reorderLevel);
         this.status = status;
         this.supplierId = supplierId;
     }
@@ -69,20 +77,20 @@ public class Product {
         this.unitPrice = unitPrice;
     }
 
-    public int getStockQuantity() {
+    public java.math.BigDecimal getStockQuantity() {
         return stockQuantity;
     }
 
     public void setStockQuantity(int stockQuantity) {
-        this.stockQuantity = stockQuantity;
+        this.stockQuantity = java.math.BigDecimal.valueOf(stockQuantity);
     }
 
-    public int getReorderLevel() {
+    public java.math.BigDecimal getReorderLevel() {
         return reorderLevel;
     }
 
     public void setReorderLevel(int reorderLevel) {
-        this.reorderLevel = reorderLevel;
+        this.reorderLevel = java.math.BigDecimal.valueOf(reorderLevel);
     }
 
     public String getStatus() {

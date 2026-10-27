@@ -23,6 +23,7 @@ public class SupplierController extends ControllerSupport {
     
     public void get(ActionRequest request, ActionResult response) 
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
 
@@ -42,6 +43,7 @@ public class SupplierController extends ControllerSupport {
     
     public void post(ActionRequest request, ActionResult response) 
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
 
@@ -64,6 +66,7 @@ public class SupplierController extends ControllerSupport {
     
     public void put(ActionRequest request, ActionResult response) 
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
 
@@ -86,6 +89,7 @@ public class SupplierController extends ControllerSupport {
     
     public void delete(ActionRequest request, ActionResult response) 
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
 
