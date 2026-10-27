@@ -1,5 +1,6 @@
 package bssms_controller.auth;
 
+import bssms_account.Account;
 import bssms_controller.common.*;
 import bssms_persistence.common.DataAccessException;
 
@@ -10,7 +11,6 @@ import bssms_security.PasswordUtil;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Map;
 
 public class LoginController extends ControllerSupport {
 
@@ -18,6 +18,7 @@ public class LoginController extends ControllerSupport {
 
     public void post(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         String uri = request.uri();
@@ -52,10 +53,10 @@ public class LoginController extends ControllerSupport {
             String hashedPassword = PasswordUtil.hashMD5(rawPassword);
 
             RegisterDAO dao = use(new RegisterDAO());
-            Map<String, Object> user = dao.authenticateUser(identifier, hashedPassword);
+            Account user = dao.authenticateUser(identifier, hashedPassword);
 
             if (user != null) {
-                if ("Inactive".equals(user.get("status"))) {
+                if ("Inactive".equals(user.getStatus())) {
                     response.status(403);
                     out.print("{\"message\": \"Tài khoản của bạn đã bị khóa hoặc chưa kích hoạt.\"}");
                 } else {

@@ -5,8 +5,8 @@ import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.Map;
+import bssms_account.*;
+
 
 public class ProfileDAO extends DBContext implements AutoCloseable {
 
@@ -15,28 +15,28 @@ public class ProfileDAO extends DBContext implements AutoCloseable {
     }
     @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
-    public Map<String, Object> getProfileByAccountId(int accountId, String role) {
+    public Profile getProfileByAccountId(int accountId, String role) {
         requireConnection();
-        Map<String, Object> map = new HashMap<>();
+        Profile value = new Profile();
         String query;
 
         if ("Customer".equals(role)) {
-            query = "SELECT a.username, a.email, a.phone, a.status, "
+            query = "SELECT c.customer_id, a.username, a.email, a.phone, a.status, "
                     + "c.full_name, c.date_of_birth, c.gender, c.address, "
                     + "c.membership_tier_id AS customer_membership_tier_id, "
                     + "mt.membership_tier_id AS tier_id, "
                     + "mt.tier_name, mt.description, "
                     + "mt.discount_percent, mt.min_spending "
-                    + "FROM Account a "
-                    + "JOIN Customer c ON a.account_id = c.account_id "
+                    + "FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a "
+                    + "JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON a.account_id = c.account_id "
                     + "LEFT JOIN MembershipTier mt "
                     + "ON c.membership_tier_id = mt.membership_tier_id "
                     + "WHERE a.account_id = ?";
         } else {
             query = "SELECT a.username, a.email, a.status, "
                     + "s.full_name, s.phone, s.position AS role "
-                    + "FROM Account a "
-                    + "JOIN Staff s ON a.account_id = s.account_id "
+                    + "FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a "
+                    + "JOIN " + bssms_persistence.common.SchemaSql.STAFF + " s ON a.account_id = s.account_id "
                     + "WHERE a.account_id = ?";
         }
 
@@ -48,53 +48,44 @@ public class ProfileDAO extends DBContext implements AutoCloseable {
                 ResultSet rs = ps.executeQuery();
 
                 if (rs.next()) {
-                    map.put("username", rs.getString("username"));
-                    map.put("email", rs.getString("email"));
-                    map.put("phone", rs.getString("phone"));
-                    map.put("status", rs.getString("status"));
-                    map.put("fullName", rs.getString("full_name"));
+                    value.setUsername(rs.getString("username"));
+                    value.setEmail(rs.getString("email"));
+                    value.setPhone(rs.getString("phone"));
+                    value.setStatus(rs.getString("status"));
+                    value.setFullName(rs.getString("full_name"));
 
                     if ("Customer".equals(role)) {
-                        map.put("dob", rs.getDate("date_of_birth"));
-                        map.put("gender", rs.getString("gender"));
-                        map.put("address", rs.getString("address"));
-                        map.put("role", "Customer");
+                        value.setCustomerId(rs.getInt("customer_id"));
+                        value.setDob(rs.getDate("date_of_birth"));
+                        value.setGender(rs.getString("gender"));
+                        value.setAddress(rs.getString("address"));
+                        value.setRole("Customer");
 
-                        Object customerTierId
-                                = rs.getObject("customer_membership_tier_id");
+                        Integer customerTierId
+                                = rs.getObject("customer_membership_tier_id", Integer.class);
 
-                        map.put("membershipTierId", customerTierId);
+                        value.setMembershipTierId(customerTierId);
 
-                        Map<String, Object> membership = null;
+                        MembershipTier membership = null;
 
                         if (rs.getObject("tier_id") != null) {
-                            membership = new HashMap<>();
+                            membership = new MembershipTier();
 
-                            membership.put(
-                                    "membershipTierId",
-                                    rs.getInt("tier_id")
+                            membership.setMembershipTierId(rs.getInt("tier_id")
                             );
-                            membership.put(
-                                    "tierName",
-                                    rs.getString("tier_name")
+                            membership.setTierName(rs.getString("tier_name")
                             );
-                            membership.put(
-                                    "description",
-                                    rs.getString("description")
+                            membership.setDescription(rs.getString("description")
                             );
-                            membership.put(
-                                    "discountPercent",
-                                    rs.getBigDecimal("discount_percent")
+                            membership.setDiscountPercent(rs.getBigDecimal("discount_percent")
                             );
-                            membership.put(
-                                    "minSpending",
-                                    rs.getBigDecimal("min_spending")
+                            membership.setMinSpending(rs.getBigDecimal("min_spending")
                             );
                         }
 
-                        map.put("membership", membership);
+                        value.setMembership(membership);
                     } else {
-                        map.put("role", rs.getString("role"));
+                        value.setRole(rs.getString("role"));
                     }
                 }
             }
@@ -102,12 +93,12 @@ public class ProfileDAO extends DBContext implements AutoCloseable {
             DataAccessException.rethrowIfDatabase(e);
         }
 
-        return map;
+        return value;
     }
 
     public boolean isUsernameTaken(String username, int currentAccountId) {
         requireConnection();
-        String sql = "SELECT account_id FROM Account WHERE username = ? AND account_id != ?";
+        String sql = "SELECT account_id FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE username = ? AND account_id != ?";
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(sql);
@@ -124,143 +115,23 @@ public class ProfileDAO extends DBContext implements AutoCloseable {
 
     public boolean createCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address) {
         requireConnection();
-        String updateAccountSql = "UPDATE Account SET phone = ? WHERE account_id = ?";
-        String insertCustomerSql = "INSERT INTO Customer (account_id, membership_tier_id, full_name, date_of_birth, gender, address, phone) VALUES (?, 1, ?, ?, ?, ?, ?)";
-
         try {
-            if (conn != null) {
-                conn.setAutoCommit(false);
-
-                PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
-                psAccount.setString(1, phone);
-                psAccount.setInt(2, accountId);
-                psAccount.executeUpdate();
-
-                PreparedStatement psCustomer = conn.prepareStatement(insertCustomerSql);
-                psCustomer.setInt(1, accountId);
-                psCustomer.setString(2, fullName);
-                psCustomer.setString(3, dob);
-                psCustomer.setString(4, gender);
-                psCustomer.setString(5, address);
-                psCustomer.setString(6, phone);
-                psCustomer.executeUpdate();
-
-                conn.commit();
-                return true;
-            }
-        } catch (Exception e) {
-            try {
-                if (conn != null) {
-                    conn.rollback();
-                }
-            } catch (SQLException ex) {
-                DataAccessException.rethrowIfDatabase(ex);
-            }
-            DataAccessException.rethrowIfDatabase(e);
-        } finally {
-            try {
-                if (conn != null) {
-                    conn.setAutoCommit(true);
-                }
-            } catch (SQLException ex) {
-                DataAccessException.rethrowIfDatabase(ex);
-            }
-        }
-        return false;
+            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Customer SET full_name=?,date_of_birth=?,gender=?,phone=?,address=? WHERE customer_id=?", fullName,dob,gender,phone,address,bssms_common.LoginIdentity.customerId(accountId)) == 1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
     public boolean updateCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address, String username, String email) {
         requireConnection();
-        String updateAccountSql = "UPDATE Account SET phone = ?, username = ?, email = ? WHERE account_id = ?";
-        String updateCustomerSql = "UPDATE Customer SET full_name = ?, date_of_birth = ?, gender = ?, address = ?, phone = ? WHERE account_id = ?";
-
         try {
-            if (conn != null) {
-                conn.setAutoCommit(false);
-
-                PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
-                psAccount.setString(1, phone);
-                psAccount.setString(2, username);
-                psAccount.setString(3, email);
-                psAccount.setInt(4, accountId);
-                psAccount.executeUpdate();
-
-                PreparedStatement psCustomer = conn.prepareStatement(updateCustomerSql);
-                psCustomer.setString(1, fullName);
-                psCustomer.setString(2, dob);
-                psCustomer.setString(3, gender);
-                psCustomer.setString(4, address);
-                psCustomer.setString(5, phone);
-                psCustomer.setInt(6, accountId);
-                psCustomer.executeUpdate();
-
-                conn.commit();
-                return true;
-            }
-        } catch (Exception e) {
-            try {
-                if (conn != null) {
-                    conn.rollback();
-                }
-            } catch (SQLException ex) {
-                DataAccessException.rethrowIfDatabase(ex);
-            }
-            DataAccessException.rethrowIfDatabase(e);
-        } finally {
-            try {
-                if (conn != null) {
-                    conn.setAutoCommit(true);
-                }
-            } catch (SQLException ex) {
-                DataAccessException.rethrowIfDatabase(ex);
-            }
-        }
-        return false;
+            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Customer SET full_name=?,date_of_birth=?,gender=?,phone=?,address=?,username=?,email=? WHERE customer_id=?", fullName,dob,gender,phone,address,username,email,bssms_common.LoginIdentity.customerId(accountId)) == 1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
     public boolean updateStaffProfile(int accountId, String fullName, String phone, String username) {
         requireConnection();
-        String updateAccountSql = "UPDATE Account SET phone = ?, username = ? WHERE account_id = ?";
-        String updateStaffSql = "UPDATE Staff SET full_name = ?, phone = ? WHERE account_id = ?";
-
         try {
-            if (conn != null) {
-                conn.setAutoCommit(false);
-
-                PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
-                psAccount.setString(1, phone);
-                psAccount.setString(2, username);
-                psAccount.setInt(3, accountId);
-                psAccount.executeUpdate();
-
-                PreparedStatement psStaff = conn.prepareStatement(updateStaffSql);
-                psStaff.setString(1, fullName);
-                psStaff.setString(2, phone);
-                psStaff.setInt(3, accountId);
-                psStaff.executeUpdate();
-
-                conn.commit();
-                return true;
-            }
-        } catch (Exception e) {
-            try {
-                if (conn != null) {
-                    conn.rollback();
-                }
-            } catch (SQLException ex) {
-                DataAccessException.rethrowIfDatabase(ex);
-            }
-            DataAccessException.rethrowIfDatabase(e);
-        } finally {
-            try {
-                if (conn != null) {
-                    conn.setAutoCommit(true);
-                }
-            } catch (SQLException ex) {
-                DataAccessException.rethrowIfDatabase(ex);
-            }
-        }
-        return false;
+            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Staff SET full_name=?,phone=?,username=? WHERE staff_id=?", fullName,phone,username,bssms_common.LoginIdentity.staffId(accountId)) == 1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
@@ -281,7 +152,7 @@ public class ProfileDAO extends DBContext implements AutoCloseable {
             return "Email (Trùng với email hệ thống)";
         }
 
-        String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
+        String sql = "SELECT username, email, phone FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE (username = ? OR email = ? OR phone = ?)";
 
         if (excludeAccountId != null) {
             sql += " AND account_id != ?";

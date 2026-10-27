@@ -1,5 +1,6 @@
 package bssms_controller.auth;
 
+import bssms_account.Account;
 import bssms_controller.common.*;
 import bssms_persistence.common.DataAccessException;
 
@@ -16,6 +17,7 @@ public class RegisterController extends ControllerSupport {
 
     public void post(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
 
@@ -112,7 +114,7 @@ public class RegisterController extends ControllerSupport {
             if (isCreated) {
                 dao.deleteVerificationCode(email);
 
-                java.util.Map<String, Object> user = dao.authenticateUser(email, hashedPassword);
+                Account user = dao.authenticateUser(email, hashedPassword);
                 if (user != null) {
                     SessionState session = request.session(true);
                     session.set("user", user);

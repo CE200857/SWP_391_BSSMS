@@ -1,5 +1,7 @@
 package bssms_controller.DatNT;
 
+import bssms_account.Account;
+import bssms_common.SessionUsers;
 import bssms_controller.common.*;
 import bssms_persistence.common.DataAccessException;
 
@@ -12,7 +14,6 @@ import bssms_security.PasswordUtil;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Map;
 
 public class ProfileController extends ControllerSupport {
 
@@ -34,33 +35,30 @@ public class ProfileController extends ControllerSupport {
         return formatted.toString().trim();
     }
 
-    private int extractAccountId(Map<String, Object> user) {
-        if (user.containsKey("account_id")) {
-            return ((Number) user.get("account_id")).intValue();
-        } else if (user.containsKey("accountId")) {
-            return ((Number) user.get("accountId")).intValue();
-        }
-        return -1;
+    private int extractAccountId(Account user) {
+        if (user == null || user.getAccountId() == null || user.getAccountId() <= 0)
+            throw new IllegalArgumentException("Invalid login session.");
+        return user.getAccountId();
     }
 
     public void get(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         try {
             SessionState currentSession=request.session(false);
-            if(currentSession==null || !(currentSession.get("user") instanceof Map)) {
+            if(currentSession==null || SessionUsers.from(currentSession.get("user")) == null) {
                 response.error(401,"Vui lòng đăng nhập để xem hồ sơ."); return;
             }
-            @SuppressWarnings("unchecked")
-            Map<String,Object> currentUser=(Map<String,Object>)currentSession.get("user");
+            Account currentUser = SessionUsers.from(currentSession.get("user"));
             int accountId=extractAccountId(currentUser);
-            String role=(String)currentUser.get("role");
+            String role=currentUser.getRole();
 
             ProfileDAO dao = use(new ProfileDAO());
-            Map<String, Object> profile = dao.getProfileByAccountId(accountId, role);
+            bssms_account.Profile profile = dao.getProfileByAccountId(accountId, role);
 
             PrintWriter out = response.writer();
-            if (profile != null && !profile.isEmpty()) {
+            if (profile != null && profile.getUsername() != null) {
                 response.status(200);
                 out.print(gson.toJson(profile));
             } else {
@@ -77,11 +75,12 @@ public class ProfileController extends ControllerSupport {
     }
 
     public void post(ActionRequest request, ActionResult response) throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         SessionState session = request.session(false);
 
-        if (session == null || session.get("user") == null) {
+        if (session == null || SessionUsers.from(session.get("user")) == null) {
             response.status(401);
             out.print("{\"message\": \"Phiên làm việc không hợp lệ! Vui lòng đăng nhập lại.\"}");
             out.flush();
@@ -89,10 +88,9 @@ public class ProfileController extends ControllerSupport {
         }
 
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> user = (Map<String, Object>) session.get("user");
+            Account user = SessionUsers.from(session.get("user"));
             int accountId = extractAccountId(user);
-            String role = (String) user.get("role");
+            String role = user.getRole();
             String uri = request.uri();
 
             JsonObject jsonObject = gson.fromJson(request.bodyReader(), JsonObject.class);
@@ -202,8 +200,8 @@ public class ProfileController extends ControllerSupport {
                     return;
                 }
 
-                Map<String, Object> currentProfile = dao.getProfileByAccountId(accountId, role);
-                String currentEmail = currentProfile.get("email") != null ? currentProfile.get("email").toString().trim() : "";
+                bssms_account.Profile currentProfile = dao.getProfileByAccountId(accountId, role);
+                String currentEmail = currentProfile.getEmail() != null ? currentProfile.getEmail().toString().trim() : "";
                 String newEmail = jsonObject.has("email") ? jsonObject.get("email").getAsString().trim() : currentEmail;
 
                 boolean isEmailChanged = "Customer".equals(role) && !newEmail.equalsIgnoreCase(currentEmail);
@@ -255,10 +253,10 @@ public class ProfileController extends ControllerSupport {
                 if (isUpdated) {
                     if (isEmailChanged) {
                         authDao.deleteVerificationCode(newEmail);
-                        user.put("email", newEmail);
+                        user.setEmail(newEmail);
                     }
-                    user.put("fullName", standardizedName);
-                    user.put("username", username);
+                    user.setFullName(standardizedName);
+                    user.setUsername(username);
                     session.set("user", user);
                     response.status(200);
                     out.print(gson.toJson(user));
@@ -284,8 +282,8 @@ public class ProfileController extends ControllerSupport {
 
             boolean isCreated = dao.createCustomerProfile(accountId, standardizedName, dob, gender, phone, address);
             if (isCreated) {
-                user.put("role", "Customer");
-                user.put("fullName", standardizedName);
+                user.setRole("Customer");
+                user.setFullName(standardizedName);
                 session.set("user", user);
                 response.status(200);
                 out.print(gson.toJson(user));

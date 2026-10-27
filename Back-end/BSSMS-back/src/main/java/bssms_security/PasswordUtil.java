@@ -15,7 +15,7 @@ public class PasswordUtil {
         String hash = "";
         try {
             MessageDigest md = MessageDigest.getInstance("md5");
-            byte[] bytes = md.digest(pass.getBytes());
+            byte[] bytes = md.digest(pass.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             for (byte b : bytes) {
                 hash += String.format("%02x", b);
             }
