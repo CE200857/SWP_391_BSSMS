@@ -22,7 +22,7 @@ public class CustomerPackageDAO extends DBContext {
             System.out.println("Database connection is null in CustomerPackageDAO.customerExists()");
             return false;
         }
-        String sql = "SELECT COUNT(*) FROM Customer WHERE customer_id = ?";
+        String sql = "SELECT COUNT(*) FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " Customer WHERE customer_id = ?";
         try {
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, customerId);
@@ -84,6 +84,7 @@ public class CustomerPackageDAO extends DBContext {
      * @return Map chứa customerPackageId và invoiceId vừa tạo
      */
     public Map<String, Object> sellTreatmentPackage(int customerId, int treatmentPackageId, int expiryMonths) throws Exception {
+<<<<<<< Updated upstream
         if (conn == null) {
             throw new Exception("Database connection is null in CustomerPackageDAO.sellTreatmentPackage()");
         }
@@ -226,12 +227,24 @@ public class CustomerPackageDAO extends DBContext {
                 ex.printStackTrace();
             }
         }
+=======
+        bssms_persistence.common.Workflow w=workflow();
+        int invoiceId=((Number)w.call("usp_CreateInvoice",requireActorAccountId(),customerId,null,treatmentPackageId,"[]",null,false).get(0).get("invoiceId")).intValue();
+        Map<String,Object> result=w.one("SELECT cp.*,ip.invoice_id FROM CustomerPackage cp JOIN " + bssms_persistence.common.SchemaSql.PACKAGE_SALES + " ip ON ip.customer_package_id=cp.customer_package_id WHERE ip.invoice_id=?",invoiceId);
+        result.put("paymentStatus","Unpaid");
+        result.put("message","Package invoice created. Pay the invoice before booking sessions. Validity follows TreatmentPackage.validity_days.");return result;
+>>>>>>> Stashed changes
     }
 
     /**
      * Lấy danh sách CustomerPackage của 1 khách hàng.
      */
     public List<CustomerPackage> getCustomerPackagesByCustomerId(int customerId) {
+<<<<<<< Updated upstream
+=======
+        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
+        requireConnection();
+>>>>>>> Stashed changes
         List<CustomerPackage> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in CustomerPackageDAO.getCustomerPackagesByCustomerId()");
@@ -269,6 +282,7 @@ public class CustomerPackageDAO extends DBContext {
      */
     public boolean updateCustomerPackage(int customerPackageId, int remainingSessions,
                                          String expiryDate, String status) {
+<<<<<<< Updated upstream
         // Đảm bảo status không null/empty
         if (status == null || status.trim().isEmpty()) {
             status = "Active";
@@ -316,6 +330,9 @@ public class CustomerPackageDAO extends DBContext {
             try { if (newConn != null) newConn.close(); } catch (Exception ex) { ex.printStackTrace(); }
         }
         return false;
+=======
+        throw new bssms_persistence.common.WorkflowException(409,"Sessions and status follow completion/refund workflows. Direct package editing is disabled.");
+>>>>>>> Stashed changes
     }
 }
 
