@@ -4,6 +4,7 @@ import bssms_controller.common.*;
 import bssms_persistence.common.DataAccessException;
 
 import java.io.IOException;
+import bssms_booking.Appointment;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +22,7 @@ public class AppointmentController extends ControllerSupport {
     public void get(ActionRequest request,
             ActionResult response)
             throws IOException {
+        bind(request);
 
         AppointmentDAO dao = use(new AppointmentDAO());
 
@@ -29,7 +31,7 @@ public class AppointmentController extends ControllerSupport {
         // GET /api/appointments
         if (pathInfo == null || pathInfo.equals("/")) {
 
-            List<Map<String, Object>> appointmentList = dao.getAllAppointmentDetails();
+            List<Appointment> appointmentList = dao.getAllAppointmentDetails();
 
             String jsonString = gson.toJson(appointmentList);
 
@@ -44,7 +46,7 @@ public class AppointmentController extends ControllerSupport {
 
             int appointmentId = Integer.parseInt(pathInfo.substring(1));
 
-            Map<String, Object> appointment = dao.getAppointmentDetails(appointmentId);
+            Appointment appointment = dao.getAppointmentDetails(appointmentId);
 
             if (appointment != null) {
 
@@ -83,6 +85,7 @@ public class AppointmentController extends ControllerSupport {
             ActionRequest request,
             ActionResult response)
             throws IOException {
+        bind(request);
 
         // Only POST /api/appointments is supported.
         String pathInfo = request.pathInfo();
@@ -157,7 +160,7 @@ public class AppointmentController extends ControllerSupport {
 
             AppointmentDAO dao = use(new AppointmentDAO());
 
-            Map<String, Object> result
+            Appointment result
                     = dao.createWalkInAppointment(
                             customerId,
                             serviceId,
@@ -212,6 +215,7 @@ public class AppointmentController extends ControllerSupport {
             ActionRequest request,
             ActionResult response)
             throws IOException {
+        bind(request);
 
         String pathInfo = request.pathInfo();
 
@@ -236,14 +240,14 @@ public class AppointmentController extends ControllerSupport {
 
                 int appointmentId = Integer.parseInt(pathParts[1]);
 
-                Map<String, String> data = gson.fromJson(
+                Appointment data = gson.fromJson(
                         request.bodyReader(),
-                        Map.class
+                        Appointment.class
                 );
 
-                String appointmentDate = data.get("appointmentDate");
-                String startTime = data.get("startTime");
-                String endTime = data.get("endTime");
+                String appointmentDate = data.getAppointmentDate();
+                String startTime = data.getStartTime();
+                String endTime = data.getEndTime();
 
                 AppointmentDAO dao = use(new AppointmentDAO());
 
@@ -285,9 +289,9 @@ public class AppointmentController extends ControllerSupport {
 
                 AppointmentDAO dao = use(new AppointmentDAO());
 
-                boolean success = dao.cancelAppointment(
-                        appointmentId
-                );
+                JsonObject cancelData=gson.fromJson(request.bodyReader(),JsonObject.class);
+                if(cancelData==null || !cancelData.has("reason")) throw new IllegalArgumentException("Cancellation reason required.");
+                boolean success = dao.cancelAppointment(appointmentId,cancelData.get("reason").getAsString());
 
                 if (success) {
 

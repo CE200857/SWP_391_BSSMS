@@ -1,5 +1,6 @@
 package bssms_controller.KhanhND;
 
+import bssms_account.Staff;
 import bssms_controller.common.*;
 import bssms_persistence.common.DataAccessException;
 
@@ -8,13 +9,13 @@ import com.google.gson.Gson;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
-import java.util.Map;
 public class StaffController extends ControllerSupport {
 
     private final Gson gson = new Gson();
 
     public void get(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         StaffDAO dao = use(new StaffDAO());
         PrintWriter out = response.writer();
@@ -24,9 +25,9 @@ public class StaffController extends ControllerSupport {
         if (idParam != null && !idParam.trim().isEmpty()) {
             try {
                 int staffId = Integer.parseInt(idParam);
-                Map<String, Object> staff = dao.getStaffById(staffId);
+                Staff staff = dao.getStaffById(staffId);
 
-                if (staff.isEmpty()) {
+                if (staff.getStaffId() == null) {
                     response.status(404);
                     out.print("{\"message\": \"Không tìm thấy nhân viên này\"}");
                 } else {
@@ -37,7 +38,7 @@ public class StaffController extends ControllerSupport {
                 out.print("{\"message\": \"ID nhân viên không hợp lệ\"}");
             }
         } else {
-            List<Map<String, Object>> staffList = dao.getAllStaffDetails();
+            List<Staff> staffList = dao.getAllStaffDetails();
             out.print(gson.toJson(staffList));
         }
         out.flush();
@@ -45,6 +46,7 @@ public class StaffController extends ControllerSupport {
 
     public void delete(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         try {
             int staffId = Integer.parseInt(request.parameter("id"));
@@ -76,6 +78,7 @@ public class StaffController extends ControllerSupport {
 
     public void post(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         String pathInfo = request.uri();
         PrintWriter out = response.writer();

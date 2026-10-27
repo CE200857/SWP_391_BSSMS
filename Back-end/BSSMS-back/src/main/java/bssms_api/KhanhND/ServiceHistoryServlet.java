@@ -1,5 +1,7 @@
 package bssms_api.KhanhND;
 
+import bssms_account.Account;
+import bssms_common.SessionUsers;
 import bssms_persistence.KhanhND.ServiceHistoryDAO;
 import com.google.gson.Gson;
 import jakarta.servlet.ServletException;
@@ -43,15 +45,14 @@ public class ServiceHistoryServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         HttpSession session = request.getSession(false);
-        if (session == null || !(session.getAttribute("user") instanceof Map)) {
+        if (session == null || SessionUsers.from(session.getAttribute("user")) == null) {
             writeError(response, HttpServletResponse.SC_UNAUTHORIZED,
                     "Vui lòng đăng nhập để xem lịch sử dịch vụ.");
             return;
         }
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> user = (Map<String, Object>) session.getAttribute("user");
-        Object roleValue = user.get("role");
+        Account user = SessionUsers.from(session.getAttribute("user"));
+        Object roleValue = user.getRole();
         String role = roleValue == null ? "" : roleValue.toString();
 
         ServiceHistoryDAO dao = new ServiceHistoryDAO();
@@ -60,14 +61,14 @@ public class ServiceHistoryServlet extends HttpServlet {
             List<Map<String, Object>> result;
 
             if ("Customer".equals(role)) {
-                Integer accountId = getPositiveId(user, "accountId", "account_id");
+                Integer accountId = parsePositiveId(user.getAccountId());
                 Integer customerId;
 
                 // Prefer resolving through the account-to-customer relationship.
                 if (accountId != null) {
                     customerId = dao.findCustomerIdByAccountId(accountId);
                 } else {
-                    customerId = getPositiveId(user, "customerId", "customer_id");
+                    customerId = parsePositiveId(user.getCustomerId());
                 }
 
                 if (customerId == null) {
@@ -80,13 +81,13 @@ public class ServiceHistoryServlet extends HttpServlet {
                 result = dao.getHistoryByCustomer(customerId);
 
             } else if ("Technician".equals(role)) {
-                Integer accountId = getPositiveId(user, "accountId", "account_id");
+                Integer accountId = parsePositiveId(user.getAccountId());
                 Integer staffId;
 
                 if (accountId != null) {
                     staffId = dao.findStaffIdByAccountId(accountId);
                 } else {
-                    staffId = getPositiveId(user, "staffId", "staff_id");
+                    staffId = parsePositiveId(user.getStaffId());
                 }
 
                 if (staffId == null) {
@@ -127,16 +128,6 @@ public class ServiceHistoryServlet extends HttpServlet {
             writeError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "Không thể tải lịch sử dịch vụ lúc này.");
         }
-    }
-
-    private Integer getPositiveId(Map<String, Object> user, String... keys) {
-        for (String key : keys) {
-            Integer value = parsePositiveId(user.get(key));
-            if (value != null) {
-                return value;
-            }
-        }
-        return null;
     }
 
     private Integer parsePositiveId(Object value) {

@@ -165,7 +165,7 @@ public class MembershipTierDAO extends DBContext {
                 + "oldTier.tier_name AS source_name, "
                 + "newTier.membership_tier_id AS target_id, "
                 + "newTier.tier_name AS target_name, "
-                + "(SELECT COUNT(*) FROM Customer c "
+                + "(SELECT COUNT(*) FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c "
                 + "WHERE c.membership_tier_id = oldTier.membership_tier_id) "
                 + "AS customer_count "
                 + "FROM MembershipTier oldTier "

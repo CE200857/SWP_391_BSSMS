@@ -1,5 +1,7 @@
 package bssms_api.KhanhND;
 
+import bssms_account.Account;
+import bssms_common.SessionUsers;
 import bssms_persistence.KhanhND.MembershipTierDAO;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -89,7 +91,7 @@ public class MembershipTierServlet extends HttpServlet {
 
         Object sessionUser = session.getAttribute("user");
 
-        if (!(sessionUser instanceof Map)) {
+        if (SessionUsers.from(sessionUser) == null) {
             sendMessage(
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
@@ -98,8 +100,8 @@ public class MembershipTierServlet extends HttpServlet {
             return null;
         }
 
-        Map<?, ?> user = (Map<?, ?>) sessionUser;
-        Object role = user.get("role");
+        Account user = SessionUsers.from(sessionUser);
+        Object role = user.getRole();
 
         if (role == null) {
             sendMessage(
