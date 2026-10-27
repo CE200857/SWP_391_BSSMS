@@ -17,7 +17,7 @@ public class VoucherDAO extends DBContext {
                      + "v.discount_type, v.discount_value, v.start_date, v.end_date, v.status, "
                      + "c.full_name AS customer_name "
                      + "FROM Voucher v "
-                     + "LEFT JOIN Customer c ON v.customer_id = c.customer_id "
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON v.customer_id = c.customer_id "
                      + "ORDER BY v.start_date DESC";
         try {
             if (conn != null) {
@@ -51,7 +51,7 @@ public class VoucherDAO extends DBContext {
                      + "v.discount_type, v.discount_value, v.start_date, v.end_date, v.status, "
                      + "c.full_name AS customer_name "
                      + "FROM Voucher v "
-                     + "LEFT JOIN Customer c ON v.customer_id = c.customer_id "
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON v.customer_id = c.customer_id "
                      + "WHERE v.voucher_id = ?";
         try {
             if (conn != null) {
@@ -93,7 +93,7 @@ public class VoucherDAO extends DBContext {
                 }
                 ps.setString(2, voucherCode);
                 ps.setString(3, voucherName);
-                ps.setString(4, discountType);
+                ps.setString(4, "Percent".equals(discountType)?"Percentage":discountType);
                 ps.setDouble(5, discountValue);
                 ps.setString(6, startDate);
                 ps.setString(7, endDate);
@@ -111,7 +111,7 @@ public class VoucherDAO extends DBContext {
                                 String discountType, double discountValue, String startDate, String endDate, String status) {
         String query = "UPDATE Voucher SET customer_id = ?, voucher_code = ?, voucher_name = ?, "
                       + "discount_type = ?, discount_value = ?, start_date = ?, end_date = ?, status = ? "
-                      + "WHERE voucher_id = ?";
+                      + "WHERE voucher_id = ? AND voucher_kind='Manual' AND used_count=0 AND NOT EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.REDEMPTIONS + " vr WHERE vr.voucher_id=Voucher.voucher_id)";
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
@@ -122,7 +122,7 @@ public class VoucherDAO extends DBContext {
                 }
                 ps.setString(2, voucherCode);
                 ps.setString(3, voucherName);
-                ps.setString(4, discountType);
+                ps.setString(4, "Percent".equals(discountType)?"Percentage":discountType);
                 ps.setDouble(5, discountValue);
                 ps.setString(6, startDate);
                 ps.setString(7, endDate);
@@ -139,7 +139,12 @@ public class VoucherDAO extends DBContext {
 
     // Xóa voucher
     public boolean deleteVoucher(int voucherId) {
+<<<<<<< Updated upstream
         String query = "DELETE FROM Voucher WHERE voucher_id = ?";
+=======
+        requireConnection();
+        String query = "UPDATE Voucher SET status='Inactive' WHERE voucher_id = ? AND voucher_kind='Manual' AND used_count=0 AND NOT EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.REDEMPTIONS + " vr WHERE vr.voucher_id=Voucher.voucher_id)";
+>>>>>>> Stashed changes
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
