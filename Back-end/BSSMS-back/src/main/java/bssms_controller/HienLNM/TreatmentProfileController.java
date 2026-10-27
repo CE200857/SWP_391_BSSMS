@@ -15,6 +15,7 @@ public class TreatmentProfileController extends ControllerSupport {
 
     public void get(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         TreatmentProfileDAO dao = use(new TreatmentProfileDAO());
         PrintWriter out = response.writer();
@@ -51,6 +52,7 @@ public class TreatmentProfileController extends ControllerSupport {
 
     public void post(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         try {

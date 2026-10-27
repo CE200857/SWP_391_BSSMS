@@ -36,7 +36,7 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
               + "a.room_id, r.room_name, a.bed_id, b.bed_number, "
               + "a.appointment_date, a.start_time, a.end_time, a.status, a.notes "
               + "FROM Appointment a "
-              + "JOIN Customer c ON a.customer_id = c.customer_id "
+              + "JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON a.customer_id = c.customer_id "
               + "LEFT JOIN Service s ON a.service_id = s.service_id "
               + "LEFT JOIN CustomerPackage cp ON a.customer_package_id = cp.customer_package_id "
               + "LEFT JOIN TreatmentPackage tp ON cp.treatment_package_id = tp.treatment_package_id "
@@ -45,6 +45,7 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
               + "WHERE 1=1 ");
 
         List<Object> params = new ArrayList<>();
+        sql.append("AND "+bssms_persistence.common.Workflow.appointmentScope()+" ");params.add(requireActorAccountId());
         if (customerId != null) {
             sql.append("AND a.customer_id = ? ");
             params.add(customerId);
@@ -101,6 +102,7 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
      * Lấy chi tiết 1 buổi điều trị theo appointmentId.
      */
     public Map<String, Object> getTreatmentStatusById(int appointmentId) {
+        try{workflow().appointmentAccess(appointmentId);}catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in TreatmentStatusDAO.getTreatmentStatusById()");
@@ -113,7 +115,7 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
                    + "a.room_id, r.room_name, a.bed_id, b.bed_number, "
                    + "a.appointment_date, a.start_time, a.end_time, a.status, a.notes "
                    + "FROM Appointment a "
-                   + "JOIN Customer c ON a.customer_id = c.customer_id "
+                   + "JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON a.customer_id = c.customer_id "
                    + "LEFT JOIN Service s ON a.service_id = s.service_id "
                    + "LEFT JOIN CustomerPackage cp ON a.customer_package_id = cp.customer_package_id "
                    + "LEFT JOIN TreatmentPackage tp ON cp.treatment_package_id = tp.treatment_package_id "

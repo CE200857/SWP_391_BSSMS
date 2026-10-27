@@ -15,6 +15,7 @@ public class VoucherController extends ControllerSupport {
 
     public void get(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         VoucherDAO dao = use(new VoucherDAO());
         PrintWriter out = response.writer();
@@ -39,6 +40,7 @@ public class VoucherController extends ControllerSupport {
 
     public void post(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         try {
@@ -113,6 +115,7 @@ public class VoucherController extends ControllerSupport {
 
     public void delete(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         try {

@@ -15,6 +15,11 @@ import java.util.Map;
  */
 public class FeedbackDAO extends DBContext implements AutoCloseable {
 
+    public boolean moderate(int id,boolean hidden,String reason) throws java.sql.SQLException {
+        workflow().roles("Manager");
+        if(reason==null||reason.isBlank()) throw new IllegalArgumentException("Moderation reason required.");
+        return workflow().update("UPDATE Appointment SET feedback_is_hidden=?,feedback_moderation_reason=?,feedback_updated_at=CONVERT(datetime2,SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time') WHERE feedback_id=?",hidden,reason,id)==1;
+    }
     private void requireConnection() {
         if (conn == null) throw new DataAccessException("Database connection unavailable");
     }
@@ -25,6 +30,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * mà chưa có feedback - để user chọn khi tạo feedback.
      */
     public List<Map<String, Object>> getAvailableAppointmentsForFeedback(int customerId) {
+        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
@@ -34,11 +40,11 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
         String sql = "SELECT a.appointment_id, a.customer_id, c.full_name AS customer_name, "
                    + "s.service_name, a.appointment_date, a.start_time, a.end_time, a.status "
                    + "FROM Appointment a "
-                   + "JOIN Customer c ON a.customer_id = c.customer_id "
+                   + "JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON a.customer_id = c.customer_id "
                    + "LEFT JOIN Service s ON a.service_id = s.service_id "
                    + "WHERE a.customer_id = ? "
                    + "AND a.status = 'Completed' "
-                   + "AND a.appointment_id NOT IN (SELECT appointment_id FROM Feedback) "
+                   + "AND a.appointment_id NOT IN (SELECT appointment_id FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " Feedback) "
                    + "ORDER BY a.appointment_date DESC, a.start_time DESC";
         try {
             PreparedStatement ps = conn.prepareStatement(sql);
@@ -77,11 +83,11 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
         String sql = "SELECT f.feedback_id, f.customer_id, c.full_name AS customer_name, "
                    + "f.appointment_id, s.service_name, a.appointment_date, "
                    + "f.rating, f.comment, f.created_at "
-                   + "FROM Feedback f "
-                   + "JOIN Customer c ON f.customer_id = c.customer_id "
+                   + "FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " f "
+                   + "JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON f.customer_id = c.customer_id "
                    + "JOIN Appointment a ON f.appointment_id = a.appointment_id "
                    + "LEFT JOIN Service s ON a.service_id = s.service_id "
-                   + "ORDER BY f.created_at DESC";
+                   + "WHERE f.is_hidden=0 ORDER BY f.created_at DESC";
         try {
             PreparedStatement ps = conn.prepareStatement(sql);
             ResultSet rs = ps.executeQuery();
@@ -110,6 +116,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * Lấy danh sách Feedback theo customerId.
      */
     public List<Map<String, Object>> getFeedbackByCustomerId(int customerId) {
+        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
@@ -119,12 +126,12 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
         String sql = "SELECT f.feedback_id, f.customer_id, c.full_name AS customer_name, "
                    + "f.appointment_id, s.service_name, a.appointment_date, "
                    + "f.rating, f.comment, f.created_at "
-                   + "FROM Feedback f "
-                   + "JOIN Customer c ON f.customer_id = c.customer_id "
+                   + "FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " f "
+                   + "JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON f.customer_id = c.customer_id "
                    + "JOIN Appointment a ON f.appointment_id = a.appointment_id "
                    + "LEFT JOIN Service s ON a.service_id = s.service_id "
                    + "WHERE f.customer_id = ? "
-                   + "ORDER BY f.created_at DESC";
+                   + "AND f.is_hidden=0 ORDER BY f.created_at DESC";
         try {
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, customerId);
@@ -159,7 +166,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             System.out.println("Database connection is null in FeedbackDAO.getFeedbackById()");
             return null;
         }
-        String sql = "SELECT * FROM Feedback WHERE feedback_id = ?";
+        String sql = "SELECT * FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " Feedback WHERE feedback_id = ? AND is_hidden=0";
         try {
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, id);
@@ -194,7 +201,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             System.out.println("Database connection is null in FeedbackDAO.getFeedbackByAppointmentId()");
             return null;
         }
-        String sql = "SELECT * FROM Feedback WHERE appointment_id = ?";
+        String sql = "SELECT * FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " Feedback WHERE appointment_id = ? AND is_hidden=0";
         try {
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, appointmentId);
@@ -230,52 +237,12 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * 5. rating 1-5
      */
     public int addFeedback(Feedback fb) throws Exception {
-        requireConnection();
-        if (conn == null) {
-            throw new Exception("Database connection is null in FeedbackDAO.addFeedback()");
-        }
-
-        // Validate rating
-        if (fb.getRating() < 1 || fb.getRating() > 5) {
-            throw new Exception("Rating phai nam trong khoang 1 den 5");
-        }
-
-        // Validate appointment tồn tại
-        Map<String, Object> appt = getAppointmentInfo(fb.getAppointmentId());
-        if (appt == null) {
-            throw new Exception("Khong tim thay appointment voi id = " + fb.getAppointmentId());
-        }
-
-        // Validate appointment thuộc về customer
-        int apptCustomerId = (Integer) appt.get("customerId");
-        if (apptCustomerId != fb.getCustomerId()) {
-            throw new Exception("Appointment khong thuoc ve customer nay");
-        }
-
-        // Validate appointment đã hoàn thành
-        String apptStatus = (String) appt.get("status");
-        if (!"Completed".equalsIgnoreCase(apptStatus)) {
-            throw new Exception("Chi co the danh gia appointment da hoan thanh");
-        }
-
-        // Validate chưa có feedback
-        Feedback existing = getFeedbackByAppointmentId(fb.getAppointmentId());
-        if (existing != null) {
-            throw new Exception("Appointment nay da co feedback roi");
-        }
-
-        String sql = "INSERT INTO Feedback (customer_id, appointment_id, rating, comment) "
-                   + "VALUES (?, ?, ?, ?)";
-        PreparedStatement ps = conn.prepareStatement(sql);
-
-        ps.setInt(1, fb.getCustomerId());
-        ps.setInt(2, fb.getAppointmentId());
-        ps.setInt(3, fb.getRating());
-        ps.setString(4, fb.getComment());
-
-        int rows = ps.executeUpdate();
-        ps.close();
-        return rows;
+        workflow().roles("Customer"); workflow().customerAccess(fb.getCustomerId());
+        workflow().appointmentAccess(fb.getAppointmentId());
+        if(fb.getRating()<1 || fb.getRating()>5) throw new IllegalArgumentException("Rating must be 1-5");
+        int changed=workflow().update("UPDATE Appointment SET feedback_rating=?,feedback_comment=?,feedback_created_at=GETDATE() WHERE appointment_id=? AND customer_id=? AND status='Completed' AND feedback_id IS NULL AND feedback_rating IS NULL",fb.getRating(),fb.getComment(),fb.getAppointmentId(),fb.getCustomerId());
+        if(changed!=1) throw new bssms_persistence.common.WorkflowException(409,"Completed appointment required or feedback already exists.");
+        return changed;
     }
 
     /**
@@ -310,6 +277,11 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * Cập nhật Feedback.
      */
     public int updateFeedback(Feedback fb) throws Exception {
+        java.util.Map<String,Object> existing=workflow().one("SELECT customer_id,appointment_id FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " Feedback WHERE feedback_id=?",fb.getFeedbackId());
+        workflow().customerAccess(((Number)existing.get("customerId")).intValue());
+        if(((Number)existing.get("customerId")).intValue()!=fb.getCustomerId() || ((Number)existing.get("appointmentId")).intValue()!=fb.getAppointmentId()) throw new IllegalArgumentException("Feedback owner and appointment cannot be changed.");
+        workflow().roles("Customer");workflow().customerAccess(fb.getCustomerId());
+        workflow().appointmentAccess(fb.getAppointmentId());
         requireConnection();
         if (conn == null) {
             throw new Exception("Database connection is null in FeedbackDAO.updateFeedback()");
@@ -319,9 +291,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
             throw new Exception("Rating phai nam trong khoang 1 den 5");
         }
 
-        String sql = "UPDATE Feedback "
-                   + "SET rating = ?, comment = ? "
-                   + "WHERE feedback_id = ?";
+        String sql = "UPDATE Appointment SET feedback_rating=?,feedback_comment=?,feedback_updated_at=GETDATE() WHERE feedback_id=? AND feedback_is_hidden=0";
         PreparedStatement ps = conn.prepareStatement(sql);
 
         ps.setInt(1, fb.getRating());
@@ -337,12 +307,16 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
      * Xóa Feedback.
      */
     public boolean deleteFeedback(int id) {
+        try {
+            workflow().roles("Customer");
+            workflow().customerAccess(((Number)workflow().one("SELECT customer_id FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " Feedback WHERE feedback_id=?",id).get("customerId")).intValue());
+        } catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
         if (conn == null) {
             System.out.println("Database connection is null in FeedbackDAO.deleteFeedback()");
             return false;
         }
-        String sql = "DELETE FROM Feedback WHERE feedback_id = ?";
+        String sql = "UPDATE Appointment SET feedback_id=NULL,feedback_rating=NULL,feedback_comment=NULL,feedback_created_at=NULL,feedback_updated_at=NULL,feedback_is_hidden=0,feedback_moderation_reason=NULL WHERE feedback_id=? AND feedback_is_hidden=0";
         try {
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, id);

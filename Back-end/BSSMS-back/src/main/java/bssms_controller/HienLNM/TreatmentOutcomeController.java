@@ -20,6 +20,7 @@ public class TreatmentOutcomeController extends ControllerSupport {
     private final Gson gson = new Gson();
 
     public void get(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         PrintWriter out = resp.writer();
 
@@ -65,6 +66,7 @@ public class TreatmentOutcomeController extends ControllerSupport {
     }
 
     public void put(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         PrintWriter out = resp.writer();
 
@@ -81,10 +83,11 @@ public class TreatmentOutcomeController extends ControllerSupport {
 
             BufferedReader reader = req.bodyReader();
             Map<String, String> data = gson.fromJson(reader, Map.class);
+            if (data == null) throw new IllegalArgumentException("Thiếu dữ liệu điều trị.");
             String notes = data.get("notes");
             String status = data.get("status");
 
-            if (notes == null || notes.trim().isEmpty()) {
+            if ("Completed".equals(status) && (notes == null || notes.trim().isEmpty())) {
                 resp.status(400);
                 out.print("{\"message\":\"Ket qua dieu tri (notes) khong duoc de trong\"}");
                 out.flush();

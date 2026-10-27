@@ -23,6 +23,7 @@ public class FeedbackController extends ControllerSupport {
     private final Gson gson = new Gson();
 
     public void get(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         PrintWriter out = resp.writer();
 
@@ -84,6 +85,7 @@ public class FeedbackController extends ControllerSupport {
     }
 
     public void post(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         PrintWriter out = resp.writer();
 
@@ -132,6 +134,15 @@ public class FeedbackController extends ControllerSupport {
     }
 
     public void put(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
+        if(req.pathInfo()!=null && req.pathInfo().matches("/\\d+/moderate")) {
+            com.google.gson.JsonObject body=com.google.gson.JsonParser.parseReader(req.bodyReader()).getAsJsonObject();
+            try {
+                boolean changed=feedbackDAO.moderate(Integer.parseInt(req.pathInfo().split("/")[1]),body.get("hidden").getAsBoolean(),body.get("reason").getAsString());
+                resp.status(changed?200:404);resp.writer().print("{\"success\":"+changed+"}");return;
+            }catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
+        }
+
 
         PrintWriter out = resp.writer();
 
@@ -169,6 +180,7 @@ public class FeedbackController extends ControllerSupport {
     }
 
     public void delete(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         PrintWriter out = resp.writer();
 

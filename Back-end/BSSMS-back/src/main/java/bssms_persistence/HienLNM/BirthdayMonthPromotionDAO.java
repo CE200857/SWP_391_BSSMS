@@ -20,8 +20,8 @@ public class BirthdayMonthPromotionDAO extends DBContext implements AutoCloseabl
     public List<Map<String, Object>> getBirthdayCustomersThisMonth() {
         requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT c.customer_id, c.full_name, c.date_of_birth, c.phone, c.email "
-                     + "FROM Customer c "
+        String query = "SELECT c.customer_id, c.full_name, c.date_of_birth, c.phone, acc.email "
+                     + "FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c LEFT JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " acc ON acc.account_id=c.account_id "
                      + "WHERE MONTH(c.date_of_birth) = MONTH(GETDATE()) "
                      + "ORDER BY DAY(c.date_of_birth) ASC";
         java.sql.Connection newConn = conn;
@@ -58,8 +58,8 @@ public class BirthdayMonthPromotionDAO extends DBContext implements AutoCloseabl
                      + "v.discount_type, v.discount_value, v.start_date, v.end_date, v.status, "
                      + "c.full_name AS customer_name, c.phone AS customer_phone "
                      + "FROM Voucher v "
-                     + "LEFT JOIN Customer c ON v.customer_id = c.customer_id "
-                     + "WHERE v.voucher_code LIKE 'BDAY-%' "
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON v.customer_id = c.customer_id "
+                     + "WHERE v.voucher_kind='Birthday' "
                      + "ORDER BY v.start_date DESC";
         java.sql.Connection newConn = conn;
         if (newConn == null) return list;
@@ -92,100 +92,38 @@ public class BirthdayMonthPromotionDAO extends DBContext implements AutoCloseabl
     // Tạo voucher sinh nhật cho 1 khách hàng
     public boolean createBirthdayVoucher(int customerId, String voucherName, double discountPercent, 
                                          String startDate, String endDate) {
-        requireConnection();
-        String voucherCode = "BDAY-" + customerId + "-" + System.currentTimeMillis() % 100000;
-        String query = "INSERT INTO Voucher (customer_id, voucher_code, voucher_name, discount_type, "
-                      + "discount_value, start_date, end_date, status) "
-                      + "VALUES (?, ?, ?, 'Percent', ?, ?, ?, 'Active')";
-        java.sql.Connection newConn = conn;
-        if (newConn == null) return false;
-        try {
-            PreparedStatement ps = newConn.prepareStatement(query);
-            ps.setInt(1, customerId);
-            ps.setString(2, voucherCode);
-            ps.setString(3, voucherName);
-            ps.setDouble(4, discountPercent);
-            ps.setString(5, startDate);
-            ps.setString(6, endDate);
-            int rowsAffected = ps.executeUpdate();
-            ps.close();
-            System.out.println("createBirthdayVoucher: customerId=" + customerId + ", rows=" + rowsAffected);
-            return rowsAffected > 0;
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+        throw new bssms_persistence.common.WorkflowException(409,"Birthday benefits follow the fixed policy. Use the monthly issue action; they cannot be edited manually.");
     }
 
     // Cập nhật voucher sinh nhật
     public boolean updateBirthdayVoucher(int voucherId, String voucherName, double discountPercent, 
                                         String startDate, String endDate, String status) {
-        requireConnection();
-        String query = "UPDATE Voucher SET voucher_name = ?, discount_type = 'Percent', discount_value = ?, "
-                      + "start_date = ?, end_date = ?, status = ? WHERE voucher_id = ?";
-        java.sql.Connection newConn = conn;
-        if (newConn == null) return false;
-        try {
-            PreparedStatement ps = newConn.prepareStatement(query);
-            ps.setString(1, voucherName);
-            ps.setDouble(2, discountPercent);
-            ps.setString(3, startDate);
-            ps.setString(4, endDate);
-            ps.setString(5, status);
-            ps.setInt(6, voucherId);
-            int rowsAffected = ps.executeUpdate();
-            ps.close();
-            System.out.println("updateBirthdayVoucher: voucherId=" + voucherId + ", rows=" + rowsAffected);
-            return rowsAffected > 0;
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+        throw new bssms_persistence.common.WorkflowException(409,"Birthday benefits follow the fixed policy. Use the monthly issue action; they cannot be edited manually.");
     }
 
     // Xóa voucher sinh nhật
     public boolean deleteBirthdayVoucher(int voucherId) {
-        requireConnection();
-        String query = "DELETE FROM Voucher WHERE voucher_id = ? AND voucher_code LIKE 'BDAY-%'";
-        java.sql.Connection newConn = conn;
-        if (newConn == null) return false;
-        try {
-            PreparedStatement ps = newConn.prepareStatement(query);
-            ps.setInt(1, voucherId);
-            int rowsAffected = ps.executeUpdate();
-            ps.close();
-            System.out.println("deleteBirthdayVoucher: voucherId=" + voucherId + ", rows=" + rowsAffected);
-            return rowsAffected > 0;
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+        throw new bssms_persistence.common.WorkflowException(409,"Birthday benefits follow the fixed policy. Use the monthly issue action; they cannot be edited manually.");
     }
 
     // Tạo voucher sinh nhật hàng loạt cho tất cả khách hàng có sinh nhật trong tháng
     public int createBulkBirthdayVouchers(double discountPercent) {
-        requireConnection();
-        int count = 0;
-        List<Map<String, Object>> customers = getBirthdayCustomersThisMonth();
-        String startDate = java.time.LocalDate.now() + " 00:00:00";
-        String endDate = java.time.LocalDate.now().plusDays(30) + " 23:59:59";
-        String voucherName = "Voucher Sinh Nhật Tháng " + java.time.LocalDate.now().getMonthValue();
-
-        for (Map<String, Object> customer : customers) {
-            int customerId = (int) customer.get("customerId");
-            if (createBirthdayVoucher(customerId, voucherName, discountPercent, startDate, endDate)) {
-                count++;
-            }
-        }
-        return count;
+        try {
+            bssms_persistence.common.Workflow w=workflow();w.roles("Manager");
+            return w.transaction(()->{
+                int before=((Number)w.one("SELECT COUNT(*) AS n FROM Voucher WHERE voucher_kind='Birthday'").get("n")).intValue();
+                w.call("usp_IssueMonthlyBenefits");
+                return ((Number)w.one("SELECT COUNT(*) AS n FROM Voucher WHERE voucher_kind='Birthday'").get("n")).intValue()-before;
+            });
+        }catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
     }
 
     // Lấy tất cả khách hàng (để chọn tạo voucher sinh nhật)
     public List<Map<String, Object>> getAllCustomersForBirthdayVoucher() {
         requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT c.customer_id, c.full_name, c.date_of_birth, c.phone, c.email "
-                     + "FROM Customer c "
+        String query = "SELECT c.customer_id, c.full_name, c.date_of_birth, c.phone, acc.email "
+                     + "FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c LEFT JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " acc ON acc.account_id=c.account_id "
                      + "ORDER BY c.full_name";
         java.sql.Connection newConn = conn;
         if (newConn == null) {
@@ -229,8 +167,8 @@ public class BirthdayMonthPromotionDAO extends DBContext implements AutoCloseabl
                      + "v.discount_type, v.discount_value, v.start_date, v.end_date, v.status, "
                      + "c.full_name AS customer_name, c.phone AS customer_phone "
                      + "FROM Voucher v "
-                     + "LEFT JOIN Customer c ON v.customer_id = c.customer_id "
-                     + "WHERE v.voucher_id = ? AND v.voucher_code LIKE 'BDAY-%'";
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON v.customer_id = c.customer_id "
+                     + "WHERE v.voucher_id = ? AND v.voucher_kind='Birthday'";
         java.sql.Connection newConn = conn;
         if (newConn == null) return map;
         try {

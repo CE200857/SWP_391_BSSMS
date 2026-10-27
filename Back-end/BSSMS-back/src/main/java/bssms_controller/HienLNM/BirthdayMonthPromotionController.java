@@ -15,6 +15,7 @@ public class BirthdayMonthPromotionController extends ControllerSupport {
 
     public void get(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         BirthdayMonthPromotionDAO dao = use(new BirthdayMonthPromotionDAO());
         PrintWriter out = response.writer();
@@ -52,6 +53,7 @@ public class BirthdayMonthPromotionController extends ControllerSupport {
 
     public void post(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         try {
@@ -62,7 +64,7 @@ public class BirthdayMonthPromotionController extends ControllerSupport {
 
             if ("bulk".equals(action)) {
                 // Tạo voucher sinh nhật hàng loạt
-                double discountPercent = jsonObject.get("discountPercent").getAsDouble();
+                double discountPercent = 10;
                 InputValidation.percent(discountPercent);
                 int count = dao.createBulkBirthdayVouchers(discountPercent);
                 out.print("{\"message\": \"Đã tạo " + count + " voucher sinh nhật thành công!\", \"count\": " + count + "}");
@@ -70,7 +72,7 @@ public class BirthdayMonthPromotionController extends ControllerSupport {
                 // Tạo voucher sinh nhật cho 1 khách hàng
                 int customerId = jsonObject.get("customerId").getAsInt();
                 String voucherName = jsonObject.get("voucherName").getAsString();
-                double discountPercent = jsonObject.get("discountPercent").getAsDouble();
+                double discountPercent = 10;
                 String startDate = jsonObject.get("startDate").getAsString();
                 String endDate = jsonObject.get("endDate").getAsString();
 
@@ -100,6 +102,7 @@ public class BirthdayMonthPromotionController extends ControllerSupport {
 
     public void put(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         try {
@@ -108,7 +111,7 @@ public class BirthdayMonthPromotionController extends ControllerSupport {
 
             int voucherId = jsonObject.get("voucherId").getAsInt();
             String voucherName = jsonObject.get("voucherName").getAsString();
-            double discountPercent = jsonObject.get("discountPercent").getAsDouble();
+            double discountPercent = 10;
             String startDate = jsonObject.get("startDate").getAsString();
             String endDate = jsonObject.get("endDate").getAsString();
             String status = jsonObject.has("status") ? jsonObject.get("status").getAsString() : "Active";
@@ -135,6 +138,7 @@ public class BirthdayMonthPromotionController extends ControllerSupport {
 
     public void delete(ActionRequest request, ActionResult response)
             throws IOException {
+        bind(request);
 
         PrintWriter out = response.writer();
         try {

@@ -20,6 +20,7 @@ public class RoomBedStatusController extends ControllerSupport {
     private final Gson gson = new Gson();
 
     public void get(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         PrintWriter out = resp.writer();
 
@@ -29,6 +30,7 @@ public class RoomBedStatusController extends ControllerSupport {
     }
 
     public void put(ActionRequest req, ActionResult resp) throws IOException {
+        bind(req);
 
         PrintWriter out = resp.writer();
 
