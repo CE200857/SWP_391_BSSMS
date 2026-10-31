@@ -13,7 +13,6 @@ import {
     Table,
 } from "react-bootstrap";
 import axios from "axios";
-import "./MembershipManagementPage.css";
 
 const API_BASE = "/api/membership-tiers";
 const TRANSFER_API = `${API_BASE}/transfer`;
@@ -89,6 +88,7 @@ const MembershipManagementPage = () => {
     }, []);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the view while synchronizing external data for this selection.
         loadTiers();
     }, [loadTiers]);
 
