@@ -137,3 +137,5 @@ ui-debug.log
 .cache/
 .parcel-cache/
 .turbo/
+.vercel
+.env*

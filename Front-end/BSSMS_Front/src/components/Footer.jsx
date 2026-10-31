@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import SeoulBrand from "./SeoulBrand";
 
-const Footer = () => (
+const Footer = ({ user }) => (
   <footer className="app-footer">
     <div className="app-footer-inner">
       <div className="app-footer-brand">
@@ -19,10 +19,10 @@ const Footer = () => (
 
       <div className="app-footer-column">
         <h2>Khám phá</h2>
-        <Link to="/guest/services">Dịch vụ</Link>
-        <Link to="/bssms-guest">Về Seoul Center</Link>
-        <Link to="/guest/feedback">Phản hồi khách hàng</Link>
-        <Link to="/guest/slots">Đặt lịch chăm sóc</Link>
+        <Link to={user?.role === "Customer" ? "/services" : "/guest/services"}>Dịch vụ</Link>
+        <Link to={user?.role === "Customer" ? "/customer/home" : "/bssms-guest"}>Về Seoul Center</Link>
+        <Link to={user?.role === "Customer" ? "/feedback" : "/guest/feedback"}>Phản hồi khách hàng</Link>
+        <Link to="/slots">Đặt lịch chăm sóc</Link>
       </div>
 
       <div className="app-footer-column">
@@ -30,7 +30,8 @@ const Footer = () => (
         <span>Câu hỏi thường gặp</span>
         <span>Chính sách bảo mật</span>
         <span>Điều khoản sử dụng</span>
-        <Link to="/login">Đăng nhập</Link>
+        {user ? <Link to="/profile">Tài khoản của tôi</Link> : <Link to="/login">Đăng nhập</Link>}
+        <Link to="/dashboard/login">Dành cho nhân viên</Link>
       </div>
 
       <div className="app-footer-column app-footer-location">
@@ -38,7 +39,7 @@ const Footer = () => (
         <p>329 Nguyễn Văn Cừ, Phường Cái Khế, Thành Phố Cần Thơ</p>
         <a href="tel:+84914269346">(+84) 914 269 346</a>
         <a href="mailto:cskh@seoulcenter.vn">cskh@seoulcenter.vn</a>
-        <p>08:45–18:30 hằng ngày</p>
+        <p>08:30–18:30 hằng ngày</p>
       </div>
     </div>
     <div className="app-footer-bottom">

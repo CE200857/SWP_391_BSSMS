@@ -1,0 +1,212 @@
+/* Keep the account panel out of the header's document flow. */
+.customer-account {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.customer-account-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 260px;
+  min-height: 46px;
+  padding: 5px 12px 5px 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: 28px;
+  background: #fff;
+  color: var(--ui-text);
+  text-align: left;
+}
+
+.customer-account-trigger:hover,
+.customer-account-trigger.is-open {
+  border-color: var(--ui-primary);
+  background: var(--seoul-50);
+}
+
+.customer-account-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--ui-primary);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.customer-account-identity {
+  display: grid;
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.customer-account-identity strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+}
+
+.customer-account-identity small {
+  color: var(--ui-muted);
+  font-size: 0.75rem;
+}
+
+.customer-account-trigger > i {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.customer-account-panel {
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  top: calc(100% + 10px);
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--ui-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 32px #34263124;
+}
+
+.customer-account-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.customer-account-heading > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.customer-account-heading strong,
+.customer-account-heading > div > span {
+  display: block;
+  font-size: 0.8125rem;
+}
+
+.customer-account-heading > div > span {
+  margin-top: 4px;
+  color: var(--ui-muted);
+}
+
+.customer-account-links {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+}
+
+.customer-account-links a,
+.customer-account-footer button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--ui-text);
+  font-size: 0.875rem;
+  text-decoration: none;
+  text-align: left;
+}
+
+.customer-account-links a i {
+  color: var(--ui-primary);
+}
+
+.customer-account-links a:hover,
+.customer-account-links a.active {
+  background: var(--seoul-100);
+  color: var(--ui-primary);
+}
+
+.customer-account-footer {
+  padding: 8px;
+  border-top: 1px solid var(--ui-border);
+}
+
+.customer-account-footer button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #b42318;
+}
+
+.customer-account-footer button:hover {
+  background: #fff0ee;
+}
+
+.customer-account-footer p {
+  margin: 8px;
+  color: #b42318;
+  font-size: 0.8125rem;
+}
+
+.app-dashboard-user-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .app-public-menu-toggle {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 650px) {
+  .customer-header .app-public-header-inner {
+    gap: 8px;
+  }
+
+  .customer-account-identity,
+  .customer-account-trigger > i {
+    display: none;
+  }
+
+  .customer-account-trigger {
+    width: 44px;
+    min-height: 44px;
+    padding: 4px;
+  }
+}
+
+/* Booking stays visible beside the account button, including on mobile. */
+.customer-booking-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 24px;
+  background: var(--ui-primary);
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.customer-booking-link:hover,
+.customer-booking-link:focus-visible {
+  background: var(--seoul-800);
+  color: #fff;
+}
+.customer-header .app-public-nav { margin-left: auto; }
+.customer-header .customer-account-trigger { max-width: 220px; }
+@media (max-width: 480px) {
+  .customer-header .app-public-brand .seoul-brand-wordmark { display: none; }
+  .customer-booking-link { padding-inline: 12px; gap: 6px; }
+}
