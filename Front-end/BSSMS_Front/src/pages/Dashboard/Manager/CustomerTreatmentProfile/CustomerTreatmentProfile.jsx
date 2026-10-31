@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Container,
   Card,
@@ -47,7 +47,7 @@ const CustomerTreatmentProfile = () => {
   const [refresh, setRefresh] = useState(0);
 
   const storedUser = localStorage.getItem("user");
-  const user = storedUser ? JSON.parse(storedUser) : null;
+  const user = useMemo(() => storedUser ? JSON.parse(storedUser) : null, [storedUser]);
   const isCustomer = user?.role === "Customer";
   const canViewAll = user?.role === "Manager" || user?.role === "Technician" || user?.role === "Receptionist";
   const canEdit = user?.role === "Manager" || user?.role === "Technician";
@@ -66,6 +66,7 @@ const CustomerTreatmentProfile = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      setError("");
       try {
         // Lấy danh sách khách hàng (cho Manager/Technician/Receptionist)
         if (canViewAll) {
@@ -87,14 +88,15 @@ const CustomerTreatmentProfile = () => {
           targetCustomerId = user.customerId;
         }
 
-        if (targetCustomerId) {
+        if (targetCustomerId || canViewAll) {
           // Lấy thông tin khách hàng
           try {
+            if (!targetCustomerId) { setCustomerInfo(null); } else {
             const infoRes = await axios.get(
               `/api/customers?id=${targetCustomerId}`,
               { withCredentials: true }
             );
-            setCustomerInfo(infoRes.data);
+            setCustomerInfo(infoRes.data); }
           } catch (err) {
             console.warn("Không tải được thông tin khách hàng:", err);
             setCustomerInfo(null);
@@ -103,7 +105,7 @@ const CustomerTreatmentProfile = () => {
           // Lấy danh sách gói liệu trình đã mua (CustomerPackageServlet hỗ trợ ?customerId=X)
           try {
             const packageRes = await axios.get(
-              `/api/customer-packages?customerId=${targetCustomerId}`,
+              `/api/customer-packages${targetCustomerId ? `?customerId=${targetCustomerId}` : ""}`,
               { withCredentials: true }
             );
             const pkgList = Array.isArray(packageRes.data)
@@ -112,13 +114,14 @@ const CustomerTreatmentProfile = () => {
             setPackages(pkgList);
           } catch (err) {
             console.warn("Không tải được danh sách gói liệu trình:", err);
+            setError("Không tải được danh sách gói liệu trình.");
             setPackages([]);
           }
 
           // Lấy hồ sơ điều trị (TreatmentProfileServlet)
           try {
             const profileRes = await axios.get(
-              `/api/treatment-profiles?customerId=${targetCustomerId}`,
+              `/api/treatment-profiles${targetCustomerId ? `?customerId=${targetCustomerId}` : ""}`,
               { withCredentials: true }
             );
             const profileList = Array.isArray(profileRes.data)
@@ -127,6 +130,7 @@ const CustomerTreatmentProfile = () => {
             setAppointments(profileList);
           } catch (err) {
             console.warn("Không tải được hồ sơ điều trị:", err);
+            setError("Không tải được hồ sơ điều trị. Vui lòng kiểm tra kết nối API.");
             setAppointments([]);
           }
         }
@@ -141,7 +145,7 @@ const CustomerTreatmentProfile = () => {
     const selectedId = e.target.value;
     if (selectedId) {
       navigate(`/treatment-profile/${selectedId}`);
-    }
+    } else { navigate("/my-treatment-profile"); }
   };
 
   const handleChange = (e) => {
@@ -213,15 +217,6 @@ const CustomerTreatmentProfile = () => {
     return new Date(dateString).toLocaleDateString("vi-VN");
   };
 
-  const formatDateTime = (dateString) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return `${date.toLocaleDateString("vi-VN")} ${date.toLocaleTimeString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`;
-  };
-
   const getStatusBadge = (status) => {
     switch (status) {
       case "Active":
@@ -239,16 +234,20 @@ const CustomerTreatmentProfile = () => {
 
   const getAppointmentStatusBadge = (status) => {
     switch (status) {
-      case "Scheduled":
-        return <Badge bg="info">Đã đặt</Badge>;
-      case "CheckedIn":
+      case "Pending":
+        return <Badge bg="info">Chờ xác nhận</Badge>;
+      case "Confirmed":
+        return <Badge bg="info">Đã xác nhận</Badge>;
+      case "Checked-in":
         return <Badge bg="primary">Đã check-in</Badge>;
-      case "InProgress":
+      case "In-progress":
         return <Badge bg="warning" text="dark">Đang điều trị</Badge>;
       case "Completed":
         return <Badge bg="success">Hoàn thành</Badge>;
       case "Cancelled":
         return <Badge bg="danger">Đã hủy</Badge>;
+      case "No-show":
+        return <Badge bg="secondary">Không đến</Badge>;
       default:
         return <Badge bg="secondary">{status}</Badge>;
     }
@@ -258,7 +257,8 @@ const CustomerTreatmentProfile = () => {
     (p) =>
       !searchTerm ||
       p.packageName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.serviceName?.toLowerCase().includes(searchTerm.toLowerCase())
+      p.serviceName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -296,7 +296,7 @@ const CustomerTreatmentProfile = () => {
                     value={customerId || ""}
                     onChange={handleCustomerSelect}
                   >
-                    <option value="">-- Chọn khách hàng --</option>
+                    <option value="">Tất cả khách hàng</option>
                     {customers.map((c) => (
                       <option key={c.customerId} value={c.customerId}>
                         {c.fullName} - {c.phone || "Không có SĐT"}
@@ -383,7 +383,7 @@ const CustomerTreatmentProfile = () => {
                 <thead className="table-dark">
                   <tr>
                     <th>ID</th>
-                    <th>Treatment Package ID</th>
+                    <th>Gói liệu trình / Khách hàng</th>
                     <th>Ngày mua</th>
                     <th>Buổi còn lại</th>
                     <th>Ngày hết hạn</th>
@@ -397,7 +397,7 @@ const CustomerTreatmentProfile = () => {
                       <tr key={p.customerPackageId}>
                         <td className="fw-bold">#{p.customerPackageId}</td>
                         <td>
-                          <Badge bg="info">Package #{p.treatmentPackageId}</Badge>
+                          <strong>{p.packageName || `Gói #${p.treatmentPackageId}`}</strong><small className="d-block">{p.customerName || `Khách hàng #${p.customerId}`}</small>
                         </td>
                         <td>{formatDate(p.purchaseDate)}</td>
                         <td>
@@ -463,9 +463,9 @@ const CustomerTreatmentProfile = () => {
                 </thead>
                 <tbody>
                   {appointments.length > 0 ? (
-                    appointments.map((a) => (
+                    appointments.filter(a => !searchTerm || [a.customerName, a.serviceName, a.packageName].some(value => String(value || "").toLowerCase().includes(searchTerm.toLowerCase()))).map((a) => (
                       <tr key={a.appointmentId}>
-                        <td className="fw-bold">#{a.appointmentId}</td>
+                        <td className="fw-bold">#{a.appointmentId}<small className="d-block">{a.customerName}</small></td>
                         <td>{formatDate(a.appointmentDate)}</td>
                         <td>
                           {a.startTime
