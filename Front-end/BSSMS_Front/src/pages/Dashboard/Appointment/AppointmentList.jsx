@@ -11,41 +11,73 @@ import {
 import treatmentPhoto from "../../../assets/figma/service-card-exact-02.png";
 import massagePhoto from "../../../assets/figma/service-card-exact-03.png";
 
-const AppointmentList = () => {
+const AppointmentList = ({ user, setUser }) => {
     const [appointments, setAppointments] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [timeFilter, setTimeFilter] = useState("all");
-    const [loadError, setLoadError] = useState(false);
+    const [loadError, setLoadError] = useState("");
     const navigate = useNavigate();
 
-    // Lấy thông tin user hiện tại từ localStorage để phân quyền hiển thị nút
-    const storedUser = localStorage.getItem("user");
-    const user = storedUser ? JSON.parse(storedUser) : null;
     const isManagerOrReceptionist = user?.role === "Manager" || user?.role === "Receptionist";
 
+    const [loading, setLoading] = useState(true);
+    const [attempt, setAttempt] = useState(0);
+    const [sessionExpired, setSessionExpired] = useState(false);
+
     useEffect(() => {
+        const controller = new AbortController();
         const fetchAppointments = async () => {
+            setLoading(true);
+            setLoadError("");
+            setSessionExpired(false);
             try {
                 const response = await fetch("/api/appointments", {
-                    credentials: "include"
+                    credentials: "include",
+                    signal: controller.signal,
                 });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setAppointments(data);
-                    setLoadError(false);
-                } else {
-                    setLoadError(true);
+                if (response.status === 401) {
+                    setSessionExpired(true);
+                    throw new Error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
                 }
+                if (response.status === 403) throw new Error("Bạn không có quyền xem danh sách lịch hẹn.");
+                if (response.status === 404) throw new Error("Không tìm thấy API lịch hẹn (HTTP 404). Vui lòng kiểm tra bản back-end đang chạy.");
+                if (!response.ok) throw new Error(`Máy chủ không tải được lịch hẹn (HTTP ${response.status}). Vui lòng thử lại hoặc kiểm tra log back-end.`);
+                const type = response.headers.get("content-type") || "";
+                if (!type.includes("application/json")) throw new Error("API lịch hẹn trả về dữ liệu không đúng định dạng. Vui lòng kiểm tra đường dẫn back-end.");
+                const data = await response.json();
+                if (!Array.isArray(data)) throw new Error("Dữ liệu lịch hẹn không đúng định dạng danh sách.");
+                if (!controller.signal.aborted) setAppointments(data);
             } catch (error) {
-                console.error("Lỗi kết nối đến Backend:", error);
-                setLoadError(true);
+                if (!controller.signal.aborted) {
+                    setAppointments([]);
+                    setLoadError(error instanceof TypeError
+                        ? "Không kết nối được tới máy chủ. Vui lòng kiểm tra back-end đã chạy và thử lại."
+                        : error.message);
+                }
+            } finally {
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
-
         fetchAppointments();
-    }, []);
+        return () => controller.abort();
+    }, [attempt, user?.accountId]);
+
+    const loginAgain = () => {
+        localStorage.removeItem("user");
+        setUser(null);
+        navigate(user?.role === "Customer" ? "/login" : "/dashboard/login", {
+            replace: true, state: { from: "/appointments" },
+        });
+    };
+    const errorPanel = loadError && (
+        <div className="alert alert-danger" role="alert">
+            <p>{loadError}</p>
+            <Button onClick={sessionExpired ? loginAgain : () => setAttempt(value => value + 1)}>
+                {sessionExpired ? "Đăng nhập lại" : "Thử lại"}
+            </Button>
+        </div>
+    );
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -73,6 +105,26 @@ const AppointmentList = () => {
             ? value
             : new Intl.DateTimeFormat("vi-VN").format(date);
     };
+
+    const getStatusBadge = (status) => {
+        switch (status) {
+            case "Checked-in": return <Badge bg="info">Đã check-in</Badge>;
+      case "In-progress": return <Badge bg="warning">Đang thực hiện</Badge>;
+      case "Confirmed":
+                return <Badge bg="success">Đã xác nhận</Badge>;
+            case "Pending":
+                return <Badge bg="primary">Chờ xác nhận</Badge>;
+            case "Completed":
+                return <Badge bg="info">Đã hoàn thành</Badge>;
+            case "Cancelled":
+                return <Badge bg="danger">Đã hủy</Badge>;
+            case "No-show":
+                return <Badge bg="secondary">Không đến</Badge>;
+            default:
+                return <Badge bg="dark">{status}</Badge>;
+        }
+    };
+
 
     if (user?.role === "Customer") {
         const completedCount = appointments.filter(appointment => appointment.status === "Completed").length;
@@ -122,11 +174,13 @@ const AppointmentList = () => {
                             <span>Trạng thái</span>
                             <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
                                 <option value="all">Tất cả trạng thái</option>
-                                <option value="Booked">Đã đặt</option>
+                                <option value="Pending">Chờ xác nhận</option>
                                 <option value="Confirmed">Đã xác nhận</option>
+<option value="Checked-in">Đã check-in</option>
+                                <option value="In-progress">Đang thực hiện</option>
                                 <option value="Completed">Đã hoàn thành</option>
                                 <option value="Cancelled">Đã hủy</option>
-                                <option value="No Show">Không đến</option>
+                                <option value="No-show">Không đến</option>
                             </select>
                         </label>
                         <label>
@@ -144,13 +198,7 @@ const AppointmentList = () => {
                         <span>{filteredAppointments.length} lịch hẹn</span>
                     </div>
 
-                    {loadError ? (
-                        <div className="customer-empty-state" role="alert">
-                            <i className="bi bi-wifi-off" aria-hidden="true" />
-                            <strong>Không thể tải lịch hẹn</strong>
-                            <span>Vui lòng thử tải lại trang sau.</span>
-                        </div>
-                    ) : filteredAppointments.length === 0 ? (
+                    {loading ? <p role="status">Đang tải lịch hẹn...</p> : loadError ? errorPanel : filteredAppointments.length === 0 ? (
                         <div className="customer-empty-state">
                             <i className="bi bi-calendar2-heart" aria-hidden="true" />
                             <strong>{appointments.length === 0 ? "Bạn chưa có lịch hẹn nào" : "Không tìm thấy lịch hẹn phù hợp"}</strong>
@@ -193,23 +241,6 @@ const AppointmentList = () => {
         );
     }
 
-    const getStatusBadge = (status) => {
-        switch (status) {
-            case "Confirmed":
-                return <Badge bg="success">Đã xác nhận</Badge>;
-            case "Booked":
-                return <Badge bg="primary">Đã đặt</Badge>;
-            case "Completed":
-                return <Badge bg="info">Đã hoàn thành</Badge>;
-            case "Cancelled":
-                return <Badge bg="danger">Đã hủy</Badge>;
-            case "No Show":
-                return <Badge bg="secondary">Không đến</Badge>;
-            default:
-                return <Badge bg="dark">{status}</Badge>;
-        }
-    };
-
     return (
         <Container fluid className="mt-4 px-4">
             <h2 className="mb-4 fw-bold text-uppercase" style={{ color: "#2c3e50" }}>
@@ -241,6 +272,9 @@ const AppointmentList = () => {
                     </Button>
                 )}
             </div>
+
+            {errorPanel}
+            {loading && <p role="status">Đang tải lịch hẹn...</p>}
 
             {/* BẢNG DANH SÁCH LỊCH HẸN (GIAO DIỆN MỚI CÓ MÀU ĐỎ ĐÔ) */}
             <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
@@ -294,7 +328,7 @@ const AppointmentList = () => {
                                             colSpan="9"
                                             className="text-center text-muted py-4"
                                         >
-                                            Không tìm thấy lịch hẹn nào.
+                                            {loading ? "Đang tải lịch hẹn..." : loadError ? "Chưa tải được dữ liệu lịch hẹn." : "Không tìm thấy lịch hẹn nào."}
                                         </td>
                                     </tr>
                                 )}

@@ -1,711 +1,297 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-    Alert,
-    Button,
-    Card,
-    Col,
-    Container,
-    Form,
-    Row,
-    Spinner,
-    Table
-} from "react-bootstrap";
+import { Alert, Button, Card, Form, Spinner, Table } from "react-bootstrap";
+import { api, post, money, today } from "../../../services/api";
 
-const formatCurrency = (value) =>
-    new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-        maximumFractionDigits: 0
-    }).format(Number(value || 0));
-
-const fetchJson = async (url, options = {}) => {
-    const response = await fetch(url, {
-        credentials: "include",
-        ...options
-    });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-        throw new Error(
-            data?.message || `Request failed: ${response.status}`
-        );
+export default function CreateInvoice({ packageOnly = false }) {
+  const navigate = useNavigate();
+  const [data, setData] = useState(null),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState(packageOnly ? "package" : "appointment");
+  const [form, setForm] = useState({
+    customerId: "",
+    appointmentId: "",
+    treatmentPackageId: "",
+    voucherId: "",
+    useBirthday: false,
+    quantities: {},
+  });
+  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    let active = true;
+    Promise.all(
+      [
+        "/api/invoices/eligible-appointments",
+        "/api/invoices/products",
+        "/api/customers",
+        "/api/treatment-packages",
+        "/api/vouchers",
+      ].map((url) => api(url)),
+    )
+      .then(([appointments, products, customers, packages, vouchers]) => {
+        if (active)
+          setData({ appointments, products, customers, packages, vouchers });
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const update = (patch) => {
+    setForm((f) => ({ ...f, ...patch }));
+    setRequestKey(crypto.randomUUID());
+  };
+  const appointment = data?.appointments.find(
+    (a) => Number(a.appointmentId) === Number(form.appointmentId),
+  );
+  const customerId =
+    mode === "appointment" ? appointment?.customerId : Number(form.customerId);
+  const pack = data?.packages.find(
+    (p) => Number(p.treatmentPackageId) === Number(form.treatmentPackageId),
+  );
+  const products = (data?.products || []).filter(
+    (p) => Number(form.quantities[p.productId]) > 0,
+  );
+  const subtotal =
+    (mode === "appointment"
+      ? Number(appointment?.servicePrice || 0)
+      : mode === "package"
+        ? Number(pack?.price || 0)
+        : 0) +
+    products.reduce(
+      (s, p) => s + Number(p.unitPrice) * Number(form.quantities[p.productId]),
+      0,
+    );
+  async function submit(e) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await post("/api/invoices", {
+        customerId,
+        appointmentId:
+          mode === "appointment" ? Number(form.appointmentId) : null,
+        treatmentPackageId:
+          mode === "package" ? Number(form.treatmentPackageId) : null,
+        voucherId: form.voucherId ? Number(form.voucherId) : null,
+        useBirthday: form.useBirthday,
+        productItems: products.map((p) => ({
+          productId: p.productId,
+          quantity: Number(form.quantities[p.productId]),
+        })),
+        requestKey,
+      });
+      navigate("/invoices", { state: { createdInvoiceId: result.invoiceId } });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
     }
-
-    return data;
-};
-
-const CreateInvoice = () => {
-    const navigate = useNavigate();
-
-    const [appointments, setAppointments] = useState([]);
-    const [products, setProducts] = useState([]);
-
-    const [appointmentId, setAppointmentId] = useState("");
-    const [quantities, setQuantities] = useState({});
-    const [manualDiscount, setManualDiscount] = useState("0");
-    const [paymentMethod, setPaymentMethod] = useState("Cash");
-    const [receivedAmount, setReceivedAmount] = useState("");
-
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState(null);
-
-    useEffect(() => {
-        const loadData = async () => {
-            setIsLoading(true);
-            setError("");
-
-            try {
-                const [appointmentData, productData] = await Promise.all([
-                    fetchJson("/api/invoices/eligible-appointments"),
-                    fetchJson("/api/invoices/products")
-                ]);
-
-                setAppointments(
-                    Array.isArray(appointmentData) ? appointmentData : []
-                );
-
-                setProducts(
-                    Array.isArray(productData) ? productData : []
-                );
-            } catch (err) {
-                setError(
-                    err.message || "Unable to load invoice data."
-                );
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadData();
-    }, []);
-
-    const selectedAppointment = useMemo(
-        () => appointments.find(
-            (item) => Number(item.appointmentId) === Number(appointmentId)
-        ),
-        [appointments, appointmentId]
-    );
-
-    const selectedProducts = useMemo(
-        () => products
-            .filter((product) => Number(quantities[product.productId] || 0) > 0)
-            .map((product) => ({
-                ...product,
-                quantity: Number(quantities[product.productId])
-            })),
-        [products, quantities]
-    );
-
-    const subtotal = useMemo(() => {
-        const servicePrice = Number(
-            selectedAppointment?.servicePrice || 0
-        );
-
-        const productTotal = selectedProducts.reduce(
-            (sum, product) =>
-                sum + Number(product.unitPrice) * product.quantity,
-            0
-        );
-
-        return servicePrice + productTotal;
-    }, [selectedAppointment, selectedProducts]);
-
-    const discount = Number(manualDiscount || 0);
-    const invalidDiscount =
-        !Number.isFinite(discount)
-        || discount < 0
-        || (subtotal > 0 && discount >= subtotal);
-
-    const totalAmount = Math.max(0, subtotal - discount);
-
-    const changeDue = paymentMethod === "Cash"
-        ? Math.max(0, Number(receivedAmount || 0) - totalAmount)
-        : 0;
-
-    const handleQuantityChange = (productId, value, stockQuantity) => {
-        const parsedValue = value === "" ? "" : Number(value);
-
-        if (
-            parsedValue !== ""
-            && (!Number.isInteger(parsedValue) || parsedValue < 0)
-        ) {
-            return;
-        }
-
-        if (parsedValue !== "" && parsedValue > stockQuantity) {
-            setError(`Maximum available stock is ${stockQuantity}.`);
-            return;
-        }
-
-        setError("");
-
-        setQuantities((previous) => ({
-            ...previous,
-            [productId]: parsedValue
-        }));
-    };
-
-    const resetForm = () => {
-        setAppointmentId("");
-        setQuantities({});
-        setManualDiscount("0");
-        setPaymentMethod("Cash");
-        setReceivedAmount("");
-        setSuccess(null);
-        setError("");
-    };
-
-    const handleSubmit = async (event) => {
-        event.preventDefault();
-        setError("");
-        setSuccess(null);
-
-        if (!selectedAppointment) {
-            setError("Please select a completed appointment.");
-            return;
-        }
-
-        if (invalidDiscount) {
-            setError("The discount amount is invalid.");
-            return;
-        }
-
-        if (totalAmount <= 0) {
-            setError("The invoice total must be greater than zero.");
-            return;
-        }
-
-        if (paymentMethod === "Cash") {
-            const cashReceived = Number(receivedAmount);
-
-            if (
-                receivedAmount === ""
-                || !Number.isFinite(cashReceived)
-                || cashReceived < totalAmount
-            ) {
-                setError("The received amount must cover the invoice total.");
-                return;
-            }
-        }
-
-        const payload = {
-            appointmentId: Number(appointmentId),
-            voucherId: null,
-            manualDiscount: discount,
-            paymentMethod,
-            receivedAmount: paymentMethod === "Cash"
-                ? Number(receivedAmount)
-                : totalAmount,
-            productItems: selectedProducts.map((product) => ({
-                productId: product.productId,
-                quantity: product.quantity
-            }))
-        };
-
-        setIsSubmitting(true);
-
-        try {
-            const result = await fetchJson("/api/invoices", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(payload)
-            });
-
-            setSuccess(result);
-
-            setAppointments((previous) =>
-                previous.filter(
-                    (item) =>
-                        Number(item.appointmentId) !== Number(appointmentId)
-                )
-            );
-
-            setProducts((previous) =>
-                previous.map((product) => {
-                    const purchasedQuantity = Number(
-                        quantities[product.productId] || 0
-                    );
-
-                    return {
-                        ...product,
-                        stockQuantity:
-                            product.stockQuantity - purchasedQuantity
-                    };
-                })
-            );
-
-            setAppointmentId("");
-            setQuantities({});
-            setManualDiscount("0");
-            setReceivedAmount("");
-            setPaymentMethod("Cash");
-        } catch (err) {
-            setError(
-                err.message || "Unable to create invoice and payment."
-            );
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <Container className="py-5 text-center">
-                <Spinner animation="border" />
-                <p className="mt-3">Loading invoice data...</p>
-            </Container>
-        );
-    }
-
-    return (
-        <Container fluid className="py-4">
-            <Row className="justify-content-center">
-                <Col xl={10}>
-                    <div className="d-flex justify-content-between align-items-center mb-4">
-                        <div>
-                            <h2 className="mb-1">Create Invoice & Payment</h2>
-                            <p className="text-muted mb-0">
-                                Create an invoice for a completed appointment.
-                            </p>
-                        </div>
-
-                        <Button
-                            variant="outline-secondary"
-                            onClick={() => navigate("/appointments")}
-                        >
-                            Back to Appointments
-                        </Button>
-                    </div>
-
-                    {error && (
-                        <Alert
-                            variant="danger"
-                            dismissible
-                            onClose={() => setError("")}
-                        >
-                            {error}
-                        </Alert>
-                    )}
-
-                    {success && (
-                        <Alert variant="success">
-                            <Alert.Heading>
-                                Invoice created successfully
-                            </Alert.Heading>
-
-                            <p>
-                                Invoice ID: #{success.invoiceId}
-                                <br />
-                                Payment ID: #{success.paymentId}
-                                <br />
-                                Total: {formatCurrency(success.totalAmount)}
-                                <br />
-                                Invoice status: {success.invoiceStatus}
-                                <br />
-                                Payment status: {success.paymentStatus}
-                                <br />
-                                Transaction code: {success.transactionCode}
-                            </p>
-
-                            {paymentMethod === "Cash"
-                                && Number(success.changeDue) > 0 && (
-                                    <p className="mb-0">
-                                        Change due: {formatCurrency(success.changeDue)}
-                                    </p>
-                                )}
-
-                            <Button
-                                variant="success"
-                                size="sm"
-                                className="mt-2"
-                                onClick={resetForm}
-                            >
-                                Create Another Invoice
-                            </Button>
-                        </Alert>
-                    )}
-
-                    <Form onSubmit={handleSubmit}>
-                        <Card className="shadow-sm mb-4">
-                            <Card.Header>
-                                <strong>1. Appointment Information</strong>
-                            </Card.Header>
-
-                            <Card.Body>
-                                <Form.Group>
-                                    <Form.Label>
-                                        Completed Appointment
-                                    </Form.Label>
-
-                                    <Form.Select
-                                        value={appointmentId}
-                                        onChange={(event) => {
-                                            setAppointmentId(event.target.value);
-                                            setQuantities({});
-                                            setReceivedAmount("");
-                                            setSuccess(null);
-                                            setError("");
-                                        }}
-                                        required
-                                    >
-                                        <option value="">
-                                            Select an appointment
-                                        </option>
-
-                                        {appointments.map((appointment) => (
-                                            <option
-                                                key={appointment.appointmentId}
-                                                value={appointment.appointmentId}
-                                            >
-                                                #{appointment.appointmentId}
-                                                {" - "}
-                                                {appointment.customerName}
-                                                {" - "}
-                                                {appointment.serviceName}
-                                                {" - "}
-                                                {appointment.appointmentDate}
-                                            </option>
-                                        ))}
-                                    </Form.Select>
-
-                                    {appointments.length === 0 && (
-                                        <Form.Text className="text-muted">
-                                            No completed appointments are
-                                            currently available for invoicing.
-                                        </Form.Text>
-                                    )}
-                                </Form.Group>
-
-                                {selectedAppointment && (
-                                    <Row className="mt-3">
-                                        <Col md={6}>
-                                            <p className="mb-1">
-                                                <strong>Customer:</strong>{" "}
-                                                {selectedAppointment.customerName}
-                                            </p>
-
-                                            <p className="mb-1">
-                                                <strong>Phone:</strong>{" "}
-                                                {selectedAppointment.customerPhone || "-"}
-                                            </p>
-                                        </Col>
-
-                                        <Col md={6}>
-                                            <p className="mb-1">
-                                                <strong>Service:</strong>{" "}
-                                                {selectedAppointment.serviceName}
-                                            </p>
-
-                                            <p className="mb-1">
-                                                <strong>Service price:</strong>{" "}
-                                                {formatCurrency(
-                                                    selectedAppointment.servicePrice
-                                                )}
-                                            </p>
-                                        </Col>
-                                    </Row>
-                                )}
-
-                                {selectedAppointment && (
-                                    <Card className="border-0 bg-light mt-3">
-                                        <Card.Body>
-                                            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                                                <h6 className="fw-bold mb-0">
-                                                    Membership Information
-                                                </h6>
-
-                                                <span className={`badge px-3 py-2 ${selectedAppointment.membership
-                                                    ? "bg-success"
-                                                    : "bg-secondary"
-                                                    }`}>
-                                                    {selectedAppointment.membership?.tierName
-                                                        || "Chưa có thông tin hạng"}
-                                                </span>
-                                            </div>
-
-                                            {selectedAppointment.membership ? (
-                                                <>
-                                                    <Row>
-                                                        <Col md={6} className="mb-3">
-                                                            <div className="text-muted small">
-                                                                Discount
-                                                            </div>
-                                                            <div className="fw-bold fs-5">
-                                                                {Number(
-                                                                    selectedAppointment.membership.discountPercent
-                                                                ).toLocaleString("vi-VN")}%
-                                                            </div>
-                                                        </Col>
-
-                                                        <Col md={6} className="mb-3">
-                                                            <div className="text-muted small">
-                                                                Minimum Spending
-                                                            </div>
-                                                            <div className="fw-bold">
-                                                                {formatCurrency(
-                                                                    selectedAppointment.membership.minSpending
-                                                                )}
-                                                            </div>
-                                                        </Col>
-                                                    </Row>
-
-                                                    <div className="text-muted small mb-1">
-                                                        Benefits / Description
-                                                    </div>
-                                                    <p className="mb-0">
-                                                        {selectedAppointment.membership.description
-                                                            || "Chưa có mô tả quyền lợi."}
-                                                    </p>
-                                                </>
-                                            ) : (
-                                                <p className="text-muted mb-0">
-                                                    Chưa tìm thấy thông tin hạng thành viên của khách.
-                                                </p>
-                                            )}
-                                        </Card.Body>
-                                    </Card>
-                                )}
-
-                            </Card.Body>
-                        </Card>
-
-                        <Card className="shadow-sm mb-4">
-                            <Card.Header>
-                                <strong>2. Additional Products</strong>
-                            </Card.Header>
-
-                            <Card.Body>
-                                {products.length === 0 ? (
-                                    <p className="text-muted mb-0">
-                                        No active products are available.
-                                    </p>
-                                ) : (
-                                    <Table responsive hover>
-                                        <thead>
-                                            <tr>
-                                                <th>Product</th>
-                                                <th>Unit Price</th>
-                                                <th>Stock</th>
-                                                <th style={{ width: "140px" }}>
-                                                    Quantity
-                                                </th>
-                                            </tr>
-                                        </thead>
-
-                                        <tbody>
-                                            {products.map((product) => (
-                                                <tr key={product.productId}>
-                                                    <td>{product.productName}</td>
-                                                    <td>
-                                                        {formatCurrency(product.unitPrice)}
-                                                    </td>
-                                                    <td>{product.stockQuantity}</td>
-                                                    <td>
-                                                        <Form.Control
-                                                            type="number"
-                                                            min="0"
-                                                            max={product.stockQuantity}
-                                                            step="1"
-                                                            value={
-                                                                quantities[product.productId]
-                                                                ?? 0
-                                                            }
-                                                            onChange={(event) =>
-                                                                handleQuantityChange(
-                                                                    product.productId,
-                                                                    event.target.value,
-                                                                    product.stockQuantity
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                product.stockQuantity <= 0
-                                                            }
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </Table>
-                                )}
-                            </Card.Body>
-                        </Card>
-
-                        <Card className="shadow-sm mb-4">
-                            <Card.Header>
-                                <strong>3. Discount & Payment</strong>
-                            </Card.Header>
-
-                            <Card.Body>
-                                <Row className="g-3">
-                                    <Col md={6}>
-                                        <Form.Group>
-                                            <Form.Label>
-                                                Manual Discount (VND)
-                                            </Form.Label>
-
-                                            <Form.Control
-                                                type="number"
-                                                min="0"
-                                                step="1000"
-                                                value={manualDiscount}
-                                                onChange={(event) =>
-                                                    setManualDiscount(
-                                                        event.target.value
-                                                    )
-                                                }
-                                                isInvalid={invalidDiscount}
-                                            />
-
-                                            <Form.Control.Feedback type="invalid">
-                                                Discount must be less than the subtotal.
-                                            </Form.Control.Feedback>
-                                        </Form.Group>
-                                    </Col>
-
-                                    <Col md={6}>
-                                        <Form.Group>
-                                            <Form.Label>
-                                                Payment Method
-                                            </Form.Label>
-
-                                            <Form.Select
-                                                value={paymentMethod}
-                                                onChange={(event) => {
-                                                    setPaymentMethod(event.target.value);
-                                                    setReceivedAmount("");
-                                                }}
-                                            >
-                                                <option value="Cash">Cash</option>
-                                                <option value="Card">Card</option>
-                                                <option value="Transfer">
-                                                    Transfer
-                                                </option>
-                                            </Form.Select>
-                                        </Form.Group>
-                                    </Col>
-
-                                    {paymentMethod === "Cash" ? (
-                                        <Col md={6}>
-                                            <Form.Group>
-                                                <Form.Label>
-                                                    Amount Received (VND)
-                                                </Form.Label>
-
-                                                <Form.Control
-                                                    type="number"
-                                                    min={totalAmount}
-                                                    step="1000"
-                                                    value={receivedAmount}
-                                                    onChange={(event) =>
-                                                        setReceivedAmount(
-                                                            event.target.value
-                                                        )
-                                                    }
-                                                    required
-                                                />
-                                            </Form.Group>
-                                        </Col>
-                                    ) : (
-                                        <Col md={6}>
-                                            <Form.Group>
-                                                <Form.Label>
-                                                    Amount to Record
-                                                </Form.Label>
-
-                                                <Form.Control
-                                                    value={formatCurrency(totalAmount)}
-                                                    readOnly
-                                                />
-                                            </Form.Group>
-                                        </Col>
-                                    )}
-                                </Row>
-
-                                <hr />
-
-                                <div className="ms-auto" style={{ maxWidth: "360px" }}>
-                                    <div className="d-flex justify-content-between mb-2">
-                                        <span>Subtotal</span>
-                                        <strong>{formatCurrency(subtotal)}</strong>
-                                    </div>
-
-                                    <div className="d-flex justify-content-between mb-2">
-                                        <span>Discount</span>
-                                        <strong>{formatCurrency(discount)}</strong>
-                                    </div>
-
-                                    <div className="d-flex justify-content-between fs-5">
-                                        <span>Total</span>
-                                        <strong className="text-primary">
-                                            {formatCurrency(totalAmount)}
-                                        </strong>
-                                    </div>
-
-                                    {paymentMethod === "Cash" && (
-                                        <div className="d-flex justify-content-between mt-2">
-                                            <span>Change</span>
-                                            <strong>
-                                                {formatCurrency(changeDue)}
-                                            </strong>
-                                        </div>
-                                    )}
-                                </div>
-                            </Card.Body>
-                        </Card>
-
-                        <div className="d-flex justify-content-end gap-2">
-                            <Button
-                                variant="outline-secondary"
-                                type="button"
-                                onClick={resetForm}
-                                disabled={isSubmitting}
-                            >
-                                Reset
-                            </Button>
-
-                            <Button
-                                type="submit"
-                                variant="primary"
-                                disabled={
-                                    isSubmitting
-                                    || !appointmentId
-                                    || appointments.length === 0
-                                    || invalidDiscount
-                                    || totalAmount <= 0
-                                    || (
-                                        paymentMethod === "Cash"
-                                        && (
-                                            receivedAmount === ""
-                                            || Number(receivedAmount) < totalAmount
-                                        )
-                                    )
-                                }
-                            >
-                                {isSubmitting ? (
-                                    <>
-                                        <Spinner
-                                            size="sm"
-                                            animation="border"
-                                            className="me-2"
-                                        />
-                                        Processing...
-                                    </>
-                                ) : (
-                                    "Create Invoice & Payment"
-                                )}
-                            </Button>
-                        </div>
-                    </Form>
-                </Col>
-            </Row>
-        </Container>
-    );
-};
-
-export default CreateInvoice;
+  }
+  return (
+    <section>
+      <div className="ui-page-heading">
+        <div>
+          <h1>{packageOnly ? "Bán gói liệu trình" : "Tạo hóa đơn"}</h1>
+          <p>
+            Lập hóa đơn, kiểm tra ưu đãi thực tế rồi thu tiền trong trang hóa
+            đơn.
+          </p>
+        </div>
+      </div>
+      {error && <Alert variant="danger">{error}</Alert>}
+      {!data ? (
+        <Spinner animation="border" />
+      ) : (
+        <Form onSubmit={submit}>
+          <fieldset disabled={busy}>
+            <Card className="mb-3">
+              <Card.Body>
+                {!packageOnly && (
+                  <Form.Group className="mb-3">
+                    <Form.Label>Loại hóa đơn</Form.Label>
+                    <Form.Select
+                      value={mode}
+                      onChange={(e) => {
+                        setMode(e.target.value);
+                        update({ voucherId: "", useBirthday: false });
+                      }}
+                    >
+                      <option value="appointment">Dịch vụ đã hoàn thành</option>
+                      <option value="retail">Bán sản phẩm</option>
+                      <option value="package">Bán gói liệu trình</option>
+                    </Form.Select>
+                  </Form.Group>
+                )}
+                {mode === "appointment" ? (
+                  <Form.Group className="mb-3">
+                    <Form.Label>Lịch hẹn đã hoàn thành</Form.Label>
+                    <Form.Select
+                      required
+                      value={form.appointmentId}
+                      onChange={(e) =>
+                        update({ appointmentId: e.target.value, voucherId: "" })
+                      }
+                    >
+                      <option value="">Chọn lịch hẹn</option>
+                      {data.appointments.map((a) => (
+                        <option key={a.appointmentId} value={a.appointmentId}>
+                          #{a.appointmentId} · {a.customerName} ·{" "}
+                          {a.serviceName} · {a.appointmentDate}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                ) : (
+                  <Form.Group className="mb-3">
+                    <Form.Label>Khách hàng</Form.Label>
+                    <Form.Select
+                      required
+                      value={form.customerId}
+                      onChange={(e) =>
+                        update({ customerId: e.target.value, voucherId: "" })
+                      }
+                    >
+                      <option value="">Chọn khách hàng</option>
+                      {data.customers
+                        .filter((c) => !c.status || c.status === "Active")
+                        .map((c) => (
+                          <option key={c.customerId} value={c.customerId}>
+                            {c.fullName} · {c.phone}
+                          </option>
+                        ))}
+                    </Form.Select>
+                  </Form.Group>
+                )}
+                {mode === "package" && (
+                  <Form.Group className="mb-3">
+                    <Form.Label>Gói liệu trình</Form.Label>
+                    <Form.Select
+                      required
+                      value={form.treatmentPackageId}
+                      onChange={(e) =>
+                        update({ treatmentPackageId: e.target.value })
+                      }
+                    >
+                      <option value="">Chọn gói</option>
+                      {data.packages
+                        .filter((p) => p.status === "Active")
+                        .map((p) => (
+                          <option
+                            key={p.treatmentPackageId}
+                            value={p.treatmentPackageId}
+                          >
+                            {p.packageName} · {money(p.price)} ·{" "}
+                            {p.numberOfSessions} buổi
+                          </option>
+                        ))}
+                    </Form.Select>
+                    <Form.Text>
+                      Chỉ đặt lịch sử dụng gói sau khi hóa đơn đã thanh toán đủ.
+                    </Form.Text>
+                  </Form.Group>
+                )}
+                <Form.Group className="mb-3">
+                  <Form.Label>Voucher</Form.Label>
+                  <Form.Select
+                    value={form.voucherId}
+                    onChange={(e) => update({ voucherId: e.target.value })}
+                  >
+                    <option value="">Không sử dụng</option>
+                    {data.vouchers
+                      .filter(
+                        (v) =>
+                          v.status === "Active" &&
+                          (!v.customerId ||
+                            Number(v.customerId) === customerId) &&
+                          String(v.endDate).slice(0, 10) >= today(),
+                      )
+                      .map((v) => (
+                        <option key={v.voucherId} value={v.voucherId}>
+                          {v.voucherCode} ·{" "}
+                          {v.discountType === "Percentage"
+                            ? `${v.discountValue}%`
+                            : money(v.discountValue)}
+                        </option>
+                      ))}
+                  </Form.Select>
+                </Form.Group>
+                <Form.Check
+                  label="Áp dụng ưu đãi sinh nhật 10% (một lần trong năm, đúng tháng sinh nhật)"
+                  checked={form.useBirthday}
+                  onChange={(e) => update({ useBirthday: e.target.checked })}
+                />
+              </Card.Body>
+            </Card>
+            <Card className="mb-3">
+              <Card.Body>
+                <h2>Sản phẩm bán kèm</h2>
+                <div className="table-responsive">
+                  <Table>
+                    <thead>
+                      <tr>
+                        <th>Sản phẩm</th>
+                        <th>Đơn giá</th>
+                        <th>Tồn kho</th>
+                        <th>Số lượng mua</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.products.map((p) => (
+                        <tr key={p.productId}>
+                          <td>{p.productName}</td>
+                          <td>{money(p.unitPrice)}</td>
+                          <td>{p.stockQuantity}</td>
+                          <td>
+                            <Form.Control
+                              aria-label={`Số lượng ${p.productName}`}
+                              type="number"
+                              min="0"
+                              max={Math.floor(p.stockQuantity)}
+                              step="1"
+                              value={form.quantities[p.productId] || ""}
+                              onChange={(e) =>
+                                update({
+                                  quantities: {
+                                    ...form.quantities,
+                                    [p.productId]: e.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              </Card.Body>
+            </Card>
+            <Alert variant="info">
+              Tạm tính trước ưu đãi: <strong>{money(subtotal)}</strong>. Hệ
+              thống tính VIP, sinh nhật và voucher theo điều kiện tại thời điểm
+              lập hóa đơn. Kiểm tra số tiền cuối cùng trước khi thu.
+            </Alert>
+            <div className="d-flex gap-2">
+              <Button variant="secondary" onClick={() => navigate("/invoices")}>
+                Quay lại
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  !customerId || (mode === "retail" && !products.length)
+                }
+              >
+                {busy ? "Đang tạo…" : "Tạo hóa đơn"}
+              </Button>
+            </div>
+          </fieldset>
+        </Form>
+      )}
+    </section>
+  );
+}

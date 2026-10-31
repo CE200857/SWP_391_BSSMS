@@ -114,7 +114,7 @@ const StaffList = ({ user }) => {
   const confirmRoleChange = async () => {
     try {
       const { accountId, newRole } = roleChangeData;
-      const url = `http://localhost:8080/BSSMS-back/api/staff/assign-role?accountId=${accountId}&role=${newRole}`;
+      const url = `/api/staff/assign-role?accountId=${accountId}&role=${newRole}`;
       const response = await axios.post(url, null, { withCredentials: true });
 
       if (response.status === 200) {
@@ -149,7 +149,7 @@ const StaffList = ({ user }) => {
     try {
       const { accountId, newStatus, staffName } = statusChangeData;
       const response = await axios.post(
-        "http://localhost:8080/BSSMS-back/api/staff",
+        "/api/staff",
         {
           action: "update-status",
           accountId: accountId,

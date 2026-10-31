@@ -20,7 +20,7 @@ public class InvoiceDAO extends DBContext implements AutoCloseable {
         result.put("products",w.query("SELECT ip.*,p.product_name FROM InvoiceProduct ip JOIN Product p ON p.product_id=ip.product_id WHERE ip.invoice_id=?",invoiceId));
         result.put("services",w.query("SELECT * FROM InvoiceService WHERE invoice_id=?",invoiceId));
         result.put("packages",w.query("SELECT * FROM " + bssms_persistence.common.SchemaSql.PACKAGE_SALES + " InvoicePackage WHERE invoice_id=?",invoiceId));
-        result.put("refunds",w.query("SELECT r.* FROM Refund r JOIN Payment p ON p.payment_id=r.payment_id WHERE p.invoice_id=?",invoiceId));
+        result.put("refunds",w.query("SELECT r.*,p.payment_method FROM Refund r JOIN Payment p ON p.payment_id=r.payment_id WHERE p.invoice_id=?",invoiceId));
         result.put("actions",w.query("SELECT * FROM AuditLog WHERE entity_name='Invoice' AND entity_id=CONVERT(nvarchar(100),?) ORDER BY audit_id",invoiceId));
         return result;
     }
@@ -41,7 +41,18 @@ public class InvoiceDAO extends DBContext implements AutoCloseable {
             JsonObject line=new JsonObject();line.addProperty("product_id",product.getProductId());line.addProperty("quantity",product.getQuantity());lines.add(line);
         }
         return w.transaction(()->{
+            String fingerprint=new Gson().toJson(Arrays.asList(customer,appointmentId,packageId,voucherId,birthday,lines,paymentMethod,received));
+            if(requestKey!=null && !requestKey.isBlank()) {
+                if(requestKey.length()>100)throw new IllegalArgumentException("requestKey is too long.");
+                List<Map<String,Object>> old=w.query("SELECT invoice_id,request_fingerprint FROM Invoice WHERE creation_request_key=?",requestKey);
+                if(!old.isEmpty()) {
+                    if(!fingerprint.equals(old.get(0).get("requestFingerprint")))throw new WorkflowException(409,"requestKey was already used for a different invoice request.");
+                    int priorId=Workflow.id(old.get(0).get("invoiceId"));
+                    return Map.of("invoiceId",priorId,"details",getInvoiceDetails(priorId));
+                }
+            }
             int id=Workflow.id(w.call("usp_CreateInvoice",requireActorAccountId(),customer,appointmentId,packageId,lines.toString(),voucherId,birthday).get(0).get("invoiceId"));
+            if(requestKey!=null && !requestKey.isBlank())w.update("UPDATE Invoice SET creation_request_key=?,request_fingerprint=? WHERE invoice_id=?",requestKey,fingerprint,id);
             Map<String,Object> result=new LinkedHashMap<>();result.put("invoiceId",id);
             if(paymentMethod!=null && !paymentMethod.isBlank()) result.putAll(pay(id,paymentMethod,received,requestKey,null));
             result.putAll(w.one("SELECT invoice_id,appointment_id,subtotal,discount,total_amount,status AS invoice_status FROM Invoice WHERE invoice_id=?",id));
@@ -50,9 +61,10 @@ public class InvoiceDAO extends DBContext implements AutoCloseable {
     }
     public Map<String,Object> pay(int invoiceId,String method,BigDecimal received,String requestKey,String transactionCode) throws SQLException {
         Workflow w=workflow();w.roles("Receptionist");
-        if(!Arrays.asList("Cash","Bank Transfer").contains(method)) throw new IllegalArgumentException("Use Cash or Bank Transfer. VNPay requires a verified callback and is not configured.");
+        if(!Arrays.asList("Cash","Bank Transfer").contains(method)) throw new IllegalArgumentException("Use Cash or Bank Transfer. VNPay requires a verified gateway callback.");
         if(received==null || received.signum()<0) throw new IllegalArgumentException("Invalid payment amount.");
         if(requestKey==null || requestKey.isBlank() || requestKey.length()>100) throw new IllegalArgumentException("requestKey is required (reuse it when retrying this payment).");
+        return w.transaction(()->{
         // Do not recompute a cash tender after an idempotent retry.
         List<Map<String,Object>> existing=w.query("SELECT invoice_id,payment_method,amount FROM Payment WHERE request_key=?",requestKey);
         BigDecimal outstanding=(BigDecimal)w.one("SELECT outstanding_amount FROM vw_InvoiceBalance WHERE invoice_id=?",invoiceId).get("outstandingAmount");
@@ -66,15 +78,23 @@ public class InvoiceDAO extends DBContext implements AutoCloseable {
         w.call("usp_RecordPayment",requireActorAccountId(),invoiceId,method,amount,requestKey,transactionCode);
         Map<String,Object> result=w.one("SELECT i.invoice_id,i.status AS invoice_status,i.total_amount,v.paid_amount,v.outstanding_amount FROM Invoice i JOIN vw_InvoiceBalance v ON v.invoice_id=i.invoice_id WHERE i.invoice_id=?",invoiceId);
         result.put("changeDue","Cash".equals(method)?received.subtract(amount):BigDecimal.ZERO);return result;
+        });
     }
     public Map<String,Object> refundInvoice(int invoiceId,BigDecimal amount,String reason,int accountId) throws SQLException {
         Workflow w=workflow();w.roles("Manager");
         BigDecimal paid=(BigDecimal)w.one("SELECT paid_amount FROM vw_InvoiceBalance WHERE invoice_id=?",invoiceId).get("paidAmount");
         if(amount==null || amount.compareTo(paid)!=0) throw new IllegalArgumentException("Only full refunds are supported. Use the received payment total.");
         w.call("usp_RequestFullRefund",requireActorAccountId(),invoiceId,reason,"refund-invoice-"+invoiceId);
-        return Map.of("invoiceId",invoiceId,"status","Pending","message","Refund requested. Confirm each refund after the money has actually been returned.","refunds",w.query("SELECT r.* FROM Refund r JOIN Payment p ON p.payment_id=r.payment_id WHERE p.invoice_id=?",invoiceId));
+        return Map.of("invoiceId",invoiceId,"status","Pending","message","Refund requested. Confirm each refund after the money has actually been returned.","refunds",w.query("SELECT r.*,p.payment_method FROM Refund r JOIN Payment p ON p.payment_id=r.payment_id WHERE p.invoice_id=?",invoiceId));
     }
     public Map<String,Object> completeRefund(int refundId) throws SQLException {
+        workflow().roles("Manager");
+        Map<String,Object> refund=workflow().one("SELECT p.payment_method FROM Refund r JOIN Payment p ON p.payment_id=r.payment_id WHERE r.refund_id=?",refundId);
+        if("VNPay".equals(refund.get("paymentMethod"))) {
+            try(bssms_integration.VnPayRefundDAO gateway=new bssms_integration.VnPayRefundDAO()) {
+                gateway.setActorAccountId(requireActorAccountId());return gateway.process(refundId);
+            }
+        }
         workflow().call("usp_CompleteRefund",requireActorAccountId(),refundId);
         return workflow().one("SELECT * FROM Refund WHERE refund_id=?",refundId);
     }

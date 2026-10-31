@@ -20,7 +20,7 @@ const StaffDetail = () => {
     const fetchStaffDetail = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8080/BSSMS-back/api/staff?id=${id}`,
+          `/api/staff?id=${id}`,
           {
             credentials: "include",
           },
