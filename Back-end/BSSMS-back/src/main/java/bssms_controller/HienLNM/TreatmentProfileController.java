@@ -23,15 +23,8 @@ public class TreatmentProfileController extends ControllerSupport {
         String customerIdParam = request.parameter("customerId");
         String action = request.parameter("action");
 
-        if (customerIdParam == null || customerIdParam.trim().isEmpty()) {
-            response.status(400);
-            out.print("{\"message\": \"Thiếu customerId\"}");
-            out.flush();
-            return;
-        }
-
         try {
-            int customerId = Integer.parseInt(customerIdParam);
+            int customerId = customerIdParam == null || customerIdParam.trim().isEmpty() ? 0 : Integer.parseInt(customerIdParam);
 
             if ("summary".equals(action)) {
                 Map<String, Object> summary = dao.getTreatmentSummary(customerId);
