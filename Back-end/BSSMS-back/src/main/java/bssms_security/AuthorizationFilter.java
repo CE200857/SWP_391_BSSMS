@@ -47,7 +47,7 @@ public class AuthorizationFilter implements Filter {
             // Public/authentication endpoints must still work after a schema upgrade.
             String uri=req.getRequestURI();
             if(uri.endsWith("/api/login") || uri.endsWith("/api/logout") || uri.endsWith("/api/register") || uri.contains("/api/forgot-password")
-                    || uri.contains("/api/booking/slots") || ("GET".equals(req.getMethod()) && (uri.endsWith("/api/service") || uri.matches(".*/api/feedback(?:/[0-9]+)?")))) {
+                    || ("GET".equals(req.getMethod()) && (uri.endsWith("/api/service") || uri.endsWith("/api/treatment-packages") || uri.matches(".*/api/feedback(?:/[0-9]+)?")))) {
                 chain.doFilter(request,response); return;
             }
             res.setStatus(401); res.setContentType("application/json"); res.setCharacterEncoding("UTF-8");
@@ -55,12 +55,14 @@ public class AuthorizationFilter implements Filter {
         }
         String role = user.getRole();
         String path = req.getRequestURI();
+        if (path.endsWith("/api/payments/vnpay/ipn") || path.endsWith("/api/payments/vnpay/return")) { chain.doFilter(request,response); return; }
 
         String relative=path.substring(req.getContextPath().length());
         boolean read="GET".equals(req.getMethod());
         boolean manager="Manager".equals(role), reception="Receptionist".equals(role), tech="Technician".equals(role), customer="Customer".equals(role);
         boolean allowed=true;
-        if(relative.startsWith("/api/staff") || relative.startsWith("/api/manager/") || relative.startsWith("/api/dashboard-reports") || relative.startsWith("/api/birthday-promotions") || relative.startsWith("/api/purchase-orders")) allowed=manager;
+        if(relative.equals("/api/booking/slots")) allowed=customer||reception;
+        else if(relative.startsWith("/api/operations/") || relative.startsWith("/api/staff") || relative.startsWith("/api/manager/") || relative.startsWith("/api/dashboard-reports") || relative.startsWith("/api/birthday-promotions") || relative.startsWith("/api/purchase-orders")) allowed=manager;
         else if(relative.startsWith("/api/customers")) allowed=manager||reception||(read&&tech);
         else if(relative.startsWith("/api/technician/")) allowed=tech;
         else if(relative.startsWith("/api/room-bed-status")) allowed=manager||tech||(read&&reception);
