@@ -103,24 +103,33 @@ public class CustomerPackageDAO extends DBContext implements AutoCloseable {
      * Lấy danh sách CustomerPackage của 1 khách hàng.
      */
     public List<CustomerPackage> getCustomerPackagesByCustomerId(int customerId) {
-        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
+        try {if (customerId > 0) workflow().customerAccess(customerId); else workflow().roles("Manager", "Receptionist", "Technician");} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
         List<CustomerPackage> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in CustomerPackageDAO.getCustomerPackagesByCustomerId()");
             return list;
         }
-        String sql = "SELECT customer_package_id, customer_id, treatment_package_id, "
-                   + "purchase_date, remaining_sessions, expiry_date, status "
-                   + "FROM CustomerPackage WHERE customer_id = ? ORDER BY purchase_date DESC";
+        String sql = "SELECT cp.*, c.full_name AS customer_name, tp.package_name "
+                   + "FROM CustomerPackage cp JOIN Customer c ON c.customer_id=cp.customer_id "
+                   + "JOIN TreatmentPackage tp ON tp.treatment_package_id=cp.treatment_package_id "
+                   + "WHERE (?=0 OR cp.customer_id=?) AND EXISTS(SELECT 1 FROM "
+                   + bssms_persistence.common.SchemaSql.ACCOUNTS + " ac WHERE ac.account_id=? AND ac.status='Active' AND "
+                   + "(ac.role IN ('Manager','Receptionist') OR (ac.role='Customer' AND ac.account_id=cp.customer_id*2+1) OR "
+                   + "(ac.role='Technician' AND EXISTS(SELECT 1 FROM Appointment a JOIN AppointmentStaff ast ON ast.appointment_id=a.appointment_id "
+                   + "WHERE a.customer_id=cp.customer_id AND ast.staff_id*2=ac.account_id)))) ORDER BY cp.purchase_date DESC";
         try {
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, customerId);
+            ps.setInt(2, customerId);
+            ps.setInt(3, requireActorAccountId());
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 CustomerPackage cp = new CustomerPackage();
                 cp.setCustomerPackageId(rs.getInt("customer_package_id"));
                 cp.setCustomerId(rs.getInt("customer_id"));
+                cp.setCustomerName(rs.getString("customer_name"));
+                cp.setPackageName(rs.getString("package_name"));
                 cp.setTreatmentPackageId(rs.getInt("treatment_package_id"));
                 cp.setPurchaseDate(rs.getTimestamp("purchase_date"));
                 cp.setRemainingSessions(rs.getInt("remaining_sessions"));

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import {
     Container,
     Card,
@@ -18,9 +17,8 @@ import {
 const RecordTreatmentOutcome = () => {
     const [appointments, setAppointments] = useState([]);
     const [services, setServices] = useState([]);
-    const [staff, setStaff] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("In Progress");
+    const [statusFilter, setStatusFilter] = useState("all");
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -31,57 +29,74 @@ const RecordTreatmentOutcome = () => {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const isTechnician = user?.role === "Technician";
     const isManager = user?.role === "Manager";
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    async function fetchData() {
         setIsLoading(true);
         setLoadError("");
         try {
-            const [apptRes, serviceRes, staffRes] = await Promise.all([
+            const [apptRes, serviceRes] = await Promise.all([
                 fetch("/api/appointments"),
                 fetch("/api/service"),
-                fetch("/api/staff"),
             ]);
 
-            const apptData = apptRes.ok ? await apptRes.json() : [];
+            if (!apptRes.ok) throw new Error(`Không thể tải lịch hẹn (HTTP ${apptRes.status}).`);
+            const apptData = await apptRes.json();
             const serviceData = serviceRes.ok ? await serviceRes.json() : [];
-            const staffData = staffRes.ok ? await staffRes.json() : [];
 
             setAppointments(Array.isArray(apptData) ? apptData : []);
             setServices(Array.isArray(serviceData) ? serviceData : []);
-            setStaff(Array.isArray(staffData) ? staffData : []);
         } catch (err) {
             console.error("Lỗi tải dữ liệu:", err);
-            setLoadError("Không thể tải dữ liệu.");
+            setLoadError(err.message || "Không thể tải dữ liệu.");
         } finally {
             setIsLoading(false);
         }
-    };
+    }
+
+    useEffect(() => {
+        // This request owns the initial loading and error states.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchData();
+    }, []);
+
 
     const handleOpenOutcome = (appointment) => {
         setSelectedAppointment(appointment);
         setOutcomeData({
-            notes: appointment.notes || "",
-            outcomeStatus: "Completed",
+            notes: "",
+            outcomeStatus: appointment.status === "Checked-in" ? "In-progress" : "Completed",
         });
         setShowOutcomeModal(true);
     };
 
+    const handleViewOutcome = async (appointment) => {
+        try {
+            const response = await fetch(`/api/treatment-outcomes/${appointment.appointmentId}`);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "Không tải được kết quả điều trị.");
+            setSelectedAppointment(appointment);
+            setOutcomeData({ notes: data.notes || "", outcomeStatus: "Completed" });
+            setShowOutcomeModal(true);
+        } catch (error) {
+            alert(error.message || "Không tải được kết quả điều trị.");
+        }
+    };
+
     const handleSubmitOutcome = async () => {
-        if (!selectedAppointment || !isTechnician && !isManager) return;
+        if (!selectedAppointment || !isTechnician) return;
+        if (outcomeData.outcomeStatus === "Completed" && !outcomeData.notes.trim()) {
+            alert("Vui lòng nhập kết quả điều trị trước khi hoàn thành.");
+            return;
+        }
 
         setIsSubmitting(true);
 
         try {
             // Cập nhật trạng thái appointment
-            const response = await fetch(`/api/appointments/${selectedAppointment.appointmentId}`, {
+            const response = await fetch(`/api/treatment-outcomes/${selectedAppointment.appointmentId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -115,12 +130,13 @@ const RecordTreatmentOutcome = () => {
 
     const getStatusBadge = (status) => {
         const statusMap = {
-            "Scheduled": { bg: "primary", text: "Đã lên lịch" },
+            "Checked-in": { bg: "info", text: "Đã check-in" },
+            "Pending": { bg: "primary", text: "Chờ xác nhận" },
             "Confirmed": { bg: "info", text: "Đã xác nhận" },
-            "In Progress": { bg: "warning", text: "Đang thực hiện" },
+            "In-progress": { bg: "warning", text: "Đang thực hiện" },
             "Completed": { bg: "success", text: "Hoàn thành" },
             "Cancelled": { bg: "danger", text: "Đã hủy" },
-            "No Show": { bg: "secondary", text: "Không đến" },
+            "No-show": { bg: "secondary", text: "Không đến" },
         };
         const style = statusMap[status] || { bg: "dark", text: status };
         return <Badge bg={style.bg}>{style.text}</Badge>;
@@ -150,7 +166,7 @@ const RecordTreatmentOutcome = () => {
         return (
             <Container className="mt-4 px-4">
                 <Alert variant="warning">
-                    Bạn không có quyền truy cập trang này. Chỉ Kỹ thuật viên hoặc Quản lý mới có thể ghi nhận kết quả điều trị.
+                    Bạn không có quyền truy cập trang này. Chỉ Kỹ thuật viên hoặc Quản lý mới có thể xem trang này.
                 </Alert>
             </Container>
         );
@@ -170,6 +186,7 @@ const RecordTreatmentOutcome = () => {
             <h2 className="fw-bold text-uppercase mb-4">Ghi nhận kết quả điều trị</h2>
 
             {loadError && <Alert variant="danger">{loadError}</Alert>}
+            <p className="text-muted">Kỹ thuật viên phụ trách bắt đầu thực hiện sau khi check-in và ghi kết quả khi hoàn thành. Quản lý xem tiến độ và kết quả.</p>
 
             {/* Bộ lọc */}
             <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "12px" }}>
@@ -192,11 +209,13 @@ const RecordTreatmentOutcome = () => {
                             onChange={(e) => setStatusFilter(e.target.value)}
                         >
                             <option value="all">Tất cả trạng thái</option>
-                            <option value="Scheduled">Đã lên lịch</option>
+                            <option value="Pending">Chờ xác nhận</option>
                             <option value="Confirmed">Đã xác nhận</option>
-                            <option value="In Progress">Đang thực hiện</option>
+<option value="Checked-in">Đã check-in</option>
+                            <option value="In-progress">Đang thực hiện</option>
                             <option value="Completed">Hoàn thành</option>
                             <option value="Cancelled">Đã hủy</option>
+                            <option value="No-show">Không đến</option>
                         </Form.Select>
                     </div>
                 </Card.Body>
@@ -230,7 +249,7 @@ const RecordTreatmentOutcome = () => {
                                         <td>{a.staffName || "—"}</td>
                                         <td>{getStatusBadge(a.status)}</td>
                                         <td>
-                                            {(a.status === "Confirmed" || a.status === "In Progress") && (
+                                            {(isTechnician && (a.status === "Checked-in" || a.status === "In-progress")) && (
                                                 <Button
                                                     variant="success"
                                                     size="sm"
@@ -244,7 +263,7 @@ const RecordTreatmentOutcome = () => {
                                                 <Button
                                                     variant="info"
                                                     size="sm"
-                                                    onClick={() => navigate(`/appointments/${a.appointmentId}`)}
+                                                    onClick={() => handleViewOutcome(a)}
                                                 >
                                                     <i className="bi bi-eye me-1"></i>
                                                     Xem
@@ -256,7 +275,7 @@ const RecordTreatmentOutcome = () => {
                             ) : (
                                 <tr>
                                     <td colSpan="8" className="text-center text-muted py-4">
-                                        Không tìm thấy lịch hẹn nào.
+                                        Không có lịch hẹn phù hợp với bộ lọc. Lịch phải được check-in trước khi kỹ thuật viên ghi nhận kết quả.
                                     </td>
                                 </tr>
                             )}
@@ -298,6 +317,7 @@ const RecordTreatmentOutcome = () => {
                             <Form.Group className="mb-3">
                                 <Form.Label className="fw-bold">Kết quả điều trị *</Form.Label>
                                 <Form.Select
+                                    disabled={selectedAppointment.status === "Completed"}
                                     value={outcomeData.outcomeStatus}
                                     onChange={(e) =>
                                         setOutcomeData((prev) => ({
@@ -306,18 +326,21 @@ const RecordTreatmentOutcome = () => {
                                         }))
                                     }
                                 >
-                                    <option value="Completed">Hoàn thành</option>
-                                    <option value="Cancelled">Hủy bỏ</option>
-                                    <option value="In Progress">Tiếp tục điều trị</option>
+                                    {selectedAppointment.status === "Checked-in" ? (
+                                        <option value="In-progress">Bắt đầu thực hiện</option>
+                                    ) : (
+                                        <option value="Completed">Hoàn thành</option>
+                                    )}
                                 </Form.Select>
                             </Form.Group>
 
                             <Form.Group className="mb-3">
-                                <Form.Label className="fw-bold">Ghi chú</Form.Label>
+                                <Form.Label className="fw-bold">Kết quả điều trị {outcomeData.outcomeStatus === "Completed" ? "*" : ""}</Form.Label>
                                 <Form.Control
                                     as="textarea"
+                                    disabled={outcomeData.outcomeStatus !== "Completed" || selectedAppointment.status === "Completed"}
                                     rows={4}
-                                    placeholder="Nhập ghi chú về kết quả điều trị..."
+                                    placeholder={outcomeData.outcomeStatus === "Completed" ? "Nhập kết quả điều trị..." : "Nhập kết quả khi hoàn thành buổi điều trị."}
                                     value={outcomeData.notes}
                                     onChange={(e) =>
                                         setOutcomeData((prev) => ({
@@ -338,13 +361,13 @@ const RecordTreatmentOutcome = () => {
                     <Button variant="secondary" onClick={() => setShowOutcomeModal(false)}>
                         Hủy bỏ
                     </Button>
-                    <Button
+                    {selectedAppointment?.status !== "Completed" && <Button
                         variant="success"
                         onClick={handleSubmitOutcome}
                         disabled={isSubmitting}
                     >
                         {isSubmitting ? "Đang xử lý..." : "Xác nhận"}
-                    </Button>
+                    </Button>}
                 </Modal.Footer>
             </Modal>
         </Container>

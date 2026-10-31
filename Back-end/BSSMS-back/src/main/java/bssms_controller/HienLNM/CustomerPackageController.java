@@ -55,7 +55,7 @@ public class CustomerPackageController extends ControllerSupport {
                 out.print("{\"message\":\"Customer ID khong hop le\"}");
             }
         } else {
-            out.print("{\"message\":\"Vui long cung cap customerId de xem danh sach goi da mua\"}");
+            out.print(gson.toJson(dao.getCustomerPackagesByCustomerId(0)));
         }
         out.flush();
     }

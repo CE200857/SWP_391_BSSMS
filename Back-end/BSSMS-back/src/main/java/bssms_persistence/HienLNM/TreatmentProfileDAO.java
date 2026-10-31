@@ -18,10 +18,10 @@ public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
 
     // Lấy hồ sơ điều trị theo customer ID
     public List<Map<String, Object>> getTreatmentProfilesByCustomerId(int customerId) {
-        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
+        try {if (customerId > 0) workflow().customerAccess(customerId); else workflow().roles("Manager", "Receptionist", "Technician");} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT a.appointment_id, a.appointment_date, a.start_time, a.end_time, a.status AS appointment_status, "
+        String query = "SELECT a.customer_id, (SELECT full_name FROM Customer WHERE customer_id=a.customer_id) AS customer_name, a.appointment_id, a.appointment_date, a.start_time, a.end_time, a.status AS appointment_status, "
                      + "a.notes, tr.result_notes, s.service_name, s.price, "
                      + "tp.package_name, cp.remaining_sessions, "
                      + "st.full_name AS staff_name, st.position, "
@@ -33,15 +33,19 @@ public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
                      + "LEFT JOIN AppointmentStaff aps ON a.appointment_id = aps.appointment_id AND aps.role='Main Technician' "
                      + "LEFT JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON aps.staff_id = st.staff_id "
                      + "LEFT JOIN " + bssms_persistence.common.SchemaSql.FEEDBACK + " f ON a.appointment_id = f.appointment_id "
-                     + "WHERE a.customer_id = ? "
+                     + "WHERE (?=0 OR a.customer_id = ?) AND " + bssms_persistence.common.Workflow.appointmentScope() + " "
                      + "ORDER BY a.appointment_date DESC, a.start_time DESC";
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
                 ps.setInt(1, customerId);
+                ps.setInt(2, customerId);
+                ps.setInt(3, requireActorAccountId());
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
                     Map<String, Object> map = new HashMap<>();
+                    map.put("customerId", rs.getInt("customer_id"));
+                    map.put("customerName", rs.getString("customer_name"));
                     map.put("appointmentId", rs.getInt("appointment_id"));
                     map.put("appointmentDate", rs.getDate("appointment_date") != null ? rs.getDate("appointment_date").toString() : null);
                     map.put("startTime", rs.getTime("start_time") != null ? rs.getTime("start_time").toString() : null);

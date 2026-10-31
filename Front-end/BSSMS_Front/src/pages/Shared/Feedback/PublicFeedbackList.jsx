@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -161,14 +162,11 @@ const PublicFeedbackList = () => {
   };
 
   return (
-    <Container fluid className="mt-4 px-4">
+    <Container fluid className="mt-4 px-4 feedback-management-page">
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h2 className="fw-bold text-uppercase mb-0">
           Đánh giá từ khách hàng
         </h2>
-        <Link to="/my-feedback" className="btn btn-outline-danger">
-          <i className="bi bi-list-ul me-1"></i> Đánh giá của tôi
-        </Link>
       </div>
 
       {/* Thẻ thống kê */}

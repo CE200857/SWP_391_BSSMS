@@ -159,7 +159,8 @@ const VoucherList = () => {
         setMessage("Cập nhật voucher thành công!");
       } else {
         // Tạo mới - bỏ status field vì backend mặc định 'Active'
-        const { status, ...createData } = formData;
+        const createData = { ...formData };
+        delete createData.status;
         await axios.post("/api/vouchers", createData, {
           withCredentials: true,
         });
@@ -190,7 +191,7 @@ const VoucherList = () => {
       setRefresh((prev) => prev + 1);
       setShowDeleteModal(false);
       setSelectedVoucher(null);
-    } catch (error) {
+    } catch {
       alert("Không thể xóa voucher này!");
     }
   };

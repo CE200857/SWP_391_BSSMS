@@ -11,7 +11,6 @@ import {
     Spinner,
     Table,
 } from "react-bootstrap";
-import "./ServiceHistory.css";
 
 function formatDate(value) {
     if (!value) return "—";
@@ -90,6 +89,7 @@ export default function ServiceHistory({ user }) {
     }, [canFilterByCustomer]);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the view while synchronizing external data for this selection.
         loadHistory(appliedCustomerId);
     }, [loadHistory, appliedCustomerId]);
 

@@ -13,11 +13,9 @@ const UpdateServiceStatus = () => {
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const isManager = user?.role === "Manager";
 
-    useEffect(() => {
-        fetchServices();
-    }, []);
 
-    const fetchServices = async () => {
+
+    async function fetchServices() {
         setIsLoading(true);
         setLoadError("");
         try {
@@ -35,6 +33,11 @@ const UpdateServiceStatus = () => {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Loading reflects an external API request.
+        fetchServices();
+    }, []);
 
     const handleUpdateStatus = async (service) => {
         if (!isManager) return;

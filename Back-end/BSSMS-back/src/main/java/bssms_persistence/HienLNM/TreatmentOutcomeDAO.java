@@ -52,6 +52,10 @@ public class TreatmentOutcomeDAO extends DBContext implements AutoCloseable {
      * @return true nếu cập nhật thành công
      */
     public boolean recordOutcome(int appointmentId, String notes, String status) throws Exception {
+        return recordOutcome(appointmentId, notes, status, null);
+    }
+
+    public boolean recordOutcome(int appointmentId, String notes, String status, String skinReaction) throws Exception {
         workflow().roles("Technician");
         workflow().appointmentAccess(appointmentId);
         if (!"In-progress".equals(status) && !"Completed".equals(status))
@@ -59,8 +63,17 @@ public class TreatmentOutcomeDAO extends DBContext implements AutoCloseable {
         if ("Completed".equals(status) && (notes==null || notes.trim().isEmpty()))
             throw new IllegalArgumentException("Vui lòng nhập kết quả điều trị.");
         if (notes!=null && notes.length()>500) throw new IllegalArgumentException("Kết quả tối đa 500 ký tự.");
-        workflow().call("usp_ChangeAppointmentStatus",requireActorAccountId(),appointmentId,status,null,notes,null);
+        if (skinReaction != null && skinReaction.length() > 1000) throw new IllegalArgumentException("Phản ứng da tối đa 1000 ký tự.");
+        workflow().call("usp_ChangeAppointmentStatus",requireActorAccountId(),appointmentId,status,null,notes,skinReaction);
         return true;
+    }
+
+    public java.util.Map<String,Object> outcome(int appointmentId) throws java.sql.SQLException {
+        workflow().appointmentAccess(appointmentId);
+        java.util.Map<String,Object> result=workflow().one(
+            "SELECT appointment_id,status,result_notes AS notes,skin_reaction FROM Appointment WHERE appointment_id=?",appointmentId);
+        result.put("photos",workflow().query("SELECT photo_id,photo_type,storage_key FROM TreatmentPhoto WHERE appointment_id=? ORDER BY photo_id",appointmentId));
+        return result;
     }
 
     /**

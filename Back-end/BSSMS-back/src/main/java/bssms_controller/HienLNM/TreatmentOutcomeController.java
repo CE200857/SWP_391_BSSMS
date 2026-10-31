@@ -34,25 +34,7 @@ public class TreatmentOutcomeController extends ControllerSupport {
 
         try {
             int appointmentId = Integer.parseInt(pathInfo.substring(1));
-            if (!dao.appointmentExists(appointmentId)) {
-                resp.status(404);
-                out.print("{\"message\":\"Khong tim thay appointment voi id = " + appointmentId + "\"}");
-                out.flush();
-                return;
-            }
-
-            String raw = dao.getOutcomeByAppointmentId(appointmentId);
-            if (raw != null) {
-                String[] parts = raw.split("\\|\\|\\|", 2);
-                Map<String, Object> result = new HashMap<>();
-                result.put("appointmentId", appointmentId);
-                result.put("notes", parts[0]);
-                result.put("status", parts.length > 1 ? parts[1] : null);
-                out.print(gson.toJson(result));
-            } else {
-                resp.status(404);
-                out.print("{\"message\":\"Khong tim thay ket qua dieu tri\"}");
-            }
+            out.print(gson.toJson(dao.outcome(appointmentId)));
         } catch (NumberFormatException e) {
             resp.status(400);
             out.print("{\"message\":\"Appointment ID khong hop le\"}");
@@ -100,7 +82,7 @@ public class TreatmentOutcomeController extends ControllerSupport {
                 return;
             }
 
-            boolean success = dao.recordOutcome(appointmentId, notes, status);
+            boolean success = dao.recordOutcome(appointmentId, notes, status, data.get("skinReaction"));
             if (success) {
                 resp.status(200);
                 out.print("{\"message\":\"Ghi nhan ket qua dieu tri thanh cong\",\"appointmentId\":" + appointmentId + "}");

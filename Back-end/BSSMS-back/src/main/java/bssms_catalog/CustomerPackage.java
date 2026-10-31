@@ -9,6 +9,12 @@ import java.util.Date;
  * @author admin
  */
 public class CustomerPackage {
+    private String customerName;
+    private String packageName;
+    public String getCustomerName() { return customerName; }
+    public void setCustomerName(String value) { customerName = value; }
+    public String getPackageName() { return packageName; }
+    public void setPackageName(String value) { packageName = value; }
     private int customerPackageId;
     private int customerId;
     private int treatmentPackageId;
