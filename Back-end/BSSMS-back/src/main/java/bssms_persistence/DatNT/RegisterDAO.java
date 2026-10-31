@@ -85,43 +85,30 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
         } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
-    public boolean saveVerificationCode(String email, String otpCode) {
+    public boolean saveVerificationCode(String email,String otp) { return saveVerificationCode(email,otp,"Registration"); }
+    public boolean saveVerificationCode(String email,String otp,String purpose) {
         requireConnection();
-        String sql = "IF EXISTS (SELECT 1 FROM VerificationCode WHERE email = ?) "
-                   + "UPDATE VerificationCode SET otp_code = ?, expiry_time = DATEADD(MINUTE, 5, GETDATE()), created_at = GETDATE() WHERE email = ? "
-                   + "ELSE "
-                   + "INSERT INTO VerificationCode (email, otp_code, expiry_time) VALUES (?, ?, DATEADD(MINUTE, 5, GETDATE()))";
         try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ps.setString(1, email);
-                ps.setString(2, otpCode);
-                ps.setString(3, email);
-                ps.setString(4, email);
-                ps.setString(5, otpCode);
-                return ps.executeUpdate() > 0;
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+            bssms_persistence.common.Workflow w=new bssms_persistence.common.Workflow(conn,0);
+            return w.transaction(()->{
+                if(!w.query("SELECT email FROM VerificationCode WHERE email=? AND created_at>DATEADD(second,-60,GETDATE())",email).isEmpty())
+                    throw new bssms_persistence.common.WorkflowException(429,"Vui lòng chờ 60 giây trước khi gửi lại OTP.");
+                w.update("DELETE FROM VerificationCode WHERE email=?",email);
+                return w.update("INSERT VerificationCode(email,otp_code,purpose,expiry_time,customer_id,staff_id) SELECT ?,?,?,DATEADD(minute,5,GETDATE()),(SELECT customer_id FROM Customer WHERE email=?),(SELECT staff_id FROM Staff WHERE email=?)",email,otp,purpose,email,email)==1;
+            });
+        } catch(java.sql.SQLException e) { throw new DataAccessException(e); }
     }
-
-    public boolean verifyCode(String email, String otpCode) {
+    public boolean verifyCode(String email,String otp) { return verifyCode(email,otp,"Registration"); }
+    public boolean verifyCode(String email,String otp,String purpose) {
         requireConnection();
-        String sql = "SELECT otp_code FROM VerificationCode WHERE email = ? AND otp_code = ? AND expiry_time > GETDATE()";
         try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ps.setString(1, email);
-                ps.setString(2, otpCode);
-                ResultSet rs = ps.executeQuery();
-                return rs.next();
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+            bssms_persistence.common.Workflow w=new bssms_persistence.common.Workflow(conn,0);
+            return w.transaction(()->{
+                int changed=w.update("UPDATE VerificationCode SET attempts=attempts+1 WHERE email=? AND purpose=? AND consumed_at IS NULL AND attempts<5 AND expiry_time>GETDATE()",email,purpose);
+                if(changed==0)return false;
+                return w.update("UPDATE VerificationCode SET consumed_at=GETDATE() WHERE email=? AND purpose=? AND otp_code=? AND consumed_at IS NULL AND expiry_time>GETDATE() AND attempts<=5",email,purpose,otp)==1;
+            });
+        } catch(java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
     public void deleteVerificationCode(String email) {
