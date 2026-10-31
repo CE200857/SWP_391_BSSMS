@@ -49,7 +49,6 @@ const fetchJson = async (url) => {
 
     if (response.status === 401) {
         localStorage.removeItem("user");
-        window.location.href = "/login";
         throw new Error("Vui lòng đăng nhập để tiếp tục!");
     }
 
@@ -97,7 +96,7 @@ const CreateWalkInAppointment = () => {
                     await Promise.all([
                         fetchJson("/api/customers"),
                         fetchJson("/api/service"),
-                        fetchJson("/api/staff")
+                        fetchJson("/api/appointments/technicians")
                     ]);
 
                 setCustomers(

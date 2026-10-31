@@ -62,11 +62,11 @@ const ResourceManagement = () => {
     setIsEdit(false);
     setErrorMsg("");
     if (activeTab === "rooms") {
-      setFormData({ roomId: 0, roomName: "", roomType: "Treatment", status: "Available" });
+      setFormData({ roomId: 0, roomName: "", roomType: "Treatment", status: "Active" });
     } else if (activeTab === "beds") {
-      setFormData({ bedId: 0, roomId: rooms.length > 0 ? rooms[0].roomId : "", bedNumber: "", status: "Available" });
+      setFormData({ bedId: 0, roomId: rooms.length > 0 ? rooms[0].roomId : "", bedNumber: "", status: "Active" });
     } else if (activeTab === "equipments") {
-      setFormData({ equipmentId: 0, equipmentName: "", description: "", status: "Available" });
+      setFormData({ equipmentId: 0, equipmentName: "", description: "", status: "Active" });
     }
     setShowModal(true);
   };
@@ -135,7 +135,8 @@ const ResourceManagement = () => {
   return (
     <Container fluid className="mt-4 px-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="fw-bold text-uppercase" style={{ color: "#800020" }}>Quản lý Tài nguyên</h2>
+        <h2 className="fw-bold text-uppercase" style={{ color: "#800020" }}>Danh mục tài nguyên</h2>
+        <p className="text-muted">Thêm, sửa và quản lý thông tin phòng, giường, thiết bị. Trạng thái hoạt động không thể hiện lịch trống.</p>
         <Button variant="danger" className="fw-bold" style={{ backgroundColor: "#800020" }} onClick={handleOpenAdd}>
           <i className="bi bi-plus-lg me-1"></i> Thêm mới
         </Button>
@@ -255,11 +256,11 @@ const ResourceManagement = () => {
             {/* Trạng thái dùng chung */}
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Trạng thái</Form.Label>
-              <Form.Select name="status" value={formData.status || "Available"} onChange={handleChange}>
-                <option value="Available">Available (Sẵn sàng)</option>
-                {activeTab !== "rooms" && <option value="In Use">In Use (Đang dùng)</option>}
-                {activeTab === "rooms" && <option value="Occupied">Occupied (Đang dùng)</option>}
-                <option value="Maintenance">Maintenance (Bảo trì)</option>
+              <Form.Select name="status" value={formData.status || "Active"} onChange={handleChange}>
+                <option value="Active">Đang hoạt động</option>
+                
+                
+                <option value="Maintenance">Bảo trì</option>
               </Form.Select>
             </Form.Group>
           </Modal.Body>
@@ -316,8 +317,8 @@ const RoomTable = ({ rooms, searchTerm, onEdit, onDelete }) => {
                 <td className="fw-bold">{r.roomName}</td>
                 <td>{r.roomType}</td>
                 <td>
-                  <Badge bg={r.status === "Available" ? "success" : r.status === "Occupied" ? "warning" : "danger"}>
-                    {r.status === "Available" ? "Trống" : r.status === "Occupied" ? "Đang sử dụng" : "Bảo trì"}
+                  <Badge bg={r.status === "Active" ? "success" : r.status === "Maintenance" ? "warning" : "secondary"}>
+                    {r.status === "Active" ? "Đang hoạt động" : r.status === "Maintenance" ? "Bảo trì" : r.status}
                   </Badge>
                 </td>
                 <td className="text-center">
@@ -353,8 +354,8 @@ const BedTable = ({ beds, rooms, searchTerm, onEdit, onDelete }) => {
                 <td className="fw-bold">{b.bedNumber}</td>
                 <td>{getRoomName(b.roomId)}</td>
                 <td>
-                  <Badge bg={b.status === "Available" ? "success" : b.status === "In Use" ? "warning" : "danger"}>
-                    {b.status === "Available" ? "Trống" : b.status === "In Use" ? "Đang sử dụng" : "Bảo trì"}
+                  <Badge bg={b.status === "Active" ? "success" : b.status === "Maintenance" ? "warning" : "secondary"}>
+                    {b.status === "Active" ? "Đang hoạt động" : b.status === "Maintenance" ? "Bảo trì" : b.status}
                   </Badge>
                 </td>
                 <td className="text-center">
@@ -389,8 +390,8 @@ const EquipmentTable = ({ equipments, searchTerm, onEdit, onDelete }) => {
                 <td className="fw-bold">{e.equipmentName}</td>
                 <td>{e.description || "—"}</td>
                 <td>
-                  <Badge bg={e.status === "Available" ? "success" : e.status === "In Use" ? "warning" : "danger"}>
-                    {e.status === "Available" ? "Trống" : e.status === "In Use" ? "Đang sử dụng" : "Bảo trì"}
+                  <Badge bg={e.status === "Active" ? "success" : e.status === "Maintenance" ? "warning" : "secondary"}>
+                    {e.status === "Active" ? "Đang hoạt động" : e.status === "Maintenance" ? "Bảo trì" : e.status}
                   </Badge>
                 </td>
                 <td className="text-center">

@@ -117,9 +117,9 @@ const ServiceForm = ({ isReadOnly = false }) => {
                                 </div>
                                 <Link
                                     className="home-button home-button-primary public-detail-booking"
-                                    to={user?.role === 'Customer' ? '/appointments/online' : '/guest/slots'}
+                                    to={['Technician', 'Manager'].includes(user?.role) ? '/appointments' : `/slots?serviceId=${encodeURIComponent(id)}`}
                                 >
-                                    <i className="bi bi-calendar2-check" aria-hidden="true" /> Đặt lịch hẹn
+                                    <i className="bi bi-calendar2-check" aria-hidden="true" /> {["Technician", "Manager"].includes(user?.role) ? "Xem lịch hẹn" : user ? "Xem lịch trống và đặt lịch" : "Đăng nhập để đặt lịch"}
                                     <i className="bi bi-arrow-right" aria-hidden="true" />
                                 </Link>
                             </div>

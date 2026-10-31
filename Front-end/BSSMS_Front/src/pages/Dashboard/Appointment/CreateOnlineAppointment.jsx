@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  Form,
-  Button,
-  Alert,
-  Spinner,
-} from "react-bootstrap";
+import { Form, Button, Alert, Spinner } from "react-bootstrap";
+import BookingPaymentNotice from "../../../components/BookingPaymentNotice";
 import servicePhoto from "../../../assets/figma/service-card-exact-02.png";
 
 const getTodayString = () => {
@@ -28,7 +24,7 @@ const CreateOnlineAppointment = () => {
   const [serviceId, setServiceId] = useState(prefill.serviceId || "");
   const [customerPackageId, setCustomerPackageId] = useState("");
   const [appointmentDate, setAppointmentDate] = useState(
-    prefill.appointmentDate || getTodayString()
+    prefill.appointmentDate || getTodayString(),
   );
   const [startTime, setStartTime] = useState(prefill.startTime || "");
   const [technicianId, setTechnicianId] = useState(prefill.technicianId || "");
@@ -59,8 +55,9 @@ const CreateOnlineAppointment = () => {
           : [];
         setServices(activeSrvs);
         if (activeSrvs.length > 0) {
-          setServiceId((currentServiceId) =>
-            currentServiceId || String(activeSrvs[0].serviceId)
+          setServiceId(
+            (currentServiceId) =>
+              currentServiceId || String(activeSrvs[0].serviceId),
           );
         }
 
@@ -82,7 +79,7 @@ const CreateOnlineAppointment = () => {
   const handleSelectPackage = (pkgId) => {
     setCustomerPackageId(pkgId);
     const found = myPackages.find(
-      (p) => String(p.customerPackageId) === String(pkgId)
+      (p) => String(p.customerPackageId) === String(pkgId),
     );
     if (found) {
       setServiceId(String(found.serviceId));
@@ -115,7 +112,12 @@ const CreateOnlineAppointment = () => {
         }
 
         const data = await res.json();
-        setSlotInfo(data);
+        setSlotInfo({
+          ...data,
+          slots: (data.slots || []).filter(
+            (slot) => slot.startTime >= "08:30" && slot.endTime <= "18:30",
+          ),
+        });
       } catch (err) {
         console.error("Lỗi tải khung giờ:", err);
         setSlotInfo(null);
@@ -128,20 +130,21 @@ const CreateOnlineAppointment = () => {
   }, [serviceId, appointmentDate, technicianId]);
 
   const selectedService = services.find(
-    (s) => String(s.serviceId) === String(serviceId)
+    (s) => String(s.serviceId) === String(serviceId),
   );
   const selectedSlot = slotInfo?.slots?.find(
-    (slot) => slot.startTime === startTime
+    (slot) => slot.startTime === startTime,
   );
   const selectedTechnician = slotInfo?.technicians?.find(
-    (technician) => String(technician.staffId) === String(technicianId)
+    (technician) => String(technician.staffId) === String(technicianId),
   );
   const selectedPackage = myPackages.find(
-    (pkg) => String(pkg.customerPackageId) === String(customerPackageId)
+    (pkg) => String(pkg.customerPackageId) === String(customerPackageId),
   );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting || bookingResult) return;
     setError("");
     setBookingResult(null);
 
@@ -150,6 +153,26 @@ const CreateOnlineAppointment = () => {
       return;
     }
 
+    if (appointmentDate < getTodayString()) {
+      setError("Vui lòng chọn ngày hôm nay hoặc một ngày trong tương lai.");
+      return;
+    }
+    if (bookingType === "package" && !customerPackageId) {
+      setError("Vui lòng chọn gói liệu trình muốn sử dụng.");
+      return;
+    }
+    if (loadingSlots || !selectedSlot?.available) {
+      setError(
+        "Khung giờ chưa sẵn sàng. Vui lòng chọn lại khung giờ còn trống.",
+      );
+      return;
+    }
+    if (selectedSlot.startTime < "08:30" || selectedSlot.endTime > "18:30") {
+      setError(
+        "Dịch vụ phải diễn ra trong giờ làm việc 08:30–18:30. Vui lòng chọn lại giờ.",
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       const response = await fetch("/api/booking/online", {
@@ -169,11 +192,25 @@ const CreateOnlineAppointment = () => {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (response.ok) {
         setBookingResult(data);
+        if (
+          Number.isInteger(Number(data.appointmentId)) &&
+          Number(data.appointmentId) > 0
+        ) {
+          navigate(`/appointments/${data.appointmentId}`, {
+            replace: true,
+            state: { bookingCreated: true },
+          });
+        }
       } else {
-        setError(data.message || "Đặt lịch hẹn thất bại!");
+        setError(
+          response.status === 401
+            ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại trước khi đặt lịch."
+            : data.message ||
+                `Đặt lịch thất bại (HTTP ${response.status}). Vui lòng thử lại.`,
+        );
       }
     } catch (err) {
       console.error("Lỗi đặt lịch online:", err);
@@ -188,18 +225,29 @@ const CreateOnlineAppointment = () => {
       <section className="customer-booking-banner">
         <div className="customer-booking-container">
           <div className="customer-breadcrumb">
-            <button type="button" onClick={() => navigate("/customer/home")}>Trang chủ</button>
+            <button type="button" onClick={() => navigate("/customer/home")}>
+              Trang chủ
+            </button>
             <i className="bi bi-chevron-right" aria-hidden="true" />
             <strong>Đặt lịch hẹn online</strong>
           </div>
           <div className="customer-booking-banner-row">
             <div>
-              <span className="home-eyebrow">DÀNH MỘT KHOẢNG THỜI GIAN CHO BẠN</span>
+              <span className="home-eyebrow">
+                DÀNH MỘT KHOẢNG THỜI GIAN CHO BẠN
+              </span>
               <h1>Đặt lịch hẹn online</h1>
-              <p>Chọn dịch vụ lẻ hoặc gói liệu trình của bạn và khung giờ yêu thích.<br />Kiểm tra thông tin và xác nhận để hoàn tất đặt lịch tại Seoul Center.</p>
+              <p>
+                Chọn dịch vụ lẻ hoặc gói liệu trình của bạn và khung giờ yêu
+                thích.
+                <br />
+                Kiểm tra thông tin và xác nhận để hoàn tất đặt lịch tại Seoul
+                Center.
+              </p>
             </div>
             <Button variant="light" onClick={() => navigate("/appointments")}>
-              <i className="bi bi-list-ul" aria-hidden="true" /> Lịch hẹn của tôi
+              <i className="bi bi-list-ul" aria-hidden="true" /> Lịch hẹn của
+              tôi
             </Button>
           </div>
         </div>
@@ -218,20 +266,35 @@ const CreateOnlineAppointment = () => {
             <p>
               Mã lịch hẹn: <strong>#{bookingResult.appointmentId}</strong>
               {" · "}Ngày hẹn: <strong>{bookingResult.appointmentDate}</strong>
-              {" · "}Khung giờ: <strong>{bookingResult.startTime} - {bookingResult.endTime}</strong>
+              {" · "}Khung giờ:{" "}
+              <strong>
+                {bookingResult.startTime} - {bookingResult.endTime}
+              </strong>
             </p>
             <div className="d-flex flex-wrap gap-2">
-              <Button onClick={() => navigate(`/appointments/${bookingResult.appointmentId}`)}>
+              <Button
+                onClick={() =>
+                  navigate(`/appointments/${bookingResult.appointmentId}`)
+                }
+              >
                 Xem chi tiết lịch hẹn
               </Button>
-              <Button variant="outline-success" onClick={() => navigate("/appointments")}>
+              <Button
+                variant="outline-success"
+                onClick={() => navigate("/appointments")}
+              >
                 Danh sách lịch hẹn
               </Button>
             </div>
           </Alert>
         )}
 
-        <Form onSubmit={handleSubmit} className="customer-booking-form">
+        <BookingPaymentNotice packageBooking={bookingType === "package"} />
+        <Form
+          noValidate
+          onSubmit={handleSubmit}
+          className="customer-booking-form"
+        >
           <section className="customer-booking-service-panel">
             <div className="customer-booking-section-title">
               <span>01</span>
@@ -260,7 +323,9 @@ const CreateOnlineAppointment = () => {
                 <span>
                   <strong>Sử dụng dịch vụ lẻ (Tính theo lượt)</strong>
                 </span>
-                {bookingType === "single" && <i className="bi bi-check-circle-fill" aria-hidden="true" />}
+                {bookingType === "single" && (
+                  <i className="bi bi-check-circle-fill" aria-hidden="true" />
+                )}
               </div>
 
               <div
@@ -285,7 +350,9 @@ const CreateOnlineAppointment = () => {
                       : "Bạn chưa có gói có thể sử dụng"}
                   </small>
                 </span>
-                {bookingType === "package" && <i className="bi bi-check-circle-fill" aria-hidden="true" />}
+                {bookingType === "package" && (
+                  <i className="bi bi-check-circle-fill" aria-hidden="true" />
+                )}
               </div>
             </div>
 
@@ -295,13 +362,19 @@ const CreateOnlineAppointment = () => {
                   <Form.Label>Chọn gói liệu trình của bạn *</Form.Label>
                   <Form.Select
                     value={customerPackageId}
-                    onChange={(event) => handleSelectPackage(event.target.value)}
+                    onChange={(event) =>
+                      handleSelectPackage(event.target.value)
+                    }
                     required
                   >
                     <option value="">-- Chọn gói liệu trình --</option>
                     {myPackages.map((pkg) => (
-                      <option key={pkg.customerPackageId} value={pkg.customerPackageId}>
-                        {pkg.packageName} · {pkg.serviceName} · Còn {pkg.remainingSessions} buổi
+                      <option
+                        key={pkg.customerPackageId}
+                        value={pkg.customerPackageId}
+                      >
+                        {pkg.packageName} · {pkg.serviceName} · Còn{" "}
+                        {pkg.remainingSessions} buổi
                       </option>
                     ))}
                   </Form.Select>
@@ -329,13 +402,22 @@ const CreateOnlineAppointment = () => {
                 </Form.Group>
                 <Form.Group>
                   <Form.Label>Thời lượng</Form.Label>
-                  <Form.Control readOnly value={selectedService ? `${selectedService.duration} phút` : ""} />
+                  <Form.Control
+                    readOnly
+                    value={
+                      selectedService ? `${selectedService.duration} phút` : ""
+                    }
+                  />
                 </Form.Group>
                 <Form.Group>
                   <Form.Label>Chi phí dự kiến</Form.Label>
                   <Form.Control
                     readOnly
-                    value={selectedService ? `${Number(selectedService.price).toLocaleString("vi-VN")} đ` : ""}
+                    value={
+                      selectedService
+                        ? `${Number(selectedService.price).toLocaleString("vi-VN")} đ`
+                        : ""
+                    }
                   />
                 </Form.Group>
               </div>
@@ -386,13 +468,27 @@ const CreateOnlineAppointment = () => {
                 <div className="customer-booking-section-title">
                   <span>03</span>
                   <h2>Chọn khung giờ trống *</h2>
-                  {slotInfo?.slots && <small>{slotInfo.slots.length} khung giờ</small>}
+                  {slotInfo?.slots && (
+                    <small>{slotInfo.slots.length} khung giờ</small>
+                  )}
                 </div>
                 <div className="customer-booking-slot-meta">
-                  <span><i className="bi bi-calendar3" aria-hidden="true" /> {appointmentDate}</span>
-                  <span><i className="bi bi-person" aria-hidden="true" /> KTV khả dụng</span>
-                  <span><i className="bi bi-circle-fill" aria-hidden="true" /> Còn trống</span>
-                  <span><i className="bi bi-check-circle-fill" aria-hidden="true" /> Đã chọn</span>
+                  <span>
+                    <i className="bi bi-calendar3" aria-hidden="true" />{" "}
+                    {appointmentDate}
+                  </span>
+                  <span>
+                    <i className="bi bi-person" aria-hidden="true" /> KTV khả
+                    dụng
+                  </span>
+                  <span>
+                    <i className="bi bi-circle-fill" aria-hidden="true" /> Còn
+                    trống
+                  </span>
+                  <span>
+                    <i className="bi bi-check-circle-fill" aria-hidden="true" />{" "}
+                    Đã chọn
+                  </span>
                 </div>
 
                 {loadingSlots ? (
@@ -413,9 +509,20 @@ const CreateOnlineAppointment = () => {
                           onClick={() => setStartTime(slot.startTime)}
                           aria-pressed={isSelected}
                         >
-                          <strong>{slot.startTime} - {slot.endTime}</strong>
-                          <span><i className="bi bi-person" aria-hidden="true" /> Còn {slot.availableTechnicianCount} KTV</span>
-                          <small>{isSelected ? "Đã chọn" : slot.available ? "Còn trống" : "Đã kín"}</small>
+                          <strong>
+                            {slot.startTime} - {slot.endTime}
+                          </strong>
+                          <span>
+                            <i className="bi bi-person" aria-hidden="true" />{" "}
+                            Còn {slot.availableTechnicianCount} KTV
+                          </span>
+                          <small>
+                            {isSelected
+                              ? "Đã chọn"
+                              : slot.available
+                                ? "Còn trống"
+                                : "Đã kín"}
+                          </small>
                         </button>
                       );
                     })}
@@ -423,12 +530,17 @@ const CreateOnlineAppointment = () => {
                 ) : (
                   <div className="customer-booking-slots-message">
                     <i className="bi bi-calendar-x" aria-hidden="true" />
-                    <span>{serviceId ? "Không có khung giờ phù hợp cho lựa chọn này." : "Vui lòng chọn dịch vụ để xem khung giờ."}</span>
+                    <span>
+                      {serviceId
+                        ? "Không có khung giờ phù hợp cho lựa chọn này."
+                        : "Vui lòng chọn dịch vụ để xem khung giờ."}
+                    </span>
                   </div>
                 )}
 
                 <p className="customer-booking-slot-footnote">
-                  Hiển thị {slotInfo?.slots?.length || 0} khung giờ · Chọn một khung giờ phù hợp với bạn.
+                  Hiển thị {slotInfo?.slots?.length || 0} khung giờ · Chọn một
+                  khung giờ phù hợp với bạn.
                 </p>
               </section>
 
@@ -451,50 +563,153 @@ const CreateOnlineAppointment = () => {
 
             <aside className="customer-booking-summary">
               <div className="customer-booking-summary-card">
-                <h2><i className="bi bi-receipt" aria-hidden="true" /> Thông tin đặt hẹn</h2>
+                <h2>
+                  <i className="bi bi-receipt" aria-hidden="true" /> Thông tin
+                  đặt hẹn
+                </h2>
                 <div className="customer-booking-summary-service">
-                  <img src={servicePhoto} alt="Dịch vụ chăm sóc da Seoul Center" />
+                  <img
+                    src={servicePhoto}
+                    alt="Dịch vụ chăm sóc da Seoul Center"
+                  />
                   <div>
-                    <small>{bookingType === "package" ? "DỊCH VỤ GÓI LIỆU TRÌNH" : "DỊCH VỤ LẺ · TÍNH THEO LƯỢT"}</small>
-                    <strong>{selectedService?.serviceName || selectedPackage?.serviceName || "Chưa chọn dịch vụ"}</strong>
+                    <small>
+                      {bookingType === "package"
+                        ? "DỊCH VỤ GÓI LIỆU TRÌNH"
+                        : "DỊCH VỤ LẺ · TÍNH THEO LƯỢT"}
+                    </small>
+                    <strong>
+                      {selectedService?.serviceName ||
+                        selectedPackage?.serviceName ||
+                        "Chưa chọn dịch vụ"}
+                    </strong>
                   </div>
                 </div>
                 <div className="customer-booking-summary-slot">
-                  <small><i className="bi bi-check-circle" aria-hidden="true" /> Khung giờ đã chọn</small>
-                  <strong>{selectedSlot ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : "Chưa chọn khung giờ"}</strong>
-                  <span>{new Date(`${appointmentDate}T00:00:00`).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                  <small>
+                    <i className="bi bi-check-circle" aria-hidden="true" />{" "}
+                    Khung giờ đã chọn
+                  </small>
+                  <strong>
+                    {selectedSlot
+                      ? `${selectedSlot.startTime} - ${selectedSlot.endTime}`
+                      : "Chưa chọn khung giờ"}
+                  </strong>
+                  <span>
+                    {new Date(`${appointmentDate}T00:00:00`).toLocaleDateString(
+                      "vi-VN",
+                      {
+                        weekday: "long",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      },
+                    )}
+                  </span>
                 </div>
                 <dl className="customer-booking-summary-details">
-                  <div><dt><i className="bi bi-clock" aria-hidden="true" /> Thời lượng</dt><dd>{selectedService?.duration ? `${selectedService.duration} phút` : "—"}</dd></div>
-                  <div><dt><i className="bi bi-person" aria-hidden="true" /> Kỹ thuật viên</dt><dd>{selectedTechnician?.fullName || "Tự động chọn"}</dd></div>
-                  {bookingType === "package" && <div><dt><i className="bi bi-box-seam" aria-hidden="true" /> Gói liệu trình</dt><dd>{selectedPackage?.packageName || "Chưa chọn gói"}</dd></div>}
+                  <div>
+                    <dt>
+                      <i className="bi bi-clock" aria-hidden="true" /> Thời
+                      lượng
+                    </dt>
+                    <dd>
+                      {selectedService?.duration
+                        ? `${selectedService.duration} phút`
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>
+                      <i className="bi bi-person" aria-hidden="true" /> Kỹ thuật
+                      viên
+                    </dt>
+                    <dd>{selectedTechnician?.fullName || "Tự động chọn"}</dd>
+                  </div>
+                  {bookingType === "package" && (
+                    <div>
+                      <dt>
+                        <i className="bi bi-box-seam" aria-hidden="true" /> Gói
+                        liệu trình
+                      </dt>
+                      <dd>{selectedPackage?.packageName || "Chưa chọn gói"}</dd>
+                    </div>
+                  )}
                 </dl>
                 <div className="customer-booking-summary-total">
                   <span>Chi phí dự kiến</span>
-                  <strong>{selectedService ? `${Number(selectedService.price).toLocaleString("vi-VN")} đ` : "—"}</strong>
+                  <strong>
+                    {selectedService
+                      ? `${Number(selectedService.price).toLocaleString("vi-VN")} đ`
+                      : "—"}
+                  </strong>
                 </div>
+                {error && (
+                  <Alert variant="danger" role="alert" className="mt-3">
+                    {error}
+                  </Alert>
+                )}
+                {bookingResult && (
+                  <Alert variant="success" role="status">
+                    Đặt lịch thành công.{" "}
+                    <Button
+                      variant="link"
+                      onClick={() => navigate("/appointments")}
+                    >
+                      Xem lịch hẹn
+                    </Button>
+                  </Alert>
+                )}
                 <Button
                   type="submit"
                   className="customer-booking-confirm"
-                  disabled={submitting || !startTime || !selectedSlot?.available}
+                  disabled={submitting || loadingSlots || !!bookingResult}
                 >
-                  {submitting ? <><Spinner size="sm" /> Đang xử lý...</> : <><i className="bi bi-check-lg" aria-hidden="true" /> Xác nhận Đặt lịch Online</>}
+                  {submitting ? (
+                    <>
+                      <Spinner size="sm" /> Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-check-lg" aria-hidden="true" /> Xác
+                      nhận Đặt lịch Online
+                    </>
+                  )}
                 </Button>
                 <small className="customer-booking-summary-caption">
-                  Thông tin đã sẵn sàng. Nhấn xác nhận để hoàn tất đặt lịch chăm sóc.
+                  {loadingSlots
+                    ? "Đang kiểm tra lịch trống..."
+                    : !startTime
+                      ? "Chọn khung giờ còn trống trước khi xác nhận."
+                      : "Giờ làm việc: 08:30–18:30. Nhấn xác nhận để hoàn tất đặt lịch."}
                 </small>
               </div>
               <div className="customer-booking-reminder">
-                <strong><i className="bi bi-info-circle" aria-hidden="true" /> Trước khi xác nhận</strong>
-                <p>Kiểm tra dịch vụ, ngày và khung giờ đã chọn. Bạn có thể thay đổi lựa chọn trước khi gửi yêu cầu đặt lịch.</p>
+                <strong>
+                  <i className="bi bi-info-circle" aria-hidden="true" /> Trước
+                  khi xác nhận
+                </strong>
+                <p>
+                  Kiểm tra dịch vụ, ngày và khung giờ đã chọn. Bạn có thể thay
+                  đổi lựa chọn trước khi gửi yêu cầu đặt lịch.
+                </p>
               </div>
             </aside>
           </div>
 
           <div className="customer-booking-bottom-actions">
-            <span>{startTime ? `Đã chọn: ${startTime} · ${appointmentDate}` : "Chưa chọn khung giờ"}</span>
-            <Button variant="outline-secondary" onClick={() => navigate("/slots")} disabled={submitting}>
-              <i className="bi bi-calendar3" aria-hidden="true" /> Xem bảng lịch trống
+            <span>
+              {startTime
+                ? `Đã chọn: ${startTime} · ${appointmentDate}`
+                : "Chưa chọn khung giờ"}
+            </span>
+            <Button
+              variant="outline-secondary"
+              onClick={() => navigate("/slots")}
+              disabled={submitting}
+            >
+              <i className="bi bi-calendar3" aria-hidden="true" /> Xem bảng lịch
+              trống
             </Button>
           </div>
         </Form>
