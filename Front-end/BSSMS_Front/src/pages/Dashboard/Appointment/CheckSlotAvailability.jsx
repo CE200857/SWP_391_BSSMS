@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import {
   Container,
   Card,
@@ -20,18 +20,14 @@ const getTodayString = () => {
   return `${y}-${m}-${d}`;
 };
 
-const CheckSlotAvailability = () => {
+const CheckSlotAvailability = ({ user, setUser }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Nếu đang truy cập từ đường dẫn /guest/slots thì luôn coi là Guest (bắt buộc qua Login)
-  const isGuestRoute = location.pathname.startsWith("/guest");
-  const storedUser = localStorage.getItem("user");
-  const user = !isGuestRoute && storedUser ? JSON.parse(storedUser) : null;
   const role = user?.role || "Guest";
 
   const [services, setServices] = useState([]);
-  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [selectedServiceId, setSelectedServiceId] = useState(() => new URLSearchParams(location.search).get("serviceId") || "");
   const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [selectedTechId, setSelectedTechId] = useState("");
 
@@ -41,6 +37,7 @@ const CheckSlotAvailability = () => {
 
   // Tải danh sách dịch vụ đang hoạt động
   useEffect(() => {
+    if (!user) return;
     const loadServices = async () => {
       try {
         const res = await fetch("/api/service", { credentials: "include" });
@@ -55,7 +52,7 @@ const CheckSlotAvailability = () => {
         setServices(activeList);
         if (activeList.length > 0) {
           setSelectedServiceId((currentServiceId) =>
-            currentServiceId || String(activeList[0].serviceId)
+            activeList.some(service => String(service.serviceId) === currentServiceId) ? currentServiceId : String(activeList[0].serviceId)
           );
         }
       } catch (err) {
@@ -64,14 +61,17 @@ const CheckSlotAvailability = () => {
       }
     };
     loadServices();
-  }, []);
+  }, [user]);
 
   // Tự động tra cứu lịch trống khi thay đổi Dịch vụ, Ngày hoặc KTV
   useEffect(() => {
-    if (!selectedServiceId || !selectedDate) return;
+    if (!user || !selectedServiceId || !selectedDate) return;
+    const controller = new AbortController();
+    let cancelled = false;
 
     const fetchSlots = async () => {
       setLoading(true);
+      setSlotData(null);
       setError("");
       try {
         const params = new URLSearchParams({
@@ -83,24 +83,36 @@ const CheckSlotAvailability = () => {
         }
 
         const res = await fetch(`/api/booking/slots?${params.toString()}`, {
-          credentials: "include",
+          signal: controller.signal, credentials: "include",
         });
+        if (cancelled) return;
+        if (res.status === 401) {
+          localStorage.removeItem('user');
+          setUser(null);
+          navigate(user.role === 'Customer' ? '/login' : '/dashboard/login', {
+            replace: true, state: { from: '/slots?serviceId=' + encodeURIComponent(selectedServiceId) },
+          });
+          return;
+        }
         const data = await res.json();
+        if (cancelled) return;
         if (res.ok) {
           setSlotData(data);
         } else {
           setError(data.message || "Không thể kiểm tra lịch trống.");
         }
       } catch (err) {
+        if (cancelled || err.name === "AbortError") return;
         console.error("Lỗi kiểm tra lịch trống:", err);
         setError("Lỗi kết nối máy chủ khi kiểm tra lịch trống.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchSlots();
-  }, [selectedServiceId, selectedDate, selectedTechId]);
+    return () => { cancelled = true; controller.abort(); };
+  }, [user, setUser, navigate, selectedServiceId, selectedDate, selectedTechId]);
 
   const handleSelectSlot = (slot) => {
     if (!slot.available) return;
@@ -111,14 +123,6 @@ const CheckSlotAvailability = () => {
       startTime: slot.startTime,
       technicianId: selectedTechId || "",
     };
-
-    // Nếu đang ở trang Guest (/guest/slots) hoặc chưa đăng nhập -> Lưu slot và chuyển qua /login trước
-    if (role === "Guest") {
-      localStorage.removeItem("user");
-      sessionStorage.setItem("bssms.pendingBooking", JSON.stringify(chosenSlot));
-      navigate("/login");
-      return;
-    }
 
     if (role === "Customer") {
       navigate("/appointments/online", { state: chosenSlot });
@@ -142,6 +146,8 @@ const CheckSlotAvailability = () => {
   const selectedService = services.find(
     (service) => String(service.serviceId) === String(selectedServiceId)
   );
+
+  if (!user) return <Navigate to="/login" state={{ from: "/slots" + location.search }} replace />;
 
   if (isPublicRoute) {
     return (
