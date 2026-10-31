@@ -1,844 +1,319 @@
-import { useState, useEffect } from 'react';
-
-const API_URL = 'http://localhost:8080/BSSMS-back/api/products';
-const SUPPLIER_API_URL = 'http://localhost:8080/BSSMS-back/api/suppliers';
-const PURCHASE_ORDER_API_URL = 'http://localhost:8080/BSSMS-back/PurchaseOrderServlet';
-
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  Alert,
+  Button,
+  Card,
+  Form,
+  Modal,
+  Spinner,
+  Table,
+} from "react-bootstrap";
+import { api, money } from "../../../services/api";
+const empty = {
+  productName: "",
+  description: "",
+  productType: "Retail",
+  unit: "cái",
+  unitPrice: 0,
+  stockQuantity: 0,
+  reorderLevel: 10,
+  status: "Active",
+};
 export default function ProductList({ user }) {
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'purchase'
-  const [activeTab, setActiveTab] = useState('products'); // 'products' | 'purchaseOrders'
-
-  const [products, setProducts] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [poSearchTerm, setPoSearchTerm] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const [selectedProductDetail, setSelectedProductDetail] = useState(null);
-
-  // Dữ liệu Đơn nhập hàng (Purchase Orders)
-  const [purchaseOrders, setPurchaseOrders] = useState([
-    { id: 'PO001', supplierName: 'Công ty Dược Mỹ Phẩm A', orderDate: '10/10/2026', totalAmount: 15000000, status: 'Hoàn thành' },
-    { id: 'PO002', supplierName: 'Nhà phân phối Thiết bị Spa B', orderDate: '12/10/2026', totalAmount: 32000000, status: 'Chờ xử lý' },
-    { id: 'PO003', supplierName: 'Mỹ phẩm Thiên nhiên C', orderDate: '14/10/2026', totalAmount: 8500000, status: 'Đang giao' },
-  ]);
-
-  // State phục vụ việc CẬP NHẬT Đơn nhập hàng
-  const [editingPO, setEditingPO] = useState(null);
-
-  const [formData, setFormData] = useState({
-    productId: 0,
-    productName: '',
-    description: '',
-    unitPrice: 0,
-    stockQuantity: 0,
-    reorderLevel: 0,
-    supplierId: '',
-    status: 'Active'
-  });
-
-  const [poSupplierId, setPoSupplierId] = useState('');
-  const [poNote, setPoNote] = useState('');
-  const [poItems, setPoItems] = useState([]);
-  const [submittingPO, setSubmittingPO] = useState(false);
-
-  const [refresh, setRefresh] = useState(0);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const resProducts = await fetch(API_URL, { credentials: 'include' });
-        if (resProducts.ok) {
-          const data = await resProducts.json();
-          setProducts(Array.isArray(data) ? data : []);
-        }
-        try {
-          const resSuppliers = await fetch(SUPPLIER_API_URL, { credentials: 'include' });
-          if (resSuppliers.ok) {
-            const supplierData = await resSuppliers.json();
-            setSuppliers(Array.isArray(supplierData) ? supplierData : []);
-          }
-        } catch (supErr) {
-          console.warn('Không thể tải danh sách Supplier từ API:', supErr);
-        }
-      } catch (err) {
-        console.error('Lỗi khi tải dữ liệu sản phẩm:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [refresh]);
-
-  const getSupplierName = (product) => {
-    if (!product) return 'Chưa cập nhật';
-    if (product.supplierName) return product.supplierName;
-    if (product.supplier?.supplierName) return product.supplier.supplierName;
-
-    const targetId = product.supplierId || product.supplier_id || product.supplier?.supplierId;
-    if (targetId && suppliers.length > 0) {
-      const found = suppliers.find(s => Number(s.supplierId || s.id) === Number(targetId));
-      if (found) return found.supplierName || found.name;
-    }
-
-    return 'Chưa cập nhật';
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    const numericFields = ['unitPrice', 'stockQuantity', 'reorderLevel', 'supplierId'];
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: numericFields.includes(name)
-        ? (value === '' ? '' : Number(value))
-        : value
-    }));
-  };
-
-  const handleOpenAdd = () => {
-    setIsEdit(false);
-    setFormData({
-      productId: 0,
-      productName: '',
-      description: '',
-      unitPrice: 0,
-      stockQuantity: 0,
-      reorderLevel: 0,
-      supplierId: suppliers.length > 0 ? (suppliers[0].supplierId || suppliers[0].id) : '',
-      status: 'Active'
-    });
-    setShowModal(true);
-  };
-
-  const handleOpenEdit = (product) => {
-    setIsEdit(true);
-    setFormData({
-      ...product,
-      supplierId: product.supplierId || product.supplier?.supplierId || ''
-    });
-    setShowModal(true);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const method = isEdit ? 'PUT' : 'POST';
-
+  const manager = user?.role === "Manager";
+  const [rows, setRows] = useState([]),
+    [query, setQuery] = useState(""),
+    [form, setForm] = useState(null),
+    [confirm, setConfirm] = useState(null);
+  const [error, setError] = useState(""),
+    [success, setSuccess] = useState(""),
+    [loading, setLoading] = useState(true),
+    [busy, setBusy] = useState(false);
+  async function load() {
+    setLoading(true);
     try {
-      const res = await fetch(API_URL, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-        credentials: 'include'
-      });
-
-      if (res.ok) {
-        setShowModal(false);
-        setRefresh(prev => prev + 1);
-      } else {
-        alert('Có lỗi xảy ra khi lưu thông tin sản phẩm.');
-      }
-    } catch (err) {
-      console.error('Lỗi khi gửi request:', err);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
-
-    try {
-      const res = await fetch(`${API_URL}?id=${id}`, { 
-        method: 'DELETE',
-        credentials: 'include'
-      });
-      if (res.ok) {
-        setRefresh(prev => prev + 1);
-      } else {
-        alert('Không thể xóa sản phẩm này.');
-      }
-    } catch (err) {
-      console.error('Lỗi khi xóa sản phẩm:', err);
-    }
-  };
-
-  // Các hàm xử lý Đơn nhập hàng (Purchase Order)
-  const handleOpenPurchaseOrder = () => {
-    setPoSupplierId(suppliers.length > 0 ? (suppliers[0].supplierId || suppliers[0].id) : '');
-    setPoNote('');
-    if (products.length > 0) {
-      const firstProd = products[0];
-      setPoItems([{
-        productId: firstProd.productId,
-        quantity: 1,
-        importPrice: firstProd.unitPrice ? Math.round(firstProd.unitPrice * 0.7) : 0
-      }]);
-    } else {
-      setPoItems([]);
-    }
-    setViewMode('purchase');
-  };
-
-  const handleAddPoItem = () => {
-    if (products.length === 0) {
-      alert('Chưa có sản phẩm nào trong hệ thống!');
-      return;
-    }
-    const defaultProduct = products[0];
-    setPoItems(prev => [
-      ...prev,
-      {
-        productId: defaultProduct.productId,
-        quantity: 1,
-        importPrice: defaultProduct.unitPrice ? Math.round(defaultProduct.unitPrice * 0.7) : 0
-      }
-    ]);
-  };
-
-  const handleRemovePoItem = (index) => {
-    setPoItems(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handlePoItemChange = (index, field, value) => {
-    setPoItems(prev => {
-      const updated = [...prev];
-      if (field === 'productId') {
-        const prod = products.find(p => Number(p.productId) === Number(value));
-        updated[index] = {
-          ...updated[index],
-          productId: Number(value),
-          importPrice: prod?.unitPrice ? Math.round(prod.unitPrice * 0.7) : updated[index].importPrice
-        };
-      } else if (field === 'quantity' || field === 'importPrice') {
-        updated[index] = {
-          ...updated[index],
-          [field]: Math.max(0, Number(value))
-        };
-      }
-      return updated;
-    });
-  };
-
-  const calculateTotalPoAmount = () => {
-    return poItems.reduce((total, item) => total + (item.quantity * item.importPrice), 0);
-  };
-
-  const handleSubmitPurchaseOrder = async (e) => {
-    e.preventDefault();
-    if (!poSupplierId) {
-      alert('Vui lòng chọn Nhà cung cấp!');
-      return;
-    }
-    if (poItems.length === 0) {
-      alert('Vui lòng chọn ít nhất 1 sản phẩm để nhập hàng!');
-      return;
-    }
-
-    setSubmittingPO(true);
-    const poPayload = {
-      supplierId: Number(poSupplierId),
-      note: poNote,
-      totalAmount: calculateTotalPoAmount(),
-      items: poItems
-    };
-
-    try {
-      const res = await fetch(PURCHASE_ORDER_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(poPayload),
-        credentials: 'include'
-      });
-
-      if (res.ok) {
-        alert('Tạo đơn nhập hàng thành công!');
-        setViewMode('list');
-        setActiveTab('purchaseOrders');
-        setRefresh(prev => prev + 1);
-      } else {
-        alert('Có lỗi xảy ra khi tạo đơn nhập hàng.');
-      }
-    } catch (err) {
-      console.error('Lỗi khi gửi đơn nhập hàng:', err);
-      alert('Không thể kết nối đến server.');
+      setRows(await api("/api/products"));
+    } catch (e) {
+      setError(e.message);
     } finally {
-      setSubmittingPO(false);
+      setLoading(false);
     }
-  };
-
-  // Thao tác với Purchase Order (Xem, Sửa, Xóa)
-  const handleViewPO = (poId) => {
-    const po = purchaseOrders.find(o => o.id === poId);
-    alert(`[CHI TIẾT ĐƠN NHẬP HÀNG ${poId}]\n- Nhà cung cấp: ${po?.supplierName}\n- Ngày nhập: ${po?.orderDate}\n- Tổng tiền: ${po?.totalAmount?.toLocaleString('vi-VN')} VNĐ\n- Trạng thái: ${po?.status}`);
-  };
-
-  // Bấm Sửa -> Mở Modal
-  const handleUpdatePO = (poId) => {
-    const po = purchaseOrders.find(o => o.id === poId);
-    if (po) {
-      setEditingPO({ ...po });
-    }
-  };
-
-  // Lưu thông tin sau khi Sửa Đơn Nhập Hàng
-  const handleSaveUpdatePO = (e) => {
+  }
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the view while synchronizing external data for this selection.
+    load();
+  }, []);
+  async function save(e) {
     e.preventDefault();
-    setPurchaseOrders(prev => prev.map(o => o.id === editingPO.id ? editingPO : o));
-    setEditingPO(null);
-    alert(`Cập nhật thành công đơn nhập hàng ${editingPO.id}!`);
-  };
-
-  const handleDeletePO = (poId) => {
-    if (window.confirm(`Bạn có chắc chắn muốn xóa đơn nhập hàng ${poId} không?`)) {
-      setPurchaseOrders(prev => prev.filter(o => o.id !== poId));
-      alert(`Đã xóa thành công đơn nhập hàng ${poId}!`);
-    }
-  };
-
-  const filteredProducts = products.filter(p =>
-    p.productName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredPOs = purchaseOrders.filter(po =>
-    po.id.toLowerCase().includes(poSearchTerm.toLowerCase()) ||
-    po.supplierName.toLowerCase().includes(poSearchTerm.toLowerCase())
-  );
-
-  // =====================================================================
-  // 1. RECEPTIONIST VIEW: BÁN LẺ SẢN PHẨM (POS)
-  // =====================================================================
-  if (user?.role === 'Receptionist') {
-    const [cart, setCart] = useState([]);
-
-    const handleAddToCart = (product) => {
-      setCart(prevCart => {
-        const existingItem = prevCart.find(item => item.productId === product.productId);
-        if (existingItem) {
-          if (existingItem.quantity < product.stockQuantity) {
-            return prevCart.map(item => 
-              item.productId === product.productId ? { ...item, quantity: item.quantity + 1 } : item
-            );
-          }
-          return prevCart;
-        } else {
-          return [...prevCart, { ...product, quantity: 1 }];
-        }
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/products", {
+        method: form.productId ? "PUT" : "POST",
+        body: JSON.stringify(form),
       });
-    };
-
-    const handleRemoveFromCart = (productId) => setCart(prevCart => prevCart.filter(item => item.productId !== productId));
-
-    const handleQuantityChange = (productId, delta) => {
-      setCart(prevCart => prevCart.map(item => {
-        if (item.productId === productId) {
-          const newQty = item.quantity + delta;
-          if (newQty > 0 && newQty <= item.stockQuantity) return { ...item, quantity: newQty };
+      setForm(null);
+      setSuccess("Đã lưu sản phẩm.");
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function deactivate() {
+    setBusy(true);
+    try {
+      await api(`/api/products?id=${confirm.productId}`, { method: "DELETE" });
+      setConfirm(null);
+      setSuccess("Đã ngừng kinh doanh sản phẩm.");
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const field = (label, key, type = "text", props = {}) => (
+    <Form.Group>
+      <Form.Label>{label}</Form.Label>
+      <Form.Control
+        type={type}
+        value={form[key] ?? ""}
+        required
+        onChange={(e) =>
+          setForm({
+            ...form,
+            [key]: type === "number" ? Number(e.target.value) : e.target.value,
+          })
         }
-        return item;
-      }));
-    };
-
-    const calculateCartTotal = () => cart.reduce((total, item) => total + (item.unitPrice || 0) * item.quantity, 0);
-
-    const handleCheckout = () => {
-      if (cart.length === 0) return alert('Giỏ hàng đang trống!');
-      alert('Thanh toán đơn hàng thành công!');
-      setCart([]);
-    };
-
-    return (
-      <div className="container-fluid py-4">
-        <h2 className="fw-bold mb-4" style={{ color: '#800020' }}>Bán lẻ sản phẩm (POS)</h2>
-        <div className="row mb-4">
-          <div className="col-md-5">
-            <input type="text" className="form-control shadow-sm" placeholder="Tìm kiếm sản phẩm để bán..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          </div>
-        </div>
-        <div className="row">
-          <div className="col-md-8">
-            <div className="row g-3">
-              {filteredProducts.map(p => (
-                <div className="col-lg-4 col-md-6" key={p.productId}>
-                  <div className="card h-100 shadow-sm border-0">
-                    <div className="card-body d-flex flex-column text-center">
-                      <h6 className="fw-bold text-dark">{p.productName}</h6>
-                      <p className="text-danger fw-bold fs-5 mb-1">{p.unitPrice ? p.unitPrice.toLocaleString('vi-VN') : '0'} VNĐ</p>
-                      <small className="text-muted mb-3">Tồn kho: {p.stockQuantity}</small>
-                      <button className="btn btn-outline-danger mt-auto fw-bold" disabled={p.stockQuantity <= 0} onClick={() => handleAddToCart(p)}>
-                        <i className="bi bi-cart-plus me-1"></i> {p.stockQuantity > 0 ? 'Thêm vào giỏ' : 'Hết hàng'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="col-md-4">
-            <div className="card shadow-sm border-0 p-3 sticky-top" style={{ top: '20px' }}>
-              <h5 className="fw-bold border-bottom pb-3 mb-3"><i className="bi bi-cart3 me-2"></i> Giỏ hàng hiện tại</h5>
-              {cart.length === 0 ? (
-                <div className="text-center py-5">
-                  <i className="bi bi-cart-x text-muted" style={{ fontSize: '3rem' }}></i>
-                  <p className="text-muted mt-2">Giỏ hàng đang trống</p>
-                </div>
-              ) : (
-                <div className="d-flex flex-column gap-3 mb-3" style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                  {cart.map(item => (
-                    <div key={item.productId} className="d-flex justify-content-between align-items-center border-bottom pb-2">
-                      <div>
-                        <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '14px' }}>{item.productName}</h6>
-                        <small className="text-danger fw-semibold">{(item.unitPrice * item.quantity).toLocaleString('vi-VN')} VNĐ</small>
-                      </div>
-                      <div className="d-flex align-items-center gap-1">
-                        <button className="btn btn-sm btn-outline-secondary px-2 py-0" onClick={() => handleQuantityChange(item.productId, -1)}>-</button>
-                        <span className="fw-bold px-2">{item.quantity}</span>
-                        <button className="btn btn-sm btn-outline-secondary px-2 py-0" onClick={() => handleQuantityChange(item.productId, 1)}>+</button>
-                        <button className="btn btn-sm text-danger ms-1 p-0" onClick={() => handleRemoveFromCart(item.productId)}><i className="bi bi-trash"></i></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <hr />
-              <div className="d-flex justify-content-between mb-3 fw-bold fs-5">
-                <span>Tổng tiền:</span><span className="text-danger">{calculateCartTotal().toLocaleString('vi-VN')} VNĐ</span>
-              </div>
-              <button className="btn text-white w-100 fw-bold py-2" style={{ backgroundColor: '#800020' }} onClick={handleCheckout} disabled={cart.length === 0}>
-                Xác nhận thanh toán
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // =====================================================================
-  // 2. MANAGER VIEW: TẠO ĐƠN NHẬP HÀNG MỚI (PURCHASE ORDER FORM)
-  // =====================================================================
-  if (viewMode === 'purchase') {
-    return (
-      <div className="container-fluid py-4">
-        <div className="d-flex align-items-center gap-3 mb-4">
-          <button 
-            className="btn btn-outline-secondary btn-sm"
-            onClick={() => { setViewMode('list'); setActiveTab('purchaseOrders'); }}
-          >
-            ← Quay lại Danh Sách Đơn Nhập
-          </button>
-          <h2 className="fw-bold mb-0" style={{ color: '#800020' }}>Tạo Đơn Nhập Hàng Mới (Purchase Order)</h2>
-        </div>
-
-        <div className="card shadow-sm border-0 rounded-3 p-4">
-          <form onSubmit={handleSubmitPurchaseOrder}>
-            <div className="row mb-3">
-              <div className="col-md-6">
-                <label className="form-label fw-bold">Nhà Cung Cấp <span className="text-danger">*</span></label>
-                <select className="form-select" value={poSupplierId} onChange={(e) => setPoSupplierId(e.target.value)} required>
-                  <option value="">-- Chọn nhà cung cấp --</option>
-                  {suppliers.map((s) => (
-                    <option key={s.supplierId || s.id} value={s.supplierId || s.id}>{s.supplierName || s.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-md-6">
-                <label className="form-label fw-bold">Ghi Chú Đơn Nhập</label>
-                <input type="text" className="form-control" placeholder="Ví dụ: Nhập bổ sung hàng tồn kho tháng..." value={poNote} onChange={(e) => setPoNote(e.target.value)} />
-              </div>
-            </div>
-
-            <hr className="my-4" />
-
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h5 className="fw-bold mb-0" style={{ color: '#800020' }}>Danh Sách Sản Phẩm Nhập Hàng</h5>
-              <button type="button" className="btn btn-sm text-white fw-bold" style={{ backgroundColor: '#800020' }} onClick={handleAddPoItem}>
-                + Thêm sản phẩm
-              </button>
-            </div>
-
-            {poItems.length === 0 ? (
-              <div className="alert alert-light text-center border text-muted py-4 mb-4">
-                Chưa chọn sản phẩm nào. Hãy bấm nút <strong>"+ Thêm sản phẩm"</strong> để thêm sản phẩm vào đơn nhập.
-              </div>
-            ) : (
-              <div className="table-responsive mb-4">
-                <table className="table table-bordered align-middle">
-                  <thead className="bg-light">
-                    <tr>
-                      <th style={{ width: '40%' }}>Sản phẩm</th>
-                      <th style={{ width: '20%' }}>Số lượng nhập</th>
-                      <th style={{ width: '20%' }}>Giá nhập (VNĐ)</th>
-                      <th style={{ width: '15%' }} className="text-end">Thành tiền</th>
-                      <th style={{ width: '5%' }} className="text-center">Xóa</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {poItems.map((item, index) => {
-                      const itemTotal = (item.quantity || 0) * (item.importPrice || 0);
-                      return (
-                        <tr key={index}>
-                          <td>
-                            <select className="form-select" value={item.productId} onChange={(e) => handlePoItemChange(index, 'productId', e.target.value)}>
-                              {products.map((p) => (
-                                <option key={p.productId} value={p.productId}>{p.productName} (Tồn kho hiện tại: {p.stockQuantity})</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td>
-                            <input type="number" min="1" className="form-control" value={item.quantity} onChange={(e) => handlePoItemChange(index, 'quantity', e.target.value)} />
-                          </td>
-                          <td>
-                            <input type="number" min="0" className="form-control" value={item.importPrice} onChange={(e) => handlePoItemChange(index, 'importPrice', e.target.value)} />
-                          </td>
-                          <td className="text-end fw-bold text-danger">{itemTotal.toLocaleString('vi-VN')}</td>
-                          <td className="text-center">
-                            <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => handleRemovePoItem(index)}>✕</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan="3" className="text-end fw-bold fs-5">Tổng Số Tiền Nhập Hàng:</td>
-                      <td className="text-end fw-bold fs-5 text-danger">{calculateTotalPoAmount().toLocaleString('vi-VN')} VNĐ</td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
-
-            <div className="d-flex justify-content-end gap-2">
-              <button type="button" className="btn btn-secondary px-4" onClick={() => { setViewMode('list'); setActiveTab('purchaseOrders'); }}>Hủy</button>
-              <button type="submit" className="btn text-white px-4 fw-bold" style={{ backgroundColor: '#800020' }} disabled={submittingPO}>
-                {submittingPO ? 'Đang gửi...' : 'Xác Nhận Tạo Đơn Nhập'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // =====================================================================
-  // 3. MANAGER MAIN VIEW (2 TABS: KHO SẢN PHẨM & ĐƠN NHẬP HÀNG)
-  // =====================================================================
+        {...props}
+      />
+    </Form.Group>
+  );
   return (
-    <div className="container-fluid py-4">
-      {/* THANH TAB CHUYỂN ĐỔI CHÍNH */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="fw-bold m-0" style={{ color: '#800020' }}>
-          {activeTab === 'products' ? 'Quản lý Kho Sản phẩm' : 'Quản lý Đơn nhập hàng'}
-        </h2>
-        
-        <div className="btn-group shadow-sm">
-          <button 
-            className={`btn fw-bold px-3 py-2 ${activeTab === 'products' ? 'btn-danger' : 'btn-outline-danger'}`}
-            style={activeTab === 'products' ? { backgroundColor: '#800020', borderColor: '#800020', color: 'white' } : { color: '#800020', borderColor: '#800020' }}
-            onClick={() => setActiveTab('products')}
-          >
-            <i className="bi bi-box-seam me-2"></i> Kho Sản Phẩm
-          </button>
-          <button 
-            className={`btn fw-bold px-3 py-2 ${activeTab === 'purchaseOrders' ? 'btn-danger' : 'btn-outline-danger'}`}
-            style={activeTab === 'purchaseOrders' ? { backgroundColor: '#800020', borderColor: '#800020', color: 'white' } : { color: '#800020', borderColor: '#800020' }}
-            onClick={() => setActiveTab('purchaseOrders')}
-          >
-            <i className="bi bi-file-earmark-text me-2"></i> Danh Sách Đơn Nhập Hàng
-          </button>
+    <section>
+      <div className="ui-page-heading">
+        <div>
+          <h1>Sản phẩm & vật tư</h1>
+          <p>Danh mục bán lẻ, vật tư tiêu hao và mức tồn tối thiểu.</p>
         </div>
+        {manager && (
+          <Button
+            onClick={() => {
+              setError("");
+              setForm({ ...empty });
+            }}
+          >
+            Thêm sản phẩm
+          </Button>
+        )}
       </div>
-
-      {/* ================= TAB 1: KHO SẢN PHẨM ================= */}
-      {activeTab === 'products' && (
-        <>
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <div className="col-md-4">
-              <input type="text" className="form-control shadow-sm" placeholder="Tìm kiếm sản phẩm..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+      {error && <Alert variant="danger">{error}</Alert>}
+      {success && <Alert variant="success">{success}</Alert>}
+      <div className="ui-toolbar">
+        <Form.Control
+          aria-label="Tìm sản phẩm"
+          placeholder="Tìm theo tên sản phẩm…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {manager && (
+          <>
+            <Link
+              className="btn btn-outline-primary"
+              to="/manager/purchase-orders"
+            >
+              Đơn nhập hàng
+            </Link>
+            <Link className="btn btn-outline-primary" to="/manager/stock">
+              Điều chỉnh tồn kho
+            </Link>
+          </>
+        )}
+      </div>
+      <Card>
+        <Card.Body>
+          {loading ? (
+            <div className="ui-empty">
+              <Spinner animation="border" />
             </div>
-            <div className="d-flex gap-2">
-              <button className="btn text-white fw-bold shadow-sm" style={{ backgroundColor: '#800020' }} onClick={handleOpenPurchaseOrder}>
-                <i className="bi bi-cart-plus me-1"></i> Tạo đơn nhập hàng
-              </button>
-              <button className="btn text-white fw-bold shadow-sm" style={{ backgroundColor: '#800020' }} onClick={() => window.location.href = '/manager/suppliers'}>
-                <i className="bi bi-truck me-1"></i> Quản lý Nhà cung cấp
-              </button>
-              <button className="btn text-white fw-bold shadow-sm" style={{ backgroundColor: '#800020' }} onClick={handleOpenAdd}>
-                <i className="bi bi-plus-lg me-1"></i> Thêm sản phẩm mới
-              </button>
-            </div>
-          </div>
-
-          <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
-            <div className="card-body p-0">
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead style={{ backgroundColor: '#800020', color: '#ffffff' }}>
-                    <tr>
-                      <th className="ps-3 py-3">ID</th>
-                      <th className="py-3">Tên sản phẩm</th>
-                      <th className="py-3">Đơn giá (VNĐ)</th>
-                      <th className="py-3">Tồn kho</th>
-                      <th className="py-3">Ngưỡng đặt lại</th>
-                      <th className="py-3">Trạng thái</th>
-                      <th className="text-center pe-3 py-3">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr><td colSpan="7" className="text-center py-4 text-muted">Đang tải dữ liệu sản phẩm...</td></tr>
-                    ) : filteredProducts.length > 0 ? (
-                      filteredProducts.map((p) => (
-                        <tr key={p.productId}>
-                          <td className="ps-3 font-monospace">#{p.productId}</td>
-                          <td className="fw-bold text-dark">{p.productName}</td>
-                          <td className="fw-semibold text-danger">{p.unitPrice ? p.unitPrice.toLocaleString('vi-VN') : '0'}</td>
+          ) : (
+            <div className="table-responsive">
+              <Table hover>
+                <thead>
+                  <tr>
+                    <th>Sản phẩm</th>
+                    <th>Loại</th>
+                    <th>Đơn giá</th>
+                    <th>Tồn kho</th>
+                    <th>Trạng thái</th>
+                    {manager && <th>Thao tác</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows
+                    .filter((r) =>
+                      r.productName.toLowerCase().includes(query.toLowerCase()),
+                    )
+                    .map((r) => (
+                      <tr key={r.productId}>
+                        <td>
+                          <strong>{r.productName}</strong>
+                          <div className="text-muted small">
+                            {r.description}
+                          </div>
+                        </td>
+                        <td>
+                          {r.productType === "Retail" ? "Bán lẻ" : "Tiêu hao"}
+                        </td>
+                        <td>{money(r.unitPrice)}</td>
+                        <td
+                          className={
+                            r.stockQuantity < r.reorderLevel
+                              ? "text-danger fw-bold"
+                              : ""
+                          }
+                        >
+                          {r.stockQuantity} {r.unit}
+                        </td>
+                        <td>{r.status}</td>
+                        {manager && (
                           <td>
-                            <span className={`badge ${p.stockQuantity <= p.reorderLevel ? 'bg-danger' : 'bg-success'}`}>{p.stockQuantity}</span>
+                            <div className="d-flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline-primary"
+                                onClick={() => {
+                                  setError("");
+                                  setForm({ ...r });
+                                }}
+                              >
+                                Sửa
+                              </Button>
+                              {r.status === "Active" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline-danger"
+                                  onClick={() => setConfirm(r)}
+                                >
+                                  Ngừng bán
+                                </Button>
+                              )}
+                            </div>
                           </td>
-                          <td>{p.reorderLevel}</td>
-                          <td>
-                            <span className={`badge ${p.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>{p.status}</span>
-                          </td>
-                          <td className="text-center pe-3">
-                            <button className="btn btn-sm btn-outline-info me-2 fw-bold" onClick={() => setSelectedProductDetail(p)}>Xem</button>
-                            <button className="btn btn-sm btn-outline-warning me-2 fw-bold" onClick={() => handleOpenEdit(p)}>Sửa</button>
-                            <button className="btn btn-sm btn-outline-danger fw-bold" onClick={() => handleDelete(p.productId)}>Xóa</button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan="7" className="text-center text-muted py-4">Chưa có dữ liệu sản phẩm</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                        )}
+                      </tr>
+                    ))}
+                </tbody>
+              </Table>
+              {!rows.length && <p className="ui-empty">Chưa có sản phẩm.</p>}
             </div>
-          </div>
-        </>
-      )}
-
-      {/* ================= TAB 2: ĐƠN NHẬP HÀNG (PURCHASE ORDERS) ================= */}
-      {activeTab === 'purchaseOrders' && (
-        <>
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <div className="col-md-4">
-              <input type="text" className="form-control shadow-sm" placeholder="Tìm mã đơn hoặc nhà cung cấp..." value={poSearchTerm} onChange={(e) => setPoSearchTerm(e.target.value)} />
-            </div>
-            <div className="d-flex gap-2">
-              <button className="btn text-white fw-bold shadow-sm" style={{ backgroundColor: '#800020' }} onClick={handleOpenPurchaseOrder}>
-                <i className="bi bi-cart-plus me-1"></i> Tạo đơn nhập hàng mới
-              </button>
-            </div>
-          </div>
-
-          <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
-            <div className="card-body p-0">
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead style={{ backgroundColor: '#800020', color: '#ffffff' }}>
-                    <tr>
-                      <th className="ps-3 py-3">Mã Đơn</th>
-                      <th className="py-3">Nhà cung cấp</th>
-                      <th className="py-3">Ngày nhập</th>
-                      <th className="py-3">Tổng tiền (VNĐ)</th>
-                      <th className="py-3">Trạng thái</th>
-                      <th className="text-center pe-3 py-3">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPOs.length > 0 ? (
-                      filteredPOs.map(order => (
-                        <tr key={order.id}>
-                          <td className="ps-3 fw-bold font-monospace text-secondary">{order.id}</td>
-                          <td className="fw-semibold text-dark">{order.supplierName}</td>
-                          <td>{order.orderDate}</td>
-                          <td className="fw-bold text-danger">{order.totalAmount.toLocaleString('vi-VN')}</td>
-                          <td>
-                            <span className={`badge ${order.status === 'Hoàn thành' ? 'bg-success' : order.status === 'Chờ xử lý' ? 'bg-warning text-dark' : 'bg-primary'}`}>
-                              {order.status}
-                            </span>
-                          </td>
-                          <td className="text-center pe-3">
-                            <button className="btn btn-sm btn-outline-info me-2 fw-bold" onClick={() => handleViewPO(order.id)}>Xem</button>
-                            <button className="btn btn-sm btn-outline-warning me-2 fw-bold" onClick={() => handleUpdatePO(order.id)}>Sửa</button>
-                            <button className="btn btn-sm btn-outline-danger fw-bold" onClick={() => handleDeletePO(order.id)}>Xóa</button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan="6" className="text-center py-4 text-muted">Không tìm thấy đơn nhập hàng nào.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ================= MODAL CẬP NHẬT ĐƠN NHẬP HÀNG (PO EDIT MODAL) ================= */}
-      {editingPO && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0 shadow">
-              <div className="modal-header text-white" style={{ backgroundColor: '#800020' }}>
-                <h5 className="modal-title fw-bold">Cập Nhật Đơn Nhập Hàng #{editingPO.id}</h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setEditingPO(null)}></button>
-              </div>
-              <form onSubmit={handleSaveUpdatePO}>
-                <div className="modal-body p-4">
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">Nhà Cung Cấp</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={editingPO.supplierName} 
-                      onChange={(e) => setEditingPO({ ...editingPO, supplierName: e.target.value })} 
-                      required 
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">Ngày Nhập Hàng</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={editingPO.orderDate} 
-                      onChange={(e) => setEditingPO({ ...editingPO, orderDate: e.target.value })} 
-                      required 
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">Tổng Số Tiền (VNĐ)</label>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      value={editingPO.totalAmount} 
-                      onChange={(e) => setEditingPO({ ...editingPO, totalAmount: Number(e.target.value) })} 
-                      required 
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">Trạng Thái Đơn Hàng</label>
-                    <select 
-                      className="form-select" 
-                      value={editingPO.status} 
-                      onChange={(e) => setEditingPO({ ...editingPO, status: e.target.value })}
+          )}
+        </Card.Body>
+      </Card>
+      <Modal
+        show={!!form}
+        onHide={() => !busy && setForm(null)}
+        size="lg"
+        centered
+      >
+        <Modal.Header closeButton={!busy}>
+          <Modal.Title>
+            {form?.productId ? "Cập nhật sản phẩm" : "Thêm sản phẩm"}
+          </Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={save}>
+          <Modal.Body>
+            {error && <Alert variant="danger">{error}</Alert>}
+            {form && (
+              <fieldset disabled={busy}>
+                <div className="ui-form-grid">
+                  {field("Tên sản phẩm", "productName", "text", {
+                    maxLength: 150,
+                  })}
+                  {field("Mô tả", "description", "text", { required: false })}
+                  <Form.Group>
+                    <Form.Label>Loại sản phẩm</Form.Label>
+                    <Form.Select
+                      value={form.productType}
+                      onChange={(e) =>
+                        setForm({ ...form, productType: e.target.value })
+                      }
                     >
-                      <option value="Chờ xử lý">Chờ xử lý</option>
-                      <option value="Đang giao">Đang giao</option>
-                      <option value="Hoàn thành">Hoàn thành</option>
-                      <option value="Đã hủy">Đã hủy</option>
-                    </select>
-                  </div>
+                      <option value="Retail">Bán lẻ</option>
+                      <option value="Consumable">Tiêu hao</option>
+                    </Form.Select>
+                  </Form.Group>
+                  {field("Đơn vị", "unit", "text", { maxLength: 30 })}
+                  {field("Đơn giá", "unitPrice", "number", {
+                    min: 0,
+                    step: 0.01,
+                  })}
+                  {field("Tồn kho ban đầu", "stockQuantity", "number", {
+                    min: 0,
+                    step: 0.001,
+                    disabled: !!form.productId,
+                  })}
+                  {field("Mức tồn tối thiểu", "reorderLevel", "number", {
+                    min: 0,
+                    step: 0.001,
+                  })}
+                  <Form.Group>
+                    <Form.Label>Trạng thái</Form.Label>
+                    <Form.Select
+                      value={form.status}
+                      onChange={(e) =>
+                        setForm({ ...form, status: e.target.value })
+                      }
+                    >
+                      <option value="Active">Hoạt động</option>
+                      <option value="Inactive">Ngừng bán</option>
+                    </Form.Select>
+                  </Form.Group>
                 </div>
-                <div className="modal-footer bg-light">
-                  <button type="button" className="btn btn-secondary px-4" onClick={() => setEditingPO(null)}>Hủy</button>
-                  <button type="submit" className="btn text-white px-4 fw-bold" style={{ backgroundColor: '#800020' }}>
-                    Lưu Thay Đổi
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL XEM CHI TIẾT SẢN PHẨM ================= */}
-      {selectedProductDetail && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content border-0 shadow">
-              <div className="modal-header text-white" style={{ backgroundColor: '#800020' }}>
-                <h5 className="modal-title fw-bold">Chi Tiết Sản Phẩm: {selectedProductDetail.productName}</h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setSelectedProductDetail(null)}></button>
-              </div>
-              <div className="modal-body p-4">
-                <p className="mb-2"><strong>Mã sản phẩm:</strong> {selectedProductDetail.productId}</p>
-                <p className="mb-2"><strong>Nhà cung cấp:</strong> {getSupplierName(selectedProductDetail)}</p>
-                <p className="mb-2"><strong>Đơn giá:</strong> {selectedProductDetail.unitPrice?.toLocaleString('vi-VN')} VNĐ</p>
-                <p className="mb-2"><strong>Số lượng tồn:</strong> {selectedProductDetail.stockQuantity}</p>
-                <p className="mb-2"><strong>Ngưỡng đặt lại:</strong> {selectedProductDetail.reorderLevel}</p>
-                <p className="mb-2"><strong>Trạng thái:</strong> {selectedProductDetail.status}</p>
-                <hr />
-                <p className="fw-bold mb-1">Mô tả sản phẩm:</p>
-                <p className="text-secondary mb-0" style={{ whiteSpace: 'pre-line' }}>
-                  {selectedProductDetail.description || 'Chưa có mô tả chi tiết cho sản phẩm này.'}
-                </p>
-              </div>
-              <div className="modal-footer bg-light">
-                <button type="button" className="btn btn-secondary px-4" onClick={() => setSelectedProductDetail(null)}>Đóng</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL THÊM / SỬA SẢN PHẨM ================= */}
-      {showModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0 shadow">
-              <div className="modal-header bg-light">
-                <h5 className="modal-title fw-bold" style={{ color: '#800020' }}>{isEdit ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'}</h5>
-                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
-              </div>
-              <form onSubmit={handleSubmit}>
-                <div className="modal-body p-4">
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">Tên sản phẩm</label>
-                    <input type="text" className="form-control" name="productName" value={formData.productName} onChange={handleChange} required />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">Nhà cung cấp</label>
-                    <select className="form-select" name="supplierId" value={formData.supplierId} onChange={handleChange}>
-                      <option value="">-- Chọn Nhà cung cấp --</option>
-                      {suppliers.map((s) => (
-                        <option key={s.supplierId || s.id} value={s.supplierId || s.id}>{s.supplierName || s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">Mô tả</label>
-                    <textarea className="form-control" name="description" rows="2" value={formData.description} onChange={handleChange}></textarea>
-                  </div>
-                  <div className="row">
-                    <div className="col-md-6 mb-3">
-                      <label className="form-label fw-bold">Đơn giá</label>
-                      <input type="number" min="0" className="form-control" name="unitPrice" value={formData.unitPrice} onChange={handleChange} required />
-                    </div>
-                    <div className="col-md-6 mb-3">
-                      <label className="form-label fw-bold">Số lượng tồn</label>
-                      <input type="number" min="0" className="form-control" name="stockQuantity" value={formData.stockQuantity} onChange={handleChange} required />
-                    </div>
-                  </div>
-                  <div className="row">
-                    <div className="col-md-6 mb-3">
-                      <label className="form-label fw-bold">Ngưỡng đặt lại (Reorder)</label>
-                      <input type="number" min="0" className="form-control" name="reorderLevel" value={formData.reorderLevel} onChange={handleChange} required />
-                    </div>
-                    <div className="col-md-6 mb-3">
-                      <label className="form-label fw-bold">Trạng thái</label>
-                      <select className="form-select" name="status" value={formData.status} onChange={handleChange}>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div className="modal-footer bg-light">
-                  <button type="button" className="btn btn-secondary px-4" onClick={() => setShowModal(false)}>Hủy</button>
-                  <button type="submit" className="btn text-white px-4" style={{ backgroundColor: '#800020' }}>{isEdit ? 'Lưu thay đổi' : 'Tạo mới'}</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+                {form.productId && (
+                  <p className="text-muted mt-3">
+                    Thay đổi số lượng tại chức năng Điều chỉnh tồn kho để lưu lý
+                    do và lịch sử.
+                  </p>
+                )}
+              </fieldset>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              onClick={() => setForm(null)}
+              disabled={busy}
+            >
+              Đóng
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? "Đang lưu…" : "Lưu"}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
+      <Modal show={!!confirm} onHide={() => !busy && setConfirm(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Ngừng kinh doanh</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Ngừng bán “{confirm?.productName}”? Lịch sử giao dịch được giữ lại.
+          {error && <Alert variant="danger">{error}</Alert>}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setConfirm(null)}>
+            Quay lại
+          </Button>
+          <Button variant="danger" disabled={busy} onClick={deactivate}>
+            Ngừng bán
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </section>
   );
 }
