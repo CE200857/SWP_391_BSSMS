@@ -30,5 +30,7 @@ public class TreatmentPackageController {
         value.setPackageName(Validation.text(value.getPackageName(), "packageName"));
         Validation.price(value.getPrice());
         Validation.id(value.getNumberOfSessions(), "numberOfSessions");
+        Validation.optionalId(value.getValidityDays(), "validityDays");
+        if (value.getStatus() != null) Validation.status(value.getStatus(), "Active", "Inactive");
     }
 }

@@ -251,7 +251,7 @@ public class BookingManagementDAO extends DBContext implements AutoCloseable {
             Integer bedId,
             List<Integer> equipmentIds) throws Exception {
         bssms_persistence.common.Workflow w=workflow();
-        w.roles("Receptionist");
+        w.roles("Receptionist","Manager");
         return w.transaction(()->{
             Appointment a=w.one(ModelRows::appointment, "SELECT * FROM Appointment WHERE appointment_id=?",appointmentId);
             if(bedId==null || technicianId==null || roomId==null) throw new IllegalArgumentException("Technician, room and bed are required.");

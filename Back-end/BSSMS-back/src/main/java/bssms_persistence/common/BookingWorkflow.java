@@ -26,9 +26,9 @@ public final class BookingWorkflow {
         LocalDate.parse(date);
         SlotAvailability s=w.one(ModelRows::slotAvailability, "SELECT service_name,duration FROM Service WHERE service_id=? AND status='Active'",service);
         int duration=s.getDuration();
-        if(duration<=0||duration>720) throw new IllegalArgumentException("Invalid duration");
+        if(duration<=0||duration>600) throw new IllegalArgumentException("Invalid duration");
         List<TimeSlot> slots=new ArrayList<>();
-        for(int minute=510;minute+duration<=1230;minute+=30) {
+        for(int minute=510;minute+duration<=1110;minute+=30) {
             String start=LocalTime.of(minute/60,minute%60).toString();
             String end=LocalTime.of((minute+duration)/60,(minute+duration)%60).toString();
             List<Staff> tech=freeTechnicians(service,date,start,end,staff,null);
@@ -42,16 +42,21 @@ public final class BookingWorkflow {
         s.setServiceId(service);s.setAppointmentDate(date);s.setTechnicians(technicians(service,null));s.setSlots(slots);return s;
     }
     public Appointment save(int customer,int service,Integer pkg,String date,String start,Integer staff,Integer bed,Integer appointment,String notes) throws SQLException {
-        int duration=w.one(rs -> rs.getInt("duration"), "SELECT duration FROM Service WHERE service_id=? AND status='Active'",service);
-        LocalTime time=LocalTime.parse(start);
-        if(time.isBefore(LocalTime.of(8,30))||time.toSecondOfDay()+duration*60>73800) throw new IllegalArgumentException("Appointment must fit 08:30-20:30.");
-        String end=time.plusMinutes(duration).toString();
-        List<Staff> techs=freeTechnicians(service,date,start,end,staff,appointment);
-        List<AvailableBed> freeBeds=beds(service,date,start,end,appointment);
-        if(techs.isEmpty()||freeBeds.isEmpty()) throw new WorkflowException(409,"No qualified technician, bed or equipment is available for this time.");
-        int selectedStaff=techs.get(0).getStaffId();
-        int selectedBed=bed==null?freeBeds.get(0).getBedId():bed;
         return w.transaction(()->{
+            int duration=w.one(rs -> rs.getInt("duration"), "SELECT duration FROM Service WHERE service_id=? AND status='Active'",service);
+            if(duration<=0 || duration>600) throw new IllegalArgumentException("Invalid duration");
+            LocalTime time=LocalTime.parse(start);
+            if(!LocalDateTime.of(LocalDate.parse(date),time).isAfter(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))))
+                throw new IllegalArgumentException("Appointment must be in the future.");
+            if(time.isBefore(LocalTime.of(8,30))||time.toSecondOfDay()+duration*60>66600) throw new IllegalArgumentException("Appointment must fit 08:30-18:30.");
+            String end=time.plusMinutes(duration).toString();
+            List<Staff> techs=freeTechnicians(service,date,start,end,staff,appointment);
+            List<AvailableBed> freeBeds=beds(service,date,start,end,appointment);
+            if(techs.isEmpty()||freeBeds.isEmpty()) throw new WorkflowException(409,"No qualified technician, bed or equipment is available for this time.");
+            int selectedStaff=techs.get(0).getStaffId();
+            int selectedBed=bed==null?freeBeds.get(0).getBedId():bed;
+            if(freeBeds.stream().noneMatch(candidate -> candidate.getBedId()==selectedBed))
+                throw new WorkflowException(409,"Selected bed is not available for this service and time.");
             List<Integer> result=w.call(rs -> rs.getInt("appointment_id"), "usp_SaveAppointment",w.actor,customer,service,java.sql.Date.valueOf(date),Time.valueOf(time),selectedStaff,selectedBed,pkg,appointment);
             if (result.isEmpty()) throw new SQLException("Appointment procedure returned no identifier.");
             int id=result.get(0);
