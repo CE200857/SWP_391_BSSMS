@@ -1,15 +1,19 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Container, Form, Button, Card, Alert } from "react-bootstrap";
 import spaPhoto from "../../assets/figma/login-spa-original.jpeg";
 
-const Login = ({ setUser }) => {
+import { loginAccount, loginDestination, roleHome } from "../../auth/login";
+
+const Login = ({ user, setUser }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  if (user) return <Navigate to={roleHome(user.role)} replace />;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -31,82 +35,16 @@ const Login = ({ setUser }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ email: inputValue, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem("user", JSON.stringify(data));
-        setUser(data);
-
-        setSuccessMsg(
-          `Đăng nhập thành công! Chào mừng ${data.fullName} (${data.role})`
-        );
-
-        setTimeout(() => {
-          // Kiểm tra xem người dùng có vừa chọn khung giờ trống trước khi đăng nhập không
-          const pendingRaw = sessionStorage.getItem("bssms.pendingBooking");
-          if (pendingRaw) {
-            sessionStorage.removeItem("bssms.pendingBooking");
-            const pendingSlot = JSON.parse(pendingRaw);
-
-            if (data.role === "Customer") {
-              navigate("/appointments/online", { state: pendingSlot });
-              return;
-            }
-
-            if (data.role === "Receptionist" || data.role === "Manager") {
-              sessionStorage.setItem(
-                "bssms.walkInAppointmentDraft",
-                JSON.stringify({
-                  formData: {
-                    customerId: "",
-                    ...pendingSlot,
-                    notes: "",
-                  },
-                  customerSearch: "",
-                })
-              );
-              navigate("/appointments/create");
-              return;
-            }
-          }
-
-          switch (data.role) {
-            case "Customer":
-              navigate("/customer/home");
-              break;
-
-            case "Manager":
-              navigate("/manager/dashboard");
-              break;
-
-            case "Receptionist":
-              navigate("/receptionist/dashboard");
-              break;
-
-            case "Technician":
-              navigate("/technician/dashboard");
-              break;
-
-            default:
-              navigate("/bssms-guest");
-              break;
-          }
-        }, 1200);
-      } else {
-        setError(data.message || "Đăng nhập thất bại!");
-        setIsLoading(false);
-      }
-    } catch {
-      setError("Lỗi kết nối đến máy chủ!");
+      const data = await loginAccount(inputValue, password, 'customer');
+      localStorage.setItem('user', JSON.stringify(data));
+      sessionStorage.removeItem('bssms.pendingBooking');
+      setUser(data);
+      navigate(loginDestination(data.role, location.state?.from), { replace: true });
+    } catch (err) {
+      localStorage.removeItem('user');
+      setUser(null);
+      setError(err.message || 'Lỗi kết nối đến máy chủ!');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -149,6 +87,7 @@ const Login = ({ setUser }) => {
             </h3>
           </div>
 
+          {location.state?.from?.startsWith("/slots") && <Alert variant="info">Vui lòng đăng nhập để xem lịch trống và đặt lịch hẹn.</Alert>}
           {error && <Alert variant="danger">{error}</Alert>}
           {successMsg && <Alert variant="success">{successMsg}</Alert>}
 
@@ -183,7 +122,7 @@ const Login = ({ setUser }) => {
             </Form.Group>
 
             <Button
-              variant="danger"
+              variant="primary"
               type="submit"
               className="w-100 mb-4 fw-bold"
               style={{ height: "45px" }}
@@ -210,6 +149,7 @@ const Login = ({ setUser }) => {
                 Đăng ký
               </Link>
             </span>
+            <Link className="auth-inline-link mt-3" to="/dashboard/login">Đăng nhập dành cho nhân viên</Link>
           </div>
         </Card.Body>
       </Card>

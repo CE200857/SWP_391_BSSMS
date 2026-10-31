@@ -133,12 +133,10 @@ const Register = () => {
 
   return (
     <div
-      className="d-flex justify-content-center align-items-center vh-100 vw-100"
-      style={{ backgroundColor: "#fdf6f7" }}
+      className="app-registration-page"
     >
       <Card
-        className="p-4 shadow-sm"
-        style={{ width: "430px", borderRadius: "12px", border: "none" }}
+        className="app-registration-card p-4"
       >
         <h3 className="text-center mb-4 fw-bold" style={{ color: "#3a2a2f" }}>
           ĐĂNG KÝ

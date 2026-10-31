@@ -43,7 +43,7 @@ const EditCustomerProfile = ({ user }) => {
     const fetchCustomerData = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8080/BSSMS-back/api/customers?id=${id}`,
+          `/api/customers?id=${id}`,
           {
             credentials: "include",
           },
@@ -119,7 +119,7 @@ const EditCustomerProfile = ({ user }) => {
 
     try {
       const response = await axios.post(
-        "http://localhost:8080/BSSMS-back/api/customers",
+        "/api/customers",
         { ...formData, action: "update" },
         { withCredentials: true },
       );

@@ -98,7 +98,7 @@ const testimonials = [
 const questions = [
   {
     question: "Có cần đăng nhập để xem dịch vụ và đặt lịch không?",
-    answer: "Không. Bạn có thể khám phá thông tin và gửi yêu cầu đặt lịch như một vị khách. Chỉ cần đăng nhập để theo dõi lịch hẹn và sử dụng thêm các tiện ích cá nhân.",
+    answer: "Bạn có thể xem thông tin dịch vụ mà không cần đăng nhập. Để xem lịch trống, đặt lịch và theo dõi lịch hẹn, bạn cần đăng nhập tài khoản khách hàng.",
   },
   {
     question: "Tôi nên chọn dịch vụ nào cho lần đầu tiên?",
@@ -118,7 +118,8 @@ const questions = [
   },
 ];
 
-const GuestHome = () => {
+const GuestHome = ({ user }) => {
+  const servicesPath = user?.role === "Customer" ? "/services" : "/guest/services";
   const [activeQuestion, setActiveQuestion] = useState(0);
 
   return (
@@ -142,16 +143,15 @@ const GuestHome = () => {
             sóc sắc đẹp và thư giãn trong không gian nhẹ nhàng tại Seoul Center.
           </p>
           <div className="home-hero-actions">
-            <Link className="home-button home-button-primary" to="/guest/slots">
+            <Link className="home-button home-button-primary" to="/slots">
               Đặt lịch chăm sóc <i className="bi bi-calendar2-check" aria-hidden="true" />
             </Link>
-            <Link className="home-button home-button-white" to="/guest/services">
+            <Link className="home-button home-button-white" to={servicesPath}>
               Khám phá dịch vụ <i className="bi bi-arrow-up-right" aria-hidden="true" />
             </Link>
           </div>
           <span className="home-hero-note">
-            <i className="bi bi-heart" aria-hidden="true" /> Tự do khám phá ·
-            Không cần đăng nhập
+            <i className="bi bi-heart" aria-hidden="true" /> Xem dịch vụ tự do · Đăng nhập để đặt lịch
           </span>
         </div>
         <div className="home-hero-visual">
@@ -189,7 +189,7 @@ const GuestHome = () => {
             <h2>Chăm chút vẻ đẹp, nuôi dưỡng cảm xúc</h2>
             <p>Từ làn da đến mái tóc, mỗi trải nghiệm chăm sóc đều dành cho mình.</p>
           </div>
-          <Link className="home-text-link" to="/guest/services">
+          <Link className="home-text-link" to={servicesPath}>
             Tất cả dịch vụ <i className="bi bi-arrow-right" aria-hidden="true" />
           </Link>
         </div>
@@ -201,7 +201,7 @@ const GuestHome = () => {
                 <span className="home-eyebrow">{service.category}</span>
                 <h3>{service.title}</h3>
                 <p>{service.description}</p>
-                <Link to="/guest/services" aria-label={`Tìm hiểu ${service.title}`}>
+                <Link to={servicesPath} aria-label={`Tìm hiểu ${service.title}`}>
                   Tìm hiểu dịch vụ <i className="bi bi-arrow-right" aria-hidden="true" />
                 </Link>
               </div>
@@ -233,7 +233,7 @@ const GuestHome = () => {
             <li><i className="bi bi-check-circle" aria-hidden="true" /> Lựa chọn dịch vụ theo nhu cầu của bạn</li>
             <li><i className="bi bi-check-circle" aria-hidden="true" /> Hướng dẫn chăm sóc sau buổi trải nghiệm</li>
           </ul>
-          <Link className="home-button home-button-white" to="/guest/services">
+          <Link className="home-button home-button-white" to={servicesPath}>
             Khám phá dịch vụ <i className="bi bi-arrow-up-right" aria-hidden="true" />
           </Link>
         </div>
@@ -245,7 +245,7 @@ const GuestHome = () => {
         <div className="home-section-heading home-section-heading-center">
           <span className="home-eyebrow">ĐẶT LỊCH THẬT DỄ</span>
           <h2>Một lịch hẹn, chỉ ba bước</h2>
-          <p>Bạn có thể bắt đầu ngay cả khi chưa có tài khoản.</p>
+          <p>Khám phá dịch vụ, đăng nhập và chọn thời gian phù hợp.</p>
         </div>
         <div className="home-step-grid">
           {steps.map((step) => (
@@ -259,7 +259,7 @@ const GuestHome = () => {
             </article>
           ))}
         </div>
-        <Link className="home-button home-button-primary home-steps-cta" to="/guest/slots">
+        <Link className="home-button home-button-primary home-steps-cta" to="/slots">
           Đặt lịch ngay <i className="bi bi-calendar2-check" aria-hidden="true" />
         </Link>
       </div>
@@ -284,6 +284,7 @@ const GuestHome = () => {
           ))}
         </div>
         <p className="home-caption text-center">Phản hồi minh họa · Nội dung thực tế phụ thuộc trải nghiệm của khách hàng.</p>
+        <div className="text-center"><Link className="home-text-link" to={user?.role === "Customer" ? "/feedback" : "/guest/feedback"}>Xem đánh giá khách hàng <i className="bi bi-arrow-right" aria-hidden="true" /></Link></div>
       </div>
     </section>
 
@@ -326,7 +327,7 @@ const GuestHome = () => {
           <h2>Một nơi để bạn chăm sóc mình</h2>
           <div className="home-contact-details">
             <span><i className="bi bi-geo-alt" aria-hidden="true" /><span><small>Địa chỉ</small>329 Nguyễn Văn Cừ, Phường Cái Khế, Thành Phố Cần Thơ</span></span>
-            <span><i className="bi bi-clock" aria-hidden="true" /><span><small>Giờ làm việc</small>08:45–18:30 hằng ngày</span></span>
+            <span><i className="bi bi-clock" aria-hidden="true" /><span><small>Giờ làm việc</small>08:30–18:30 hằng ngày</span></span>
             <span><i className="bi bi-telephone" aria-hidden="true" /><span><small>Điện thoại</small>(+84) 914 269 346</span></span>
             <span><i className="bi bi-envelope" aria-hidden="true" /><span><small>Email</small>cskh@seoulcenter.vn</span></span>
           </div>
@@ -339,7 +340,7 @@ const GuestHome = () => {
           <div>
             <h3>Hôm nay, ưu tiên bản thân nhé.</h3>
             <p>Chọn một dịch vụ bạn yêu thích. Seoul Center sẽ liên hệ để tư vấn và xác nhận thời gian phù hợp.</p>
-            <Link className="home-button home-button-primary" to="/guest/slots">
+            <Link className="home-button home-button-primary" to="/slots">
               Đặt lịch chăm sóc <i className="bi bi-calendar2-check" aria-hidden="true" />
             </Link>
           </div>

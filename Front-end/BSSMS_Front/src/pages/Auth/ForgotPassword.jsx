@@ -1,6 +1,6 @@
-/* eslint-disable no-unused-vars */
+
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Container,
   Form,
@@ -13,6 +13,8 @@ import axios from "axios";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const staffPortal = new URLSearchParams(location.search).get("portal") === "staff";
 
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
@@ -106,7 +108,7 @@ const ForgotPassword = () => {
       if (response.status === 200) {
         setSuccessMsg("Xác thực thành công! Đang chuyển hướng...");
         setTimeout(() => {
-          navigate("/reset-password", { state: { email: inputEmail } });
+          navigate(staffPortal ? "/reset-password?portal=staff" : "/reset-password", { state: { email: inputEmail } });
         }, 1000);
       }
     } catch (err) {
@@ -143,7 +145,7 @@ const ForgotPassword = () => {
                 fontSize: "1.5rem",
                 color: "#6c757d",
               }}
-              onClick={() => navigate("/login")}
+              onClick={() => navigate(staffPortal ? "/dashboard/login" : "/login")}
               title="Quay lại Đăng nhập"
             ></i>
             <h4
@@ -210,7 +212,7 @@ const ForgotPassword = () => {
               <Button
                 variant="outline-secondary"
                 className="w-50 fw-bold"
-                onClick={() => navigate("/login")}
+                onClick={() => navigate(staffPortal ? "/dashboard/login" : "/login")}
               >
                 Quay lại
               </Button>

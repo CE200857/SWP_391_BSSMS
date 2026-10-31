@@ -60,7 +60,7 @@ const CreateWalkInCustomer = () => {
     setIsLoading(true);
     try {
       const response = await axios.post(
-        "http://localhost:8080/BSSMS-back/api/customers",
+        "/api/customers",
         {
           fullName: formattedName,
           phone: formData.phone.trim(),

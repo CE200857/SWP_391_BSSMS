@@ -23,7 +23,7 @@ const CustomerList = ({ user }) => {
     const fetchData = async () => {
       try {
         const response = await fetch(
-          "http://localhost:8080/BSSMS-back/api/customers",
+          "/api/customers",
           {
             method: "GET",
             credentials: "include",
@@ -55,7 +55,7 @@ const CustomerList = ({ user }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/BSSMS-back/api/customers?id=${selectedCustomer.customerId}`,
+        `/api/customers?id=${selectedCustomer.customerId}`,
         {
           method: "DELETE",
           credentials: "include",
