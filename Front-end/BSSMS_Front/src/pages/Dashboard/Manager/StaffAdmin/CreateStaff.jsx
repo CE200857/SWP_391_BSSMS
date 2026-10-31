@@ -73,7 +73,7 @@ const CreateStaff = () => {
     setIsLoading(true);
     try {
       const response = await axios.post(
-        "http://localhost:8080/BSSMS-back/api/staff",
+        "/api/staff",
         {
           action: "create",
           fullName: formattedName,

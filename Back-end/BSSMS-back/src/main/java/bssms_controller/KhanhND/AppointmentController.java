@@ -28,6 +28,7 @@ public class AppointmentController extends ControllerSupport {
 
         String pathInfo = request.pathInfo();
 
+        if("/technicians".equals(pathInfo)){response.writer().write(gson.toJson(dao.bookingTechnicians()));return;}
         // GET /api/appointments
         if (pathInfo == null || pathInfo.equals("/")) {
 

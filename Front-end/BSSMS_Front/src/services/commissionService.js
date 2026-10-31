@@ -1,7 +1,7 @@
 // src/services/commissionService.js
 
 // URL trỏ đến Backend Java Servlet của bạn (đúng với URL báo lỗi trên Console)
-const API_BASE_URL = "http://localhost:8080/BSSMS-back/api"; 
+const API_BASE_URL = "/api";
 
 /**
  * Gọi API lấy báo cáo hoa hồng cho Manager (UC77)

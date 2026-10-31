@@ -132,7 +132,7 @@ public class InvoiceController extends ControllerSupport {
                 if(path.contains("/refunds/")) {
                     if(!data.has("confirmedReturned") || !data.get("confirmedReturned").getAsBoolean()) throw new IllegalArgumentException("Confirm that money has been returned.");
                     sendJson(response,200,dao.completeRefund(Integer.parseInt(path.split("/")[4])));
-                } else sendJson(response,200,dao.pay(Integer.parseInt(path.split("/")[3]),data.get("paymentMethod").getAsString(),requireDecimal(data,"receivedAmount"),data.get("requestKey").getAsString(),data.has("transactionCode")?data.get("transactionCode").getAsString():null));
+                } else sendJson(response,200,dao.pay(Integer.parseInt(path.split("/")[3]),data.get("paymentMethod").getAsString(),requireDecimal(data,"receivedAmount"),data.get("requestKey").getAsString(),data.has("transactionCode")&&!data.get("transactionCode").isJsonNull()?data.get("transactionCode").getAsString():null));
             } catch(SQLException ex) {throw new DataAccessException(ex);}
             return;
         }

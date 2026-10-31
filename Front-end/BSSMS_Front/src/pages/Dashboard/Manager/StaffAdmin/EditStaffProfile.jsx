@@ -32,7 +32,7 @@ const EditStaffProfile = ({ user }) => {
   useEffect(() => {
     const fetchStaffData = async () => {
       try {
-        const response = await fetch(`http://localhost:8080/BSSMS-back/api/staff?id=${id}`, {
+        const response = await fetch(`/api/staff?id=${id}`, {
           credentials: "include"
         });
         if (response.ok) {
@@ -122,7 +122,7 @@ const EditStaffProfile = ({ user }) => {
 
     try {
       const response = await axios.post(
-        "http://localhost:8080/BSSMS-back/api/staff",
+        "/api/staff",
         payload,
         { withCredentials: true }
       );
