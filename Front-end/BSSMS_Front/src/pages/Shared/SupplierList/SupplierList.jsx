@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
-const SUPPLIER_API_URL = 'http://localhost:8080/BSSMS-back/api/suppliers';
-const PRODUCT_API_URL = 'http://localhost:8080/BSSMS-back/api/products';
+const SUPPLIER_API_URL = '/api/suppliers';
+const PRODUCT_API_URL = '/api/products';
 
 export default function SupplierList() {
   const [suppliers, setSuppliers] = useState([]);
