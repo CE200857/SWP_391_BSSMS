@@ -27,11 +27,7 @@ const UpdateRoomBedStatus = () => {
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const canUpdate = ["Manager", "Receptionist", "Technician"].includes(user?.role);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    async function fetchData() {
         setIsLoading(true);
         setLoadError("");
         try {
@@ -66,7 +62,14 @@ const UpdateRoomBedStatus = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }
+
+    useEffect(() => {
+        // This request owns the initial loading and error states.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchData();
+    }, []);
+
 
     // Hàm gửi request cập nhật - thử nhiều endpoint patterns
     const tryUpdate = async (endpoints, body) => {
@@ -194,8 +197,7 @@ const UpdateRoomBedStatus = () => {
 
     const getStatusBadge = (status) => {
         const statusMap = {
-            "Available": { bg: "success", text: "Trống" },
-            "Occupied": { bg: "warning", text: "Đang sử dụng" },
+            "Active": { bg: "success", text: "Đang hoạt động" },
             "Maintenance": { bg: "danger", text: "Bảo trì" },
         };
         const style = statusMap[status] || { bg: "secondary", text: status };
@@ -242,8 +244,9 @@ const UpdateRoomBedStatus = () => {
     }
 
     return (
-        <Container fluid className="mt-4 px-4">
-            <h2 className="fw-bold text-uppercase mb-4">Cập nhật trạng thái phòng & giường</h2>
+        <Container fluid className="room-bed-page mt-4 px-4">
+            <h2 className="fw-bold text-uppercase mb-4">Trạng thái vận hành phòng & giường</h2>
+            <p className="text-muted">Chuyển phòng, giường sang bảo trì hoặc đưa vào hoạt động trở lại. Phòng đang hoạt động vẫn có thể đã được đặt theo khung giờ.</p>
 
             {successMsg && <Alert variant="success">{successMsg}</Alert>}
             {loadError && <Alert variant="danger">{loadError}</Alert>}
@@ -269,8 +272,7 @@ const UpdateRoomBedStatus = () => {
                             onChange={(e) => setStatusFilter(e.target.value)}
                         >
                             <option value="all">Tất cả trạng thái</option>
-                            <option value="Available">Trống</option>
-                            <option value="Occupied">Đang sử dụng</option>
+                            <option value="Active">Đang hoạt động</option>
                             <option value="Maintenance">Bảo trì</option>
                         </Form.Select>
                     </div>
@@ -315,8 +317,7 @@ const UpdateRoomBedStatus = () => {
                                                             disabled={updatingId === r.roomId}
                                                             style={{ maxWidth: "130px" }}
                                                         >
-                                                            <option value="Available">Trống</option>
-                                                            <option value="Occupied">Đang sử dụng</option>
+                                                            <option value="Active">Đang hoạt động</option>
                                                             <option value="Maintenance">Bảo trì</option>
                                                         </Form.Select>
                                                         <Button
@@ -385,8 +386,7 @@ const UpdateRoomBedStatus = () => {
                                                             disabled={updatingId === b.bedId}
                                                             style={{ maxWidth: "130px" }}
                                                         >
-                                                            <option value="Available">Trống</option>
-                                                            <option value="Occupied">Đang sử dụng</option>
+                                                            <option value="Active">Đang hoạt động</option>
                                                             <option value="Maintenance">Bảo trì</option>
                                                         </Form.Select>
                                                         <Button
