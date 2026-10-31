@@ -6,6 +6,7 @@ import { Container, Form, Button, Card, Alert } from "react-bootstrap";
 const ResetPassword = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const staffPortal = new URLSearchParams(location.search).get("portal") === "staff";
 
   const email = location.state?.email || "";
 
@@ -18,9 +19,9 @@ const ResetPassword = () => {
 
   useEffect(() => {
     if (!email) {
-      navigate("/forgot-password");
+      navigate(staffPortal ? "/forgot-password?portal=staff" : "/forgot-password");
     }
-  }, [email, navigate]);
+  }, [email, navigate, staffPortal]);
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
@@ -52,7 +53,7 @@ const ResetPassword = () => {
       if (response.ok) {
         setSuccessMsg("Đặt lại mật khẩu thành công! Đang chuyển về Đăng nhập...");
         setTimeout(() => {
-          navigate("/login");
+          navigate(staffPortal ? "/dashboard/login" : "/login");
         }, 1500);
       } else {
         const data = await response.json();
@@ -120,7 +121,7 @@ const ResetPassword = () => {
               <Button 
                 variant="outline-secondary" 
                 className="w-50 fw-bold"
-                onClick={() => navigate("/forgot-password")}
+                onClick={() => navigate(staffPortal ? "/forgot-password?portal=staff" : "/forgot-password")}
                 disabled={isLoading || successMsg !== ""}
               >
                 Quay lại

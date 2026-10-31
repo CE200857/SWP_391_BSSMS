@@ -21,7 +21,7 @@ const Profile = ({ user, setUser }) => {
       try {
         // Đổi thành đường dẫn tuyệt đối và thêm credentials
         const response = await fetch(
-          `http://localhost:8080/BSSMS-back/api/profile?accountId=${idToFetch}&role=${user.role}`,
+          `/api/profile?accountId=${idToFetch}&role=${user.role}`,
           {
             method: "GET",
             credentials: "include", // Bắt buộc phải có để Backend nhận diện được Session
@@ -44,7 +44,7 @@ const Profile = ({ user, setUser }) => {
   const handleLogout = async () => {
     try {
       // Sửa lại đường dẫn API logout
-      await fetch("http://localhost:8080/BSSMS-back/api/logout", {
+      await fetch("/api/logout", {
         method: "POST",
         credentials: "include", // Gửi cookie để Backend hủy Session
       });
@@ -53,7 +53,7 @@ const Profile = ({ user, setUser }) => {
     } finally {
       localStorage.removeItem("user");
       setUser(null);
-      navigate("/bssms-guest");
+      navigate(user?.role === "Customer" ? "/bssms-guest" : "/dashboard/login", { replace: true });
     }
   };
 
@@ -63,7 +63,7 @@ const Profile = ({ user, setUser }) => {
   const displayName = profileData?.fullName || user?.fullName || "User";
   const initial = displayName.charAt(0).toUpperCase();
 
-  if (profileData?.role === "Customer") {
+  if (user.role === "Customer") {
     return (
       <main className="customer-profile-page">
         <section className="customer-page-banner customer-profile-banner">
@@ -91,7 +91,7 @@ const Profile = ({ user, setUser }) => {
             <div className="customer-profile-identity">
               <span>{initial}</span>
               <h2>{displayName}</h2>
-              <small>{profileData.role}</small>
+              <small>Khách hàng</small>
             </div>
             <div className="customer-profile-menu-divider" />
             <button className="is-active" type="button" aria-current="page">
@@ -115,6 +115,7 @@ const Profile = ({ user, setUser }) => {
               <span><i className="bi bi-person" aria-hidden="true" /></span>
             </div>
 
+            {isLoading ? <div className="ui-empty" role="status"><Spinner animation="border" variant="primary" /><p>Đang tải thông tin hồ sơ…</p></div> : !profileData ? <div className="alert alert-danger" role="alert">Không thể tải thông tin hồ sơ. Vui lòng tải lại trang để thử lại.</div> : <>
             <div className="customer-profile-data-grid">
               <div><small>Tên đăng nhập</small><strong>{profileData.username || "—"}</strong></div>
               <div><small>Họ và tên</small><strong>{profileData.fullName || "—"}</strong></div>
@@ -140,16 +141,17 @@ const Profile = ({ user, setUser }) => {
             </div>
 
             <div className="customer-profile-actions">
-              <Button variant="outline-danger" onClick={() => navigate("/change-password")}>
+              <Button variant="outline-primary" onClick={() => navigate("/change-password")}>
                 <i className="bi bi-key" aria-hidden="true" /> Đổi mật khẩu
               </Button>
               <Button
-                variant="danger"
+                variant="primary"
                 onClick={() => navigate("/edit-profile", { state: { profileData } })}
               >
                 <i className="bi bi-pencil-square" aria-hidden="true" /> Chỉnh sửa
               </Button>
             </div>
+            </>}
           </section>
         </div>
       </main>

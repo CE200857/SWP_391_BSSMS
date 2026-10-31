@@ -1,7 +1,7 @@
 package bssms_security;
 
 import java.util.Properties;
-import java.util.Random;
+import java.security.SecureRandom;
 import jakarta.mail.Authenticator;
 import jakarta.mail.Message;
 import jakarta.mail.PasswordAuthentication;
@@ -12,22 +12,22 @@ import jakarta.mail.internet.MimeMessage;
 
 public class EmailUtil {
 
-    public static final String FROM_EMAIL = "zonestevegamer1@gmail.com";
-    private static final String APP_PASSWORD = "fvlv fomk rurw ckts";
+    public static final String FROM_EMAIL = System.getenv().getOrDefault("BSSMS_SMTP_USER", "");
+    private static final String APP_PASSWORD = System.getenv().getOrDefault("BSSMS_SMTP_PASSWORD", "");
 
     public static String generateOTP() {
-        Random rnd = new Random();
+        SecureRandom rnd = new SecureRandom();
         int number = 100000 + rnd.nextInt(900000);
         return String.valueOf(number);
     }
 
     public static boolean sendOTP(String toEmail, String otpCode, String subjectTitle) {
-        System.out.println("==========================================");
-        System.out.println("[OTP LOG] Email: " + toEmail + " | Mã xác thực: " + otpCode);
-        System.out.println("==========================================");
 
+        if (FROM_EMAIL.isBlank() || APP_PASSWORD.isBlank()) return false;
         Properties props = new Properties();
-        props.put("mail.smtp.host", "smtp.gmail.com");
+        props.put("mail.smtp.host", System.getenv().getOrDefault("BSSMS_SMTP_HOST", "smtp.gmail.com"));
+        props.put("mail.smtp.connectiontimeout", "10000");
+        props.put("mail.smtp.timeout", "10000");
         props.put("mail.smtp.port", "587");
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.starttls.enable", "true");
@@ -58,7 +58,7 @@ public class EmailUtil {
             return true;
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Không gửi được qua SMTP (hãy kiểm tra lại App Password), dùng mã ở Console để test: " + otpCode);
+            System.err.println("SMTP delivery failed.");
             return false;
         }
     }

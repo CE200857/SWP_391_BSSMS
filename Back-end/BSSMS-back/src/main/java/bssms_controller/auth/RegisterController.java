@@ -59,7 +59,7 @@ public class RegisterController extends ControllerSupport {
                     return;
                 }
 
-                EmailUtil.sendOTP(email, otp, "[BSSMS] Mã xác thực đăng ký tài khoản");
+                if (!EmailUtil.sendOTP(email, otp, "[BSSMS] Mã xác thực đăng ký tài khoản")) { response.error(503,"Không gửi được email. Vui lòng thử lại sau."); return; }
 
                 response.status(200);
                 out.print("{\"message\": \"Mã xác thực đã được gửi đến email của bạn!\"}");

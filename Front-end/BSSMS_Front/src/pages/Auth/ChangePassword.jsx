@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Container, Card, Form, Button, Alert } from "react-bootstrap";
 
@@ -58,7 +58,7 @@ const ChangePassword = () => {
       } else {
         setError(data.message || "Đổi mật khẩu thất bại!");
       }
-    } catch (err) {
+    } catch {
       setError("Lỗi kết nối đến máy chủ. Vui lòng thử lại!");
     } finally {
       setIsLoading(false);

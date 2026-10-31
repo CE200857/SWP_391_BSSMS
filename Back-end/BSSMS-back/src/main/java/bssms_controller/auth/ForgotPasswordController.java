@@ -79,7 +79,7 @@ public class ForgotPasswordController extends ControllerSupport {
             if ("verify-code".equals(action)) {
                 String code = jsonObject.has("code") ? jsonObject.get("code").getAsString().trim() : "";
 
-                if (dao.verifyCode(email, code)) {
+                if (dao.verifyCode(email, code, "PasswordReset")) {
                     dao.deleteVerificationCode(email);
                     SessionState verified=request.session(true);
                     verified.set("passwordResetEmail",email);
@@ -97,14 +97,14 @@ public class ForgotPasswordController extends ControllerSupport {
             String duplicateField = dao.checkDuplicate(null, email, null, null);
             if (duplicateField != null) {
                 String otp = EmailUtil.generateOTP();
-                if (!dao.saveVerificationCode(email, otp)) {
+                if (!dao.saveVerificationCode(email, otp, "PasswordReset")) {
                     response.status(500);
                     out.print("{\"message\": \"Không thể lưu mã OTP (Hãy kiểm tra bảng VerificationCode trong Database)!\"}");
                     out.flush();
                     return;
                 }
 
-                EmailUtil.sendOTP(email, otp, "[BSSMS] Mã xác thực khôi phục mật khẩu");
+                if (!EmailUtil.sendOTP(email, otp, "[BSSMS] Mã xác thực khôi phục mật khẩu")) { response.error(503,"Không gửi được email. Vui lòng thử lại sau."); return; }
                 response.status(200);
                 out.print("{\"message\": \"Mã xác thực đã được gửi đến email của bạn.\"}");
             } else {
