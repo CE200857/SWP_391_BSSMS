@@ -20,7 +20,6 @@ const TreatmentStatus = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
 
-    const user = JSON.parse(localStorage.getItem("user") || "null");
 
     useEffect(() => {
         const fetchData = async () => {
@@ -33,7 +32,8 @@ const TreatmentStatus = () => {
                     fetch("/api/service"),
                 ]);
 
-                const apptData = apptRes.ok ? await apptRes.json() : [];
+                if (!apptRes.ok || !packageRes.ok) throw new Error("Không tải được lịch hẹn hoặc gói liệu trình.");
+                const apptData = await apptRes.json();
                 const packageData = packageRes.ok ? await packageRes.json() : [];
                 const serviceData = serviceRes.ok ? await serviceRes.json() : [];
 
@@ -58,12 +58,13 @@ const TreatmentStatus = () => {
 
     const getStatusBadge = (status) => {
         const statusMap = {
-            "Scheduled": { bg: "primary", text: "Đã lên lịch" },
+            "Checked-in": { bg: "info", text: "Đã check-in" },
+            "Pending": { bg: "primary", text: "Chờ xác nhận" },
             "Confirmed": { bg: "info", text: "Đã xác nhận" },
-            "In Progress": { bg: "warning", text: "Đang thực hiện" },
+            "In-progress": { bg: "warning", text: "Đang thực hiện" },
             "Completed": { bg: "success", text: "Hoàn thành" },
             "Cancelled": { bg: "danger", text: "Đã hủy" },
-            "No Show": { bg: "secondary", text: "Không đến" },
+            "No-show": { bg: "secondary", text: "Không đến" },
         };
         const style = statusMap[status] || { bg: "dark", text: status };
         return <Badge bg={style.bg}>{style.text}</Badge>;
@@ -153,12 +154,13 @@ const TreatmentStatus = () => {
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
                                 <option value="all">Tất cả trạng thái</option>
-                                <option value="Scheduled">Đã lên lịch</option>
+                                <option value="Pending">Chờ xác nhận</option>
                                 <option value="Confirmed">Đã xác nhận</option>
-                                <option value="In Progress">Đang thực hiện</option>
+<option value="Checked-in">Đã check-in</option>
+                                <option value="In-progress">Đang thực hiện</option>
                                 <option value="Completed">Hoàn thành</option>
                                 <option value="Cancelled">Đã hủy</option>
-                                <option value="No Show">Không đến</option>
+                                <option value="No-show">Không đến</option>
                             </Form.Select>
                         )}
                     </div>
