@@ -23,6 +23,10 @@ public class AppointmentDAO extends DBContext implements AutoCloseable {
     }
     @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
+    public List<java.util.Map<String,Object>> bookingTechnicians() {
+        try {workflow().roles("Receptionist","Manager");return workflow().query("SELECT staff_id,full_name,role AS position,status FROM Staff WHERE role='Technician' AND status='Active'");}
+        catch(SQLException e){throw new DataAccessException(e);}
+    }
     // View Appointment List
     public List<Appointment> getAllAppointmentDetails() {
         try {return workflow().query(ModelRows::appointment, "SELECT a.*,tr.result_notes,c.full_name AS customer_name,c.phone AS customer_phone,s.service_name,s.price AS service_price,st.full_name AS staff_name,ast.staff_id,r.room_name,b.bed_number FROM Appointment a LEFT JOIN " + bssms_persistence.common.SchemaSql.TREATMENTS + " tr ON tr.appointment_id=a.appointment_id JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON c.customer_id=a.customer_id JOIN Service s ON s.service_id=a.service_id LEFT JOIN AppointmentStaff ast ON ast.appointment_id=a.appointment_id AND ast.role='Main Technician' LEFT JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON st.staff_id=ast.staff_id LEFT JOIN Room r ON r.room_id=a.room_id LEFT JOIN Bed b ON b.bed_id=a.bed_id WHERE "+bssms_persistence.common.Workflow.appointmentScope()+" ORDER BY a.appointment_date DESC,a.start_time",requireActorAccountId());}
