@@ -59,7 +59,7 @@ public final class Workflow {
         } catch(SQLException e) {
             for(SQLException x=e;x!=null;x=x.getNextException()) {
                 if(x.getErrorCode()>=51000 && x.getErrorCode()<52000)
-                    throw new WorkflowException(x.getErrorCode()==51002?403:409,x.getMessage());
+                    throw new WorkflowException(x.getErrorCode()==51002?403:x.getErrorCode()==51003?404:409,x.getMessage());
             }
             throw e;
         }

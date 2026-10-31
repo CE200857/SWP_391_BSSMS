@@ -1,63 +1,76 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_persistence;
 
+import bssms_persistence.common.DataAccessException;
+import bssms_persistence.common.Workflow;
+import bssms_persistence.common.WorkflowException;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-/**
- *
- * @author 
- */
 public class DBContext {
+
     protected Connection conn = null;
+    private int actorAccountId;
+
+    public void setActorAccountId(int id) {
+        actorAccountId = id;
+    }
+
+    protected int requireActorAccountId() {
+        if (actorAccountId <= 0) {
+            throw new WorkflowException(403, "Please log in again.");
+        }
+        return actorAccountId;
+    }
+
+    protected Workflow workflow() {
+        return new Workflow(conn, requireActorAccountId());
+    }
 
     public DBContext() {
+        String dbURL = "jdbc:sqlserver://localhost:1433;"
+                + "databaseName=BeautySalonDB;"
+                + "encrypt=true;"
+                + "trustServerCertificate=true;";
+
+        String username = "sa";
+        String password = "123456";
+
+        dbURL = setting("bssms.db.url", "BSSMS_DB_URL", dbURL);
+        username = setting("bssms.db.user", "BSSMS_DB_USER", username);
+        password = setting("bssms.db.password", "BSSMS_DB_PASSWORD", password);
 
         try {
-
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-
-            String dbURL = "jdbc:sqlserver://localhost:1433;"
-                    + "databaseName=BeautySalonDB;"
-                    + "user=sa;"
-                    + "password=123456;"
-                    + "encrypt=true;trustServerCertificate=true;";
-
-            conn = DriverManager.getConnection(dbURL);
-
-            if (conn != null) {
-
-                DatabaseMetaData dm = conn.getMetaData();
-
-                System.out.println("Driver name: " + dm.getDriverName());
-
-                System.out.println("Driver version: " + dm.getDriverVersion());
-
-                System.out.println("Product name: "
-                        + dm.getDatabaseProductName());
-
-                System.out.println("Product version: "
-                        + dm.getDatabaseProductVersion());
-
-            }
-
-        } catch (SQLException ex) {
-            System.out.println("Khong ket noi duoc roi em oi!!!!!");
-            ex.printStackTrace();
+            conn = DriverManager.getConnection(dbURL, username, password);
         } catch (ClassNotFoundException ex) {
-            Logger.getLogger(DBContext.class.getName()).log(Level.SEVERE, null, ex);
-            ex.printStackTrace();
+            throw new IllegalStateException(
+                    "Không tìm thấy SQL Server JDBC Driver.", ex);
+        } catch (SQLException ex) {
+            throw new DataAccessException(ex);
         }
-
     }
+
+    private static String setting(String property, String environment, String fallback) {
+        String value = System.getProperty(property);
+        if (value == null) value = System.getenv(environment);
+        return value == null ? fallback : value;
+    }
+
     public static void main(String[] args) {
-        DBContext bd = new DBContext();
+        DBContext db = new DBContext();
+
+        try (Connection connection = db.conn) {
+            if (connection != null && connection.isValid(5)) {
+                System.out.println("Kết nối SQL Server thành công!");
+                System.out.println(
+                        "Database đang kết nối: " + connection.getCatalog());
+            } else {
+                throw new IllegalStateException(
+                        "Kết nối SQL Server không hợp lệ.");
+            }
+        } catch (SQLException ex) {
+            throw new DataAccessException(ex);
+        }
     }
 }

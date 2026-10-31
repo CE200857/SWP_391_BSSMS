@@ -27,13 +27,13 @@ public class AuthenticationFilter implements Filter {
         }
 
         String path = req.getRequestURI();
+        if (path.endsWith("/api/payments/vnpay/ipn") || path.endsWith("/api/payments/vnpay/return")) { chain.doFilter(request,response); return; }
 
         if (path.endsWith("/api/login")
                 || path.endsWith("/api/register")
                 || path.endsWith("/api/logout")
                 || path.contains("/api/forgot-password")
-                || path.contains("/api/booking/slots")
-                || (path.endsWith("/api/service") && "GET".equalsIgnoreCase(req.getMethod()))
+                || ((path.endsWith("/api/service") || path.endsWith("/api/treatment-packages")) && "GET".equalsIgnoreCase(req.getMethod()))
                 || ((path.endsWith("/api/feedback") || path.matches(".*/api/feedback/[0-9]+")) && "GET".equalsIgnoreCase(req.getMethod()))) {
             chain.doFilter(request, response);
             return;
