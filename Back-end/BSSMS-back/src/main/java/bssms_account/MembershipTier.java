@@ -1,68 +1,26 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_account;
 
-/**
- *
- * @author admin
- */
-public class MembershipTier {
-    private int membershipTierId;
+/** Typed data exchanged by DAO and controller; nullable fields represent absent SQL values. */
+public class MembershipTier implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+    private Integer membershipTierId;
     private String tierName;
     private String description;
-    private double discountPercent;
-    private double minSpending;
+    private java.math.BigDecimal discountPercent;
+    private java.math.BigDecimal minSpending;
 
-    public MembershipTier() {}
+    public Integer getMembershipTierId() { return membershipTierId; }
+    public void setMembershipTierId(Integer membershipTierId) { this.membershipTierId = membershipTierId; }
 
-    public MembershipTier(int membershipTierId, String tierName, String description, double discountPercent, double minSpending) {
-        this.membershipTierId = membershipTierId;
-        this.tierName = tierName;
-        this.description = description;
-        this.discountPercent = discountPercent;
-        this.minSpending = minSpending;
-    }
+    public String getTierName() { return tierName; }
+    public void setTierName(String tierName) { this.tierName = tierName; }
 
-    public int getMembershipTierId() {
-        return membershipTierId;
-    }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
-    public void setMembershipTierId(int membershipTierId) {
-        this.membershipTierId = membershipTierId;
-    }
+    public java.math.BigDecimal getDiscountPercent() { return discountPercent; }
+    public void setDiscountPercent(java.math.BigDecimal discountPercent) { this.discountPercent = discountPercent; }
 
-    public String getTierName() {
-        return tierName;
-    }
-
-    public void setTierName(String tierName) {
-        this.tierName = tierName;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public double getDiscountPercent() {
-        return discountPercent;
-    }
-
-    public void setDiscountPercent(double discountPercent) {
-        this.discountPercent = discountPercent;
-    }
-
-    public double getMinSpending() {
-        return minSpending;
-    }
-
-    public void setMinSpending(double minSpending) {
-        this.minSpending = minSpending;
-    }
-    
+    public java.math.BigDecimal getMinSpending() { return minSpending; }
+    public void setMinSpending(java.math.BigDecimal minSpending) { this.minSpending = minSpending; }
 }

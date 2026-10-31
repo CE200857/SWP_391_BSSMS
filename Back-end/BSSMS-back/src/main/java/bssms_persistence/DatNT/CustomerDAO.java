@@ -1,228 +1,210 @@
 package bssms_persistence.DatNT;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
-import java.util.HashMap;
+import bssms_account.*;
 import java.util.List;
-import java.util.Map;
 
-public class CustomerDAO extends DBContext {
 
-    public List<Map<String, Object>> getAllCustomerDetails() {
-        List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT c.customer_id, c.full_name, a.phone, a.email, a.status "
-                     + "FROM Customer c "
-                     + "JOIN Account a ON c.account_id = a.account_id";
+public class CustomerDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
+
+    public List<Customer> getAllCustomerDetails() {
+        try { workflow().roles("Manager", "Receptionist", "Technician"); }
+        catch (java.sql.SQLException e) { throw new DataAccessException(e); }
+        requireConnection();
+        List<Customer> list = new ArrayList<>();
+
+        String query = "SELECT c.customer_id, c.full_name, "
+                + "c.membership_tier_id AS customer_membership_tier_id, "
+                + "a.phone, a.email, a.status, "
+                + "mt.membership_tier_id AS tier_id, "
+                + "mt.tier_name, mt.description AS tier_description, "
+                + "mt.discount_percent, mt.min_spending "
+                + "FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c "
+                + "JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a ON c.account_id = a.account_id "
+                + "LEFT JOIN MembershipTier mt "
+                + "ON c.membership_tier_id = mt.membership_tier_id "
+                + "WHERE EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " actor WHERE actor.account_id=? AND actor.status='Active' AND (actor.role IN ('Manager','Receptionist') OR (actor.role='Technician' AND EXISTS(SELECT 1 FROM Appointment ap JOIN AppointmentStaff ast ON ast.appointment_id=ap.appointment_id JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON st.staff_id=ast.staff_id WHERE ap.customer_id=c.customer_id AND st.account_id=actor.account_id)))) ORDER BY c.full_name";
+
         try {
-            if (conn != null) { 
+            if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
+                ps.setInt(1, requireActorAccountId());
                 ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("customerId", rs.getInt("customer_id"));
-                    map.put("fullName", rs.getString("full_name"));
-                    map.put("phone", rs.getString("phone"));
-                    map.put("email", rs.getString("email"));
-                    map.put("status", rs.getString("status"));
 
-                    list.add(map);
+                while (rs.next()) {
+                    Customer value = new Customer();
+
+                    value.setCustomerId(rs.getInt("customer_id"));
+                    value.setFullName(rs.getString("full_name"));
+                    value.setPhone(rs.getString("phone"));
+                    value.setEmail(rs.getString("email"));
+                    value.setStatus(rs.getString("status"));
+
+                    addMembership(value, rs);
+
+                    list.add(value);
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
+
         return list;
     }
 
     public boolean deactivateCustomer(int customerId) {
-        String query = "UPDATE Account SET status = 'Inactive' "
-                + "WHERE account_id = (SELECT account_id FROM Customer WHERE customer_id = ?)";
+        requireConnection();
         try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, customerId);
-                int rowsAffected = ps.executeUpdate();
-                return rowsAffected > 0;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
+            workflow().roles("Manager","Receptionist");
+            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Customer SET status='Inactive' WHERE customer_id=?", customerId) == 1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
-    
+
     public boolean createWalkInCustomer(String username, String password, String email, String phone, String fullName, String dob, String gender) {
-        String insertAccount = "INSERT INTO Account (username, password, email, phone, status, role) VALUES (?, ?, ?, ?, 'Active', 'Customer')";
-        String insertCustomer = "INSERT INTO Customer (account_id, membership_tier_id, full_name, date_of_birth, gender, phone) VALUES (?, 1, ?, ?, ?, ?)";
-
+        requireConnection();
         try {
-            if (conn != null) {
-                conn.setAutoCommit(false);
-                
-                String finalUsername = getUniqueUsername(username);
-
-                PreparedStatement psAcc = conn.prepareStatement(insertAccount, java.sql.Statement.RETURN_GENERATED_KEYS);
-                psAcc.setString(1, finalUsername);
-                psAcc.setString(2, bssms_security.PasswordUtil.hashMD5(password));
-                psAcc.setString(3, email);
-                psAcc.setString(4, phone);
-                psAcc.executeUpdate();
-
-                ResultSet rs = psAcc.getGeneratedKeys();
-                int accountId = -1;
-                if (rs.next()) {
-                    accountId = rs.getInt(1);
-                }
-
-                if (accountId != -1) {
-                    PreparedStatement psCus = conn.prepareStatement(insertCustomer);
-                    psCus.setInt(1, accountId);
-                    psCus.setString(2, fullName);
-                    psCus.setString(3, dob);
-                    psCus.setString(4, gender);
-                    psCus.setString(5, phone);
-                    psCus.executeUpdate();
-                }
-
-                conn.commit();
-                return true;
-            }
-        } catch (Exception e) {
-            try { if (conn != null) conn.rollback(); } catch (Exception ex) { ex.printStackTrace(); }
-            e.printStackTrace();
-        } finally {
-            try { if (conn != null) conn.setAutoCommit(true); } catch (Exception ex) { ex.printStackTrace(); }
-        }
-        return false;
+            workflow().roles("Manager","Receptionist");
+            return new bssms_persistence.common.Workflow(conn,0).update("INSERT Customer(username,password,email,phone,full_name,date_of_birth,gender,membership_tier_id) VALUES(?,?,?,?,?,?,?,1)", getUniqueUsername(username),bssms_security.PasswordUtil.hashMD5(password),email,phone,fullName,dob,gender) == 1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
-    
-    public Map<String, Object> getCustomerById(int customerId) {
-        Map<String, Object> map = new HashMap<>();
-        
-        String query = "SELECT c.customer_id, c.account_id, c.full_name, c.gender, "
-                     + "c.date_of_birth, c.address, a.phone, a.email, a.status, a.username "
-                     + "FROM Customer c "
-                     + "JOIN Account a ON c.account_id = a.account_id "
-                     + "WHERE c.customer_id = ?";
-                     
+
+    public Customer getCustomerById(int customerId) {
+        try { workflow().customerAccess(customerId); }
+        catch (java.sql.SQLException e) { throw new DataAccessException(e); }
+        requireConnection();
+        Customer value = new Customer();
+
+        String query = "SELECT c.customer_id, c.account_id, "
+                + "c.full_name, c.gender, c.date_of_birth, c.address, "
+                + "c.membership_tier_id AS customer_membership_tier_id, "
+                + "a.phone, a.email, a.status, a.username, "
+                + "mt.membership_tier_id AS tier_id, "
+                + "mt.tier_name, mt.description AS tier_description, "
+                + "mt.discount_percent, mt.min_spending "
+                + "FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c "
+                + "JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a ON c.account_id = a.account_id "
+                + "LEFT JOIN MembershipTier mt "
+                + "ON c.membership_tier_id = mt.membership_tier_id "
+                + "WHERE c.customer_id = ?";
+
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(query);
                 ps.setInt(1, customerId);
+
                 ResultSet rs = ps.executeQuery();
-                
+
                 if (rs.next()) {
-                    map.put("customerId", rs.getInt("customer_id"));
-                    map.put("accountId", rs.getInt("account_id"));
-                    map.put("fullName", rs.getString("full_name"));
-                    map.put("phone", rs.getString("phone"));
-                    map.put("email", rs.getString("email"));
-                    map.put("status", rs.getString("status"));
-                    map.put("gender", rs.getString("gender"));
-                    map.put("address", rs.getString("address"));
-                    map.put("username", rs.getString("username"));
-                    
+                    value.setCustomerId(rs.getInt("customer_id"));
+                    value.setAccountId(rs.getInt("account_id"));
+                    value.setFullName(rs.getString("full_name"));
+                    value.setPhone(rs.getString("phone"));
+                    value.setEmail(rs.getString("email"));
+                    value.setStatus(rs.getString("status"));
+                    value.setGender(rs.getString("gender"));
+                    value.setAddress(rs.getString("address"));
+                    value.setUsername(rs.getString("username"));
+
                     java.sql.Date dob = rs.getDate("date_of_birth");
-                    if (dob != null) {
-                        map.put("dob", dob.toString());
-                    } else {
-                        map.put("dob", "");
-                    }
+                    value.setDob(dob != null ? dob.toString() : "");
+
+                    addMembership(value, rs);
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
-        return map;
+
+        return value;
     }
-    
+
+    private void addMembership(
+            Customer value,
+            ResultSet rs
+    ) throws java.sql.SQLException {
+
+        value.setMembershipTierId(rs.getObject("customer_membership_tier_id", Integer.class)
+        );
+
+        MembershipTier membership = null;
+
+        if (rs.getObject("tier_id") != null) {
+            membership = new MembershipTier();
+
+            membership.setMembershipTierId(rs.getInt("tier_id")
+            );
+            membership.setTierName(rs.getString("tier_name")
+            );
+            membership.setDescription(rs.getString("tier_description")
+            );
+            membership.setDiscountPercent(rs.getBigDecimal("discount_percent")
+            );
+            membership.setMinSpending(rs.getBigDecimal("min_spending")
+            );
+        }
+
+        value.setMembership(membership);
+    }
+
     public boolean updateCustomer(int accountId, String fullName, String phone, String email, String gender, String dob, String address, String status) {
-        String updateAccountSql = "UPDATE Account SET phone = ?, email = ?, status = ? WHERE account_id = ?";
-        String updateCustomerSql = "UPDATE Customer SET full_name = ?, gender = ?, date_of_birth = ?, address = ? WHERE account_id = ?";
-        
+        requireConnection();
         try {
-            if (conn != null) {
-                conn.setAutoCommit(false);
-               
-                PreparedStatement psAccount = conn.prepareStatement(updateAccountSql);
-                psAccount.setString(1, phone);
-                psAccount.setString(2, email);
-                psAccount.setString(3, status);
-                psAccount.setInt(4, accountId);
-                psAccount.executeUpdate();
-
-                PreparedStatement psCustomer = conn.prepareStatement(updateCustomerSql);
-                psCustomer.setString(1, fullName);
-                psCustomer.setString(2, gender);
-                
-                if (dob != null && !dob.trim().isEmpty() && !dob.equals("null")) {
-                    try {
-                        psCustomer.setDate(3, java.sql.Date.valueOf(dob.trim()));
-                    } catch (IllegalArgumentException e) {
-                        psCustomer.setNull(3, java.sql.Types.DATE);
-                    }
-                } else {
-                    psCustomer.setNull(3, java.sql.Types.DATE);
-                }
-                
-                psCustomer.setString(4, address);
-                psCustomer.setInt(5, accountId);
-                psCustomer.executeUpdate();
-
-                conn.commit();
-                return true;
-            }
-        } catch (Exception e) {
-            try {
-                if (conn != null) conn.rollback();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-            e.printStackTrace();
-        } finally {
-            try {
-                if (conn != null) conn.setAutoCommit(true);
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-        return false;
+            workflow().roles("Manager","Receptionist");
+            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Customer SET full_name=?,phone=?,email=?,gender=?,date_of_birth=?,address=?,status=? WHERE customer_id=?", fullName,phone,email,gender,(dob==null || dob.isBlank() || "null".equals(dob))?null:java.sql.Date.valueOf(dob),address,status,bssms_common.LoginIdentity.customerId(accountId)) == 1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
-    
+
     public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
-        if (username != null && username.trim().isEmpty()) username = null;
-        if (email != null && email.trim().isEmpty()) email = null;
-        if (phone != null && phone.trim().isEmpty()) phone = null;
-        
+        requireConnection();
+
+        if (username != null && username.trim().isEmpty()) {
+            username = null;
+        }
+
+        if (email != null && email.trim().isEmpty()) {
+            email = null;
+        }
+
+        if (phone != null && phone.trim().isEmpty()) {
+            phone = null;
+        }
         if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
             return "Email (Trùng với email hệ thống)";
         }
 
-        String sql = "SELECT username, email, phone FROM Account WHERE (username = ? OR email = ? OR phone = ?)";
-        
+        String sql = "SELECT username, email, phone FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE (username = ? OR email = ? OR phone = ?)";
+
         if (excludeAccountId != null) {
             sql += " AND account_id != ?";
         }
-        
+
         try {
             if (conn != null) {
                 PreparedStatement ps = conn.prepareStatement(sql);
                 ps.setString(1, username);
                 ps.setString(2, email);
                 ps.setString(3, phone);
-                
+
                 if (excludeAccountId != null) {
                     ps.setInt(4, excludeAccountId);
                 }
-                
+
                 ResultSet rs = ps.executeQuery();
-                
+
                 while (rs.next()) {
                     String dbUsername = rs.getString("username");
                     String dbEmail = rs.getString("email");
                     String dbPhone = rs.getString("phone");
-                    
+
                     if (username != null && username.equalsIgnoreCase(dbUsername)) {
                         return "Tên đăng nhập (Username)";
                     }
@@ -235,15 +217,15 @@ public class CustomerDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
-    
+
     private String getUniqueUsername(String baseUsername) {
         String username = baseUsername;
         int counter = 1;
-        String checkSql = "SELECT account_id FROM Account WHERE username = ?";
+        String checkSql = "SELECT account_id FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE username = ?";
         try {
             if (conn != null) {
                 while (true) {
@@ -258,7 +240,7 @@ public class CustomerDAO extends DBContext {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return username;
     }

@@ -303,7 +303,7 @@ const CommissionReport = () => {
                                                 <td className="ps-3 fw-bold text-muted">#{item.staffId}</td>
                                                 <td>
                                                     <div className="d-flex align-items-center gap-2">
-                                                        <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style={{ width: '32px', height: '32px', fontSize: '12px' }}>
+                                                        <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style={{ width: '32px', height: '32px', fontSize: '0.875rem' }}>
                                                             {item.staffName ? item.staffName.charAt(0).toUpperCase() : 'N'}
                                                         </div>
                                                         <span className="fw-semibold text-dark">{item.staffName}</span>

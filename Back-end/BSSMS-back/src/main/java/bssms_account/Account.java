@@ -1,102 +1,53 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_account;
 
-import java.util.Date;
-
-/**
- *
- * @author admin
- */
-public class Account {
-    private int accountId;
+/** Typed data exchanged by DAO and controller; nullable fields represent absent SQL values. */
+public class Account implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+    private Integer accountId;
+    private int identityVersion;
+    public int getIdentityVersion() { return identityVersion; }
+    public void setIdentityVersion(int value) { identityVersion=value; }
     private String username;
-    private String password;
+    private transient String password;
     private String email;
     private String phone;
-    private Date createdAt;
+    private String createdAt;
     private String status;
     private String role;
+    private String fullName;
+    private Integer customerId;
+    private Integer staffId;
 
-    
-    public Account() {
-    }
+    public Integer getAccountId() { return accountId; }
+    public void setAccountId(Integer accountId) { this.accountId = accountId; }
 
-    public Account(int accountId, String username, String password, String email, String phone, Date createdAt, String status, String role) {
-        this.accountId = accountId;
-        this.username = username;
-        this.password = password;
-        this.email = email;
-        this.phone = phone;
-        this.createdAt = createdAt;
-        this.status = status;
-        this.role = role;
-    }
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 
-    public int getAccountId() {
-        return accountId;
-    }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
-    public void setAccountId(int accountId) {
-        this.accountId = accountId;
-    }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
-    public String getUsername() {
-        return username;
-    }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 
-    public void setUsername(String username) {
-        this.username = username;
-    }
+    public String getCreatedAt() { return createdAt; }
+    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
 
-    public String getPassword() {
-        return password;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 
-    public String getEmail() {
-        return email;
-    }
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
+    public Integer getCustomerId() { return customerId; }
+    public void setCustomerId(Integer customerId) { this.customerId = customerId; }
 
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public Date getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Date createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getRole() {
-        return role;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
-
+    public Integer getStaffId() { return staffId; }
+    public void setStaffId(Integer staffId) { this.staffId = staffId; }
 }

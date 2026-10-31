@@ -9,6 +9,12 @@ package bssms_catalog;
  * @author admin
  */
 public class Service {
+    private String category;
+    private String requiredRoomType;
+    public String getCategory(){return category;}
+    public void setCategory(String value){category=value;}
+    public String getRequiredRoomType(){return requiredRoomType;}
+    public void setRequiredRoomType(String value){requiredRoomType=value;}
     private int serviceId;
     private String serviceName;
     private String description;

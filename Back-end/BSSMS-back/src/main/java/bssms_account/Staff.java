@@ -1,100 +1,62 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_account;
-import java.util.Date;
-/**
- *
- * @author admin
- */
-public class Staff {
-    private int staffId;
-    private int accountId; 
+
+/** Typed data exchanged by DAO and controller; nullable fields represent absent SQL values. */
+public class Staff implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
+    private Integer staffId;
+    private Integer accountId;
+    private String username;
     private String fullName;
-    private String email;
     private String phone;
-    private String position; 
-    private double salary;
-    private Date hireDate; 
+    private String email;
+    private String position;
+    private String role;
+    private java.math.BigDecimal salary;
+    private String hireDate;
+    private String status;
+    private Boolean hasSkill;
+    private Boolean isFree;
+    private Boolean isSuggested;
 
-    public Staff() {
-    }
+    public Integer getStaffId() { return staffId; }
+    public void setStaffId(Integer staffId) { this.staffId = staffId; }
 
-    public Staff(int staffId, int accountId, String fullName, String email, String phone, String gender, String position, double salary, Date hireDate) {
-        this.staffId = staffId;
-        this.accountId = accountId;
-        this.fullName = fullName;
-        this.email = email;
-        this.phone = phone;
-        this.position = position;
-        this.salary = salary;
-        this.hireDate = hireDate;
-    }
+    public Integer getAccountId() { return accountId; }
+    public void setAccountId(Integer accountId) { this.accountId = accountId; }
 
-    public int getStaffId() {
-        return staffId;
-    }
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 
-    public void setStaffId(int staffId) {
-        this.staffId = staffId;
-    }
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
 
-    public int getAccountId() {
-        return accountId;
-    }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 
-    public void setAccountId(int accountId) {
-        this.accountId = accountId;
-    }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
-    public String getFullName() {
-        return fullName;
-    }
+    public String getPosition() { return position; }
+    public void setPosition(String position) { this.position = position; }
 
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 
-    public String getEmail() {
-        return email;
-    }
+    public java.math.BigDecimal getSalary() { return salary; }
+    public void setSalary(java.math.BigDecimal salary) { this.salary = salary; }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
-    
-    
+    public String getHireDate() { return hireDate; }
+    public void setHireDate(String hireDate) { this.hireDate = hireDate; }
 
-    public String getPhone() {
-        return phone;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
+    public Boolean getHasSkill() { return hasSkill; }
+    public void setHasSkill(Boolean hasSkill) { this.hasSkill = hasSkill; }
 
-    public String getPosition() {
-        return position;
-    }
+    public Boolean getIsFree() { return isFree; }
+    public void setIsFree(Boolean isFree) { this.isFree = isFree; }
 
-    public void setPosition(String position) {
-        this.position = position;
-    }
-
-    public double getSalary() {
-        return salary;
-    }
-
-    public void setSalary(double salary) {
-        this.salary = salary;
-    }
-
-    public Date getHireDate() {
-        return hireDate;
-    }
-
-    public void setHireDate(Date hireDate) {
-        this.hireDate = hireDate;
-    }
+    public Boolean getIsSuggested() { return isSuggested; }
+    public void setIsSuggested(Boolean isSuggested) { this.isSuggested = isSuggested; }
 }

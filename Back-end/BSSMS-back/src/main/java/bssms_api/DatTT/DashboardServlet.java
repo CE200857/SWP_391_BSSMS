@@ -1,43 +1,27 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_api.DatTT;
+import bssms_account.Account;
+import bssms_controller.DatTT.DashboardController;
+import bssms_api.common.BaseApiServlet;
 import bssms_persistence.DatTT.ReportDAO;
-import com.google.gson.Gson;
-import java.io.IOException;
-import java.util.Map;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-/**
- *
- * @author Trần Thành Đạt - CE200857
- */
+import jakarta.servlet.http.*;
+import java.io.IOException;
+import bssms_controller.DatTT.ControllerException;
+
 @WebServlet("/api/dashboard-reports")
-public class DashboardServlet extends HttpServlet {
-    
-    private void setCorsHeaders(HttpServletResponse response) {
-        response.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
-        response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type");
-        response.setHeader("Access-Control-Allow-Credentials", "true");
-        response.setContentType("application/json;charset=UTF-8");
-    }
-
-    @Override
-    protected void doOptions(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        setCorsHeaders(response);
-        response.setStatus(HttpServletResponse.SC_OK);
-    }
-
-    @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        setCorsHeaders(response);
-        ReportDAO dao = new ReportDAO();
-        Map<String, Object> reports = dao.getDashboardMetrics();
-        response.getWriter().print(new Gson().toJson(reports));
+public class DashboardServlet extends BaseApiServlet {
+    @Override protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        handle(request, response, 200, () -> {
+            Account currentUser = user(request);
+            if (currentUser == null) throw new ControllerException(401, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+            if (!"Manager".equals(currentUser.getRole())) throw new ControllerException(403, "Bạn không có quyền xem báo cáo quản lý.");
+            Integer accountId = currentUser.getAccountId();
+            if (accountId == null || accountId <= 0)
+                throw new ControllerException(401, "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
+            try (ReportDAO dao = new ReportDAO()) {
+                dao.setActorAccountId(accountId);
+                return new DashboardController(dao).getDashboardMetrics();
+            }
+        });
     }
 }

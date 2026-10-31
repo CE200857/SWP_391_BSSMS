@@ -1,7 +1,8 @@
 package bssms_security;
 
+import bssms_account.Account;
+import bssms_common.SessionUsers;
 import java.io.IOException;
-import java.util.Map;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -39,75 +40,45 @@ public class AuthorizationFilter implements Filter {
             return;
         }
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> user
-                = (Map<String, Object>) session.getAttribute("user");
+        Account user = SessionUsers.from(session.getAttribute("user"));
 
-        String role = (String) user.get("role");
+        if (user == null) {
+            session.invalidate();
+            // Public/authentication endpoints must still work after a schema upgrade.
+            String uri=req.getRequestURI();
+            if(uri.endsWith("/api/login") || uri.endsWith("/api/logout") || uri.endsWith("/api/register") || uri.contains("/api/forgot-password")
+                    || uri.contains("/api/booking/slots") || ("GET".equals(req.getMethod()) && (uri.endsWith("/api/service") || uri.matches(".*/api/feedback(?:/[0-9]+)?")))) {
+                chain.doFilter(request,response); return;
+            }
+            res.setStatus(401); res.setContentType("application/json"); res.setCharacterEncoding("UTF-8");
+            res.getWriter().write("{\"message\":\"Vui lòng đăng nhập lại sau khi cập nhật hệ thống.\"}"); return;
+        }
+        String role = user.getRole();
         String path = req.getRequestURI();
 
-        // Restricts walk-in appointment creation to Receptionist and Manager.
-        if (path.contains("/api/appointments")
-                && "POST".equalsIgnoreCase(req.getMethod())) {
-
-            if (!"Receptionist".equals(role)
-                    && !"Manager".equals(role)) {
-                sendForbiddenError(res);
-                return;
-            }
+        String relative=path.substring(req.getContextPath().length());
+        boolean read="GET".equals(req.getMethod());
+        boolean manager="Manager".equals(role), reception="Receptionist".equals(role), tech="Technician".equals(role), customer="Customer".equals(role);
+        boolean allowed=true;
+        if(relative.startsWith("/api/staff") || relative.startsWith("/api/manager/") || relative.startsWith("/api/dashboard-reports") || relative.startsWith("/api/birthday-promotions") || relative.startsWith("/api/purchase-orders")) allowed=manager;
+        else if(relative.startsWith("/api/customers")) allowed=manager||reception||(read&&tech);
+        else if(relative.startsWith("/api/technician/")) allowed=tech;
+        else if(relative.startsWith("/api/room-bed-status")) allowed=manager||tech||(read&&reception);
+        else if(relative.startsWith("/api/rooms") || relative.startsWith("/api/beds") || relative.startsWith("/api/equipment") || relative.startsWith("/api/room-bed-status")) allowed=manager||(read&&reception);
+        else if(relative.startsWith("/api/products") || relative.startsWith("/api/suppliers")) allowed=manager||(read&&reception);
+        else if(relative.startsWith("/api/service-status") || relative.equals("/api/service") || relative.startsWith("/api/treatment-packages")) allowed=read||manager;
+        else if(relative.startsWith("/api/vouchers")) allowed=manager||(read&&reception);
+        else if(relative.startsWith("/api/customer-packages")) allowed=read ? manager||reception||customer||tech : reception;
+        else if(relative.startsWith("/api/appointments/") && !read && tech) allowed=false;
+        else if(relative.startsWith("/api/appointments") && "POST".equals(req.getMethod())) allowed=reception;
+        else if(relative.startsWith("/api/treatment-outcomes") && !read) allowed=tech;
+        else if(relative.startsWith("/api/treatment-profiles") && !read) allowed=manager||reception||tech;
+        else if(relative.startsWith("/api/invoices")) {
+            if(read) allowed=manager||reception||customer;
+            else if(relative.contains("/refund") || relative.endsWith("/cancel")) allowed=manager;
+            else allowed=reception;
         }
-
-        if (path.contains("/api/staff")) {
-            if (!"Manager".equals(role)) {
-                sendForbiddenError(res);
-                return;
-            }
-        }
-
-        if (path.contains("/api/customers")) {
-            if ("Customer".equals(role)) {
-                sendForbiddenError(res);
-                return;
-            }
-        }
-
-        /**
-         * Restricts invoice setup and creation to Receptionist. Other invoice
-         * operations require their own role rules.
-         */
-        if (path.contains("/api/invoices")) {
-            boolean isReceptionist = "Receptionist".equals(role);
-            boolean isManager = "Manager".equals(role);
-
-            boolean isInvoiceSetupRequest
-                    = "GET".equalsIgnoreCase(req.getMethod())
-                    && (path.endsWith("/eligible-appointments")
-                    || path.endsWith("/products"));
-
-            boolean isCreateInvoiceRequest
-                    = "POST".equalsIgnoreCase(req.getMethod())
-                    && (path.endsWith("/api/invoices")
-                    || path.endsWith("/api/invoices/"));
-
-            boolean isRefundRequest
-                    = "POST".equalsIgnoreCase(req.getMethod())
-                    && path.matches(".*/api/invoices/\\d+/refund/?$");
-
-            boolean isCancelRequest
-                    = "POST".equalsIgnoreCase(req.getMethod())
-                    && path.matches(".*/api/invoices/\\d+/cancel/?$");
-
-            if ((isInvoiceSetupRequest || isCreateInvoiceRequest)
-                    && !isReceptionist) {
-                sendForbiddenError(res);
-                return;
-            }
-
-            if ((isRefundRequest || isCancelRequest) && !isManager) {
-                sendForbiddenError(res);
-                return;
-            }
-        }
+        if(!allowed){sendForbiddenError(res);return;}
 
         chain.doFilter(request, response);
     }

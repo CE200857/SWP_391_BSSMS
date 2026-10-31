@@ -2,14 +2,21 @@ package bssms_persistence.KhanhLTQ;
 
 import bssms_inventory.Supplier;
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SupplierDAO extends DBContext {
+public class SupplierDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     // 1. Lấy tất cả nhà cung cấp
     public List<Supplier> getAllSuppliers() {
+        requireConnection();
         List<Supplier> list = new ArrayList<>();
         String sql = "SELECT * FROM Supplier";
 
@@ -29,13 +36,14 @@ public class SupplierDAO extends DBContext {
                 list.add(s);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
 
     // 2. Lấy nhà cung cấp theo ID
     public Supplier getSupplierById(int id) {
+        requireConnection();
         String sql = "SELECT * FROM Supplier WHERE supplier_id = ?";
 
         if (this.conn == null) return null;
@@ -55,13 +63,14 @@ public class SupplierDAO extends DBContext {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return null;
     }
 
     // 3. Thêm mới nhà cung cấp
     public boolean createSupplier(Supplier supplier) {
+        requireConnection();
         String sql = "INSERT INTO Supplier (supplier_name, phone, email, address, status) "
                    + "VALUES (?, ?, ?, ?, ?)";
 
@@ -76,13 +85,14 @@ public class SupplierDAO extends DBContext {
 
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     // 4. Cập nhật thông tin nhà cung cấp
     public boolean updateSupplier(Supplier supplier) {
+        requireConnection();
         String sql = "UPDATE Supplier SET supplier_name = ?, phone = ?, email = ?, "
                    + "address = ?, status = ? WHERE supplier_id = ?";
 
@@ -98,13 +108,14 @@ public class SupplierDAO extends DBContext {
 
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }
 
     // 5. Xóa nhà cung cấp
     public boolean deleteSupplier(int id) {
+        requireConnection();
         String sql = "DELETE FROM Supplier WHERE supplier_id = ?";
 
         if (this.conn == null) return false;
@@ -113,7 +124,7 @@ public class SupplierDAO extends DBContext {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return false;
     }

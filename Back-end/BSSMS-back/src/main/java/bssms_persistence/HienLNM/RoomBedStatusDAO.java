@@ -1,6 +1,7 @@
 package bssms_persistence.HienLNM;
 
 import bssms_persistence.DBContext;
+import bssms_persistence.common.DataAccessException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
@@ -11,12 +12,18 @@ import java.util.Map;
 /**
  * @author HienLNM
  */
-public class RoomBedStatusDAO extends DBContext {
+public class RoomBedStatusDAO extends DBContext implements AutoCloseable {
+
+    private void requireConnection() {
+        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    }
+    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
     /**
      * Lấy danh sách tất cả Room kèm các Bed thuộc room đó.
      */
     public List<Map<String, Object>> getAllRoomsWithBeds() {
+        requireConnection();
         List<Map<String, Object>> list = new ArrayList<>();
         if (conn == null) {
             System.out.println("Database connection is null in RoomBedStatusDAO.getAllRoomsWithBeds()");
@@ -58,56 +65,31 @@ public class RoomBedStatusDAO extends DBContext {
             rsRoom.close();
             psRoom.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            DataAccessException.rethrowIfDatabase(e);
         }
         return list;
     }
 
+
     public boolean updateRoomStatus(int roomId, String status) throws Exception {
-        if (conn == null) {
-            throw new Exception("Database connection is null in RoomBedStatusDAO.updateRoomStatus()");
-        }
-        if (!isValidRoomStatus(status)) {
-            throw new Exception("Trang thai room khong hop le. Chi chap nhan 'Available', 'Occupied', 'Maintenance'");
-        }
-
-        String sql = "UPDATE Room SET status = ? WHERE room_id = ?";
-        PreparedStatement ps = conn.prepareStatement(sql);
-        ps.setString(1, status);
-        ps.setInt(2, roomId);
-        int rows = ps.executeUpdate();
-        ps.close();
-        return rows > 0;
+        return updateResource(true, roomId, status);
     }
-
     public boolean updateBedStatus(int bedId, String status) throws Exception {
-        if (conn == null) {
-            throw new Exception("Database connection is null in RoomBedStatusDAO.updateBedStatus()");
-        }
-        if (!isValidBedStatus(status)) {
-            throw new Exception("Trang thai bed khong hop le. Chi chap nhan 'Available', 'Occupied', 'Maintenance'");
-        }
-
-        String sql = "UPDATE Bed SET status = ? WHERE bed_id = ?";
-        PreparedStatement ps = conn.prepareStatement(sql);
-        ps.setString(1, status);
-        ps.setInt(2, bedId);
-        int rows = ps.executeUpdate();
-        ps.close();
-        return rows > 0;
+        return updateResource(false, bedId, status);
     }
-
-    private boolean isValidRoomStatus(String s) {
-        return s != null
-                && (s.equalsIgnoreCase("Available")
-                || s.equalsIgnoreCase("Occupied")
-                || s.equalsIgnoreCase("Maintenance"));
-    }
-
-    private boolean isValidBedStatus(String s) {
-        return s != null
-                && (s.equalsIgnoreCase("Available")
-                || s.equalsIgnoreCase("Occupied")
-                || s.equalsIgnoreCase("Maintenance"));
+    private boolean updateResource(boolean room, int id, String status) throws Exception {
+        bssms_persistence.common.Workflow w=workflow();
+        w.roles("Manager","Technician");
+        if(id<=0 || !java.util.Arrays.asList("Active","Maintenance").contains(status))
+            throw new IllegalArgumentException("Trạng thái tài nguyên không hợp lệ.");
+        String table=room ? "Room" : "Bed", column=room ? "room_id" : "bed_id";
+        return w.transaction(() -> {
+            String role=(String)w.one("SELECT role FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE account_id=?",requireActorAccountId()).get("role");
+            if("Technician".equals(role) && w.query("SELECT a.appointment_id FROM Appointment a JOIN AppointmentStaff ast ON ast.appointment_id=a.appointment_id JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON st.staff_id=ast.staff_id WHERE a."+column+"=? AND st.account_id=? AND a.appointment_date=CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time') AND a.status NOT IN ('Cancelled','No-show')",id,requireActorAccountId()).isEmpty())
+                throw new bssms_persistence.common.WorkflowException(403,"Chỉ cập nhật phòng/giường được phân công hôm nay.");
+            if("Maintenance".equals(status) && !w.query("SELECT a.appointment_id FROM Appointment a WHERE a."+column+"=? AND (a.status IN ('Checked-in','In-progress') OR (a.status IN ('Pending','Confirmed') AND a.appointment_date>=CONVERT(date,SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time')))",id).isEmpty())
+                throw new bssms_persistence.common.WorkflowException(409,"Tài nguyên còn lịch hẹn. Nhờ lễ tân chuyển lịch/phân công trước khi bảo trì.");
+            return w.update("UPDATE "+table+" SET status=? WHERE "+column+"=?",status,id)==1;
+        });
     }
 }
