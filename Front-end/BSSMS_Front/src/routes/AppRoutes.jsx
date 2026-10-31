@@ -1,11 +1,17 @@
-import { useState } from "react";
+import OperationsWorkspace from "../pages/Dashboard/Manager/OperationsWorkspace";
+import PurchaseOrders from "../pages/Dashboard/Manager/PurchaseOrders";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import Header from "../components/Header";
+import RouteErrorBoundary from "../components/RouteErrorBoundary";
+import { roleHome } from "../auth/login";
 import Footer from "../components/Footer";
 import Sidebar from "../components/Sidebar";
+import ManagerSectionNav from "../components/ManagerSectionNav";
 
 // Nhóm Auth & Guest
 import GuestHome from "../pages/Homepages/Guest/GuestHome";
+import DashboardLogin from "../pages/Auth/DashboardLogin";
 import Login from "../pages/Auth/Login";
 import Profile from "../pages/Auth/Profile";
 import Register from "../pages/Auth/Register";
@@ -74,7 +80,15 @@ import PersonalCommission from "../pages/Dashboard/Technician/PersonalCommission
 // --- 1. HÀM BẢO VỆ ROUTE ĐA NĂNG ---
 // Nhận vào mảng allowedRoles, nếu Role của user không nằm trong mảng này -> Bẻ lái về nhà
 const ProtectedRoute = ({ user, allowedRoles, children }) => {
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!user)
+    return (
+      <Navigate
+        to={allowedRoles.includes("Customer") ? "/login" : "/dashboard/login"}
+        state={{ from: location.pathname + location.search }}
+        replace
+      />
+    );
 
   if (!allowedRoles.includes(user.role)) {
     switch (user.role) {
@@ -94,61 +108,105 @@ const ProtectedRoute = ({ user, allowedRoles, children }) => {
 };
 
 // --- 2. CÁC KHUNG GIAO DIỆN (LAYOUTS) ---
-const GuestLayout = ({ user }) => {
+const GuestLayout = ({ user, setUser }) => {
   const location = useLocation();
-
   return (
     <div className="app-guest-layout">
-      <Header user={user} />
+      <Header user={user} setUser={setUser} />
       <main className="app-guest-main">
-        <div key={location.pathname} className="app-route-enter">
-          <Outlet />
+        <div className="app-route-content">
+          <RouteErrorBoundary key={location.pathname} home={user ? roleHome(user.role) : "/bssms-guest"}><Outlet /></RouteErrorBoundary>
         </div>
       </main>
-      <Footer />
+      <Footer user={user} />
     </div>
   );
 };
 
-const DashboardLayout = ({ user }) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+const DashboardLayout = ({ user, setUser }) => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => globalThis.sessionStorage?.getItem("sidebarCollapsed") === "true",
+  );
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const scrollRef = useRef(null);
   const location = useLocation();
 
-  if (!user) return <Navigate to="/bssms-guest" replace />;
+  useLayoutEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [location.pathname]);
+  if (!user) return <Outlet />;
 
   if (user.role === "Customer") {
     return (
       <div className="app-guest-layout app-customer-layout">
-        <Header user={user} />
+        <Header user={user} setUser={setUser} />
         <main className="app-guest-main app-customer-main">
-          <div key={location.pathname} className="app-route-enter">
-            <Outlet />
+          <div className="app-route-content">
+            <RouteErrorBoundary key={location.pathname} home={roleHome(user.role)}><Outlet /></RouteErrorBoundary>
           </div>
         </main>
-        <Footer />
+        <Footer user={user} />
       </div>
     );
   }
 
   return (
     <div
-      className="app-dashboard min-vh-100 vw-100 d-flex m-0 p-0"
+      className={`app-dashboard d-flex m-0 p-0${mobileMenuOpen ? " mobile-nav-open" : ""}`}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setMobileMenuOpen(false);
+      }}
       style={{ overflowX: "hidden" }}
     >
       <Sidebar
         user={user}
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((prev) => !prev)}
+        onNavigate={() => setMobileMenuOpen(false)}
+        onToggle={() => {
+          if (window.matchMedia("(max-width: 767px)").matches) {
+            setMobileMenuOpen(false);
+            return;
+          }
+          setSidebarCollapsed((prev) => {
+            sessionStorage.setItem("sidebarCollapsed", String(!prev));
+            return !prev;
+          });
+        }}
       />
-      <div className="flex-grow-1 d-flex flex-column" style={{ minWidth: 0 }}>
-        <Header user={user} dashboard />
-        <main className="app-dashboard-content p-3 flex-grow-1">
-          <div key={location.pathname} className="app-route-enter">
-            <Outlet />
+      {mobileMenuOpen && (
+        <button
+          className="dashboard-menu-backdrop"
+          aria-label="Đóng menu chức năng"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+      <div className="app-dashboard-shell">
+        <Header
+          user={user}
+          dashboard
+          onMenuToggle={() => setMobileMenuOpen((open) => !open)}
+          mobileMenuOpen={mobileMenuOpen}
+        />
+        <main
+          ref={scrollRef}
+          className="app-dashboard-content flex-grow-1"
+          id="main-content"
+        >
+          <ManagerSectionNav role={user.role} />
+          <div className="app-route-content">
+            <RouteErrorBoundary key={location.pathname} home={roleHome(user.role)}><Outlet /></RouteErrorBoundary>
           </div>
         </main>
       </div>
     </div>
+  );
+};
+
+// Preserve old bookmarks, but let the protected /slots route enforce login.
+const LegacySlotsRedirect = () => {
+  const location = useLocation();
+  return (
+    <Navigate to={"/slots" + location.search} state={location.state} replace />
   );
 };
 
@@ -156,11 +214,18 @@ const DashboardLayout = ({ user }) => {
 export default function AppRoutes({ user, setUser }) {
   return (
     <Routes>
+      <Route
+        path="/dashboard/login"
+        element={<DashboardLogin user={user} setUser={setUser} />}
+      />
       {/* NHÁNH 1: KHÁCH VÃNG LAI (GUEST) */}
-      <Route element={<GuestLayout user={user} />}>
-        <Route path="/bssms-guest" element={<GuestHome />} />
+      <Route element={<GuestLayout user={user} setUser={setUser} />}>
+        <Route path="/bssms-guest" element={<GuestHome user={user} />} />
         <Route path="/" element={<Navigate to="/bssms-guest" replace />} />
-        <Route path="/login" element={<Login setUser={setUser} />} />
+        <Route
+          path="/login"
+          element={<Login user={user} setUser={setUser} />}
+        />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<Register />} />
@@ -169,18 +234,69 @@ export default function AppRoutes({ user, setUser }) {
           element={<CreateProfile setUser={setUser} />}
         />
 
-        {/* Guest được phép View Services, View Other Customers' Feedback & Check Slot Availability */}
-        <Route path="/guest/services" element={<ServiceList />} />
+        {/* Guest chỉ xem dịch vụ và đánh giá công khai */}
+        <Route path="/guest/services" element={<ServiceList user={user} />} />
         <Route
           path="/guest/services/:id"
           element={<ServiceForm isReadOnly={true} />}
         />
         <Route path="/guest/feedback" element={<PublicFeedbackList />} />
-        <Route path="/guest/slots" element={<CheckSlotAvailability />} />
+        <Route path="/guest/slots" element={<LegacySlotsRedirect />} />
       </Route>
 
       {/* NHÁNH 2: KHUNG ĐÃ ĐĂNG NHẬP (CÓ SIDEBAR) */}
-      <Route element={<DashboardLayout user={user} />}>
+      <Route element={<DashboardLayout user={user} setUser={setUser} />}>
+        <Route
+          path="/invoices"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Customer", "Receptionist", "Manager"]}
+            >
+              <InvoiceManagement user={user} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manager/purchase-orders"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <PurchaseOrders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manager/scheduling"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <OperationsWorkspace kind="scheduling" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manager/catalog-rules"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <OperationsWorkspace kind="catalog-rules" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manager/stock"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <OperationsWorkspace kind="stock" />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manager/policy"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <OperationsWorkspace kind="policy" />
+            </ProtectedRoute>
+          }
+        />
 
         {/* --- PROFILE: Tất cả Role nội bộ --- */}
         <Route
@@ -188,7 +304,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}
+              allowedRoles={[
+                "Customer",
+                "Manager",
+                "Receptionist",
+                "Technician",
+              ]}
             >
               <Profile user={user} setUser={setUser} />
             </ProtectedRoute>
@@ -200,7 +321,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}
+              allowedRoles={[
+                "Customer",
+                "Manager",
+                "Receptionist",
+                "Technician",
+              ]}
             >
               <ChangePassword />
             </ProtectedRoute>
@@ -212,7 +338,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}
+              allowedRoles={[
+                "Customer",
+                "Manager",
+                "Receptionist",
+                "Technician",
+              ]}
             >
               <EditProfile user={user} setUser={setUser} />
             </ProtectedRoute>
@@ -224,7 +355,7 @@ export default function AppRoutes({ user, setUser }) {
           path="/customer/home"
           element={
             <ProtectedRoute user={user} allowedRoles={["Customer"]}>
-              <CustomerHome />
+              <CustomerHome user={user} />
             </ProtectedRoute>
           }
         />
@@ -335,9 +466,14 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}
+              allowedRoles={[
+                "Customer",
+                "Receptionist",
+                "Technician",
+                "Manager",
+              ]}
             >
-              <ServiceList />
+              <ServiceList user={user} />
             </ProtectedRoute>
           }
         />
@@ -348,7 +484,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}
+              allowedRoles={[
+                "Customer",
+                "Receptionist",
+                "Technician",
+                "Manager",
+              ]}
             >
               <ServiceForm isReadOnly={true} />
             </ProtectedRoute>
@@ -430,7 +571,10 @@ export default function AppRoutes({ user, setUser }) {
         <Route
           path="/products"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
               <ProductList user={user} />
             </ProtectedRoute>
           }
@@ -462,9 +606,14 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}
+              allowedRoles={[
+                "Customer",
+                "Receptionist",
+                "Technician",
+                "Manager",
+              ]}
             >
-              <AppointmentList />
+              <AppointmentList user={user} setUser={setUser} />
             </ProtectedRoute>
           }
         />
@@ -473,9 +622,14 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}
+              allowedRoles={[
+                "Customer",
+                "Receptionist",
+                "Technician",
+                "Manager",
+              ]}
             >
-              <AppointmentDetails />
+              <AppointmentDetails user={user} />
             </ProtectedRoute>
           }
         />
@@ -484,7 +638,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}
+              allowedRoles={[
+                "Customer",
+                "Receptionist",
+                "Technician",
+                "Manager",
+              ]}
             >
               <RescheduleAppointment />
             </ProtectedRoute>
@@ -497,7 +656,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Technician", "Receptionist", "Manager"]}
+              allowedRoles={[
+                "Customer",
+                "Technician",
+                "Receptionist",
+                "Manager",
+              ]}
             >
               <ServiceHistory user={user} />
             </ProtectedRoute>
@@ -510,13 +674,9 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={[
-                "Customer",
-                "Receptionist",
-                "Manager",
-              ]}
+              allowedRoles={["Customer", "Receptionist", "Manager"]}
             >
-              <MembershipBenefits />
+              <MembershipBenefits user={user} />
             </ProtectedRoute>
           }
         />
@@ -547,7 +707,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}
+              allowedRoles={[
+                "Customer",
+                "Receptionist",
+                "Technician",
+                "Manager",
+              ]}
             >
               <TreatmentPackageList />
             </ProtectedRoute>
@@ -561,7 +726,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Receptionist", "Technician", "Manager"]}
+              allowedRoles={[
+                "Customer",
+                "Receptionist",
+                "Technician",
+                "Manager",
+              ]}
             >
               <TreatmentStatus />
             </ProtectedRoute>
@@ -580,7 +750,10 @@ export default function AppRoutes({ user, setUser }) {
         <Route
           path="/appointments/create"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Receptionist", "Manager"]}>
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Receptionist", "Manager"]}
+            >
               <CreateWalkInAppointment />
             </ProtectedRoute>
           }
@@ -599,7 +772,7 @@ export default function AppRoutes({ user, setUser }) {
         <Route
           path="/record-treatment-outcome"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Manager", "Technician"]}>
+            <ProtectedRoute user={user} allowedRoles={["Technician"]}>
               <RecordTreatmentOutcome />
             </ProtectedRoute>
           }
@@ -607,7 +780,7 @@ export default function AppRoutes({ user, setUser }) {
         <Route
           path="/sell-treatment-package"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Manager", "Receptionist"]}>
+            <ProtectedRoute user={user} allowedRoles={["Receptionist"]}>
               <SellTreatmentPackage />
             </ProtectedRoute>
           }
@@ -617,10 +790,7 @@ export default function AppRoutes({ user, setUser }) {
         <Route
           path="/invoices/create"
           element={
-            <ProtectedRoute
-              user={user}
-              allowedRoles={["Receptionist"]}
-            >
+            <ProtectedRoute user={user} allowedRoles={["Receptionist"]}>
               <CreateInvoice />
             </ProtectedRoute>
           }
@@ -631,22 +801,22 @@ export default function AppRoutes({ user, setUser }) {
           path="/manager/invoices"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <InvoiceManagement />
+              <InvoiceManagement user={user} />
             </ProtectedRoute>
           }
         />
 
         {/* --- 4 CHỨC NĂNG BOOKING MANAGEMENT (ITERATION 4 - DAT TT) --- */}
 
-        {/* 1. Check Slot Availability: Customer & Receptionist (Guest xem ở /guest/slots) */}
+        {/* 1. Check Slot Availability: Chỉ người đã đăng nhập */}
         <Route
           path="/slots"
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Receptionist", "Manager"]}
+              allowedRoles={["Customer", "Receptionist"]}
             >
-              <CheckSlotAvailability />
+              <CheckSlotAvailability user={user} setUser={setUser} />
             </ProtectedRoute>
           }
         />
@@ -675,14 +845,6 @@ export default function AppRoutes({ user, setUser }) {
         />
 
         {/* Invoice Management: chỉ Manager */}
-        <Route
-          path="/manager/invoices"
-          element={
-            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <InvoiceManagement />
-            </ProtectedRoute>
-          }
-        />
 
         {/* --- NHÓM CHỨC NĂNG VOUCHER, BIRTHDAY PROMOTION & TREATMENT PROFILE (HIEN LNM) --- */}
 
@@ -715,7 +877,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Manager", "Receptionist", "Technician", "Customer"]}
+              allowedRoles={[
+                "Manager",
+                "Receptionist",
+                "Technician",
+                "Customer",
+              ]}
             >
               <CustomerTreatmentProfile />
             </ProtectedRoute>
@@ -728,7 +895,12 @@ export default function AppRoutes({ user, setUser }) {
           element={
             <ProtectedRoute
               user={user}
-              allowedRoles={["Customer", "Manager", "Receptionist", "Technician"]}
+              allowedRoles={[
+                "Customer",
+                "Manager",
+                "Receptionist",
+                "Technician",
+              ]}
             >
               <CustomerTreatmentProfile />
             </ProtectedRoute>
@@ -750,7 +922,10 @@ export default function AppRoutes({ user, setUser }) {
         <Route
           path="/technician/commission"
           element={
-            <ProtectedRoute user={user} allowedRoles={["Technician", "Manager"]}>
+            <ProtectedRoute
+              user={user}
+              allowedRoles={["Technician", "Manager"]}
+            >
               <PersonalCommission />
             </ProtectedRoute>
           }

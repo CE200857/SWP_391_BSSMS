@@ -1,0 +1,97 @@
+/* BSSMS incremental UI refinement: existing palette, routes and data retained. */
+.app-dashboard {
+  --ui-ground: #f7f5f6;
+  --ui-surface: #ffffff;
+  --ui-ink: #302b30;
+  --ui-muted: #6b6269;
+  --ui-line: #e7e1e4;
+  --ui-accent: #a92760;
+  --ui-accent-hover: #861e4b;
+  --ui-tint: #f8eaf0;
+  --ui-neutral: #f2eff1;
+  --ui-green: #276444;
+  --ui-green-bg: #eaf4ed;
+  --ui-amber: #805600;
+  --ui-amber-bg: #fff4d6;
+  --ui-red: #a42e3d;
+  --ui-red-bg: #fbecef;
+  color: var(--ui-ink);
+  background: var(--ui-ground);
+}
+.app-dashboard .app-dashboard-content { background: var(--ui-ground); }
+.app-dashboard :is(h1,h2,h3,h4) { color: var(--ui-ink); }
+.app-dashboard :is(a,button,input,select,textarea):focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 3px;
+}
+.app-dashboard .manager-sidebar { background: var(--ui-surface); border-right: 1px solid var(--ui-line); box-shadow: none; }
+.app-dashboard .manager-sidebar :is(.manager-group-button,.manager-home-link) { color: var(--ui-ink); }
+.app-dashboard .manager-sidebar :is(.manager-group-button,.manager-home-link):hover { background: var(--ui-neutral); }
+.app-dashboard .manager-sidebar :is(.manager-group-button,.manager-home-link).active { color: var(--ui-accent); background: var(--ui-tint); box-shadow: none; }
+.app-dashboard .manager-section-nav { background: var(--ui-surface); border-color: var(--ui-line); box-shadow: none; }
+.app-dashboard .manager-section-nav a { color: var(--ui-muted); }
+.app-dashboard .manager-section-nav a.active { background: var(--ui-tint); color: var(--ui-accent); }
+.app-dashboard :is(.card,.overview-panel) { border-color: var(--ui-line); box-shadow: none; }
+.app-dashboard :is(.form-control,.form-select) { border-color: var(--ui-line); color: var(--ui-ink); }
+.app-dashboard :is(.table th,.overview-panel th) { background: var(--ui-surface); color: var(--ui-muted); text-transform: none; letter-spacing: normal; }
+.app-dashboard :is(.table td,.table th) { border-color: var(--ui-line); vertical-align: middle; }
+.app-dashboard .manager-overview { max-width: 1400px; margin-inline: auto; }
+.app-dashboard .overview-heading { margin-bottom: 20px; }
+.app-dashboard .overview-heading h1 { margin: 0 0 8px; font-size: clamp(23px,2vw,28px); font-weight: 700; line-height: 1.3; min-width: 0; overflow-wrap: break-word; }
+.app-dashboard :is(.overview-heading p,.overview-note,.overview-service-name,.overview-empty) { color: var(--ui-muted); }
+.app-dashboard .overview-heading button { border-color: var(--ui-line); color: var(--ui-ink); min-height: 44px; }
+.app-dashboard .overview-heading button:hover:not(:disabled) { background: var(--ui-neutral); }
+.app-dashboard .overview-heading button:disabled { opacity: .6; cursor: wait; }
+.app-dashboard .overview-shortcuts { margin: 0 0 24px; gap: 8px; }
+.app-dashboard .overview-shortcuts a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 16px; background: var(--ui-surface); border: 1px solid var(--ui-line); color: var(--ui-ink); font-weight: 600; text-decoration: none; }
+.app-dashboard .overview-shortcuts a:hover { background: var(--ui-neutral); }
+.app-dashboard .overview-shortcuts a:first-child { background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-surface); }
+.app-dashboard .overview-shortcuts a:first-child:hover { background: var(--ui-accent-hover); }
+.app-dashboard .overview-metrics { gap: 0; border: 1px solid var(--ui-line); border-radius: 12px; background: var(--ui-surface); overflow: hidden; }
+.app-dashboard .overview-metric { border: 0; border-right: 1px solid var(--ui-line); border-radius: 0; background: none; box-shadow: none; padding: 20px; gap: 10px; }
+.app-dashboard .overview-metric:last-child { border-right: 0; }
+.app-dashboard .overview-metric > strong { color: var(--ui-ink); font-size: clamp(20px,1.7vw,26px); line-height: 1.3; font-variant-numeric: tabular-nums; }
+.app-dashboard .overview-metric > span { color: var(--ui-ink); font-weight: 500; font-size: 13px; }
+.app-dashboard .overview-metric > small { color: var(--ui-muted); font-size: 12px; line-height: 1.6; }
+.app-dashboard .overview-panel { padding: 22px; border-radius: 12px; }
+.app-dashboard .overview-panel h2 { color: var(--ui-ink); font-size: 17px; font-weight: 650; }
+.app-dashboard .overview-panel :is(th,td) { border-color: var(--ui-line); font-size: 13px; padding: 14px 10px; }
+.app-dashboard .overview-cash :is(th,td):not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.app-dashboard .cash-net { color: var(--ui-ink); }
+.app-dashboard .negative { color: var(--ui-red); }
+.app-dashboard .overview-statuses li { border-color: var(--ui-line); }
+.app-dashboard .overview-statuses strong { color: var(--ui-ink); font-variant-numeric: tabular-nums; }
+.app-dashboard .overview-status-label { display: inline-block; padding: 5px 8px; border-radius: 5px; background: var(--ui-neutral); color: var(--ui-ink); white-space: nowrap; font-size: 12px; }
+.app-dashboard .overview-status-label[data-status='Pending'] { background: var(--ui-amber-bg); color: var(--ui-amber); }
+.app-dashboard .overview-status-label[data-status='Completed'] { background: var(--ui-green-bg); color: var(--ui-green); }
+.app-dashboard .overview-status-label:is([data-status='Cancelled'],[data-status='No-show'],[data-status='No Show']) { background: var(--ui-red-bg); color: var(--ui-red); }
+.app-dashboard .overview-bar { background: var(--ui-neutral); height: 6px; }
+.app-dashboard .overview-bar span { background: var(--ui-accent); }
+.app-dashboard .overview-service > div:first-child { font-size: 13px; }
+.app-dashboard .manager-overview a:not(.overview-shortcuts a) { color: var(--ui-accent); }
+@media (max-width: 1100px) {
+  .app-dashboard .overview-metric:nth-child(2) { border-right: 0; }
+  .app-dashboard .overview-metric:nth-child(-n+2) { border-bottom: 1px solid var(--ui-line); }
+}
+@media (max-width: 600px) {
+  .app-dashboard .overview-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .app-dashboard .overview-metric { padding: 16px 12px; }
+  .app-dashboard .overview-metric > strong { font-size: 20px; }
+  .app-dashboard .overview-shortcuts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .app-dashboard .overview-shortcuts a { padding: 10px; font-size: 12px; text-align: center; }
+  .app-dashboard .overview-panel { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-dashboard *, .app-dashboard *::before, .app-dashboard *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+/* Compact the heading and keep money units secondary on narrow screens. */
+.app-dashboard .overview-heading { gap: 12px; }
+.app-dashboard .overview-metric > strong { font-weight: 600; }
+.app-dashboard .overview-metric > strong .overview-unit { font-size: 13px; font-weight: 400; color: var(--ui-muted); white-space: nowrap; }
+.app-dashboard .overview-grid { align-items: start; }
+.app-dashboard .manager-sidebar .staff-sidebar-role { text-transform: none; letter-spacing: normal; }
+@media (max-width: 600px) {
+  .app-dashboard .overview-heading { margin-bottom: 16px; }
+  .app-dashboard .overview-heading p { margin-bottom: 0; }
+  .app-dashboard .overview-metric > small { font-size: 12px; }
+}

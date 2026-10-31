@@ -1,13 +1,12 @@
 import { BrowserRouter } from "react-router-dom";
 import { useState } from "react";
 import AppRoutes from "./routes/AppRoutes";
-import "./App.css";
 
 function App() {
   
   const [user, setUser] = useState(() => {
     const loggedInUser = localStorage.getItem("user");
-    return loggedInUser ? JSON.parse(loggedInUser) : null;
+    try { return loggedInUser ? JSON.parse(loggedInUser) : null; } catch { localStorage.removeItem("user"); return null; }
   });
 
   return (
