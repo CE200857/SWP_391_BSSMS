@@ -24,6 +24,7 @@ public class NotificationWorker implements ServletContextListener {
  public void contextDestroyed(ServletContextEvent event){if(executor!=null)executor.shutdownNow();}
  static class Job extends DBContext implements AutoCloseable {
   public void close()throws SQLException{if(conn!=null)conn.close();}
+  private static final int MAX_AUTO_ATTEMPTS=3;
   void tick()throws Exception {
    Workflow w=new Workflow(conn,0);w.call("usp_IssueMonthlyBenefits");w.call("usp_QueuePackageReminders");
    String token=System.getenv("BSSMS_ZALO_ACCESS_TOKEN"),config=System.getenv("BSSMS_ZALO_TEMPLATES");
@@ -65,7 +66,13 @@ public class NotificationWorker implements ServletContextListener {
     if(response.statusCode()!=200)throw new java.io.IOException("HTTP "+response.statusCode());
     JsonObject result=JsonParser.parseString(response.body()).getAsJsonObject();
     if(result.has("error")&&result.get("error").getAsInt()==0&&result.has("data")&&result.getAsJsonObject("data").has("msg_id"))w.update("UPDATE NotificationOutbox SET status='Sent',provider_message_id=?,sent_at=CONVERT(datetime2,SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'),last_error=NULL WHERE notification_id=?",result.getAsJsonObject("data").get("msg_id").getAsString(),id);
-    else w.update("UPDATE NotificationOutbox SET status='Failed',last_error=? WHERE notification_id=?","Zalo từ chối: error="+(result.has("error")?result.get("error").toString():"unknown"),id);
+    else {
+     // 4.8: an explicit rejection means nothing was delivered, so it is safe to retry automatically with back-off.
+     String reason="Zalo từ chối: error="+(result.has("error")?result.get("error").toString():"unknown");
+     int attempts=row.get("attemptCount") instanceof Number?((Number)row.get("attemptCount")).intValue():MAX_AUTO_ATTEMPTS;
+     if(attempts<MAX_AUTO_ATTEMPTS)w.update("UPDATE NotificationOutbox SET status='Pending',last_error=?,scheduled_at=DATEADD(minute,?,CONVERT(datetime2,SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time')) WHERE notification_id=?",reason+" (tự động thử lại lần "+(attempts+1)+")",10*attempts,id);
+     else w.update("UPDATE NotificationOutbox SET status='Failed',last_error=? WHERE notification_id=?",reason,id);
+    }
    }catch(IllegalArgumentException e){w.update("UPDATE NotificationOutbox SET status='Failed',last_error=? WHERE notification_id=?",e.getMessage(),id);}
    catch(Exception e){if(e instanceof InterruptedException)Thread.currentThread().interrupt();w.update("UPDATE NotificationOutbox SET last_error=? WHERE notification_id=?","Chưa rõ kết quả gửi; kiểm tra nhà cung cấp trước khi thử lại: "+e.getClass().getSimpleName(),id);}
   }

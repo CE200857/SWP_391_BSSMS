@@ -196,7 +196,7 @@ const GuestHome = ({ user }) => {
         <div className="home-service-grid">
           {services.map((service) => (
             <article className="home-service-card" key={service.title}>
-              <img src={service.image} alt="" />
+              <img src={service.image} alt="" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
               <div className="home-service-content">
                 <span className="home-eyebrow">{service.category}</span>
                 <h3>{service.title}</h3>
@@ -218,7 +218,7 @@ const GuestHome = ({ user }) => {
     <section className="home-welcome">
       <div className="home-container home-welcome-grid">
         <div className="home-welcome-image">
-          <img src={spaPhoto} alt="Không gian thư giãn tại Seoul Center" />
+          <img src={spaPhoto} alt="Không gian thư giãn tại Seoul Center" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
           <span><i className="bi bi-flower1" aria-hidden="true" /> Không gian thư giãn · Hình ảnh minh họa</span>
         </div>
         <div className="home-welcome-copy">
@@ -336,7 +336,7 @@ const GuestHome = ({ user }) => {
           </a>
         </div>
         <article className="home-contact-card-large">
-          <img src={relaxPhoto} alt="Trải nghiệm thư giãn tại Seoul Center" />
+          <img src={relaxPhoto} alt="Trải nghiệm thư giãn tại Seoul Center" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
           <div>
             <h3>Hôm nay, ưu tiên bản thân nhé.</h3>
             <p>Chọn một dịch vụ bạn yêu thích. Seoul Center sẽ liên hệ để tư vấn và xác nhận thời gian phù hợp.</p>

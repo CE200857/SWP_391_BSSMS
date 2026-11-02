@@ -10,7 +10,7 @@ export const managerGroups = [
     ['/manager/treatment-packages', 'Gói liệu trình'], ['/manager/catalog-rules', 'Định mức & thiết bị'],
   ]],
   ['customers', 'Khách hàng & ưu đãi', 'people', [
-    ['/customers', 'Danh sách khách hàng'], ['/feedback', 'Đánh giá khách hàng'],
+    ['/customers', 'Danh sách khách hàng'], ['/feedback', 'Đánh giá khách hàng'], ['/manager/feedback-moderation', 'Duyệt đánh giá'],
     ['/membership-benefits', 'Quyền lợi thành viên'], ['/manager/membership-tiers', 'Hạng thành viên'],
     ['/vouchers', 'Voucher'], ['/birthday-promotions', 'Ưu đãi sinh nhật'],
   ]],

@@ -209,7 +209,7 @@ const AppointmentList = ({ user, setUser }) => {
                         <div className="customer-appointment-list">
                             {filteredAppointments.map((appointment, index) => (
                                 <article className="customer-appointment-card" key={appointment.appointmentId}>
-                                    <img src={index % 2 === 0 ? treatmentPhoto : massagePhoto} alt="" />
+                                    <img src={index % 2 === 0 ? treatmentPhoto : massagePhoto} alt="" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
                                     <div className="customer-appointment-card-content">
                                         <div className="customer-appointment-card-top">
                                             <span>Mã lịch hẹn: {appointment.appointmentId}</span>
@@ -243,7 +243,7 @@ const AppointmentList = ({ user, setUser }) => {
 
     return (
         <Container fluid className="mt-4 px-4">
-            <h2 className="mb-4 fw-bold text-uppercase" style={{ color: "#2c3e50" }}>
+            <h2 className="manager-page-title mb-4 fw-bold">
                 Danh sách lịch hẹn
             </h2>
 

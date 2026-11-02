@@ -16,6 +16,30 @@ public class VoucherDAO extends DBContext implements AutoCloseable {
     }
     @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
+    /** 3.7: vouchers and birthday-benefit status of the signed-in customer only. */
+    public Map<String, Object> myBenefits(int customerId) throws java.sql.SQLException {
+        requireConnection();
+        workflow().roles("Customer");
+        String now = "CONVERT(datetime2,SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time')";
+        List<Map<String, Object>> vouchers = workflow().query(
+            "SELECT voucher_id,voucher_code,voucher_name,voucher_kind,discount_type,discount_value,applicable_category,"
+          + "min_order_amount,max_discount,max_uses,used_count,start_date,end_date,"
+          + "CASE WHEN status='Active' AND end_date IS NOT NULL AND end_date<" + now + " THEN 'Expired' ELSE status END AS status "
+          + "FROM Voucher WHERE customer_id=? AND status IN ('Active','Used','Expired') "
+          + "AND (end_date IS NULL OR end_date>=DATEADD(month,-1," + now + ")) "
+          + "ORDER BY CASE WHEN status='Active' AND (end_date IS NULL OR end_date>=" + now + ") THEN 0 ELSE 1 END,end_date DESC",
+            customerId);
+        Map<String, Object> birthday = workflow().one(
+            "SELECT CASE WHEN c.date_of_birth IS NOT NULL AND MONTH(c.date_of_birth)=MONTH(" + now + ") THEN 1 ELSE 0 END AS eligible_month,"
+          + "CASE WHEN EXISTS(SELECT 1 FROM Invoice i WHERE i.customer_id=c.customer_id AND i.birthday_benefit_year=YEAR(" + now + ")) THEN 1 ELSE 0 END AS used_this_year "
+          + "FROM Customer c WHERE c.customer_id=?", customerId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("vouchers", vouchers);
+        result.put("birthdayEligibleThisMonth", ((Number) birthday.get("eligibleMonth")).intValue() == 1);
+        result.put("birthdayBenefitUsedThisYear", ((Number) birthday.get("usedThisYear")).intValue() == 1);
+        return result;
+    }
+
     // Lấy tất cả voucher
     public List<Map<String, Object>> getAllVouchers() {
         requireConnection();

@@ -112,7 +112,7 @@ const ReceptionistBookingDesk = () => {
 
     const openStatusModal = (appt) => {
         setStatusTarget(appt);
-        setNewStatus(appt.status === "Booked" || appt.status === "Confirmed" ? "Checked-in" : appt.status);
+        setNewStatus(appt.status === "Pending" ? "Confirmed" : appt.status === "Confirmed" ? "Checked-in" : appt.status);
         setStatusNotes(appt.notes || "");
         setShowStatusModal(true);
     };
@@ -202,13 +202,13 @@ const ReceptionistBookingDesk = () => {
     const getStatusBadge = (status) => {
         const map = {
             Scheduled: { bg: "secondary", label: "Đã lên lịch" },
-            Booked: { bg: "primary", label: "Đã đặt (Booked)" },
+            Pending: { bg: "secondary", label: "Chờ xác nhận" },
             Confirmed: { bg: "info", label: "Đã xác nhận" },
             "Checked-in": { bg: "warning", label: "Đã Check-in" },
-            "In Progress": { bg: "primary", label: "Đang thực hiện" },
+            "In-progress": { bg: "primary", label: "Đang thực hiện" },
             Completed: { bg: "success", label: "Hoàn thành" },
             Cancelled: { bg: "danger", label: "Đã hủy" },
-            "No Show": { bg: "dark", label: "Không đến (No-show)" },
+            "No-show": { bg: "dark", label: "Không đến (No-show)" },
         };
         const item = map[status] || { bg: "secondary", label: status };
         return <Badge bg={item.bg}>{item.label}</Badge>;
@@ -232,8 +232,8 @@ const ReceptionistBookingDesk = () => {
         <Container fluid className="mt-4 px-4">
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
                 <div>
-                    <h2 className="fw-bold text-uppercase mb-1" style={{ color: "#800020" }}>
-                        Check-in & Điều phối Dịch vụ (Receptionist)
+                    <h2 className="manager-page-title fw-bold mb-1">
+                        Check-in & điều phối dịch vụ (Receptionist)
                     </h2>
                     <p className="text-muted mb-0">
                         Tiếp đón khách Check-in, đánh dấu No-show và phân bổ Kỹ thuật viên, Phòng, Giường, Thiết bị.
@@ -285,12 +285,12 @@ const ReceptionistBookingDesk = () => {
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
                                 <option value="all">-- Tất cả trạng thái --</option>
-                                <option value="Booked">Đã đặt (Booked)</option>
+                                <option value="Pending">Chờ xác nhận</option>
                                 <option value="Confirmed">Đã xác nhận (Confirmed)</option>
                                 <option value="Checked-in">Đã Check-in</option>
-                                <option value="In Progress">Đang thực hiện</option>
+                                <option value="In-progress">Đang thực hiện</option>
                                 <option value="Completed">Đã hoàn thành</option>
-                                <option value="No Show">Không đến (No-show)</option>
+                                <option value="No-show">Không đến (No-show)</option>
                                 <option value="Cancelled">Đã hủy</option>
                             </Form.Select>
                         </Col>
@@ -365,9 +365,20 @@ const ReceptionistBookingDesk = () => {
                                             <td className="text-center">
                                                 <div className="d-flex flex-wrap justify-content-center gap-1">
                                                     {/* Nút Check-in nhanh */}
-                                                    {(a.status === "Booked" ||
-                                                        a.status === "Confirmed" ||
-                                                        a.status === "Scheduled") && (
+                                                    {a.status === "Pending" && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline-success"
+                                                            title="Xác nhận lịch hẹn"
+                                                            onClick={() =>
+                                                                handleQuickStatusUpdate(a.appointmentId, "Confirmed")
+                                                            }
+                                                        >
+                                                            <i className="bi bi-check2-circle me-1"></i>
+                                                            Xác nhận
+                                                        </Button>
+                                                    )}
+                                                    {a.status === "Confirmed" && (
                                                             <>
                                                                 <Button
                                                                     size="sm"
@@ -389,7 +400,7 @@ const ReceptionistBookingDesk = () => {
                                                                     variant="secondary"
                                                                     title="Đánh dấu khách không đến (No-show)"
                                                                     onClick={() =>
-                                                                        handleQuickStatusUpdate(a.appointmentId, "No Show")
+                                                                        handleQuickStatusUpdate(a.appointmentId, "No-show")
                                                                     }
                                                                 >
                                                                     No-show
@@ -398,7 +409,7 @@ const ReceptionistBookingDesk = () => {
                                                         )}
 
                                                     {/* Nút Điều phối KTV, Phòng, Giường, Thiết bị */}
-                                                    {a.status !== "Cancelled" && a.status !== "No Show" && (
+                                                    {a.status !== "Cancelled" && a.status !== "No-show" && (
                                                         <Button
                                                             size="sm"
                                                             variant="primary"
@@ -461,9 +472,9 @@ const ReceptionistBookingDesk = () => {
                                 >
                                     <option value="Confirmed">Đã xác nhận (Confirmed)</option>
                                     <option value="Checked-in">Khách đã đến (Checked-in)</option>
-                                    <option value="In Progress">Đang thực hiện (In Progress)</option>
+                                    <option value="In-progress">Đang thực hiện (In-progress)</option>
                                     <option value="Completed">Hoàn thành (Completed)</option>
-                                    <option value="No Show">Khách không đến (No Show)</option>
+                                    <option value="No-show">Khách không đến (No-show)</option>
                                     <option value="Cancelled">Hủy lịch (Cancelled)</option>
                                 </Form.Select>
                             </Form.Group>

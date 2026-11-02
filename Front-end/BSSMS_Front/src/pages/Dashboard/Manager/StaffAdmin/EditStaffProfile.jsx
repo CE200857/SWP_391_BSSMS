@@ -144,7 +144,7 @@ const EditStaffProfile = ({ user }) => {
         <Button variant="link" className="text-decoration-none text-secondary p-0 me-3" onClick={() => navigate("/staffs")}>
           <i className="bi bi-arrow-left fs-4"></i>
         </Button>
-        <h2 className="fw-bold text-uppercase m-0">Chỉnh sửa hồ sơ nhân viên</h2>
+        <h2 className="manager-page-title fw-bold m-0">Chỉnh sửa hồ sơ nhân viên</h2>
       </div>
 
       {message && <Alert variant="success"><i className="bi bi-check-circle-fill me-2"></i>{message}</Alert>}

@@ -134,9 +134,8 @@ const ResourceManagement = () => {
 
   return (
     <Container fluid className="mt-4 px-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="fw-bold text-uppercase" style={{ color: "#800020" }}>Danh mục tài nguyên</h2>
-        <p className="text-muted">Thêm, sửa và quản lý thông tin phòng, giường, thiết bị. Trạng thái hoạt động không thể hiện lịch trống.</p>
+      <div className="ui-page-heading">
+        <h1 className="manager-page-title">Danh mục tài nguyên</h1>
         <Button variant="danger" className="fw-bold" style={{ backgroundColor: "#800020" }} onClick={handleOpenAdd}>
           <i className="bi bi-plus-lg me-1"></i> Thêm mới
         </Button>

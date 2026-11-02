@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { imageFileToUpload } from "../../../utils/imageUpload";
 import {
     Container,
     Card,
@@ -25,9 +26,13 @@ const RecordTreatmentOutcome = () => {
     const [showOutcomeModal, setShowOutcomeModal] = useState(false);
     const [outcomeData, setOutcomeData] = useState({
         notes: "",
+        skinReaction: "",
         outcomeStatus: "Completed",
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [photos, setPhotos] = useState([]);
+    const [photoBusy, setPhotoBusy] = useState(false);
+    const [photoError, setPhotoError] = useState("");
 
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const isTechnician = user?.role === "Technician";
@@ -63,12 +68,48 @@ const RecordTreatmentOutcome = () => {
     }, []);
 
 
+    const loadPhotos = async (appointmentId) => {
+        try {
+            const response = await fetch(`/api/treatment-photos/${appointmentId}`, { credentials: "include" });
+            const data = await response.json().catch(() => []);
+            setPhotos(response.ok && Array.isArray(data) ? data : []);
+        } catch {
+            setPhotos([]);
+        }
+    };
+
+    const handleUploadPhoto = async (photoType, file) => {
+        if (!file || !selectedAppointment) return;
+        setPhotoBusy(true);
+        setPhotoError("");
+        try {
+            const image = await imageFileToUpload(file);
+            const response = await fetch(`/api/treatment-photos/${selectedAppointment.appointmentId}`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ photoType, ...image }),
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.message || "Không tải được ảnh lên.");
+            setPhotos(Array.isArray(data) ? data : []);
+        } catch (error) {
+            setPhotoError(error.message || "Không tải được ảnh lên.");
+        } finally {
+            setPhotoBusy(false);
+        }
+    };
+
     const handleOpenOutcome = (appointment) => {
         setSelectedAppointment(appointment);
         setOutcomeData({
             notes: "",
+            skinReaction: "",
             outcomeStatus: appointment.status === "Checked-in" ? "In-progress" : "Completed",
         });
+        setPhotos([]);
+        setPhotoError("");
+        loadPhotos(appointment.appointmentId);
         setShowOutcomeModal(true);
     };
 
@@ -78,7 +119,9 @@ const RecordTreatmentOutcome = () => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || "Không tải được kết quả điều trị.");
             setSelectedAppointment(appointment);
-            setOutcomeData({ notes: data.notes || "", outcomeStatus: "Completed" });
+            setOutcomeData({ notes: data.notes || "", skinReaction: data.skinReaction || "", outcomeStatus: "Completed" });
+            setPhotos(Array.isArray(data.photos) ? data.photos : []);
+            setPhotoError("");
             setShowOutcomeModal(true);
         } catch (error) {
             alert(error.message || "Không tải được kết quả điều trị.");
@@ -102,6 +145,7 @@ const RecordTreatmentOutcome = () => {
                 body: JSON.stringify({
                     status: outcomeData.outcomeStatus,
                     notes: outcomeData.notes,
+                    skinReaction: outcomeData.skinReaction || null,
                 }),
             });
 
@@ -353,6 +397,67 @@ const RecordTreatmentOutcome = () => {
                                 <Form.Text className="text-muted">
                                     {outcomeData.notes.length}/500 ký tự
                                 </Form.Text>
+                            </Form.Group>
+
+                            <Form.Group className="mb-3">
+                                <Form.Label className="fw-bold">Phản ứng da (nếu có)</Form.Label>
+                                <Form.Control
+                                    as="textarea"
+                                    rows={2}
+                                    disabled={outcomeData.outcomeStatus !== "Completed" || selectedAppointment.status === "Completed"}
+                                    placeholder="Ví dụ: đỏ nhẹ, châm chích, không có phản ứng bất thường..."
+                                    value={outcomeData.skinReaction}
+                                    onChange={(e) =>
+                                        setOutcomeData((prev) => ({
+                                            ...prev,
+                                            skinReaction: e.target.value,
+                                        }))
+                                    }
+                                    maxLength={1000}
+                                />
+                            </Form.Group>
+
+                            <Form.Group className="mb-1">
+                                <Form.Label className="fw-bold">Ảnh trước / sau điều trị (không bắt buộc)</Form.Label>
+                                {["Before", "After"].map((type) => {
+                                    const items = photos.filter((photo) => photo.photoType === type);
+                                    return (
+                                        <div key={type} className="mb-2">
+                                            <div className="small text-muted mb-1">{type === "Before" ? "Ảnh trước" : "Ảnh sau"} ({items.length})</div>
+                                            <div className="d-flex flex-wrap gap-2 mb-1">
+                                                {items.map((photo) => (
+                                                    <a key={photo.photoId} href={`/api/treatment-photos/file/${photo.photoId}`} target="_blank" rel="noreferrer">
+                                                        <img
+                                                            src={`/api/treatment-photos/file/${photo.photoId}`}
+                                                            alt={`${type === "Before" ? "Ảnh trước" : "Ảnh sau"} #${photo.photoId}`}
+                                                            loading="lazy"
+                                                            decoding="async"
+                                                            onLoad={(event) => event.currentTarget.classList.add("is-loaded")}
+                                                            onError={(event) => event.currentTarget.classList.add("is-loaded")}
+                                                            style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 8 }}
+                                                        />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                            {isTechnician && (
+                                                <Form.Control
+                                                    type="file"
+                                                    size="sm"
+                                                    accept="image/jpeg,image/png,image/webp"
+                                                    disabled={photoBusy}
+                                                    aria-label={type === "Before" ? "Tải ảnh trước" : "Tải ảnh sau"}
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        e.target.value = "";
+                                                        handleUploadPhoto(type, file);
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {photoBusy && <div className="small text-muted"><Spinner size="sm" className="me-1" />Đang tải ảnh…</div>}
+                                {photoError && <Alert variant="danger" className="py-1 mt-2 mb-0">{photoError}</Alert>}
                             </Form.Group>
                         </>
                     )}

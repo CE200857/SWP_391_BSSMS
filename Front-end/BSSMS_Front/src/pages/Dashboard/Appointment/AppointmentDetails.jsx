@@ -113,6 +113,7 @@ const AppointmentDetails = ({ user }) => {
       case "Cancelled":
         return <Badge bg="danger">Đã hủy</Badge>;
 
+      case "No-show":
       case "No Show":
         return (
           <Badge bg="warning" text="dark">

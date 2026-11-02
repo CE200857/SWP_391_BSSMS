@@ -32,6 +32,26 @@ describe("Guest routes", () => {
     expect(html).toContain("Đang tải thông tin dịch vụ");
   });
 
+  it("lets guests view treatment packages without purchase tools", () => {
+    const html = renderRoute("/guest/treatment-packages");
+
+    expect(html).toContain("Gói liệu trình chăm sóc");
+    expect(html).not.toContain("Bán gói liệu trình");
+    expect(html).not.toContain("app-dashboard-shell");
+  });
+  it("shows the read-only package catalogue to customers", () => {
+    const html = renderRoute("/treatment-packages", { role: "Customer" });
+
+    expect(html).toContain("Gói liệu trình chăm sóc");
+    expect(html).not.toContain("Thêm gói");
+    expect(html).toContain("Mua gói ngay trên web");
+  });
+  it("does not offer online purchase to guests", () => {
+    const html = renderRoute("/guest/treatment-packages");
+
+    expect(html).not.toContain("Mua và thanh toán");
+    expect(html).not.toContain("Mua gói ngay trên web");
+  });
   it("does not render slot lookup for guests", () => {
     const html = renderRoute("/guest/slots");
 
@@ -85,6 +105,7 @@ describe("Operations permissions", () => {
     "/manager/stock",
     "/manager/policy",
     "/manager/purchase-orders",
+    "/manager/feedback-moderation",
   ])("renders Manager function %s", (path) => {
     const html = renderRoute(path, { role: "Manager" });
     expect(html).toContain("app-dashboard-shell");
@@ -95,6 +116,14 @@ describe("Operations permissions", () => {
     (role) => {
       expect(renderRoute("/manager/policy", { role })).not.toContain(
         "Chính sách &amp; chốt hoa hồng",
+      );
+    },
+  );
+  it.each(["Customer", "Receptionist", "Technician"])(
+    "does not render feedback moderation for %s",
+    (role) => {
+      expect(renderRoute("/manager/feedback-moderation", { role })).not.toContain(
+        "Duyệt đánh giá khách hàng",
       );
     },
   );

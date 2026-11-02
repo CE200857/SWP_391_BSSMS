@@ -146,7 +146,7 @@ const EditCustomerProfile = ({ user }) => {
         >
           <i className="bi bi-arrow-left fs-4"></i>
         </Button>
-        <h2 className="fw-bold text-uppercase m-0">
+        <h2 className="manager-page-title fw-bold m-0">
           Chỉnh sửa hồ sơ khách hàng
         </h2>
       </div>

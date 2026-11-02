@@ -182,7 +182,7 @@ export default function SupplierList() {
     <div className="container-fluid py-4">
       {/* Tiêu đề & Nút Thêm mới */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="fw-bold" style={{ color: '#800020' }}>Quản lý Nhà cung cấp</h2>
+        <h2 className="manager-page-title fw-bold">Quản lý nhà cung cấp</h2>
         <button
           className="btn text-white fw-bold shadow-sm"
           style={{ backgroundColor: '#800020' }}
