@@ -94,7 +94,7 @@ const TreatmentPackageList = () => {
     return (
         <Container fluid className="mt-4 px-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2 className="fw-bold text-uppercase">Quản lý Gói liệu trình</h2>
+                <h2 className="manager-page-title fw-bold">Quản lý gói liệu trình</h2>
                 {isManager && (
                     <Button variant="primary" className="fw-bold" onClick={handleOpenAdd}>
                         <i className="bi bi-plus-lg me-1"></i> Thêm gói mới

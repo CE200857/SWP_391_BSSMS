@@ -265,8 +265,8 @@ const CustomerTreatmentProfile = () => {
     <Container fluid className="mt-4 px-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="fw-bold text-uppercase mb-1">
-            Hồ sơ Liệu trình
+          <h2 className="manager-page-title fw-bold mb-1">
+            Hồ sơ liệu trình
           </h2>
           <p className="text-muted mb-0">
             Xem và quản lý các gói liệu trình đã mua

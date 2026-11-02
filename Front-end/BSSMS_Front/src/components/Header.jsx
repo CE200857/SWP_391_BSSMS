@@ -8,12 +8,14 @@ import { roleHome } from "../auth/login";
 const guestLinks = [
   { to: "/bssms-guest", label: "Trang chủ", end: true },
   { to: "/guest/services", label: "Danh sách dịch vụ" },
+  { to: "/guest/treatment-packages", label: "Gói liệu trình" },
   { to: "/guest/feedback", label: "Đánh giá khách hàng" },
 ];
 
 const customerLinks = [
   { to: "/customer/home", label: "Trang chủ", end: true },
   { to: "/services", label: "Dịch vụ" },
+  { to: "/treatment-packages", label: "Gói liệu trình" },
   { to: "/appointments", label: "Lịch hẹn" },
   { to: "/my-treatment-profile", label: "Liệu trình của tôi" },
 ];

@@ -223,7 +223,7 @@ const ServiceList = ({ user }) => {
                       className="public-service-card-image"
                       aria-label={`Xem dịch vụ ${service.serviceName}`}
                     >
-                      <img src={servicePhotos[imageIndex]} alt="" />
+                      <img src={servicePhotos[imageIndex]} alt="" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
                     </Link>
                     <div className="public-service-card-body">
                       <span className="public-service-code">

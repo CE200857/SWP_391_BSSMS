@@ -128,7 +128,7 @@ const UpdateServiceStatus = () => {
 
     return (
         <Container fluid className="mt-4 px-4">
-            <h2 className="fw-bold text-uppercase mb-4">Cập nhật trạng thái dịch vụ</h2>
+            <h2 className="manager-page-title fw-bold mb-4">Cập nhật trạng thái dịch vụ</h2>
 
             {successMsg && <Alert variant="success">{successMsg}</Alert>}
             {loadError && <Alert variant="danger">{loadError}</Alert>}

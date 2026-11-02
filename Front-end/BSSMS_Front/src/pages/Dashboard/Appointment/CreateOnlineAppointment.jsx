@@ -571,6 +571,10 @@ const CreateOnlineAppointment = () => {
                   <img
                     src={servicePhoto}
                     alt="Dịch vụ chăm sóc da Seoul Center"
+                    loading="lazy"
+                    decoding="async"
+                    onLoad={(event) => event.currentTarget.classList.add("is-loaded")}
+                    onError={(event) => event.currentTarget.classList.add("is-loaded")}
                   />
                   <div>
                     <small>

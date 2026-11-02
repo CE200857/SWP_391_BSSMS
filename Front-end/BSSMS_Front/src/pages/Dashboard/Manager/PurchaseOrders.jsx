@@ -15,6 +15,7 @@ export default function PurchaseOrders() {
     [suppliers, setSuppliers] = useState([]);
   const [form, setForm] = useState(null),
     [confirm, setConfirm] = useState(null),
+    [showSuggest, setShowSuggest] = useState(false),
     [error, setError] = useState(""),
     [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true),
@@ -65,6 +66,46 @@ export default function PurchaseOrders() {
     }));
   }
   const emptyLine = () => ({ productId: "", quantity: 1, unitPrice: 0 });
+  // 6.8: suggest purchase orders from low-stock warnings, grouped by supplier.
+  const pendingProductIds = new Set(
+    orders
+      .filter((o) => ["Draft", "Sent"].includes(o.status))
+      .flatMap((o) => (o.items || []).map((i) => Number(i.productId))),
+  );
+  const suggestionGroups = Object.values(
+    products
+      .filter(
+        (p) =>
+          p.status === "Active" &&
+          Number(p.reorderLevel) > 0 &&
+          Number(p.stockQuantity) < Number(p.reorderLevel) &&
+          !pendingProductIds.has(Number(p.productId)),
+      )
+      .reduce((groups, p) => {
+        const key = p.supplierId || 0;
+        const supplier = suppliers.find((s) => s.supplierId === p.supplierId);
+        groups[key] ||= {
+          supplierId: p.supplierId || "",
+          supplierName: supplier?.supplierName || "Chưa gán nhà cung cấp",
+          items: [],
+        };
+        groups[key].items.push({
+          productId: p.productId,
+          productName: p.productName,
+          stockQuantity: Number(p.stockQuantity),
+          reorderLevel: Number(p.reorderLevel),
+          quantity: Math.max(
+            1,
+            Math.ceil(Number(p.reorderLevel) * 2 - Number(p.stockQuantity)),
+          ),
+        });
+        return groups;
+      }, {}),
+  );
+  const suggestionCount = suggestionGroups.reduce(
+    (sum, g) => sum + g.items.length,
+    0,
+  );
   return (
     <section>
       <div className="ui-page-heading">
@@ -72,14 +113,23 @@ export default function PurchaseOrders() {
           <h1>Đơn nhập hàng</h1>
           <p>Lập đơn nháp → gửi nhà cung cấp → xác nhận nhận hàng.</p>
         </div>
-        <Button
-          onClick={() => {
-            setError("");
-            setForm({ supplierId: "", expectedDate: "", items: [emptyLine()] });
-          }}
-        >
-          Tạo đơn nhập
-        </Button>
+        <div className="d-flex gap-2 flex-wrap">
+          <Button
+            variant="outline-primary"
+            disabled={loading || !suggestionCount}
+            onClick={() => setShowSuggest(true)}
+          >
+            Gợi ý từ cảnh báo tồn kho ({suggestionCount})
+          </Button>
+          <Button
+            onClick={() => {
+              setError("");
+              setForm({ supplierId: "", expectedDate: "", items: [emptyLine()] });
+            }}
+          >
+            Tạo đơn nhập
+          </Button>
+        </div>
       </div>
       {error && <Alert variant="danger">{error}</Alert>}
       {success && <Alert variant="success">{success}</Alert>}
@@ -348,6 +398,73 @@ export default function PurchaseOrders() {
             )}
           </Modal.Footer>
         </Form>
+      </Modal>
+      <Modal show={showSuggest} onHide={() => setShowSuggest(false)} size="lg" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Gợi ý nhập hàng từ cảnh báo tồn kho</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="text-muted">
+            Các sản phẩm đang dưới mức tồn tối thiểu và chưa nằm trong đơn nháp
+            hoặc đơn đã gửi. Số lượng gợi ý đưa tồn kho lên gấp đôi mức tối
+            thiểu; bạn có thể chỉnh lại và nhập giá nhập trước khi lưu.
+          </p>
+          {suggestionGroups.map((g) => (
+            <Card key={g.supplierId || "none"} className="mb-3">
+              <Card.Body>
+                <div className="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                  <strong>{g.supplierName}</strong>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setError("");
+                      setShowSuggest(false);
+                      setForm({
+                        supplierId: g.supplierId,
+                        expectedDate: "",
+                        items: g.items.map((i) => ({
+                          productId: i.productId,
+                          quantity: i.quantity,
+                          unitPrice: 0,
+                        })),
+                      });
+                    }}
+                  >
+                    Tạo đơn nháp
+                  </Button>
+                </div>
+                <Table size="sm" className="mb-0">
+                  <thead>
+                    <tr>
+                      <th>Sản phẩm</th>
+                      <th>Tồn</th>
+                      <th>Tối thiểu</th>
+                      <th>Gợi ý nhập</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.items.map((i) => (
+                      <tr key={i.productId}>
+                        <td>{i.productName}</td>
+                        <td>{i.stockQuantity}</td>
+                        <td>{i.reorderLevel}</td>
+                        <td>{i.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </Card.Body>
+            </Card>
+          ))}
+          {!suggestionGroups.length && (
+            <p className="ui-empty">Không có sản phẩm nào cần nhập thêm.</p>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowSuggest(false)}>
+            Đóng
+          </Button>
+        </Modal.Footer>
       </Modal>
       <Modal show={!!confirm} onHide={() => !busy && setConfirm(null)} centered>
         <Modal.Header closeButton>

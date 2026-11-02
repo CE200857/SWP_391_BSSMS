@@ -121,7 +121,7 @@ const TreatmentStatus = () => {
 
     return (
         <Container fluid className="mt-4 px-4">
-            <h2 className="fw-bold text-uppercase mb-4">Xem trạng thái điều trị</h2>
+            <h2 className="manager-page-title fw-bold mb-4">Xem trạng thái điều trị</h2>
 
             {/* Bộ lọc */}
             <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "12px" }}>

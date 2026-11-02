@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { loginAccount, loginDestination, roleHome, staffRoles } from '../../auth/login';
+import SeoulBrand from '../../components/SeoulBrand';
 
 export default function DashboardLogin({ user, setUser }) {
   const [email, setEmail] = useState('');
@@ -35,7 +36,7 @@ export default function DashboardLogin({ user, setUser }) {
   return (
     <main className="staff-login">
       <section className="staff-login-intro">
-        <Link to="/bssms-guest" className="staff-login-brand"><i className="bi bi-flower1" aria-hidden="true" /> BSSMS <span>STAFF PORTAL</span></Link>
+        <Link to="/bssms-guest" className="staff-login-brand"><SeoulBrand /><span className="staff-login-portal">STAFF PORTAL</span></Link>
         <div className="staff-login-story">
           <span className="staff-login-eyebrow">KHÔNG GIAN LÀM VIỆC</span>
           <h1>Mỗi ngày chỉn chu.<br />Mỗi khách hàng hài lòng.</h1>

@@ -12,32 +12,24 @@ export default function ManagerSectionNav({ role = "Manager" }) {
       "/edit-profile",
       "/change-password",
     ].includes(pathname);
+    if (accountPage) return null;
     return (
       <section
         className="manager-section-nav"
-        aria-label={accountPage ? "Tài khoản" : "Tổng quan"}
+        aria-label="Tổng quan"
       >
         <div className="manager-section-title">
-          <strong>
-            {accountPage ? "Tài khoản cá nhân" : config.homeLabel}
-          </strong>
+          <strong>{config.homeLabel}</strong>
         </div>
         <nav>
-          {(accountPage
-            ? [
-                ["/profile", "Hồ sơ cá nhân"],
-                ["/edit-profile", "Cập nhật hồ sơ"],
-                ["/change-password", "Đổi mật khẩu"],
-              ]
-            : [
-                [
-                  config.home,
-                  role === "Manager"
-                    ? "Báo cáo hoạt động"
-                    : "Tổng quan công việc",
-                ],
-              ]
-          ).map(([path, title]) => (
+          {[
+            [
+              config.home,
+              role === "Manager"
+                ? "Báo cáo hoạt động"
+                : "Tổng quan công việc",
+            ],
+          ].map(([path, title]) => (
             <Link
               key={path}
               className={pathname === path ? "selected" : ""}

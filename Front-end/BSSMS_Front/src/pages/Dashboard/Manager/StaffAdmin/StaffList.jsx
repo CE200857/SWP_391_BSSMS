@@ -190,7 +190,7 @@ const StaffList = ({ user }) => {
 
   return (
     <Container className="mt-4">
-      <h2 className="mb-4 fw-bold text-uppercase">Danh sách nhân viên</h2>
+      <h2 className="manager-page-title mb-4 fw-bold">Danh sách nhân viên</h2>
 
       {message && (
         <div className="alert alert-success py-2 mb-3" role="alert">

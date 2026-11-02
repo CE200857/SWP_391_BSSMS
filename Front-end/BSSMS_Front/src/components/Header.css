@@ -152,6 +152,16 @@
   font-size: 0.8125rem;
 }
 
+.dashboard-account .customer-account-trigger {
+  max-width: 220px;
+}
+
+@media (max-width: 1199px) {
+  .dashboard-account .customer-account-identity {
+    display: none;
+  }
+}
+
 .app-dashboard-user-name {
   max-width: 180px;
   overflow: hidden;
@@ -207,6 +217,6 @@
 .customer-header .app-public-nav { margin-left: auto; }
 .customer-header .customer-account-trigger { max-width: 220px; }
 @media (max-width: 480px) {
-  .customer-header .app-public-brand .seoul-brand-wordmark { display: none; }
+  .customer-header .app-public-brand .seoul-brand-image { width: 120px; }
   .customer-booking-link { padding-inline: 12px; gap: 6px; }
 }

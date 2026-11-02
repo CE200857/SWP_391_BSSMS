@@ -62,6 +62,9 @@ public class AuthorizationFilter implements Filter {
         boolean manager="Manager".equals(role), reception="Receptionist".equals(role), tech="Technician".equals(role), customer="Customer".equals(role);
         boolean allowed=true;
         if(relative.equals("/api/booking/slots")) allowed=customer||reception;
+        else if(relative.equals("/api/my-vouchers")) allowed=customer&&read;
+        else if(relative.startsWith("/api/feedback/moderation") || relative.matches("/api/feedback/[0-9]+/moderate")) allowed=manager;
+        else if(relative.startsWith("/api/treatment-photos")) allowed=read||tech;
         else if(relative.startsWith("/api/operations/") || relative.startsWith("/api/staff") || relative.startsWith("/api/manager/") || relative.startsWith("/api/dashboard-reports") || relative.startsWith("/api/birthday-promotions") || relative.startsWith("/api/purchase-orders")) allowed=manager;
         else if(relative.startsWith("/api/customers")) allowed=manager||reception||(read&&tech);
         else if(relative.startsWith("/api/technician/")) allowed=tech;

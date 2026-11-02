@@ -1,14 +1,8 @@
-import flower from "../assets/figma/brand-flower.svg";
+import logo from "../images/seoul-center-logo-transparent.png";
 
 const SeoulBrand = ({ inverse = false }) => (
   <span className={`seoul-brand${inverse ? " seoul-brand-inverse" : ""}`}>
-    <span className="seoul-brand-mark">
-      <img src={flower} alt="" />
-    </span>
-    <span className="seoul-brand-wordmark">
-      <span className="seoul-brand-name">SEOUL</span>
-      <span className="seoul-brand-caption">CENTER · SALON &amp; SPA</span>
-    </span>
+    <img className="seoul-brand-image" src={logo} alt="Seoul Center · Salon & Spa" />
   </span>
 );
 

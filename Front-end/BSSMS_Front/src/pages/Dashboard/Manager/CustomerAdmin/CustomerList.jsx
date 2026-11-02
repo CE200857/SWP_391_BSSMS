@@ -81,7 +81,7 @@ const CustomerList = ({ user }) => {
 
   return (
     <Container fluid className="mt-4 px-4">
-        <h2 className="fw-bold text-uppercase mb-4">Danh sách khách hàng</h2>
+        <h2 className="manager-page-title fw-bold mb-4">Danh sách khách hàng</h2>
 
       <div className="d-flex justify-content-between align-items-center mb-4">
         <InputGroup className="mb-3 w-50">

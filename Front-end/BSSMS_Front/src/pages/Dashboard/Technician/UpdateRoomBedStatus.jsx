@@ -245,7 +245,7 @@ const UpdateRoomBedStatus = () => {
 
     return (
         <Container fluid className="room-bed-page mt-4 px-4">
-            <h2 className="fw-bold text-uppercase mb-4">Trạng thái vận hành phòng & giường</h2>
+            <h2 className="manager-page-title fw-bold mb-4">Trạng thái vận hành phòng & giường</h2>
             <p className="text-muted">Chuyển phòng, giường sang bảo trì hoặc đưa vào hoạt động trở lại. Phòng đang hoạt động vẫn có thể đã được đặt theo khung giờ.</p>
 
             {successMsg && <Alert variant="success">{successMsg}</Alert>}

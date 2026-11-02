@@ -103,7 +103,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
                     ) : (
                         <div className="public-detail-grid">
                             <div className="public-detail-image">
-                                <img src={servicePhoto} alt={`Trải nghiệm dịch vụ ${formData.serviceName}`} />
+                                <img src={servicePhoto} alt={`Trải nghiệm dịch vụ ${formData.serviceName}`} loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
                                 <div><span>SEOUL CENTER · SALON &amp; SPA</span><small>Hình ảnh dịch vụ mang tính minh họa.</small></div>
                             </div>
                             <div className="public-detail-copy">

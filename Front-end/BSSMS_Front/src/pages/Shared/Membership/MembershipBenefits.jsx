@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Container, Row, Spinner } from "react-bootstrap";
+import { money } from "../../../services/api";
 
+const voucherValue = voucher => voucher.discountType === "Percentage" ? `${Number(voucher.discountValue).toLocaleString("vi-VN")}%` : money(voucher.discountValue);
+const voucherDate = value => value ? String(value).slice(0, 10) : "Không giới hạn";
 const percent = value => value == null || !Number.isFinite(Number(value)) ? "—" : `${Number(value).toLocaleString("vi-VN")}%`;
 async function getJson(url, signal) {
   const response = await fetch(url, { credentials: "include", signal });
@@ -14,6 +17,8 @@ export default function MembershipBenefits({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profileError, setProfileError] = useState("");
+  const [benefits, setBenefits] = useState(null);
+  const [benefitsError, setBenefitsError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const isCustomer = user?.role === "Customer";
   const accountId = user?.accountId || user?.account_id;
@@ -21,9 +26,10 @@ export default function MembershipBenefits({ user }) {
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
-      setLoading(true); setError(""); setProfileError(""); setProfile(null);
+      setLoading(true); setError(""); setProfileError(""); setProfile(null); setBenefits(null); setBenefitsError("");
       const requests = [getJson("/api/membership-tiers", controller.signal)];
       if (isCustomer) requests.push(getJson("/api/profile" + (accountId ? `?accountId=${encodeURIComponent(accountId)}&role=Customer` : ""), controller.signal));
+      if (isCustomer) requests.push(getJson("/api/my-vouchers", controller.signal));
       const results = await Promise.allSettled(requests);
       if (controller.signal.aborted) return;
       if (results[0].status === "fulfilled" && Array.isArray(results[0].value)) setTiers(results[0].value);
@@ -32,6 +38,9 @@ export default function MembershipBenefits({ user }) {
         const result = results[1];
         if (result.status === "fulfilled" && result.value && !Array.isArray(result.value) && typeof result.value === "object") setProfile(result.value);
         else setProfileError(result.reason?.message || "Không tải được hạng thành viên của bạn.");
+        const voucherResult = results[2];
+        if (voucherResult?.status === "fulfilled" && voucherResult.value && Array.isArray(voucherResult.value.vouchers)) setBenefits(voucherResult.value);
+        else setBenefitsError(voucherResult?.reason?.message || "Không tải được voucher của bạn.");
       }
       setLoading(false);
     }
@@ -55,6 +64,29 @@ export default function MembershipBenefits({ user }) {
             </div>
             {current?.description && <p className="mt-3 mb-0">{current.description}</p>}
           </Card.Body></Card>}
+      </section>}
+      {isCustomer && <section aria-label="Voucher và ưu đãi của bạn" className="mb-4">
+        <h2 className="h4 mb-3">Voucher và ưu đãi của bạn</h2>
+        {benefitsError && <Alert variant="warning">{benefitsError} <Button variant="outline-secondary" onClick={retry}>Thử lại</Button></Alert>}
+        {benefits?.birthdayEligibleThisMonth && <Alert variant={benefits.birthdayBenefitUsedThisYear ? "secondary" : "info"}>
+          {benefits.birthdayBenefitUsedThisYear
+            ? "Bạn đã dùng ưu đãi giảm thêm 10% nhân dịp sinh nhật trong năm nay."
+            : "Tháng này là tháng sinh nhật của bạn: bạn được giảm thêm 10% cho một hóa đơn dịch vụ hoặc sản phẩm (dùng một lần). Hãy báo lễ tân khi thanh toán."}
+        </Alert>}
+        {benefits && !benefits.vouchers.length && <Alert variant="info">Hiện bạn chưa có voucher nào.</Alert>}
+        <Row className="g-3">{(benefits?.vouchers || []).map(voucher => <Col key={voucher.voucherId} xs={12} md={6} xl={4}>
+          <Card className={`h-100 ${voucher.status === "Active" ? "" : "opacity-75"}`}><Card.Body>
+            <div className="d-flex justify-content-between gap-2 mb-2">
+              <strong>{voucher.voucherName || voucher.voucherCode}</strong>
+              <Badge bg={voucher.status === "Active" ? "success" : "secondary"}>{voucher.status === "Active" ? "Còn hiệu lực" : voucher.status === "Used" ? "Đã dùng" : "Hết hạn"}</Badge>
+            </div>
+            <div className="fs-5 fw-bold">Giảm {voucherValue(voucher)}</div>
+            <div className="small text-muted">Mã: {voucher.voucherCode}</div>
+            {voucher.applicableCategory && <div className="small text-muted">Áp dụng: {voucher.applicableCategory}</div>}
+            {Number(voucher.minOrderAmount) > 0 && <div className="small text-muted">Đơn tối thiểu: {money(voucher.minOrderAmount)}</div>}
+            <div className="small text-muted">Hiệu lực đến: {voucherDate(voucher.endDate)}</div>
+          </Card.Body></Card>
+        </Col>)}</Row>
       </section>}
       <h2 className="h4 mb-3">Các hạng thành viên</h2>
       {error && <Alert variant="danger">{error} <Button variant="outline-danger" onClick={retry}>Thử lại</Button></Alert>}

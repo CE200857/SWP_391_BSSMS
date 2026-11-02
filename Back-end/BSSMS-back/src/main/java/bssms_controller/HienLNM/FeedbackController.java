@@ -29,6 +29,17 @@ public class FeedbackController extends ControllerSupport {
 
         String pathInfo = req.pathInfo();
 
+        // GET /api/feedback/moderation (Manager): all reviews including hidden ones
+        if ("/moderation".equals(pathInfo)) {
+            try {
+                out.print(gson.toJson(feedbackDAO.getAllForModeration()));
+            } catch (java.sql.SQLException ex) {
+                throw new DataAccessException(ex);
+            }
+            out.flush();
+            return;
+        }
+
         // GET /api/feedback/appointments/{customerId}
         if (pathInfo != null && pathInfo.startsWith("/appointments/")) {
             String customerIdStr = pathInfo.substring("/appointments/".length());

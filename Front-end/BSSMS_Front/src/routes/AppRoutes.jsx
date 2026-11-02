@@ -1,5 +1,6 @@
 import OperationsWorkspace from "../pages/Dashboard/Manager/OperationsWorkspace";
 import PurchaseOrders from "../pages/Dashboard/Manager/PurchaseOrders";
+import FeedbackModeration from "../pages/Dashboard/Manager/FeedbackModeration";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import Header from "../components/Header";
@@ -34,6 +35,7 @@ import EditCustomerProfile from "../pages/Dashboard/Manager/CustomerAdmin/EditCu
 import StaffList from "../pages/Dashboard/Manager/StaffAdmin/StaffList";
 import ServiceList from "../pages/Shared/ServiceList/ServiceList";
 import ServiceForm from "../pages/Shared/ServiceList/ServiceForm";
+import PublicTreatmentPackages from "../pages/Shared/ServiceList/PublicTreatmentPackages";
 import MyFeedbackList from "../pages/Shared/Feedback/MyFeedbackList";
 import PublicFeedbackList from "../pages/Shared/Feedback/PublicFeedbackList";
 import FeedbackForm from "../pages/Shared/Feedback/FeedbackForm";
@@ -105,6 +107,14 @@ const ProtectedRoute = ({ user, allowedRoles, children }) => {
     }
   }
   return children;
+};
+
+// Preserve old bookmarks, but let the protected /slots route enforce login.
+const LegacySlotsRedirect = () => {
+  const location = useLocation();
+  return (
+    <Navigate to={"/slots" + location.search} state={location.state} replace />
+  );
 };
 
 // --- 2. CÁC KHUNG GIAO DIỆN (LAYOUTS) ---
@@ -202,14 +212,6 @@ const DashboardLayout = ({ user, setUser }) => {
   );
 };
 
-// Preserve old bookmarks, but let the protected /slots route enforce login.
-const LegacySlotsRedirect = () => {
-  const location = useLocation();
-  return (
-    <Navigate to={"/slots" + location.search} state={location.state} replace />
-  );
-};
-
 // --- 3. ĐỊNH TUYẾN CHÍNH ---
 export default function AppRoutes({ user, setUser }) {
   return (
@@ -240,6 +242,7 @@ export default function AppRoutes({ user, setUser }) {
           path="/guest/services/:id"
           element={<ServiceForm isReadOnly={true} />}
         />
+        <Route path="/guest/treatment-packages" element={<PublicTreatmentPackages />} />
         <Route path="/guest/feedback" element={<PublicFeedbackList />} />
         <Route path="/guest/slots" element={<LegacySlotsRedirect />} />
       </Route>
@@ -254,6 +257,14 @@ export default function AppRoutes({ user, setUser }) {
               allowedRoles={["Customer", "Receptionist", "Manager"]}
             >
               <InvoiceManagement user={user} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manager/feedback-moderation"
+          element={
+            <ProtectedRoute user={user} allowedRoles={["Manager"]}>
+              <FeedbackModeration />
             </ProtectedRoute>
           }
         />
@@ -714,7 +725,11 @@ export default function AppRoutes({ user, setUser }) {
                 "Manager",
               ]}
             >
-              <TreatmentPackageList />
+              {user?.role === "Customer" ? (
+                <PublicTreatmentPackages user={user} />
+              ) : (
+                <TreatmentPackageList />
+              )}
             </ProtectedRoute>
           }
         />

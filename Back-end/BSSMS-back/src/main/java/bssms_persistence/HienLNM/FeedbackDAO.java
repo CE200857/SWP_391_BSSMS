@@ -20,6 +20,17 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
         if(reason==null||reason.isBlank()) throw new IllegalArgumentException("Moderation reason required.");
         return workflow().update("UPDATE Appointment SET feedback_is_hidden=?,feedback_moderation_reason=?,feedback_updated_at=CONVERT(datetime2,SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time') WHERE feedback_id=?",hidden,reason,id)==1;
     }
+    /** 9.3: manager view of every review, including hidden ones. */
+    public List<Map<String, Object>> getAllForModeration() throws java.sql.SQLException {
+        workflow().roles("Manager");
+        return workflow().query(
+            "SELECT f.feedback_id,f.customer_id,c.full_name AS customer_name,f.appointment_id,s.service_name,"
+          + "a.appointment_date,f.rating,f.comment,f.created_at,f.is_hidden,a.feedback_moderation_reason AS moderation_reason "
+          + "FROM " + bssms_persistence.common.SchemaSql.FEEDBACK + " f "
+          + "JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON f.customer_id=c.customer_id "
+          + "JOIN Appointment a ON f.appointment_id=a.appointment_id "
+          + "LEFT JOIN Service s ON a.service_id=s.service_id ORDER BY f.created_at DESC");
+    }
     private void requireConnection() {
         if (conn == null) throw new DataAccessException("Database connection unavailable");
     }
