@@ -79,8 +79,8 @@ public class ForgotPasswordController extends ControllerSupport {
             if ("verify-code".equals(action)) {
                 String code = jsonObject.has("code") ? jsonObject.get("code").getAsString().trim() : "";
 
-                if (dao.verifyCode(email, code, "PasswordReset")) {
-                    dao.deleteVerificationCode(email);
+                if (dao.verifyPasswordResetCode(email, code)) {
+                    dao.clearPasswordResetCode(email);
                     SessionState verified=request.session(true);
                     verified.set("passwordResetEmail",email);
                     verified.set("passwordResetExpires",System.currentTimeMillis()+5*60*1000L);
@@ -97,9 +97,9 @@ public class ForgotPasswordController extends ControllerSupport {
             String duplicateField = dao.checkDuplicate(null, email, null, null);
             if (duplicateField != null) {
                 String otp = EmailUtil.generateOTP();
-                if (!dao.saveVerificationCode(email, otp, "PasswordReset")) {
+                if (!dao.savePasswordResetCode(email, otp)) {
                     response.status(500);
-                    out.print("{\"message\": \"Không thể lưu mã OTP (Hãy kiểm tra bảng VerificationCode trong Database)!\"}");
+                    out.print("{\"message\": \"Không thể lưu mã OTP. Vui lòng thử lại!\"}");
                     out.flush();
                     return;
                 }

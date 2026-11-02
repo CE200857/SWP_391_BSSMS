@@ -159,7 +159,7 @@ public class ProfileController extends ControllerSupport {
                 }
 
                 String otp = EmailUtil.generateOTP();
-                if (!authDao.saveVerificationCode(newEmail, otp)) {
+                if (!authDao.saveEmailChangeCode(bssms_common.LoginIdentity.customerId(accountId), newEmail, otp)) {
                     response.status(500);
                     out.print("{\"message\": \"Không thể tạo mã xác thực. Vui lòng thử lại!\"}");
                     out.flush();
@@ -232,7 +232,7 @@ public class ProfileController extends ControllerSupport {
                     String verificationCode = jsonObject.has("verificationCode")
                             ? jsonObject.get("verificationCode").getAsString().trim()
                             : "";
-                    if (verificationCode.isEmpty() || !authDao.verifyCode(newEmail, verificationCode)) {
+                    if (verificationCode.isEmpty() || !authDao.verifyEmailChangeCode(bssms_common.LoginIdentity.customerId(accountId), newEmail, verificationCode)) {
                         response.status(400);
                         out.print("{\"message\": \"Mã xác thực Email không chính xác hoặc đã hết hạn!\"}");
                         out.flush();
@@ -252,7 +252,7 @@ public class ProfileController extends ControllerSupport {
 
                 if (isUpdated) {
                     if (isEmailChanged) {
-                        authDao.deleteVerificationCode(newEmail);
+                        authDao.clearEmailChangeCode(bssms_common.LoginIdentity.customerId(accountId));
                         user.setEmail(newEmail);
                     }
                     user.setFullName(standardizedName);

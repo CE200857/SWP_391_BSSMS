@@ -51,10 +51,10 @@ public class RegisterController extends ControllerSupport {
                 }
 
                 String otp = EmailUtil.generateOTP();
-                boolean isSaved = dao.saveVerificationCode(email, otp);
+                boolean isSaved = dao.saveRegistrationCode(email, otp);
                 if (!isSaved) {
                     response.status(500);
-                    out.print("{\"message\": \"Không thể lưu mã OTP (Hãy kiểm tra bảng VerificationCode trong Database)!\"}");
+                    out.print("{\"message\": \"Không thể lưu mã OTP. Vui lòng thử lại!\"}");
                     out.flush();
                     return;
                 }
@@ -101,7 +101,7 @@ public class RegisterController extends ControllerSupport {
                 return;
             }
 
-            if (!dao.verifyCode(email, verificationCode)) {
+            if (!dao.verifyRegistrationCode(email, verificationCode)) {
                 response.status(400);
                 out.print("{\"message\": \"Mã xác thực không chính xác hoặc đã hết hạn!\"}");
                 out.flush();
@@ -109,10 +109,9 @@ public class RegisterController extends ControllerSupport {
             }
 
             String hashedPassword = PasswordUtil.hashMD5(rawPassword);
-            boolean isCreated = dao.createAccount(username, hashedPassword, email);
+            boolean isCreated = dao.completeRegistration(username, hashedPassword, email);
 
             if (isCreated) {
-                dao.deleteVerificationCode(email);
 
                 Account user = dao.authenticateUser(email, hashedPassword);
                 if (user != null) {
