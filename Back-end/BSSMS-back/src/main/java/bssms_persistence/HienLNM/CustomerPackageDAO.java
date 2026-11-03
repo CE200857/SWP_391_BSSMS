@@ -110,7 +110,7 @@ public class CustomerPackageDAO extends DBContext implements AutoCloseable {
             System.out.println("Database connection is null in CustomerPackageDAO.getCustomerPackagesByCustomerId()");
             return list;
         }
-        String sql = "SELECT cp.*, c.full_name AS customer_name, tp.package_name "
+        String sql = "SELECT cp.*, c.full_name AS customer_name, tp.package_name, tp.number_of_sessions "
                    + "FROM CustomerPackage cp JOIN Customer c ON c.customer_id=cp.customer_id "
                    + "JOIN TreatmentPackage tp ON tp.treatment_package_id=cp.treatment_package_id "
                    + "WHERE (?=0 OR cp.customer_id=?) AND EXISTS(SELECT 1 FROM "
@@ -131,6 +131,7 @@ public class CustomerPackageDAO extends DBContext implements AutoCloseable {
                 cp.setCustomerName(rs.getString("customer_name"));
                 cp.setPackageName(rs.getString("package_name"));
                 cp.setTreatmentPackageId(rs.getInt("treatment_package_id"));
+                cp.setNumberOfSessions(rs.getInt("number_of_sessions"));
                 cp.setPurchaseDate(rs.getTimestamp("purchase_date"));
                 cp.setRemainingSessions(rs.getInt("remaining_sessions"));
                 cp.setExpiryDate(rs.getTimestamp("expiry_date"));
@@ -154,4 +155,3 @@ public class CustomerPackageDAO extends DBContext implements AutoCloseable {
         throw new bssms_persistence.common.WorkflowException(409,"Sessions and status follow completion/refund workflows. Direct package editing is disabled.");
     }
 }
-

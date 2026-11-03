@@ -34,7 +34,7 @@ public class AuthenticationFilter implements Filter {
                 || path.endsWith("/api/logout")
                 || path.contains("/api/forgot-password")
                 || ((path.endsWith("/api/service") || path.endsWith("/api/treatment-packages")) && "GET".equalsIgnoreCase(req.getMethod()))
-                || ((path.endsWith("/api/feedback") || path.matches(".*/api/feedback/[0-9]+")) && "GET".equalsIgnoreCase(req.getMethod()))) {
+                || ((path.endsWith("/api/feedback") || path.endsWith("/api/feedback/service-ratings") || path.matches(".*/api/feedback/[0-9]+")) && "GET".equalsIgnoreCase(req.getMethod()))) {
             chain.doFilter(request, response);
             return;
         }

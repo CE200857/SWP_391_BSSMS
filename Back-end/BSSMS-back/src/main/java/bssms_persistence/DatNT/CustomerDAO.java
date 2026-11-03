@@ -77,6 +77,28 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
         } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
+    public int createWalkInProfile(String fullName, String phone, String gender) {
+        requireConnection();
+        try {
+            bssms_persistence.common.Workflow w = workflow();
+            w.roles("Manager", "Receptionist");
+            return w.transaction(() -> {
+                String duplicateField = checkDuplicate(null, null, phone, null);
+                if (duplicateField != null) {
+                    throw new bssms_persistence.common.WorkflowException(
+                            409, duplicateField + " này đã tồn tại trên hệ thống.");
+                }
+                return w.one(
+                        rs -> rs.getInt("customer_id"),
+                        "INSERT Customer(username,password,email,phone,full_name,gender,membership_tier_id,status) "
+                                + "OUTPUT inserted.customer_id VALUES(NULL,NULL,NULL,?,?,?,1,'Active')",
+                        phone, fullName, gender);
+            });
+        } catch (java.sql.SQLException e) {
+            throw new DataAccessException(e);
+        }
+    }
+
     public Customer getCustomerById(int customerId) {
         try { workflow().customerAccess(customerId); }
         catch (java.sql.SQLException e) { throw new DataAccessException(e); }

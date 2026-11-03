@@ -79,7 +79,34 @@ public class CustomerController extends ControllerSupport {
 
             String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : null;
 
-            if ("update".equals(action)) {
+            if ("walkInProfile".equals(action)) {
+                String fullName = InputValidation.text(
+                        jsonObject.has("fullName") ? jsonObject.get("fullName").getAsString() : null,
+                        "Họ tên");
+                String phone = InputValidation.text(
+                        jsonObject.has("phone") ? jsonObject.get("phone").getAsString() : null,
+                        "Số điện thoại");
+                String gender = InputValidation.text(
+                        jsonObject.has("gender") ? jsonObject.get("gender").getAsString() : null,
+                        "Giới tính");
+
+                if (fullName.length() > 100) {
+                    throw new IllegalArgumentException("Họ tên không được vượt quá 100 ký tự.");
+                }
+                if (!phone.matches("0[1-9]\\d{8}")) {
+                    throw new IllegalArgumentException("Số điện thoại phải gồm 10 số và bắt đầu bằng 0.");
+                }
+                if (!java.util.Arrays.asList("Female", "Male", "Other").contains(gender)) {
+                    throw new IllegalArgumentException("Giới tính không hợp lệ.");
+                }
+
+                int customerId = dao.createWalkInProfile(fullName, phone, gender);
+                response.status(201);
+                out.print(gson.toJson(java.util.Map.of(
+                        "customerId", customerId,
+                        "fullName", fullName,
+                        "phone", phone)));
+            } else if ("update".equals(action)) {
                 int accountId = jsonObject.get("accountId").getAsInt();
                 String fullName = jsonObject.get("fullName").getAsString().trim();
                 String phone = jsonObject.get("phone").getAsString().trim();
@@ -137,6 +164,9 @@ public class CustomerController extends ControllerSupport {
                 }
             }
 
+        } catch (bssms_persistence.common.WorkflowException e) {
+            response.status(e.status);
+            out.print(gson.toJson(java.util.Map.of("message", e.getMessage())));
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);

@@ -23,16 +23,19 @@ public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
         List<Map<String, Object>> list = new ArrayList<>();
         String query = "SELECT a.customer_id, (SELECT full_name FROM Customer WHERE customer_id=a.customer_id) AS customer_name, a.appointment_id, a.appointment_date, a.start_time, a.end_time, a.status AS appointment_status, "
                      + "a.notes, tr.result_notes, s.service_name, s.price, "
-                     + "tp.package_name, cp.remaining_sessions, "
+                     + "a.customer_package_id, a.package_usage_id, a.package_used_at, tp.package_name, tp.number_of_sessions, cp.remaining_sessions, "
+                     + "inv.invoice_id, inv.status AS invoice_status, ib.paid_amount, ib.outstanding_amount, "
                      + "st.full_name AS staff_name, st.position, "
                      + "f.rating, f.comment AS feedback_comment, f.created_at AS feedback_date "
                      + "FROM Appointment a LEFT JOIN " + bssms_persistence.common.SchemaSql.TREATMENTS + " tr ON tr.appointment_id=a.appointment_id "
                      + "LEFT JOIN Service s ON a.service_id = s.service_id "
                      + "LEFT JOIN CustomerPackage cp ON a.customer_package_id = cp.customer_package_id "
                      + "LEFT JOIN TreatmentPackage tp ON cp.treatment_package_id = tp.treatment_package_id "
+                     + "OUTER APPLY (SELECT TOP 1 i.invoice_id, i.status FROM Invoice i WHERE i.appointment_id=a.appointment_id AND i.status<>'Cancelled' ORDER BY i.invoice_id DESC) inv "
+                     + "LEFT JOIN vw_InvoiceBalance ib ON ib.invoice_id=inv.invoice_id "
                      + "LEFT JOIN AppointmentStaff aps ON a.appointment_id = aps.appointment_id AND aps.role='Main Technician' "
                      + "LEFT JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON aps.staff_id = st.staff_id "
-                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.FEEDBACK + " f ON a.appointment_id = f.appointment_id "
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.FEEDBACK + " f ON a.appointment_id = f.appointment_id AND f.service_id = a.service_id "
                      + "WHERE (?=0 OR a.customer_id = ?) AND " + bssms_persistence.common.Workflow.appointmentScope() + " "
                      + "ORDER BY a.appointment_date DESC, a.start_time DESC";
         try {
@@ -55,8 +58,16 @@ public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
                     map.put("resultNotes", rs.getString("result_notes"));
                     map.put("serviceName", rs.getString("service_name"));
                     map.put("price", rs.getDouble("price"));
+                    map.put("customerPackageId", rs.getObject("customer_package_id"));
+                    map.put("packageUsageId", rs.getObject("package_usage_id"));
+                    map.put("packageUsedAt", rs.getTimestamp("package_used_at") != null ? rs.getTimestamp("package_used_at").toString() : null);
                     map.put("packageName", rs.getString("package_name"));
+                    map.put("numberOfSessions", rs.getObject("number_of_sessions"));
                     map.put("remainingSessions", rs.getInt("remaining_sessions"));
+                    map.put("invoiceId", rs.getObject("invoice_id"));
+                    map.put("invoiceStatus", rs.getString("invoice_status"));
+                    map.put("paidAmount", rs.getBigDecimal("paid_amount"));
+                    map.put("outstandingAmount", rs.getBigDecimal("outstanding_amount"));
                     map.put("staffName", rs.getString("staff_name"));
                     map.put("position", rs.getString("position"));
                     map.put("rating", rs.getInt("rating"));
@@ -82,7 +93,7 @@ public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
             + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id AND status IN ('Pending','Confirmed')) AS upcoming_appointments, "
             + "(SELECT COUNT(*) FROM CustomerPackage WHERE customer_id=c.customer_id) AS total_packages, "
             + "(SELECT COALESCE(SUM(remaining_sessions),0) FROM CustomerPackage WHERE customer_id=c.customer_id AND status='Active') AS total_remaining_sessions, "
-            + "(SELECT COALESCE(AVG(CAST(feedback_rating AS decimal(5,2))),0) FROM Appointment WHERE customer_id=c.customer_id AND feedback_is_hidden=0) AS average_rating "
+            + "(SELECT COALESCE(AVG(CAST(rating AS decimal(5,2))),0) FROM ServiceFeedback WHERE customer_id=c.customer_id AND is_hidden=0) AS average_rating "
             + "FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c WHERE c.customer_id=?";
         try {
             if (conn != null) {
@@ -142,7 +153,7 @@ public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
                      + "LEFT JOIN TreatmentPackage tp ON cp.treatment_package_id = tp.treatment_package_id "
                      + "LEFT JOIN AppointmentStaff aps ON a.appointment_id = aps.appointment_id AND aps.role='Main Technician' "
                      + "LEFT JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON aps.staff_id = st.staff_id "
-                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.FEEDBACK + " f ON a.appointment_id = f.appointment_id "
+                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.FEEDBACK + " f ON a.appointment_id = f.appointment_id AND f.service_id = a.service_id "
                      + "WHERE a.customer_id = ? AND a.status = 'Completed' "
                      + "ORDER BY a.appointment_date DESC";
         try {

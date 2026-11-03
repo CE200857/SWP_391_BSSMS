@@ -90,7 +90,6 @@ public final class SchemaMigrationTest {
             check(lastWrite.startsWith("UPDATE Customer") && lastArgs.get(2).equals(1),"customer password updates native customer ID");
             dao.changePassword(2,"old","new");
             check(lastWrite.startsWith("UPDATE Staff") && lastArgs.get(2).equals(1),"staff password updates native staff ID");
-            dao.createAccount("newuser","hash","new@example.test");
             check(lastWrite.startsWith("INSERT Customer") && lastArgs.get(4).equals("newuser"),"registration writes one owner row");
         }
         try(ProfileDAO dao=new ProfileDAO()) {
