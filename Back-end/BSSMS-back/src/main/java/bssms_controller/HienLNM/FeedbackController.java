@@ -29,6 +29,18 @@ public class FeedbackController extends ControllerSupport {
 
         String pathInfo = req.pathInfo();
 
+        // GET /api/feedback/service-ratings (public): average rating per service
+        if ("/service-ratings".equals(pathInfo)) {
+            out.print(gson.toJson(feedbackDAO.getServiceRatings()));
+            out.flush();
+            return;
+        }
+
+        // GET /api/feedback?id=N is the same as GET /api/feedback/N
+        if ((pathInfo == null || pathInfo.equals("/") || pathInfo.isEmpty()) && req.parameter("id") != null && !req.parameter("id").isBlank()) {
+            pathInfo = "/" + req.parameter("id").trim();
+        }
+
         // GET /api/feedback/moderation (Manager): all reviews including hidden ones
         if ("/moderation".equals(pathInfo)) {
             try {
@@ -89,8 +101,27 @@ public class FeedbackController extends ControllerSupport {
             return;
         }
 
-        // GET /api/feedback (mặc định)
-        List<Map<String, Object>> list = feedbackDAO.getAllFeedbackDetails();
+        // GET /api/feedback?customerId=N : only that customer's reviews (a Customer account can only ask for its own; the DAO enforces it)
+        String customerParam = req.parameter("customerId");
+        if (customerParam != null && !customerParam.isBlank()) {
+            try {
+                out.print(gson.toJson(feedbackDAO.getFeedbackByCustomerId(Integer.parseInt(customerParam.trim()))));
+            } catch (NumberFormatException e) {
+                resp.status(400);
+                out.print("{\"message\":\"Customer ID khong hop le\"}");
+            }
+            out.flush();
+            return;
+        }
+
+        // GET /api/feedback (mặc định), có thể lọc ?serviceId=N
+        Integer serviceFilter = null;
+        String serviceParam = req.parameter("serviceId");
+        if (serviceParam != null && !serviceParam.isBlank()) {
+            try { serviceFilter = Integer.parseInt(serviceParam.trim()); }
+            catch (NumberFormatException e) { resp.status(400); out.print("{\"message\":\"Service ID khong hop le\"}"); out.flush(); return; }
+        }
+        List<Map<String, Object>> list = feedbackDAO.getAllFeedbackDetails(serviceFilter);
         out.print(gson.toJson(list));
         out.flush();
     }
@@ -120,6 +151,12 @@ public class FeedbackController extends ControllerSupport {
         if (newFeedback.getAppointmentId() <= 0) {
             resp.status(400);
             out.print("{\"message\":\"appointmentId la bat buoc\"}");
+            out.flush();
+            return;
+        }
+        if (newFeedback.getServiceId() <= 0) {
+            resp.status(400);
+            out.print("{\"message\":\"serviceId la bat buoc\"}");
             out.flush();
             return;
         }
@@ -157,7 +194,7 @@ public class FeedbackController extends ControllerSupport {
 
         PrintWriter out = resp.writer();
 
-        String pathInfo = req.pathInfo();
+        String pathInfo = idPath(req);
         if (pathInfo == null || pathInfo.equals("/") || pathInfo.equals("")) {
             resp.status(400);
             out.print("{\"message\":\"Thieu feedback ID\"}");
@@ -195,7 +232,7 @@ public class FeedbackController extends ControllerSupport {
 
         PrintWriter out = resp.writer();
 
-        String pathInfo = req.pathInfo();
+        String pathInfo = idPath(req);
         if (pathInfo == null || pathInfo.equals("/") || pathInfo.equals("")) {
             resp.status(400);
             out.print("{\"message\":\"Thieu feedback ID\"}");
@@ -224,5 +261,13 @@ public class FeedbackController extends ControllerSupport {
             out.print(gson.toJson(java.util.Map.of("message", "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu.")));
         }
         out.flush();
+    }
+
+    /** The id may come as /api/feedback/{id} or as ?id={id} (the frontend uses the query form). */
+    private static String idPath(ActionRequest req) {
+        String path = req.pathInfo();
+        if (path != null && !path.equals("/") && !path.isEmpty()) return path;
+        String id = req.parameter("id");
+        return id == null || id.isBlank() ? path : "/" + id.trim();
     }
 }

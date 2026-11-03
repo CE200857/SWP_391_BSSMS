@@ -12,11 +12,21 @@ public class Feedback {
     private int feedbackId;
     private int customerId;
     private int appointmentId;
+    private int serviceId;
     private int rating;
     private String comment;
     private Date createdAt;
 
     public Feedback() {}
+
+    public Feedback(int feedbackId, int customerId, int appointmentId, int serviceId, int rating, String comment, Date createdAt) {
+        this(feedbackId, customerId, appointmentId, rating, comment, createdAt);
+        this.serviceId = serviceId;
+    }
+
+    public int getServiceId() { return serviceId; }
+
+    public void setServiceId(int serviceId) { this.serviceId = serviceId; }
 
     public Feedback(int feedbackId, int customerId, int appointmentId, int rating, String comment, Date createdAt) {
         this.feedbackId = feedbackId;

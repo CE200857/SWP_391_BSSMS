@@ -18,6 +18,7 @@ public class CustomerPackage {
     private int customerPackageId;
     private int customerId;
     private int treatmentPackageId;
+    private int numberOfSessions;
     private Date purchaseDate;
     private int remainingSessions;
     private Date expiryDate;
@@ -57,6 +58,14 @@ public class CustomerPackage {
 
     public void setTreatmentPackageId(int treatmentPackageId) {
         this.treatmentPackageId = treatmentPackageId;
+    }
+
+    public int getNumberOfSessions() {
+        return numberOfSessions;
+    }
+
+    public void setNumberOfSessions(int numberOfSessions) {
+        this.numberOfSessions = numberOfSessions;
     }
 
     public Date getPurchaseDate() {

@@ -47,7 +47,7 @@ public class AuthorizationFilter implements Filter {
             // Public/authentication endpoints must still work after a schema upgrade.
             String uri=req.getRequestURI();
             if(uri.endsWith("/api/login") || uri.endsWith("/api/logout") || uri.endsWith("/api/register") || uri.contains("/api/forgot-password")
-                    || ("GET".equals(req.getMethod()) && (uri.endsWith("/api/service") || uri.endsWith("/api/treatment-packages") || uri.matches(".*/api/feedback(?:/[0-9]+)?")))) {
+                    || ("GET".equals(req.getMethod()) && (uri.endsWith("/api/service") || uri.endsWith("/api/treatment-packages") || uri.matches(".*/api/feedback(?:/[0-9]+|/service-ratings)?")))) {
                 chain.doFilter(request,response); return;
             }
             res.setStatus(401); res.setContentType("application/json"); res.setCharacterEncoding("UTF-8");
@@ -63,6 +63,7 @@ public class AuthorizationFilter implements Filter {
         boolean allowed=true;
         if(relative.equals("/api/booking/slots")) allowed=customer||reception;
         else if(relative.equals("/api/my-vouchers")) allowed=customer&&read;
+        else if(relative.equals("/api/package-purchases")) allowed=customer&&!read;
         else if(relative.startsWith("/api/feedback/moderation") || relative.matches("/api/feedback/[0-9]+/moderate")) allowed=manager;
         else if(relative.startsWith("/api/treatment-photos")) allowed=read||tech;
         else if(relative.startsWith("/api/operations/") || relative.startsWith("/api/staff") || relative.startsWith("/api/manager/") || relative.startsWith("/api/dashboard-reports") || relative.startsWith("/api/birthday-promotions") || relative.startsWith("/api/purchase-orders")) allowed=manager;

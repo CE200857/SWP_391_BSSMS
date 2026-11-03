@@ -1,56 +1,73 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_api.KhanhLTQ;
-
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
+import java.util.Set;
 
-@WebFilter("/*") // Áp dụng Filter này cho TẤT CẢ các đường dẫn API
+/**
+ * Bộ lọc CORS duy nhất của hệ thống.
+ * Các servlet/filter khác đang tự set "Access-Control-Allow-Origin: http://localhost:5173"
+ * và ghi đè lên header đúng, nên ở đây bọc response để BỎ QUA mọi header Access-Control-*
+ * do code phía sau set. Nhờ vậy không phải sửa từng file.
+ */
+@WebFilter(filterName = "CorsFilter", urlPatterns = {"/*"})
 public class CorsFilter implements Filter {
 
-    @Override
-    public void init(FilterConfig filterConfig) throws ServletException {}
+    private static final String DONE = CorsFilter.class.getName() + ".DONE";
+
+    private static final Set<String> ALLOWED_ORIGINS = Set.of(
+            "http://localhost:5173",
+            "https://bssms-front.vercel.app"
+    );
 
     @Override
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain)
             throws IOException, ServletException {
-            
+
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;
 
-        // Cho phép Frontend ở cổng 5173 gọi API
-        response.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
-        
-        // Các phương thức được phép
-        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        
-        // Các Header được phép gửi lên (quan trọng nếu bạn dùng Token/Authorization)
-        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-        
-        // Cho phép gửi kèm Cookie/Session
-        response.setHeader("Access-Control-Allow-Credentials", "true");
+        // Tránh chạy 2 lần nếu filter bị map trùng (web.xml + annotation)
+        if (request.getAttribute(DONE) != null) {
+            chain.doFilter(request, response);
+            return;
+        }
+        request.setAttribute(DONE, Boolean.TRUE);
 
-        // Xử lý request "preflight" (OPTIONS) của trình duyệt
+        String origin = request.getHeader("Origin");
+        if (origin != null && ALLOWED_ORIGINS.contains(origin)) {
+            response.setHeader("Access-Control-Allow-Origin", origin);
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+        }
+        response.addHeader("Vary", "Origin");
+        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        response.setHeader("Access-Control-Allow-Headers",
+                "Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning");
+        response.setHeader("Access-Control-Max-Age", "600");
+
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_OK);
             return;
         }
 
-        // Cho phép request đi tiếp tới Servlet
-        filterChain.doFilter(servletRequest, servletResponse);
+        chain.doFilter(request, new HttpServletResponseWrapper(response) {
+            private boolean blocked(String name) {
+                return name != null && name.regionMatches(true, 0, "Access-Control-", 0, 15);
+            }
+            @Override public void setHeader(String name, String value) {
+                if (!blocked(name)) super.setHeader(name, value);
+            }
+            @Override public void addHeader(String name, String value) {
+                if (!blocked(name)) super.addHeader(name, value);
+            }
+        });
     }
-
-    @Override
-    public void destroy() {}
 }

@@ -61,6 +61,8 @@ public class NotificationWorker implements ServletContextListener {
      JsonElement value=payload.get(field.getValue().getAsString());if(value==null||value.isJsonNull())throw new IllegalArgumentException("Thiếu dữ liệu template: "+field.getKey());data.add(field.getKey(),value);
     }
     JsonObject body=new JsonObject();body.addProperty("phone",phone);body.add("template_id",template.get("id"));body.add("template_data",data);body.addProperty("tracking_id","BSSMS"+id);
+    // Optional: BSSMS_ZALO_MODE=development lets ZNS accept test sends (to OA admin phones) before templates are approved.
+    String zaloMode=System.getenv("BSSMS_ZALO_MODE");if("development".equalsIgnoreCase(zaloMode))body.addProperty("mode","development");
     HttpRequest req=HttpRequest.newBuilder(URI.create("https://business.openapi.zalo.me/message/template")).timeout(Duration.ofSeconds(20)).header("Content-Type","application/json").header("access_token",token).POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
     HttpResponse<String> response=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build().send(req,HttpResponse.BodyHandlers.ofString());
     if(response.statusCode()!=200)throw new java.io.IOException("HTTP "+response.statusCode());
