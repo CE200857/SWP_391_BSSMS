@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { Container, Card, Table, Badge, Form, InputGroup, Button, Alert, Spinner } from "react-bootstrap";
+import { Container, Card, Table, Badge, Form, Button, Alert, Spinner } from "react-bootstrap";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 
 const UpdateServiceStatus = () => {
     const [services, setServices] = useState([]);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
@@ -87,15 +86,19 @@ const UpdateServiceStatus = () => {
         }
     };
 
-    const filteredServices = services.filter((s) => {
-        const search = searchTerm.trim().toLowerCase();
-        const matchesSearch =
-            !search ||
-            s.serviceName?.toLowerCase().includes(search) ||
-            String(s.serviceId).includes(search);
-        const matchesStatus = statusFilter === "all" || s.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
+    const { filteredRows: filteredServices, toolbar } = useManagerSearchFilter(
+        services,
+        [
+            { key: "serviceId", label: "Mã dịch vụ", filterable: false },
+            { key: "serviceName", label: "Dịch vụ", filterable: false },
+            { key: "status", label: "Trạng thái", formatValue: (value) => ({
+                Active: "Đang hoạt động",
+                Inactive: "Ngừng hoạt động",
+                Maintenance: "Bảo trì",
+            }[value] || value) },
+        ],
+        "Tìm theo tên hoặc mã dịch vụ...",
+    );
 
     const getStatusBadge = (status) => {
         const statusMap = {
@@ -133,32 +136,9 @@ const UpdateServiceStatus = () => {
             {successMsg && <Alert variant="success">{successMsg}</Alert>}
             {loadError && <Alert variant="danger">{loadError}</Alert>}
 
-            {/* Bộ lọc */}
             <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "12px" }}>
                 <Card.Body>
-                    <div className="d-flex flex-wrap gap-3 align-items-center">
-                        <InputGroup style={{ maxWidth: "320px" }}>
-                            <InputGroup.Text>
-                                <i className="bi bi-search"></i>
-                            </InputGroup.Text>
-                            <Form.Control
-                                placeholder="Tìm theo tên hoặc ID dịch vụ..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </InputGroup>
-
-                        <Form.Select
-                            style={{ maxWidth: "200px" }}
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                            <option value="all">Tất cả trạng thái</option>
-                            <option value="Active">Đang hoạt động</option>
-                            <option value="Inactive">Ngừng hoạt động</option>
-                            <option value="Maintenance">Bảo trì</option>
-                        </Form.Select>
-                    </div>
+                    <div className="manager-list-toolbar">{toolbar}</div>
                 </Card.Body>
             </Card>
 
@@ -199,8 +179,9 @@ const UpdateServiceStatus = () => {
                                                     <option value="Maintenance">Bảo trì</option>
                                                 </Form.Select>
                                                 <Button
-                                                    variant="primary"
+                                                    variant="link"
                                                     size="sm"
+                                                    className="manager-list-action manager-list-action--edit"
                                                     onClick={() => handleUpdateStatus(s)}
                                                     disabled={updatingId === s.serviceId}
                                                 >
@@ -208,7 +189,7 @@ const UpdateServiceStatus = () => {
                                                         <Spinner size="sm" />
                                                     ) : (
                                                         <>
-                                                            <i className="bi bi-check2 me-1"></i>Lưu
+                                                            <i className="bi bi-check2" aria-hidden="true" /> Lưu
                                                         </>
                                                     )}
                                                 </Button>

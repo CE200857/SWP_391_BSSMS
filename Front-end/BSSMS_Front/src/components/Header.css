@@ -44,11 +44,26 @@
   line-height: 1.4;
 }
 
+.customer-account-name-line {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 5px;
+}
+
 .customer-account-identity strong {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.8125rem;
+}
+
+.customer-account-identity .customer-account-tier-separator,
+.customer-account-identity .customer-account-tier {
+  flex: 0 0 auto;
+  color: var(--ui-muted);
+  font-size: 0.75rem;
 }
 
 .customer-account-identity small {
@@ -92,6 +107,28 @@
 .customer-account-heading strong,
 .customer-account-heading > div > span {
   display: block;
+  font-size: 0.8125rem;
+}
+
+.customer-account-heading-name {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.customer-account-heading-name > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-account-heading-name > .customer-account-tier-separator,
+.customer-account-heading-name > .customer-account-tier {
+  display: inline;
+  flex: 0 0 auto;
+  color: var(--ui-muted);
   font-size: 0.8125rem;
 }
 
@@ -219,4 +256,11 @@
 @media (max-width: 480px) {
   .customer-header .app-public-brand .seoul-brand-image { width: 120px; }
   .customer-booking-link { padding-inline: 12px; gap: 6px; }
+}
+
+@media (min-width: 1400px) {
+  .app-public-header .app-public-nav {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
 }

@@ -4,11 +4,17 @@ import { Alert, Card, Form, Table, Spinner } from "react-bootstrap";
 import { getCommissionReport } from "../../../services/commissionService";
 import { today, money } from "../../../services/api";
 import { monthRange } from "../../../services/billing";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 export default function CommissionReport() {
   const [month, setMonth] = useState(() => today().slice(0, 7)),
     [rows, setRows] = useState([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
+  const { filteredRows, toolbar } = useManagerSearchFilter(
+    rows,
+    [{ key: "fullName", label: "Nhân viên" }],
+    "Tìm theo tên nhân viên...",
+  );
   useEffect(() => {
     let active = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the view while synchronizing external data for this selection.
@@ -52,6 +58,7 @@ export default function CommissionReport() {
       </div>
       <Card>
         <Card.Body>
+          <div className="manager-list-toolbar mb-3">{toolbar}</div>
           {loading ? (
             <div className="ui-empty">
               <Spinner animation="border" />
@@ -59,7 +66,7 @@ export default function CommissionReport() {
           ) : (
             <>
               <div className="table-responsive">
-                <Table hover>
+                <Table hover className="manager-list-table">
                   <thead>
                     <tr>
                       <th>Nhân viên</th>
@@ -68,7 +75,7 @@ export default function CommissionReport() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => (
+                    {filteredRows.map((r) => (
                       <tr key={r.staffId}>
                         <td>{r.fullName}</td>
                         <td>{r.totalInvoices}</td>
@@ -81,7 +88,7 @@ export default function CommissionReport() {
                       <th colSpan="2">Tổng cộng</th>
                       <th className="text-end">
                         {money(
-                          rows.reduce(
+                          filteredRows.reduce(
                             (sum, r) => sum + Number(r.totalCommission || 0),
                             0,
                           ),

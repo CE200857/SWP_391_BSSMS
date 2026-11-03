@@ -34,20 +34,13 @@
     flex-shrink: 0;
 }
 
-.service-history-filter-card,
+.service-history-search-card,
 .service-history-results-card {
     border-radius: 0.9rem;
     box-shadow: 0 0.25rem 1.25rem rgba(28, 39, 60, 0.06);
     overflow: hidden;
 }
 
-.service-history-label {
-    color: #455167;
-    font-size: 0.875rem;
-    font-weight: 600;
-}
-
-.service-history-filter-hint,
 .service-history-muted {
     color: #7b8494;
     font-size: 0.82rem;
@@ -155,4 +148,5 @@
         align-items: flex-start;
         padding: 1rem;
     }
+
 }

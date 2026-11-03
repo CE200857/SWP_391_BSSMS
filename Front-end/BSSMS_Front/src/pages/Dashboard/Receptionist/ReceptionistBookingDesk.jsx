@@ -236,7 +236,7 @@ const ReceptionistBookingDesk = () => {
                         Check-in & điều phối dịch vụ (Receptionist)
                     </h2>
                     <p className="text-muted mb-0">
-                        Tiếp đón khách Check-in, đánh dấu No-show và phân bổ Kỹ thuật viên, Phòng, Giường, Thiết bị.
+                        Xác nhận khách, cập nhật trạng thái và phân công nhân sự, phòng, giường.
                     </p>
                 </div>
 
@@ -273,7 +273,7 @@ const ReceptionistBookingDesk = () => {
                                     <i className="bi bi-search"></i>
                                 </InputGroup.Text>
                                 <Form.Control
-                                    placeholder="Tìm theo mã lịch, tên khách, SĐT, dịch vụ, KTV..."
+                                    placeholder="Tìm mã lịch, khách hàng, SĐT, dịch vụ, KTV..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
@@ -313,29 +313,27 @@ const ReceptionistBookingDesk = () => {
                             <Spinner animation="border" variant="danger" />
                         </div>
                     ) : (
-                        <Table hover responsive className="align-middle mb-0">
+                        <Table hover responsive className="align-middle mb-0 manager-list-table receptionist-coordination-table">
                             <thead className="table-dark">
                                 <tr>
-                                    <th>Mã</th>
-                                    <th>Ngày & Giờ</th>
+                                    <th>Ngày & giờ</th>
                                     <th>Khách hàng</th>
                                     <th>Dịch vụ</th>
-                                    <th>Kỹ thuật viên</th>
-                                    <th>Phòng / Giường</th>
+                                    <th>Phân công</th>
                                     <th>Trạng thái</th>
-                                    <th className="text-center">Check-in / Điều phối</th>
+                                    <th>Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredAppointments.length > 0 ? (
                                     filteredAppointments.map((a) => (
                                         <tr key={a.appointmentId}>
-                                            <td className="fw-bold">#{a.appointmentId}</td>
                                             <td>
-                                                <div className="fw-semibold">{a.appointmentDate}</div>
-                                                <small className="text-muted">
-                                                    {a.startTime} - {a.endTime}
+                                                <div className="fw-semibold text-nowrap">{a.appointmentDate}</div>
+                                                <small className="text-muted text-nowrap d-block">
+                                                    {a.startTime?.slice(0, 5)} – {a.endTime?.slice(0, 5)}
                                                 </small>
+                                                <div className="small text-muted">Mã #{a.appointmentId}</div>
                                             </td>
                                             <td>
                                                 <div className="fw-bold">{a.customerName}</div>
@@ -343,97 +341,74 @@ const ReceptionistBookingDesk = () => {
                                             </td>
                                             <td>{a.serviceName}</td>
                                             <td>
-                                                {a.staffName ? (
-                                                    <Badge bg="info">{a.staffName}</Badge>
-                                                ) : (
-                                                    <Badge bg="secondary">Chưa phân công</Badge>
-                                                )}
+                                                <div className="fw-semibold">{a.staffName || "Chưa phân công KTV"}</div>
+                                                <small className="text-muted">
+                                                    {a.roomName
+                                                        ? `${a.roomName}${a.bedNumber ? ` · Giường ${a.bedNumber}` : ""}`
+                                                        : "Chưa xếp phòng / giường"}
+                                                </small>
                                             </td>
                                             <td>
-                                                {a.roomName ? (
-                                                    <span>
-                                                        <strong>{a.roomName}</strong>
-                                                        {a.bedNumber ? ` - Giường ${a.bedNumber}` : ""}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-danger small fw-semibold">
-                                                        Chưa xếp phòng/giường
-                                                    </span>
-                                                )}
+                                                <button
+                                                    type="button"
+                                                    className="receptionist-coordination-status-trigger"
+                                                    title="Bấm để cập nhật trạng thái"
+                                                    aria-label="Cập nhật trạng thái lịch hẹn"
+                                                    onClick={() => openStatusModal(a)}
+                                                >
+                                                    {getStatusBadge(a.status)}
+                                                </button>
                                             </td>
-                                            <td>{getStatusBadge(a.status)}</td>
-                                            <td className="text-center">
-                                                <div className="d-flex flex-wrap justify-content-center gap-1">
-                                                    {/* Nút Check-in nhanh */}
+                                            <td>
+                                                <div className="receptionist-coordination-actions">
                                                     {a.status === "Pending" && (
                                                         <Button
                                                             size="sm"
-                                                            variant="outline-success"
+                                                            variant="link"
+                                                            className="manager-list-action manager-list-action--view"
                                                             title="Xác nhận lịch hẹn"
                                                             onClick={() =>
                                                                 handleQuickStatusUpdate(a.appointmentId, "Confirmed")
                                                             }
                                                         >
-                                                            <i className="bi bi-check2-circle me-1"></i>
+                                                            <i className="bi bi-check2-circle"></i>
                                                             Xác nhận
                                                         </Button>
                                                     )}
                                                     {a.status === "Confirmed" && (
-                                                            <>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="success"
-                                                                    title="Check-in khách đến"
-                                                                    onClick={() =>
-                                                                        handleQuickStatusUpdate(
-                                                                            a.appointmentId,
-                                                                            "Checked-in"
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <i className="bi bi-person-check-fill me-1"></i>
-                                                                    Check-in
-                                                                </Button>
-
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="secondary"
-                                                                    title="Đánh dấu khách không đến (No-show)"
-                                                                    onClick={() =>
-                                                                        handleQuickStatusUpdate(a.appointmentId, "No-show")
-                                                                    }
-                                                                >
-                                                                    No-show
-                                                                </Button>
-                                                            </>
-                                                        )}
-
-                                                    {/* Nút Điều phối KTV, Phòng, Giường, Thiết bị */}
+                                                        <Button
+                                                            size="sm"
+                                                            variant="link"
+                                                            className="manager-list-action manager-list-action--view"
+                                                            title="Check-in khách đến"
+                                                            onClick={() =>
+                                                                handleQuickStatusUpdate(
+                                                                    a.appointmentId,
+                                                                    "Checked-in"
+                                                                )
+                                                            }
+                                                        >
+                                                            <i className="bi bi-person-check-fill"></i>
+                                                            Check-in
+                                                        </Button>
+                                                    )}
                                                     {a.status !== "Cancelled" && a.status !== "No-show" && (
                                                         <Button
                                                             size="sm"
-                                                            variant="primary"
+                                                            variant="link"
+                                                            className="manager-list-action manager-list-action--edit"
                                                             onClick={() => openCoordinateModal(a.appointmentId)}
                                                         >
-                                                            <i className="bi bi-sliders me-1"></i>Điều phối
+                                                            <i className="bi bi-sliders"></i> Điều phối
                                                         </Button>
                                                     )}
-
-                                                    {/* Nút Đổi trạng thái chi tiết */}
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline-dark"
-                                                        onClick={() => openStatusModal(a)}
-                                                    >
-                                                        <i className="bi bi-arrow-repeat me-1"></i>Trạng thái
-                                                    </Button>
                                                 </div>
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="8" className="text-center py-4 text-muted">
+                                        <td colSpan="6" className="text-center py-4 text-muted">
                                             Không có lịch hẹn nào phù hợp.
                                         </td>
                                     </tr>

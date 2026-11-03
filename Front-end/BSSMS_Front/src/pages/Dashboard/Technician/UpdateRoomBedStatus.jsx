@@ -13,7 +13,7 @@ import {
     Col,
 } from "react-bootstrap";
 
-const UpdateRoomBedStatus = () => {
+const UpdateRoomBedStatus = ({ user: routeUser }) => {
     const [rooms, setRooms] = useState([]);
     const [beds, setBeds] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -21,10 +21,11 @@ const UpdateRoomBedStatus = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
+    const [updateError, setUpdateError] = useState("");
     const [updatingId, setUpdatingId] = useState(null);
     const [updatingType, setUpdatingType] = useState(null);
 
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const user = routeUser || JSON.parse(localStorage.getItem("user") || "null");
     const canUpdate = ["Manager", "Receptionist", "Technician"].includes(user?.role);
 
     async function fetchData() {
@@ -71,77 +72,57 @@ const UpdateRoomBedStatus = () => {
     }, []);
 
 
-    // Hàm gửi request cập nhật - thử nhiều endpoint patterns
-    const tryUpdate = async (endpoints, body) => {
-        for (const endpoint of endpoints) {
-            console.log(`Thử ${endpoint}...`);
-            try {
-                const response = await fetch(endpoint, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body),
-                });
-                console.log(`${endpoint} => ${response.status}`);
-                
-                if (response.ok) {
-                    return { success: true, response };
-                }
-                
-                // Nếu là lỗi 405 (Method Not Allowed) - bỏ qua endpoint này
-                if (response.status === 405) {
-                    console.log(`Endpoint ${endpoint} không hỗ trợ PUT, thử endpoint khác...`);
-                    continue;
-                }
-                
-                return { success: false, response };
-            } catch (err) {
-                console.error(`Lỗi kết nối ${endpoint}:`, err);
-            }
+    const updateResourceStatus = async (type, id, status) => {
+        const endpoint = `/api/room-bed-status/${type}/${id}`;
+        const response = await fetch(endpoint, {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+        });
+        const responseText = await response.text();
+        let responseData;
+        try {
+            responseData = responseText ? JSON.parse(responseText) : null;
+        } catch {
+            responseData = null;
         }
-        return { success: false, response: null };
+
+        if (!response.ok) {
+            const details = responseData?.message;
+            const message = response.status === 405
+                ? `Backend đang chạy không chấp nhận PUT tại ${endpoint}. ${details || "Vui lòng kiểm tra phiên bản backend và endpoint đang chạy."}`
+                : details || "Máy chủ không cung cấp thông tin chi tiết.";
+            throw new Error(`Cập nhật thất bại (HTTP ${response.status}): ${message}`);
+        }
     };
 
     const handleUpdateRoomStatus = async (room) => {
         if (!canUpdate) return;
 
-        const selectEl = document.getElementById(`room-status-select-${room.roomId}`);
-        const newStatus = selectEl?.value || room.status;
+        const newStatus = document.getElementById(`room-status-select-${room.roomId}`)?.value || room.status;
 
         if (newStatus === room.status) {
-            alert("Vui lòng chọn trạng thái khác trước khi lưu!");
+            setUpdateError("Vui lòng chọn trạng thái khác trước khi lưu.");
             return;
         }
 
         setUpdatingId(room.roomId);
         setUpdatingType("room");
         setSuccessMsg("");
+        setUpdateError("");
 
         try {
-            // Thử nhiều endpoint patterns
-            const endpoints = [
-                `/api/room-bed-status/room/${room.roomId}`,
-                `/api/room-bed-status/room?id=${room.roomId}`,
-                `/api/room-bed-status?type=room&id=${room.roomId}`,
-            ];
-
-            const result = await tryUpdate(endpoints, { status: newStatus });
-
-            if (result.success) {
-                setSuccessMsg(`Cập nhật trạng thái phòng "${room.roomName}" thành công!`);
-                setRooms((prev) =>
-                    prev.map((r) =>
-                        r.roomId === room.roomId ? { ...r, status: newStatus } : r
-                    )
-                );
-                setTimeout(() => setSuccessMsg(""), 3000);
-            } else {
-                const msg = "Cập nhật thất bại! Lỗi 405 = Backend chưa cấu hình @WebServlet(urlPatterns='/api/room-bed-status/*'). "
-                    + "Vui lòng thêm '/*' vào annotation WebServlet.";
-                alert(msg);
-            }
+            await updateResourceStatus("room", room.roomId, newStatus);
+            setSuccessMsg(`Cập nhật trạng thái phòng "${room.roomName}" thành công!`);
+            setRooms((prev) =>
+                prev.map((r) =>
+                    r.roomId === room.roomId ? { ...r, status: newStatus } : r
+                )
+            );
         } catch (err) {
             console.error("Lỗi cập nhật phòng:", err);
-            alert("Lỗi kết nối đến máy chủ!");
+            setUpdateError(err instanceof Error ? err.message : "Không thể kết nối đến máy chủ.");
         } finally {
             setUpdatingId(null);
             setUpdatingType(null);
@@ -151,44 +132,29 @@ const UpdateRoomBedStatus = () => {
     const handleUpdateBedStatus = async (bed) => {
         if (!canUpdate) return;
 
-        const selectEl = document.getElementById(`bed-status-select-${bed.bedId}`);
-        const newStatus = selectEl?.value || bed.status;
+        const newStatus = document.getElementById(`bed-status-select-${bed.bedId}`)?.value || bed.status;
 
         if (newStatus === bed.status) {
-            alert("Vui lòng chọn trạng thái khác trước khi lưu!");
+            setUpdateError("Vui lòng chọn trạng thái khác trước khi lưu.");
             return;
         }
 
         setUpdatingId(bed.bedId);
         setUpdatingType("bed");
         setSuccessMsg("");
+        setUpdateError("");
 
         try {
-            // Thử nhiều endpoint patterns
-            const endpoints = [
-                `/api/room-bed-status/bed/${bed.bedId}`,
-                `/api/room-bed-status/bed?id=${bed.bedId}`,
-                `/api/room-bed-status?type=bed&id=${bed.bedId}`,
-            ];
-
-            const result = await tryUpdate(endpoints, { status: newStatus });
-
-            if (result.success) {
-                setSuccessMsg(`Cập nhật trạng thái giường "${bed.bedNumber}" thành công!`);
-                setBeds((prev) =>
-                    prev.map((b) =>
-                        b.bedId === bed.bedId ? { ...b, status: newStatus } : b
-                    )
-                );
-                setTimeout(() => setSuccessMsg(""), 3000);
-            } else {
-                const msg = "Cập nhật thất bại! Lỗi 405 = Backend chưa cấu hình @WebServlet(urlPatterns='/api/room-bed-status/*'). "
-                    + "Vui lòng thêm '/*' vào annotation WebServlet.";
-                alert(msg);
-            }
+            await updateResourceStatus("bed", bed.bedId, newStatus);
+            setSuccessMsg(`Cập nhật trạng thái giường "${bed.bedNumber}" thành công!`);
+            setBeds((prev) =>
+                prev.map((b) =>
+                    b.bedId === bed.bedId ? { ...b, status: newStatus } : b
+                )
+            );
         } catch (err) {
             console.error("Lỗi cập nhật giường:", err);
-            alert("Lỗi kết nối đến máy chủ!");
+            setUpdateError(err instanceof Error ? err.message : "Không thể kết nối đến máy chủ.");
         } finally {
             setUpdatingId(null);
             setUpdatingType(null);
@@ -250,6 +216,7 @@ const UpdateRoomBedStatus = () => {
 
             {successMsg && <Alert variant="success">{successMsg}</Alert>}
             {loadError && <Alert variant="danger">{loadError}</Alert>}
+            {updateError && <Alert variant="danger" role="alert">{updateError}</Alert>}
 
             {/* Bộ lọc */}
             <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "12px" }}>

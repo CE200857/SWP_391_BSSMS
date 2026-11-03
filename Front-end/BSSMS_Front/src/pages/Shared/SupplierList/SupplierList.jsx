@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useManagerSearchFilter } from '../../../components/ManagerSearchFilter';
 
 const SUPPLIER_API_URL = '/api/suppliers';
 const PRODUCT_API_URL = '/api/products';
@@ -6,7 +7,6 @@ const PRODUCT_API_URL = '/api/products';
 export default function SupplierList() {
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Modal Chi tiết Nhà cung cấp
@@ -166,17 +166,16 @@ export default function SupplierList() {
     }
   };
 
-  const filteredSuppliers = suppliers.filter((s) => {
-    const name = s.supplier_name || s.supplierName || s.name || '';
-    const phone = s.phone || '';
-    const email = s.email || '';
-    const term = searchTerm.toLowerCase();
-    return (
-      name.toLowerCase().includes(term) ||
-      phone.toLowerCase().includes(term) ||
-      email.toLowerCase().includes(term)
-    );
-  });
+  const { filteredRows: filteredSuppliers, toolbar } = useManagerSearchFilter(
+    suppliers,
+    [
+      { key: 'supplier_name', label: 'Nhà cung cấp', getValue: (supplier) => supplier.supplier_name || supplier.supplierName || supplier.name },
+      { key: 'phone', label: 'Số điện thoại', filterable: false },
+      { key: 'email', label: 'Email', filterable: false },
+      { key: 'status', label: 'Trạng thái', formatValue: (value) => value === 'Active' ? 'Đang hoạt động' : 'Không hoạt động' },
+    ],
+    'Tìm theo tên, số điện thoại hoặc email...',
+  );
 
   return (
     <div className="container-fluid py-4">
@@ -192,31 +191,17 @@ export default function SupplierList() {
         </button>
       </div>
 
-      {/* Ô tìm kiếm */}
-      <div className="row mb-4">
-        <div className="col-md-4">
-          <input
-            type="text"
-            className="form-control shadow-sm"
-            placeholder="Tìm kiếm theo tên, SĐT, email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
+      <div className="manager-list-toolbar mb-4">{toolbar}</div>
 
       {/* Bảng danh sách nhà cung cấp */}
       <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
         <div className="card-body p-0">
           <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0">
+            <table className="table table-hover align-middle mb-0 manager-list-table">
               <thead style={{ backgroundColor: '#800020', color: '#ffffff' }}>
                 <tr>
-                  <th className="ps-3 py-3">ID</th>
                   <th className="py-3">Tên nhà cung cấp</th>
                   <th className="py-3">Số điện thoại</th>
-                  <th className="py-3">Email</th>
-                  <th className="py-3">Địa chỉ</th>
                   <th className="py-3">Trạng thái</th>
                   <th className="text-center pe-3 py-3">Thao tác</th>
                 </tr>
@@ -224,7 +209,7 @@ export default function SupplierList() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-4 text-muted">
+                    <td colSpan="4" className="text-center py-4 text-muted">
                       Đang tải dữ liệu nhà cung cấp...
                     </td>
                   </tr>
@@ -234,42 +219,44 @@ export default function SupplierList() {
                     const name = s.supplier_name || s.supplierName || s.name;
                     return (
                       <tr key={id}>
-                        <td className="ps-3 font-monospace">#{id}</td>
-                        <td className="fw-bold text-dark">{name}</td>
+                        <td className="fw-bold text-dark">
+                          {name}
+                          <div className="small text-muted">#{id}</div>
+                        </td>
                         <td>{s.phone || 'Chưa cập nhật'}</td>
-                        <td>{s.email || 'Chưa cập nhật'}</td>
-                        <td>{s.address || 'Chưa cập nhật'}</td>
                         <td>
                           <span className={`badge ${s.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>
                             {s.status || 'Active'}
                           </span>
                         </td>
                         <td className="text-center pe-3">
+                          <div className="manager-list-actions">
                           <button
-                            className="btn btn-sm btn-outline-info me-2"
+                            className="manager-list-action manager-list-action--view"
                             onClick={() => setSelectedSupplier(s)}
                           >
-                            Xem
+                            <i className="bi bi-eye-fill" aria-hidden="true" /> Xem
                           </button>
                           <button
-                            className="btn btn-sm btn-outline-warning me-2"
+                            className="manager-list-action manager-list-action--edit"
                             onClick={() => handleOpenEdit(s)}
                           >
-                            Sửa
+                            <i className="bi bi-pencil-square" aria-hidden="true" /> Sửa
                           </button>
                           <button
-                            className="btn btn-sm btn-outline-danger"
+                            className="manager-list-action manager-list-action--delete"
                             onClick={() => handleDelete(id)}
                           >
-                            Xóa
+                            <i className="bi bi-trash" aria-hidden="true" /> Xóa
                           </button>
+                          </div>
                         </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan="7" className="text-center text-muted py-4">
+                    <td colSpan="4" className="text-center text-muted py-4">
                       Chưa có dữ liệu nhà cung cấp
                     </td>
                   </tr>

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Container, Card, Form, Button, Alert, Modal } from "react-bootstrap";
 import axios from "axios";
+import { Row, Col } from "react-bootstrap";
+import "./StaffAdmin.css";
 
 const CreateStaff = () => {
   const navigate = useNavigate();
@@ -109,85 +111,101 @@ const CreateStaff = () => {
   };
 
   return (
-    <Container fluid className="mt-4 px-4 d-flex justify-content-center">
-      <Card
-        className="shadow-sm border-0 w-50"
-        style={{ borderRadius: "15px" }}
-      >
-        <Card.Body className="p-5">
-          <h3 className="mb-4 fw-bold text-center text-uppercase">
-            Tạo tài khoản nhân sự
-          </h3>
+    <Container fluid className="staff-admin mt-4 px-3 px-lg-4">
+      <div className="staff-page-heading">
+        <div>
+          <h2>Tạo tài khoản nhân sự</h2>
+          <p>Điền thông tin để tạo hồ sơ và tài khoản đăng nhập cho nhân viên mới.</p>
+        </div>
+      </div>
 
-          {error && <Alert variant="danger">{error}</Alert>}
+      <Card className="staff-form-card">
+        <Card.Header className="staff-form-card-header">
+          <h3><i className="bi bi-person-plus me-2" aria-hidden="true"></i>Thông tin nhân sự</h3>
+          <p>Các trường có dấu (*) là bắt buộc. Tài khoản ban đầu sẽ được tạo tự động.</p>
+        </Card.Header>
+        <Card.Body className="staff-form-card-body">
+          {error && <Alert variant="danger" role="alert">{error}</Alert>}
 
           <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Họ và tên (*)</Form.Label>
-              <Form.Control
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder="Nhập họ và tên nhân viên"
-                required
-              />
-            </Form.Group>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Họ và tên <span className="text-danger">*</span></Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    placeholder="Ví dụ: Nguyễn Thị Lan"
+                    autoComplete="name"
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Email <span className="text-danger">*</span></Form.Label>
+                  <Form.Control
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="name@example.com"
+                    autoComplete="email"
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Số điện thoại <span className="text-danger">*</span></Form.Label>
+                  <Form.Control
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="Nhập số điện thoại 10 số"
+                    autoComplete="tel"
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Chức vụ <span className="text-danger">*</span></Form.Label>
+                  <Form.Select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                  >
+                    <option value="Receptionist">Lễ tân (Receptionist)</option>
+                    <option value="Technician">Kỹ thuật viên (Technician)</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Mức lương (VNĐ) <span className="text-danger">*</span></Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="salary"
+                    value={formData.salary}
+                    onChange={handleChange}
+                    placeholder="Nhập mức lương"
+                    required
+                    min="0"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Email (*)</Form.Label>
-              <Form.Control
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Nhập địa chỉ email hợp lệ"
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Số điện thoại (*)</Form.Label>
-              <Form.Control
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Nhập số điện thoại 10 số"
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-4">
-              <Form.Label className="fw-bold">Chức vụ (*)</Form.Label>
-              <Form.Select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-              >
-                <option value="Receptionist">Lễ tân (Receptionist)</option>
-                <option value="Technician">Kỹ thuật viên (Technician)</option>
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-4">
-              <Form.Label className="fw-bold">Mức lương (VNĐ) (*)</Form.Label>
-              <Form.Control
-                type="number"
-                name="salary"
-                value={formData.salary}
-                onChange={handleChange}
-                placeholder="Nhập mức lương"
-                required
-                min="0"
-              />
-            </Form.Group>
-
-            <div className="d-flex justify-content-end gap-2 mt-4">
-              <Button variant="secondary" onClick={() => navigate("/staffs")}>
-                Quay lại
+            <div className="staff-form-footer">
+              <Button variant="outline-secondary" onClick={() => navigate("/staffs")}>
+                <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Quay lại
               </Button>
-              <Button variant="danger" type="submit" disabled={isLoading}>
+              <Button variant="primary" type="submit" disabled={isLoading}>
+                <i className="bi bi-person-check me-1" aria-hidden="true"></i>
                 {isLoading ? "Đang tạo..." : "Xác nhận tạo"}
               </Button>
             </div>

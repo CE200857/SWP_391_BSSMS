@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Container, Card, Table, Button, Form, InputGroup, Modal, Col } from 'react-bootstrap';
+import { Container, Card, Table, Button, Form, Modal, Col } from 'react-bootstrap';
 import axios from 'axios';
+import { useManagerSearchFilter } from '../../../../components/ManagerSearchFilter';
 
 const TreatmentPackageList = () => {
     const [packages, setPackages] = useState([]);
     const [services, setServices] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
     const [refresh, setRefresh] = useState(0);
     const storedUser = localStorage.getItem('user');
     const user = storedUser ? JSON.parse(storedUser) : null;
@@ -87,8 +87,14 @@ const TreatmentPackageList = () => {
         return s ? s.serviceName : `Dịch vụ #${id}`;
     };
 
-    const filteredPackages = packages.filter(p =>
-        p.packageName?.toLowerCase().includes(searchTerm.toLowerCase())
+    const { filteredRows: filteredPackages, toolbar } = useManagerSearchFilter(
+        packages,
+        [
+            { key: 'packageName', label: 'Tên gói', filterable: false },
+            { key: 'serviceId', label: 'Dịch vụ', getValue: (pkg) => getServiceName(pkg.serviceId) },
+            { key: 'numberOfSessions', label: 'Số buổi', filterable: false },
+        ],
+        'Tìm theo tên gói hoặc dịch vụ...'
     );
 
     return (
@@ -104,23 +110,15 @@ const TreatmentPackageList = () => {
 
             <Card className="shadow-sm border-0 mb-4">
                 <Card.Body>
-                    <InputGroup style={{ maxWidth: '400px' }}>
-                        <InputGroup.Text><i className="bi bi-search"></i></InputGroup.Text>
-                        <Form.Control
-                            placeholder="Tìm kiếm theo tên gói..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </InputGroup>
+                    <div className="manager-list-toolbar">{toolbar}</div>
                 </Card.Body>
             </Card>
 
             <Card className="shadow-sm border-0">
                 <Card.Body className="p-0">
-                    <Table striped bordered hover responsive className="align-middle mb-0">
+                    <Table hover responsive className="align-middle mb-0 manager-list-table">
                         <thead className="table-dark">
                             <tr>
-                                <th>ID</th>
                                 <th>Tên gói</th>
                                 <th>Thuộc dịch vụ</th>
                                 <th>Số buổi</th>
@@ -132,10 +130,12 @@ const TreatmentPackageList = () => {
                         <tbody>
                             {filteredPackages.length > 0 ? filteredPackages.map((p) => (
                                 <tr key={p.treatmentPackageId}>
-                                    <td className="fw-bold">{p.treatmentPackageId}</td>
-                                    <td className="text-primary fw-bold">{p.packageName}</td>
+                                    <td className="text-primary fw-bold">
+                                        {p.packageName}
+                                        <small className="d-block text-muted">#{p.treatmentPackageId}</small>
+                                    </td>
                                     <td>
-                                        <span className="badge bg-info text-dark">
+                                        <span className="badge bg-info">
                                             {getServiceName(p.serviceId)}
                                         </span>
                                     </td>
@@ -147,19 +147,20 @@ const TreatmentPackageList = () => {
                                     {/* Chỉ render các nút Sửa/Xóa nếu là Manager */}
                                     {isManager && (
                                         <td className="text-center">
-                                            <Button variant="warning" size="sm" className="treatment-package-action-btn treatment-package-action-btn--edit me-2" onClick={() => handleOpenEdit(p)}>
+                                            <div className="manager-list-actions">
+                                            <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => handleOpenEdit(p)}>
                                                 <i className="bi bi-pencil-square"></i> Sửa
                                             </Button>
-                                            <Button variant="danger" size="sm" className="treatment-package-action-btn" onClick={() => handleDelete(p.treatmentPackageId)}>
+                                            <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => handleDelete(p.treatmentPackageId)}>
                                                 <i className="bi bi-trash"></i> Xóa
                                             </Button>
+                                            </div>
                                         </td>
                                     )}
                                 </tr>
                             )) : (
                                 <tr>
-                                    {/* Tự động chỉnh colSpan: Manager là 6 cột, người khác là 5 cột */}
-                                    <td colSpan={isManager ? "6" : "5"} className="text-center py-4 text-muted">
+                                    <td colSpan={isManager ? "5" : "4"} className="text-center py-4 text-muted">
                                         Chưa có gói liệu trình nào.
                                     </td>
                                 </tr>

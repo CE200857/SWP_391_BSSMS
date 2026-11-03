@@ -1,0 +1,236 @@
+.app-dashboard {
+  --crud-font: var(--app-font-sans, "Be Vietnam Pro", "Segoe UI", Arial, sans-serif);
+  --crud-ink: var(--ui-ink, #302b30);
+  --crud-muted: var(--ui-muted, #6b6269);
+  --crud-line: var(--ui-line, #e7e1e4);
+  --crud-accent: var(--ui-accent, #a92760);
+  --crud-accent-hover: var(--ui-accent-hover, #861e4b);
+}
+
+.app-dashboard .app-route-content {
+  font-family: var(--crud-font);
+  color: var(--crud-ink);
+}
+
+.app-dashboard .app-route-content :is(.manager-page-title, .ui-page-heading h1),
+.app-dashboard .app-route-content > :is(.container, .container-fluid) > :is(h1, h2) {
+  padding-left: 12px;
+  border-left: 4px solid var(--crud-accent);
+  color: var(--crud-ink);
+  font-family: var(--crud-font);
+  font-size: clamp(1.35rem, 2.2vw, 1.65rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  text-transform: none;
+}
+
+.app-dashboard .app-route-content .ui-page-heading h1 {
+  margin: 0;
+}
+
+.app-dashboard .app-route-content .ui-page-heading p {
+  margin: 6px 0 0;
+  color: var(--crud-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.app-dashboard .app-route-content :is(.form-label, .form-check-label, form label) {
+  color: #51454e;
+  font-family: var(--crud-font);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.app-dashboard .app-route-content :is(.form-control, .form-select) {
+  min-height: 44px;
+  border-color: var(--crud-line);
+  border-radius: 9px;
+  color: var(--crud-ink);
+  font-family: var(--crud-font);
+  font-size: 0.9rem;
+}
+
+.app-dashboard .app-route-content textarea.form-control {
+  min-height: 100px;
+}
+
+.app-dashboard .app-route-content :is(.form-control, .form-select):focus {
+  border-color: #ce8ba7;
+  box-shadow: 0 0 0 3px rgb(206 139 167 / 16%);
+}
+
+.app-dashboard .app-route-content :is(.form-control, .form-select):disabled,
+.app-dashboard .app-route-content .form-control[readonly] {
+  background-color: #f8f6f7;
+  color: var(--crud-muted);
+}
+
+.app-dashboard .app-route-content .form-text,
+.app-dashboard .app-route-content .form-check + .form-text {
+  color: var(--crud-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.app-dashboard .app-route-content .btn:not(.manager-list-action) {
+  min-height: 38px;
+  border-radius: 9px;
+  font-family: var(--crud-font);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.app-dashboard .app-route-content .btn.manager-list-action {
+  min-height: 44px;
+  padding: 8px 15px;
+  border-radius: 12px;
+  font-family: var(--crud-font);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.app-dashboard .app-route-content .customer-admin-list th:last-child {
+  width: 30%;
+  text-align: center;
+}
+
+.app-dashboard .app-route-content .customer-admin-actions {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.app-dashboard .app-route-content .customer-admin-actions .manager-list-action {
+  min-width: 76px;
+}
+
+.app-dashboard .app-route-content .customer-admin-actions .manager-list-action--edit {
+  min-width: 88px;
+}
+
+.app-dashboard .app-route-content .btn-primary {
+  --bs-btn-bg: var(--crud-accent);
+  --bs-btn-border-color: var(--crud-accent);
+  --bs-btn-hover-bg: var(--crud-accent-hover);
+  --bs-btn-hover-border-color: var(--crud-accent-hover);
+  --bs-btn-active-bg: var(--crud-accent-hover);
+  --bs-btn-active-border-color: var(--crud-accent-hover);
+}
+
+.app-dashboard .app-route-content .card {
+  border: 1px solid var(--crud-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.app-dashboard .app-route-content .card:has(form) {
+  border-top: 3px solid var(--crud-accent);
+  box-shadow: 0 8px 22px rgb(54 28 42 / 5%);
+}
+
+.app-dashboard .app-route-content .card:has(form) > .card-body {
+  padding: clamp(18px, 2.5vw, 28px);
+}
+
+.app-dashboard .app-route-content form > .form-group,
+.app-dashboard .app-route-content form > .mb-3,
+.app-dashboard .app-route-content form > .mb-4 {
+  margin-bottom: 18px !important;
+}
+
+.app-dashboard .app-route-content .card-header {
+  border-bottom-color: var(--crud-line);
+  background: #fff;
+  color: var(--crud-ink);
+  font-weight: 650;
+}
+
+.app-dashboard .app-route-content .table {
+  font-family: var(--crud-font);
+  font-size: 0.875rem;
+}
+
+.app-dashboard .app-route-content .table thead th {
+  padding: 12px;
+  color: var(--crud-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.app-dashboard .app-route-content .table tbody td {
+  padding: 12px;
+}
+
+.app-dashboard .app-route-content .alert {
+  border-radius: 10px;
+  font-family: var(--crud-font);
+  font-size: 0.875rem;
+}
+
+.modal .modal-content {
+  overflow: hidden;
+  border: 1px solid var(--crud-line, #e7e1e4);
+  border-radius: 14px;
+  font-family: var(--app-font-sans, "Be Vietnam Pro", "Segoe UI", Arial, sans-serif);
+}
+
+.modal .modal-content:has(form) {
+  border-top: 3px solid var(--crud-accent, #a92760);
+}
+
+.modal .modal-header {
+  border-bottom-color: var(--crud-line, #e7e1e4);
+}
+
+.modal .modal-title {
+  color: var(--crud-ink, #302b30);
+  font-family: var(--app-font-sans, "Be Vietnam Pro", "Segoe UI", Arial, sans-serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.modal .modal-body {
+  font-family: var(--app-font-sans, "Be Vietnam Pro", "Segoe UI", Arial, sans-serif);
+  font-size: 0.9rem;
+}
+
+.modal .form-label {
+  color: #51454e;
+  font-family: var(--app-font-sans, "Be Vietnam Pro", "Segoe UI", Arial, sans-serif);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.modal :is(.form-control, .form-select) {
+  min-height: 44px;
+  border-color: var(--crud-line, #e7e1e4);
+  border-radius: 9px;
+  font-family: var(--app-font-sans, "Be Vietnam Pro", "Segoe UI", Arial, sans-serif);
+  font-size: 0.9rem;
+}
+
+.modal textarea.form-control {
+  min-height: 100px;
+}
+
+.modal .modal-footer .btn {
+  min-height: 38px;
+  border-radius: 9px;
+  font-family: var(--app-font-sans, "Be Vietnam Pro", "Segoe UI", Arial, sans-serif);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .app-dashboard .app-route-content :is(.form-control, .form-select) {
+    font-size: 16px;
+  }
+
+  .app-dashboard .app-route-content .table thead th,
+  .app-dashboard .app-route-content .table tbody td {
+    padding: 10px 8px;
+  }
+}

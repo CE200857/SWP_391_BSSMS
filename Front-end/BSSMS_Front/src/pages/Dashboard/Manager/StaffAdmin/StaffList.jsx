@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import {
   Container,
   Table,
-  Form,
-  InputGroup,
   Button,
   Modal,
   Dropdown,
@@ -11,10 +9,17 @@ import {
 } from "react-bootstrap";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
+import "./StaffAdmin.css";
+
+const roleLabels = {
+  Manager: "Quản lý",
+  Receptionist: "Lễ tân",
+  Technician: "Kỹ thuật viên",
+};
 
 const StaffList = ({ user }) => {
   const [staffs, setStaffs] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
 
   const [showModal, setShowModal] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
@@ -40,6 +45,8 @@ const StaffList = ({ user }) => {
   const navigate = useNavigate();
 
   const currentUserAccountId = user?.account_id || user?.accountId;
+  const activeStaffCount = staffs.filter((staff) => staff.status === "Active").length;
+  const inactiveStaffCount = staffs.length - activeStaffCount;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -179,18 +186,64 @@ const StaffList = ({ user }) => {
     }
   };
 
-  const filteredStaffs = staffs.filter(
-    (s) =>
-      s.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.phone?.includes(searchTerm) ||
-      s.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.position?.toLowerCase().includes(searchTerm.toLowerCase())
+  const { filteredRows: filteredStaffs, toolbar } = useManagerSearchFilter(
+    staffs,
+    [
+      { key: "fullName", label: "Nhân viên", filterable: false },
+      { key: "username", label: "Tên đăng nhập", filterable: false },
+      { key: "phone", label: "Số điện thoại", filterable: false },
+      { key: "email", label: "Email", filterable: false },
+      { key: "position", label: "Chức vụ", formatValue: (value) => ({
+        Manager: "Quản lý",
+        Receptionist: "Lễ tân",
+        Technician: "Kỹ thuật viên",
+      }[value] || value) },
+      { key: "status", label: "Trạng thái", formatValue: (value) => value === "Active" ? "Đang hoạt động" : "Không hoạt động" },
+    ],
+    "Tìm theo tên, username, email, số điện thoại...",
   );
 
   return (
-    <Container className="mt-4">
-      <h2 className="manager-page-title mb-4 fw-bold">Danh sách nhân viên</h2>
+    <Container fluid className="staff-admin staff-list-page mt-4 px-3 px-lg-4">
+      <div className="staff-page-heading">
+        <div>
+          <h2>Danh sách nhân viên</h2>
+          <p>Quản lý hồ sơ, chức vụ và trạng thái hoạt động của nhân sự.</p>
+        </div>
+        {user?.role === "Manager" && (
+          <Button
+            variant="primary"
+            onClick={() => navigate("/manager/create-staff")}
+          >
+            <i className="bi bi-person-plus-fill" aria-hidden="true"></i>
+            Thêm nhân viên
+          </Button>
+        )}
+      </div>
+
+      <div className="staff-summary-grid" aria-label="Thống kê nhân sự">
+        <div className="staff-summary-card">
+          <span className="staff-summary-icon"><i className="bi bi-people-fill" aria-hidden="true"></i></span>
+          <div>
+            <div className="staff-summary-value">{staffs.length}</div>
+            <div className="staff-summary-label">Tổng nhân sự</div>
+          </div>
+        </div>
+        <div className="staff-summary-card">
+          <span className="staff-summary-icon"><i className="bi bi-person-check-fill" aria-hidden="true"></i></span>
+          <div>
+            <div className="staff-summary-value">{activeStaffCount}</div>
+            <div className="staff-summary-label">Đang hoạt động</div>
+          </div>
+        </div>
+        <div className="staff-summary-card">
+          <span className="staff-summary-icon"><i className="bi bi-person-dash-fill" aria-hidden="true"></i></span>
+          <div>
+            <div className="staff-summary-value">{inactiveStaffCount}</div>
+            <div className="staff-summary-label">Không hoạt động</div>
+          </div>
+        </div>
+      </div>
 
       {message && (
         <div className="alert alert-success py-2 mb-3" role="alert">
@@ -198,39 +251,15 @@ const StaffList = ({ user }) => {
         </div>
       )}
 
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <InputGroup
-          className="mb-3 w-50"
-          style={{ marginBottom: "0 !important" }}
-        >
-          <InputGroup.Text>
-            <i className="bi bi-search"></i>
-          </InputGroup.Text>
-          <Form.Control
-            placeholder="Tìm theo tên, username, email, số điện thoại..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </InputGroup>
-
-        {user?.role === "Manager" && (
-          <Button
-            variant="danger"
-            onClick={() => navigate("/manager/create-staff")}
-          >
-            <i className="bi bi-person-plus-fill me-1"></i> Thêm nhân viên
-          </Button>
-        )}
+      <div className="staff-list-toolbar-row">
+        <div className="manager-list-toolbar">{toolbar}</div>
       </div>
 
-      <Table striped bordered hover responsive className="align-middle">
-        <thead className="table-dark">
+      <div className="staff-list-surface">
+        <Table hover responsive className="align-middle manager-list-table staff-list-table">
+        <thead>
           <tr>
-            <th>Staff ID</th>
-            <th>Username</th>
             <th>Họ và Tên</th>
-            <th>Email</th>
-            <th>Số điện thoại</th>
             <th>Chức vụ</th>
             <th>Trạng thái</th>
             <th>Hành động</th>
@@ -241,57 +270,44 @@ const StaffList = ({ user }) => {
           {filteredStaffs.length > 0 ? (
             filteredStaffs.map((s) => (
               <tr key={s.staffId}>
-                <td>{s.staffId}</td>
-                <td>{s.username}</td>
-                <td>{s.fullName}</td>
-                <td>{s.email}</td>
-                <td>{s.phone}</td>
+                <td>
+                  <div className="staff-list-name">{s.fullName}</div>
+                  <div className="staff-list-id">Mã nhân viên #{s.staffId}</div>
+                </td>
                 <td>
                   {user?.role === "Manager" ? (
-                    <Dropdown>
+                    <Dropdown className="staff-list-role">
                       <Dropdown.Toggle
-                        variant={
-                          s.position === "Manager"
-                            ? "dark"
-                            : s.position === "Technician"
-                              ? "info"
-                              : "secondary"
-                        }
-                        size="sm"
-                        className="w-100 text-start d-flex justify-content-between align-items-center"
+                        variant="light"
                         disabled={
                           s.status !== "Active" ||
                           s.accountId === currentUserAccountId
                         }
                       >
-                        {s.position}
+                        {roleLabels[s.position] || s.position}
                       </Dropdown.Toggle>
-                      <Dropdown.Menu
-                        renderOnMount={true}
-                        style={{ position: "absolute", zIndex: 1050 }}
-                      >
+                      <Dropdown.Menu renderOnMount>
                         {availableRoles.map((role) => (
                           <Dropdown.Item
                             key={role}
                             active={s.position === role}
                             onClick={() => handleShowRoleModal(s, role)}
                           >
-                            {role}
+                            {roleLabels[role] || role}
                           </Dropdown.Item>
                         ))}
                       </Dropdown.Menu>
                     </Dropdown>
                   ) : (
-                    <span className="fw-bold text-secondary">{s.position}</span>
+                    <span className="fw-semibold">{roleLabels[s.position] || s.position}</span>
                   )}
                 </td>
 
                 <td className="text-center">
                   {user?.role === "Manager" ? (
                     <Button
-                      variant={s.status === "Active" ? "success" : "secondary"}
-                      size="sm"
-                      className="w-100 fw-bold"
+                      variant="link"
+                      className={`staff-status-toggle${s.status !== "Active" ? " is-inactive" : ""}`}
                       onClick={() => handleShowStatusModal(s)}
                       disabled={
                         s.position === "Manager" ||
@@ -300,11 +316,11 @@ const StaffList = ({ user }) => {
                       title="Bấm để đổi trạng thái"
                     >
                       {s.status === "Active"
-                        ? "Đang hoạt động"
-                        : "Không hoạt động"}
+                        ? <><i className="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Đang hoạt động</>
+                        : <><i className="bi bi-pause-circle-fill me-1" aria-hidden="true"></i>Không hoạt động</>}
                     </Button>
                   ) : (
-                    <Badge bg={s.status === "Active" ? "success" : "secondary"}>
+                    <Badge className={`staff-status-badge${s.status !== "Active" ? " is-inactive" : ""}`}>
                       {s.status === "Active"
                         ? "Đang hoạt động"
                         : "Không hoạt động"}
@@ -312,50 +328,54 @@ const StaffList = ({ user }) => {
                   )}
                 </td>
 
-                <td>
-                  <Button
-                    variant="info"
-                    size="sm"
-                    className="me-2 text-white"
-                    onClick={() => navigate(`/staffs/detail/${s.staffId}`)}
-                    disabled={s.accountId === currentUserAccountId}
-                  >
-                    <i className="bi bi-eye"></i> Xem
-                  </Button>
+                <td className="text-center">
+                  <div className="manager-list-actions staff-list-actions">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="manager-list-action manager-list-action--view"
+                      onClick={() => navigate(`/staffs/detail/${s.staffId}`)}
+                      disabled={s.accountId === currentUserAccountId}
+                    >
+                      <i className="bi bi-eye" aria-hidden="true"></i> Xem
+                    </Button>
 
-                  <Button
-                    variant="info"
-                    size="sm"
-                    className="me-2 text-white"
-                    onClick={() => navigate(`/staffs/edit/${s.staffId}`)}
-                    disabled={s.accountId === currentUserAccountId}
-                  >
-                    <i className="bi bi-pencil-square"></i> Chỉnh sửa
-                  </Button>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="manager-list-action manager-list-action--edit"
+                      onClick={() => navigate(`/staffs/edit/${s.staffId}`)}
+                      disabled={s.accountId === currentUserAccountId}
+                    >
+                      <i className="bi bi-pencil-square" aria-hidden="true"></i> Sửa
+                    </Button>
 
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => handleShowModal(s)}
-                    disabled={
-                      s.position === "Manager" ||
-                      s.accountId === currentUserAccountId
-                    }
-                  >
-                    <i className="bi bi-trash"></i> Xóa
-                  </Button>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="manager-list-action manager-list-action--delete"
+                      onClick={() => handleShowModal(s)}
+                      disabled={
+                        s.position === "Manager" ||
+                        s.accountId === currentUserAccountId
+                      }
+                    >
+                      <i className="bi bi-trash" aria-hidden="true"></i> Xóa
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="8" className="text-center text-muted">
+              <td colSpan="4" className="staff-empty-state">
                 Không tìm thấy nhân viên nào.
               </td>
             </tr>
           )}
         </tbody>
-      </Table>
+        </Table>
+      </div>
 
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>

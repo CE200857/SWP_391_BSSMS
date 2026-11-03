@@ -1,6 +1,6 @@
 import OperationsWorkspace from "../pages/Dashboard/Manager/OperationsWorkspace";
 import PurchaseOrders from "../pages/Dashboard/Manager/PurchaseOrders";
-import FeedbackModeration from "../pages/Dashboard/Manager/FeedbackModeration";
+import ManagerFeedbackWorkspace from "../pages/Dashboard/Manager/ManagerFeedbackWorkspace";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import Header from "../components/Header";
@@ -59,7 +59,6 @@ import MembershipBenefits from "../pages/Shared/Membership/MembershipBenefits";
 import MembershipManagementPage from "../pages/Dashboard/Manager/MembershipAdmin/MembershipManagementPage";
 
 // Nhóm 5 chức năng mới (Iteration 2)
-import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
 import UpdateServiceStatus from "../pages/Dashboard/Manager/UpdateServiceStatus";
 import UpdateRoomBedStatus from "../pages/Dashboard/Technician/UpdateRoomBedStatus";
 import RecordTreatmentOutcome from "../pages/Dashboard/Technician/RecordTreatmentOutcome";
@@ -72,7 +71,6 @@ import ReceptionistBookingDesk from "../pages/Dashboard/Receptionist/Receptionis
 
 // Nhóm chức năng mới (Voucher, Birthday Promotion & Treatment Profile - Hien LNM)
 import VoucherList from "../pages/Dashboard/Manager/VoucherManagement/VoucherList";
-import BirthdayPromotion from "../pages/Dashboard/Manager/BirthdayPromotion/BirthdayPromotion";
 import CustomerTreatmentProfile from "../pages/Dashboard/Manager/CustomerTreatmentProfile/CustomerTreatmentProfile";
 
 // Nhóm chức năng Billing & Commission (Iteration 4 - Khanh LTQ)
@@ -264,7 +262,7 @@ export default function AppRoutes({ user, setUser }) {
           path="/manager/feedback-moderation"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <FeedbackModeration />
+              <ManagerFeedbackWorkspace user={user} />
             </ProtectedRoute>
           }
         />
@@ -536,7 +534,9 @@ export default function AppRoutes({ user, setUser }) {
               user={user}
               allowedRoles={["Customer", "Receptionist", "Manager"]}
             >
-              <PublicFeedbackList />
+              {user?.role === "Manager"
+                ? <ManagerFeedbackWorkspace user={user} />
+                : <PublicFeedbackList user={user} />}
             </ProtectedRoute>
           }
         />
@@ -606,7 +606,7 @@ export default function AppRoutes({ user, setUser }) {
           path="/manager/resources"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <ResourceManagement />
+              <ResourceManagement user={user} />
             </ProtectedRoute>
           }
         />
@@ -687,7 +687,11 @@ export default function AppRoutes({ user, setUser }) {
               user={user}
               allowedRoles={["Customer", "Receptionist", "Manager"]}
             >
-              <MembershipBenefits user={user} />
+              {user?.role === "Manager" ? (
+                <MembershipManagementPage />
+              ) : (
+                <MembershipBenefits user={user} />
+              )}
             </ProtectedRoute>
           }
         />
@@ -735,7 +739,7 @@ export default function AppRoutes({ user, setUser }) {
         />
 
         {/* --- 5 CHỨC NĂNG MỚI (ITERATION 2) --- */}
-        {/* 1. View Treatment Status - Tất cả role */}
+        {/* The old status URL remains an alias to the unified treatment profile */}
         <Route
           path="/treatment-status"
           element={
@@ -748,7 +752,7 @@ export default function AppRoutes({ user, setUser }) {
                 "Manager",
               ]}
             >
-              <TreatmentStatus />
+              <CustomerTreatmentProfile />
             </ProtectedRoute>
           }
         />
@@ -780,7 +784,11 @@ export default function AppRoutes({ user, setUser }) {
               user={user}
               allowedRoles={["Manager", "Receptionist", "Technician"]}
             >
-              <UpdateRoomBedStatus />
+              {user?.role === "Manager" ? (
+                <ResourceManagement user={user} />
+              ) : (
+                <UpdateRoomBedStatus user={user} />
+              )}
             </ProtectedRoute>
           }
         />
@@ -846,14 +854,11 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* 3 & 4. Check-in & Status Update + Coordinate Service: Receptionist & Manager */}
+        {/* Check-in and service coordination are receptionist functions. */}
         <Route
           path="/receptionist/coordination"
           element={
-            <ProtectedRoute
-              user={user}
-              allowedRoles={["Receptionist", "Manager"]}
-            >
+            <ProtectedRoute user={user} allowedRoles={["Receptionist"]}>
               <ReceptionistBookingDesk />
             </ProtectedRoute>
           }
@@ -876,12 +881,12 @@ export default function AppRoutes({ user, setUser }) {
           }
         />
 
-        {/* 2. Birthday Month Promotion Management: Manager */}
+        {/* 2. Legacy birthday promotion route redirects to the consolidated voucher workspace. */}
         <Route
           path="/birthday-promotions"
           element={
             <ProtectedRoute user={user} allowedRoles={["Manager"]}>
-              <BirthdayPromotion />
+              <Navigate to="/vouchers" replace />
             </ProtectedRoute>
           }
         />

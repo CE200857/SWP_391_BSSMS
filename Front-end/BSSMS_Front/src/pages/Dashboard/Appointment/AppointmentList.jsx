@@ -4,12 +4,11 @@ import {
     Container,
     Table,
     Badge,
-    Form,
-    InputGroup,
     Button
 } from "react-bootstrap";
 import treatmentPhoto from "../../../assets/figma/service-card-exact-02.png";
 import massagePhoto from "../../../assets/figma/service-card-exact-03.png";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 
 const AppointmentList = ({ user, setUser }) => {
     const [appointments, setAppointments] = useState([]);
@@ -20,6 +19,19 @@ const AppointmentList = ({ user, setUser }) => {
     const navigate = useNavigate();
 
     const isManagerOrReceptionist = user?.role === "Manager" || user?.role === "Receptionist";
+    const { filteredRows: managerFilteredAppointments, toolbar } = useManagerSearchFilter(
+        appointments,
+        [
+            { key: "appointmentId", label: "Mã lịch hẹn", filterable: false },
+            { key: "customerName", label: "Khách hàng" },
+            { key: "staffName", label: "Nhân viên" },
+            { key: "serviceName", label: "Dịch vụ" },
+            { key: "roomName", label: "Phòng" },
+            { key: "status", label: "Trạng thái" },
+            { key: "appointmentDate", label: "Ngày hẹn", type: "date" },
+        ],
+        "Tìm theo khách hàng, nhân viên, dịch vụ, phòng...",
+    );
 
     const [loading, setLoading] = useState(true);
     const [attempt, setAttempt] = useState(0);
@@ -81,7 +93,7 @@ const AppointmentList = ({ user, setUser }) => {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const filteredAppointments = appointments.filter((appointment) => {
+    const filteredCustomerAppointments = appointments.filter((appointment) => {
         const query = searchTerm.trim().toLowerCase();
         const matchesSearch = !query ||
             appointment.customerName?.toLowerCase().includes(query) ||
@@ -97,6 +109,9 @@ const AppointmentList = ({ user, setUser }) => {
             (timeFilter === "past" && isPast);
         return matchesSearch && matchesStatus && matchesTime;
     });
+    const filteredAppointments = user?.role === "Customer"
+        ? filteredCustomerAppointments
+        : managerFilteredAppointments;
 
     const formatAppointmentDate = (value) => {
         const dateValue = String(value || "").slice(0, 10);
@@ -249,17 +264,7 @@ const AppointmentList = ({ user, setUser }) => {
 
             {/* KHU VỰC TÌM KIẾM & NÚT TẠO LỊCH HẸN NẰM NGANG NHAU */}
             <div className="d-flex justify-content-between align-items-center mb-4">
-                <InputGroup className="w-50 shadow-sm">
-                    <InputGroup.Text className="bg-white">
-                        <i className="bi bi-search text-muted"></i>
-                    </InputGroup.Text>
-                    <Form.Control
-                        placeholder="Tìm theo khách hàng, nhân viên, dịch vụ, phòng..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="border-start-0 ps-0"
-                    />
-                </InputGroup>
+                <div className="manager-list-toolbar">{toolbar}</div>
 
                 {/* CHỈ HIỂN THỊ NÚT NÀY CHO LỄ TÂN VÀ QUẢN LÝ */}
                 {isManagerOrReceptionist && (
@@ -280,16 +285,13 @@ const AppointmentList = ({ user, setUser }) => {
             <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
                 <div className="card-body p-0">
                     <div className="table-responsive">
-                        <Table hover className="align-middle mb-0">
+                        <Table hover className="align-middle mb-0 manager-list-table">
                             <thead style={{ backgroundColor: "#800020", color: "#ffffff" }}>
                                 <tr>
-                                    <th className="ps-3 py-3">Appointment ID</th>
-                                    <th className="py-3">Ngày</th>
-                                    <th className="py-3">Thời gian</th>
+                                    <th className="ps-3 py-3">Mã</th>
+                                    <th className="py-3">Ngày & giờ</th>
                                     <th className="py-3">Khách hàng</th>
                                     <th className="py-3">Dịch vụ</th>
-                                    <th className="py-3">Nhân viên</th>
-                                    <th className="py-3">Phòng</th>
                                     <th className="py-3">Trạng thái</th>
                                     <th className="text-center pe-3 py-3">Hành động</th>
                                 </tr>
@@ -299,33 +301,34 @@ const AppointmentList = ({ user, setUser }) => {
                                 {filteredAppointments.length > 0 ? (
                                     filteredAppointments.map((a) => (
                                         <tr key={a.appointmentId}>
-                                            <td className="ps-3 fw-bold">{a.appointmentId}</td>
-                                            <td className="fw-semibold">{a.appointmentDate}</td>
-                                            <td>{a.startTime} - {a.endTime}</td>
+                                            <td className="ps-3 fw-bold">#{a.appointmentId}</td>
+                                            <td>
+                                                <div className="fw-semibold">{formatAppointmentDate(a.appointmentDate)}</div>
+                                                <small className="text-muted">{a.startTime}–{a.endTime}</small>
+                                            </td>
                                             <td className="fw-bold text-dark">{a.customerName}</td>
                                             <td>{a.serviceName}</td>
-                                            <td>{a.staffName}</td>
-                                            <td>{a.roomName}</td>
                                             <td>{getStatusBadge(a.status)}</td>
                                             <td className="text-center pe-3">
+                                                <div className="manager-list-actions">
                                                 <Button
-                                                    variant="danger"
-                                                    size="sm"
-                                                    className="fw-bold"
-                                                    style={{ backgroundColor: "#800020", border: "none" }}
-                                                    onClick={() =>
-                                                        navigate(`/appointments/${a.appointmentId}`)
-                                                    }
+                                                variant="link"
+                                                size="sm"
+                                                className="manager-list-action manager-list-action--view"
+                                                onClick={() =>
+                                                    navigate(`/appointments/${a.appointmentId}`)
+                                                }
                                                 >
                                                     <i className="bi bi-eye-fill me-1"></i> Xem
                                                 </Button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
                                         <td
-                                            colSpan="9"
+                                            colSpan="6"
                                             className="text-center text-muted py-4"
                                         >
                                             {loading ? "Đang tải lịch hẹn..." : loadError ? "Chưa tải được dữ liệu lịch hẹn." : "Không tìm thấy lịch hẹn nào."}

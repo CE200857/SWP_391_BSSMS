@@ -43,8 +43,7 @@ export const staffNavigation = {
           ["/services", "Danh sách dịch vụ"],
           ["/treatment-packages", "Gói liệu trình"],
           ["/service-history", "Lịch sử dịch vụ"],
-          ["/my-treatment-profile", "Hồ sơ liệu trình"],
-          ["/treatment-status", "Trạng thái điều trị"],
+          ["/my-treatment-profile", "Quản lý liệu trình & trạng thái"],
         ],
       ],
       [
@@ -71,9 +70,8 @@ export const staffNavigation = {
         "clipboard-pulse",
         [
           ["/appointments", "Lịch hẹn được giao"],
-          ["/treatment-status", "Trạng thái điều trị"],
           ["/record-treatment-outcome", "Ghi nhận kết quả"],
-          ["/my-treatment-profile", "Hồ sơ liệu trình"],
+          ["/my-treatment-profile", "Quản lý liệu trình & trạng thái"],
           ["/service-history", "Lịch sử dịch vụ"],
         ],
       ],
@@ -104,7 +102,9 @@ export const staffNavigation = {
 
 export function staffSection(role, pathname) {
   if (role === "Manager") return managerSection(pathname);
-  const path = pathname.startsWith("/treatment-profile/")
+  const path = pathname === "/treatment-status"
+    ? "/my-treatment-profile"
+    : pathname.startsWith("/treatment-profile/")
     ? "/my-treatment-profile"
     : pathname;
   return (staffNavigation[role]?.groups || [])

@@ -39,7 +39,6 @@ export default function ManagerDashboard() {
     <header className="overview-heading"><div><h1>Tổng quan & báo cáo</h1><p>{metrics?.today ? `Ngày ${dayLabel(metrics.today)} (giờ Việt Nam)` : 'Theo dõi hoạt động và dòng tiền của salon'}</p></div>
       <button type="button" onClick={() => setAttempt(n => n + 1)} disabled={loading}><i className="bi bi-arrow-clockwise" /> {loading ? 'Đang tải…' : 'Làm mới'}</button>
     </header>
-    <section className="overview-shortcuts" aria-label="Truy cập nhanh"><Link to="/appointments">Lịch hẹn</Link><Link to="/manager/invoices">Hóa đơn & thanh toán</Link><Link to="/manager/commission/report">Báo cáo hoa hồng</Link><Link to="/manager/resources">Phòng & thiết bị</Link></section>
     {error && <div className="alert alert-danger" role="alert">{error} {metrics && 'Số liệu bên dưới là lần tải thành công trước.'}</div>}
     {loading && !metrics && <p role="status">Đang tải báo cáo...</p>}
     {!loading && !metrics && <p>Chưa tải được dữ liệu. Bấm Làm mới để thử lại.</p>}
@@ -60,7 +59,7 @@ export default function ManagerDashboard() {
           {statuses.length ? <ul className="overview-statuses">{statuses.map(row => <li key={row.status}><span>{statusNames[row.status] || row.status}</span><strong>{amount(row.total)}</strong></li>)}</ul> : <p className="overview-empty">Hôm nay chưa có lịch hẹn.</p>}
           <Link className="overview-link" to="/appointments">Xem danh sách lịch hẹn</Link>
         </section>
-        <section className="overview-panel"><div className="overview-panel-heading"><h2>Lịch hẹn hôm nay</h2><Link to="/receptionist/coordination">Điều phối</Link></div>
+        <section className="overview-panel"><div className="overview-panel-heading"><h2>Lịch hẹn hôm nay</h2><Link to="/appointments">Xem tất cả</Link></div>
           {schedule.length ? <div className="overview-table-wrap"><table><thead><tr><th>Giờ</th><th>Khách hàng / Dịch vụ</th><th>Trạng thái</th><th>Chi tiết</th></tr></thead><tbody>{schedule.map(row => <tr key={row.appointmentId}><td>{String(row.startTime || '').slice(0,5)}–{String(row.endTime || '').slice(0,5)}</td><td><strong>{row.customerName}</strong><small className="overview-service-name">{row.serviceName}</small></td><td><span className="overview-status-label" data-status={row.status}>{statusNames[row.status] || row.status}</span></td><td><Link to={`/appointments/${row.appointmentId}`}>#{row.appointmentId}</Link></td></tr>)}</tbody></table></div> : <p className="overview-empty">Chưa có lịch hẹn cho ngày hôm nay.</p>}
         </section>
         <section className="overview-panel"><h2>Dịch vụ được sử dụng nhiều</h2><p className="overview-note">Top 5 theo số lịch hẹn hoàn thành · Tất cả thời gian.</p>

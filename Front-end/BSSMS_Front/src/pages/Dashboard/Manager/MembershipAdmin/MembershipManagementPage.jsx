@@ -13,6 +13,8 @@ import {
     Table,
 } from "react-bootstrap";
 import axios from "axios";
+import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
+import "../../../Shared/Membership/MembershipBenefits.css";
 
 const API_BASE = "/api/membership-tiers";
 const TRANSFER_API = `${API_BASE}/transfer`;
@@ -46,6 +48,7 @@ const MembershipManagementPage = () => {
 
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingTier, setEditingTier] = useState(null);
+    const [detailTier, setDetailTier] = useState(null);
     const [formData, setFormData] = useState(emptyForm);
     const [formError, setFormError] = useState("");
 
@@ -91,6 +94,16 @@ const MembershipManagementPage = () => {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the view while synchronizing external data for this selection.
         loadTiers();
     }, [loadTiers]);
+
+    const { filteredRows: filteredTiers, toolbar } = useManagerSearchFilter(
+        tiers,
+        [
+            { key: "tierName", label: "Hạng thành viên", filterable: false },
+            { key: "discountPercent", label: "Mức giảm giá" },
+            { key: "minSpending", label: "Chi tiêu tối thiểu" },
+        ],
+        "Tìm theo tên hạng...",
+    );
 
     const handleOpenCreate = () => {
         setEditingTier(null);
@@ -333,10 +346,10 @@ const MembershipManagementPage = () => {
             <div className="membership-management-heading mb-4">
                 <div>
                     <h2 className="fw-bold mb-2">
-                        Quản lý hạng thành viên
+                        Quyền lợi &amp; hạng thành viên
                     </h2>
                     <p className="text-muted mb-0">
-                        Quản lý quyền lợi, điều kiện chi tiêu và phân hạng khách hàng.
+                        Xem quyền lợi từng hạng, điều kiện áp dụng và quản lý phân hạng khách hàng.
                     </p>
                 </div>
 
@@ -436,6 +449,45 @@ const MembershipManagementPage = () => {
                 </Col>
             </Row>
 
+            <section className="membership-benefits-overview mb-4" aria-label="Quyền lợi thành viên">
+                {!isLoading && !pageError && tiers.length === 0 ? (
+                    <Alert variant="info" className="mb-0">
+                        Chưa có hạng thành viên nào để hiển thị quyền lợi.
+                    </Alert>
+                ) : (
+                    <Row className="g-3">
+                        {tiers.map((tier) => (
+                            <Col key={tier.membershipTierId} xs={12} md={6} xl={4}>
+                                <Card className="membership-tier-card h-100">
+                                    <Card.Body className="p-4">
+                                        <div className="customer-membership-tier-title">
+                                            <span className="customer-membership-tier-crown" aria-hidden="true">
+                                                <i className="bi bi-award" />
+                                            </span>
+                                            <h4 className="h5 mb-0">{tier.tierName}</h4>
+                                        </div>
+                                        <div className="customer-membership-tier-discount">
+                                            <strong>{formatPercent(tier.discountPercent)}</strong>
+                                            <span>giảm giá dịch vụ</span>
+                                        </div>
+                                        <div className="customer-membership-tier-benefit">
+                                            <span className="customer-membership-tier-benefit-label">
+                                                <i className="bi bi-check2-circle" aria-hidden="true" />
+                                                Điều kiện và quyền lợi
+                                            </span>
+                                            <p>{tier.description || "Chưa có mô tả quyền lợi."}</p>
+                                            <p className="membership-benefit-min-spending">
+                                                Chi tiêu tối thiểu: {formatCurrency(tier.minSpending)}
+                                            </p>
+                                        </div>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        ))}
+                    </Row>
+                )}
+            </section>
+
             <Card className="membership-table-card border-0 shadow-sm">
                 <Card.Header className="bg-white py-3">
                     <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -457,6 +509,7 @@ const MembershipManagementPage = () => {
                 </Card.Header>
 
                 <Card.Body className="p-0">
+                    <div className="manager-list-toolbar m-3">{toolbar}</div>
                     {isLoading ? (
                         <div className="text-center py-5">
                             <Spinner animation="border" variant="danger" />
@@ -470,26 +523,19 @@ const MembershipManagementPage = () => {
                             Chưa có hạng thành viên nào.
                         </div>
                     ) : (
-                        <Table responsive hover className="align-middle mb-0">
+                        <Table responsive hover className="align-middle mb-0 manager-list-table">
                             <thead className="table-light">
                                 <tr>
-                                    <th className="membership-id-column">ID</th>
                                     <th>Tên hạng</th>
                                     <th>Giảm giá</th>
                                     <th>Chi tiêu tối thiểu</th>
-                                    <th>Mô tả</th>
                                     <th className="text-center">Hành động</th>
                                 </tr>
                             </thead>
 
                             <tbody>
-                                {tiers.map((tier) => (
+                                {filteredTiers.map((tier) => (
                                     <tr key={tier.membershipTierId}>
-                                        <td>
-                                            <Badge bg="secondary">
-                                                {tier.membershipTierId}
-                                            </Badge>
-                                        </td>
                                         <td className="fw-semibold">
                                             {tier.tierName}
                                         </td>
@@ -501,32 +547,37 @@ const MembershipManagementPage = () => {
                                         <td className="text-nowrap">
                                             {formatCurrency(tier.minSpending)}
                                         </td>
-                                        <td className="membership-description-cell">
-                                            {tier.description || (
-                                                <span className="text-muted">
-                                                    Chưa có mô tả
-                                                </span>
-                                            )}
-                                        </td>
                                         <td className="text-center text-nowrap">
+                                            <div className="manager-list-actions">
                                             <Button
-                                                variant="outline-primary"
+                                                variant="link"
                                                 size="sm"
-                                                className="me-2"
+                                                className="manager-list-action manager-list-action--view"
+                                                title="Xem chi tiết"
+                                                onClick={() => setDetailTier(tier)}
+                                            >
+                                                <i className="bi bi-eye-fill"></i> Xem
+                                            </Button>
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                className="manager-list-action manager-list-action--edit"
                                                 title="Chỉnh sửa"
                                                 onClick={() => handleOpenEdit(tier)}
                                             >
-                                                <i className="bi bi-pencil-square"></i>
+                                                <i className="bi bi-pencil-square"></i> Sửa
                                             </Button>
 
                                             <Button
-                                                variant="outline-danger"
+                                                variant="link"
                                                 size="sm"
+                                                className="manager-list-action manager-list-action--delete"
                                                 title="Xóa"
                                                 onClick={() => handleOpenDelete(tier)}
                                             >
-                                                <i className="bi bi-trash"></i>
+                                                <i className="bi bi-trash"></i> Xóa
                                             </Button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -535,6 +586,30 @@ const MembershipManagementPage = () => {
                     )}
                 </Card.Body>
             </Card>
+
+            <Modal
+                show={!!detailTier}
+                onHide={() => setDetailTier(null)}
+                centered
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Chi tiết hạng thành viên</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <dl className="row mb-0">
+                        <dt className="col-sm-5">Mã hạng</dt>
+                        <dd className="col-sm-7">{detailTier?.membershipTierId ?? "—"}</dd>
+                        <dt className="col-sm-5">Tên hạng</dt>
+                        <dd className="col-sm-7">{detailTier?.tierName || "—"}</dd>
+                        <dt className="col-sm-5">Giảm giá</dt>
+                        <dd className="col-sm-7">{detailTier ? formatPercent(detailTier.discountPercent) : "—"}</dd>
+                        <dt className="col-sm-5">Chi tiêu tối thiểu</dt>
+                        <dd className="col-sm-7">{detailTier ? formatCurrency(detailTier.minSpending) : "—"}</dd>
+                        <dt className="col-sm-5">Mô tả</dt>
+                        <dd className="col-sm-7">{detailTier?.description || "Chưa có mô tả"}</dd>
+                    </dl>
+                </Modal.Body>
+            </Modal>
 
             {/* Modal thêm / chỉnh sửa */}
             <Modal

@@ -1,10 +1,16 @@
-/* eslint-disable no-unused-vars */
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Container, Card, Form, Button, Row, Col, Alert, Badge, Modal } from "react-bootstrap";
+import { Container, Card, Form, Button, Row, Col, Alert, Badge, Modal, Spinner } from "react-bootstrap";
 import axios from "axios";
+import "./StaffAdmin.css";
 
-const EditStaffProfile = ({ user }) => {
+const roleLabels = {
+  Manager: "Quản lý",
+  Receptionist: "Lễ tân",
+  Technician: "Kỹ thuật viên",
+};
+
+const EditStaffProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -25,6 +31,7 @@ const EditStaffProfile = ({ user }) => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -53,8 +60,11 @@ const EditStaffProfile = ({ user }) => {
         } else {
           setError("Không tìm thấy thông tin nhân viên này.");
         }
-      } catch (err) {
-        setError("Lỗi kết nối máy chủ!");
+      } catch (fetchError) {
+        console.error("Lỗi tải hồ sơ nhân viên:", fetchError);
+        setError("Không thể tải hồ sơ nhân viên. Vui lòng kiểm tra kết nối và thử lại.");
+      } finally {
+        setIsFetching(false);
       }
     };
     fetchStaffData();
@@ -139,119 +149,142 @@ const EditStaffProfile = ({ user }) => {
   };
 
   return (
-    <Container className="mt-4">
-      <div className="d-flex align-items-center mb-4">
-        <Button variant="link" className="text-decoration-none text-secondary p-0 me-3" onClick={() => navigate("/staffs")}>
-          <i className="bi bi-arrow-left fs-4"></i>
-        </Button>
-        <h2 className="manager-page-title fw-bold m-0">Chỉnh sửa hồ sơ nhân viên</h2>
+    <Container fluid className="staff-admin mt-4 px-3 px-lg-4">
+      <div className="staff-page-heading">
+        <div>
+          <h2>Chỉnh sửa hồ sơ nhân viên</h2>
+          <p>Cập nhật thông tin tài khoản và công việc của nhân sự.</p>
+        </div>
       </div>
 
-      {message && <Alert variant="success"><i className="bi bi-check-circle-fill me-2"></i>{message}</Alert>}
-      {error && <Alert variant="danger"><i className="bi bi-exclamation-triangle-fill me-2"></i>{error}</Alert>}
+      {message && <Alert variant="success" role="status"><i className="bi bi-check-circle-fill me-2" aria-hidden="true"></i>{message}</Alert>}
+      {error && <Alert variant="danger" role="alert"><i className="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>{error}</Alert>}
 
-      <Card className="shadow-sm border-0 rounded-3">
-        <Card.Body className="p-4">
-          <Form onSubmit={handlePreSubmit}>
-            <Row className="mb-4">
-              <Col md={3} className="text-center mb-3 mb-md-0">
-                <div 
-                  className="rounded bg-secondary d-flex align-items-center justify-content-center mx-auto text-white" 
-                  style={{ width: "150px", height: "150px", fontSize: "3rem" }}
-                >
-                  {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : "S"}
-                </div>
-                <div className="mt-3">
-                  <Badge bg={formData.status === "Active" ? "success" : "danger"} className="px-3 py-2 fs-6">
-                    {formData.status === "Active" ? "Đang hoạt động" : "Không hoạt động"}
-                  </Badge>
-                </div>
-                <div className="mt-2 text-muted small">ID Nhân viên: #{formData.staffId}</div>
-              </Col>
+      {isFetching ? (
+        <div className="d-flex justify-content-center py-5" role="status" aria-label="Đang tải hồ sơ nhân viên">
+          <Spinner animation="border" variant="danger" />
+        </div>
+      ) : formData.staffId ? (
+        <Card className="staff-form-card">
+          <Card.Body className="staff-form-card-body">
+            <Form onSubmit={handlePreSubmit}>
+              <Row className="staff-profile-layout g-4">
+                <Col md={3}>
+                  <aside className="staff-profile-card">
+                    <div className="staff-avatar" aria-hidden="true">
+                      {formData.fullName ? formData.fullName.trim().charAt(0).toUpperCase() : "N"}
+                    </div>
+                    <h3 className="staff-profile-name">{formData.fullName || "Nhân viên"}</h3>
+                    <p className="staff-profile-meta">
+                      {roleLabels[formData.role] || formData.role || "Chưa cập nhật"}
+                    </p>
+                    <Badge className={`staff-status-badge${formData.status === "Active" ? "" : " is-inactive"}`}>
+                      {formData.status === "Active" ? "Đang hoạt động" : "Không hoạt động"}
+                    </Badge>
+                    <div className="staff-profile-details">
+                      <span>Mã nhân viên</span>
+                      <strong>#{formData.staffId}</strong>
+                      <span className="mt-3">Tên đăng nhập</span>
+                      <strong>{formData.username || "Chưa cập nhật"}</strong>
+                    </div>
+                  </aside>
+                </Col>
 
-              <Col md={9}>
-                <Row>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Họ và Tên*</Form.Label>
-                      <Form.Control type="text" name="fullName" value={formData.fullName} onChange={handleChange} required />
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Tên đăng nhập (Username)*</Form.Label>
-                      <Form.Control type="text" name="username" value={formData.username} onChange={handleChange} required />
-                    </Form.Group>
-                  </Col>
-                </Row>
+                <Col md={9}>
+                  <h3 className="staff-form-section-title">
+                    <i className="bi bi-person-lines-fill" aria-hidden="true"></i>
+                    Thông tin cá nhân
+                  </h3>
+                  <Row>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Họ và tên <span className="text-danger">*</span></Form.Label>
+                        <Form.Control type="text" name="fullName" value={formData.fullName} onChange={handleChange} autoComplete="name" required />
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Email <span className="text-danger">*</span></Form.Label>
+                        <Form.Control type="email" name="email" value={formData.email} onChange={handleChange} autoComplete="email" required />
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Số điện thoại <span className="text-danger">*</span></Form.Label>
+                        <Form.Control type="tel" name="phone" value={formData.phone} onChange={handleChange} autoComplete="tel" required />
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Tên đăng nhập <span className="text-danger">*</span></Form.Label>
+                        <Form.Control type="text" name="username" value={formData.username} onChange={handleChange} autoComplete="username" required />
+                      </Form.Group>
+                    </Col>
+                  </Row>
 
-                <Row>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Email*</Form.Label>
-                      <Form.Control type="email" name="email" value={formData.email} onChange={handleChange} required />
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Số điện thoại*</Form.Label>
-                      <Form.Control type="text" name="phone" value={formData.phone} onChange={handleChange} required />
-                    </Form.Group>
-                  </Col>
-                </Row>
+                  <h3 className="staff-form-section-title mt-3">
+                    <i className="bi bi-briefcase" aria-hidden="true"></i>
+                    Thông tin công việc
+                  </h3>
+                  <Row>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Chức vụ <span className="text-danger">*</span></Form.Label>
+                        <Form.Select name="role" value={formData.role} onChange={handleChange} required>
+                          <option value="Receptionist">Lễ tân (Receptionist)</option>
+                          <option value="Technician">Kỹ thuật viên (Technician)</option>
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Ngày vào làm</Form.Label>
+                        <Form.Control type="date" name="hireDate" value={formData.hireDate} onChange={handleChange} />
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Mức lương (VNĐ) <span className="text-danger">*</span></Form.Label>
+                        <Form.Control type="number" name="salary" value={formData.salary} onChange={handleChange} required min="0" />
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Mật khẩu mới</Form.Label>
+                        <Form.Control
+                          type="password"
+                          name="password"
+                          value={formData.password}
+                          onChange={handleChange}
+                          placeholder="Để trống nếu không muốn đổi"
+                          autoComplete="new-password"
+                        />
+                        <Form.Text>Để trống để giữ nguyên mật khẩu hiện tại.</Form.Text>
+                      </Form.Group>
+                    </Col>
+                  </Row>
 
-                <Row>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Ngày vào làm</Form.Label>
-                      <Form.Control type="date" name="hireDate" value={formData.hireDate} onChange={handleChange} />
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Mức lương (VNĐ)*</Form.Label>
-                      <Form.Control type="number" name="salary" value={formData.salary} onChange={handleChange} required min="0" />
-                    </Form.Group>
-                  </Col>
-                </Row>
-
-                <Row>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold text-danger">Đổi mật khẩu mới</Form.Label>
-                      <Form.Control 
-                        type="password" 
-                        name="password" 
-                        value={formData.password} 
-                        onChange={handleChange} 
-                        placeholder="Để trống nếu không muốn đổi" 
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Chức vụ (Role)*</Form.Label>
-                      <Form.Select name="role" value={formData.role} onChange={handleChange} required>
-                        <option value="Receptionist">Lễ tân (Receptionist)</option>
-                        <option value="Technician">Kỹ thuật viên (Technician)</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Col>
-                </Row>
-
-                <div className="d-flex justify-content-end gap-2 mt-3">
-                  <Button variant="outline-secondary" onClick={() => setShowCancelModal(true)}>
-                    Hủy bỏ
-                  </Button>
-                  <Button variant="danger" type="submit" disabled={isLoading} style={{ backgroundColor: "#a61e4d", border: "none" }}>
-                    {isLoading ? "Đang lưu..." : "Lưu Thay Đổi"}
-                  </Button>
-                </div>
-              </Col>
-            </Row>
-          </Form>
-        </Card.Body>
-      </Card>
+                  <div className="staff-form-footer">
+                    <Button variant="outline-secondary" onClick={() => setShowCancelModal(true)}>
+                      Hủy bỏ
+                    </Button>
+                    <Button variant="primary" type="submit" disabled={isLoading}>
+                      <i className="bi bi-check2 me-1" aria-hidden="true"></i>
+                      {isLoading ? "Đang lưu..." : "Lưu thay đổi"}
+                    </Button>
+                  </div>
+                </Col>
+              </Row>
+            </Form>
+          </Card.Body>
+        </Card>
+      ) : (
+        <div className="staff-form-card p-4">
+          <Button variant="outline-secondary" onClick={() => navigate("/staffs")}>
+            <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Trở về danh sách
+          </Button>
+        </div>
+      )}
 
       <Modal show={showCancelModal} onHide={() => setShowCancelModal(false)} centered>
         <Modal.Header closeButton>

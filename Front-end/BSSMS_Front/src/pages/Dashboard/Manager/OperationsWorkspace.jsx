@@ -9,6 +9,7 @@ import {
   Modal,
 } from "react-bootstrap";
 import { api, post, today } from "../../../services/api";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 
 const titles = {
   scheduling: "Ca làm việc & kỹ năng",
@@ -50,6 +51,56 @@ export default function OperationsWorkspace({ kind }) {
   const [error, setError] = useState(""),
     [success, setSuccess] = useState("");
   const [confirm, setConfirm] = useState(null);
+  const shiftsFilter = useManagerSearchFilter(data.shifts || [], [
+    { key: "fullName", label: "Nhân viên", filterable: false },
+    { key: "startTime", label: "Giờ bắt đầu", filterable: false },
+    { key: "endTime", label: "Giờ kết thúc", filterable: false },
+  ], "Tìm ca làm theo nhân viên...");
+  const leavesFilter = useManagerSearchFilter(data.leaves || [], [
+    { key: "fullName", label: "Nhân viên", filterable: false },
+    { key: "reason", label: "Lý do", filterable: false },
+    { key: "startDate", label: "Thời gian nghỉ", type: "date" },
+  ], "Tìm ngày nghỉ theo nhân viên hoặc lý do...");
+  const skillsFilter = useManagerSearchFilter(data.skills || [], [
+    { key: "fullName", label: "Kỹ thuật viên", filterable: false },
+    { key: "serviceName", label: "Dịch vụ", filterable: false },
+  ], "Tìm theo kỹ thuật viên hoặc dịch vụ...");
+  const materialsFilter = useManagerSearchFilter(data.materials || [], [
+    { key: "serviceName", label: "Dịch vụ", filterable: false },
+    { key: "productName", label: "Vật tư", filterable: false },
+  ], "Tìm theo dịch vụ hoặc vật tư...");
+  const requirementsFilter = useManagerSearchFilter(data.requirements || [], [
+    { key: "serviceName", label: "Dịch vụ", filterable: false },
+    { key: "equipmentName", label: "Thiết bị", filterable: false },
+  ], "Tìm theo dịch vụ hoặc thiết bị...");
+  const productsFilter = useManagerSearchFilter(data.products || [], [
+    { key: "productName", label: "Sản phẩm", filterable: false },
+    { key: "productType", label: "Loại sản phẩm" },
+    {
+      key: "stockState",
+      label: "Tình trạng tồn kho",
+      getValue: (product) => Number(product.stockQuantity) < Number(product.reorderLevel) ? "Low" : "Available",
+      formatValue: (value) => value === "Low" ? "Dưới mức tồn tối thiểu" : "Đủ tồn kho",
+    },
+  ], "Tìm theo tên sản phẩm...");
+  const movementsFilter = useManagerSearchFilter(data.movements || [], [
+    { key: "productName", label: "Sản phẩm", filterable: false },
+    { key: "movementType", label: "Loại biến động" },
+    { key: "reason", label: "Lý do", filterable: false },
+    { key: "createdAt", label: "Thời gian", type: "date" },
+  ], "Tìm theo sản phẩm hoặc lý do...");
+  const periodsFilter = useManagerSearchFilter(data.periods || [], [
+    { key: "periodMonth", label: "Tháng", filterable: false },
+    { key: "status", label: "Trạng thái" },
+    { key: "closedAt", label: "Ngày chốt", type: "date" },
+  ], "Tìm theo tháng...");
+  const notificationsFilter = useManagerSearchFilter(data.notifications || [], [
+    { key: "fullName", label: "Khách hàng", filterable: false },
+    { key: "templateCode", label: "Mẫu tin", filterable: false },
+    { key: "status", label: "Trạng thái" },
+    { key: "providerMessageId", label: "Mã từ nhà cung cấp", filterable: false },
+    { key: "lastError", label: "Lỗi", filterable: false },
+  ], "Tìm theo khách hàng, mẫu tin hoặc trạng thái...");
   const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
   async function load() {
     setLoading(true);
@@ -133,20 +184,23 @@ export default function OperationsWorkspace({ kind }) {
       />
     </Form.Group>
   );
-  const table = (headers, rows) => (
-    <div className="table-responsive">
-      <Table hover>
-        <thead>
-          <tr>
-            {headers.map((h) => (
-              <th key={h}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>{rows}</tbody>
-      </Table>
+  const table = (headers, rows, toolbar) => (
+    <>
+      {toolbar && <div className="manager-list-toolbar mb-3">{toolbar}</div>}
+      <div className="table-responsive">
+        <Table hover className="manager-list-table">
+          <thead>
+            <tr>
+              {headers.map((h) => (
+                <th key={h}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>{rows}</tbody>
+        </Table>
+      </div>
       {!rows.length && <p className="ui-empty">Chưa có dữ liệu.</p>}
-    </div>
+    </>
   );
   return (
     <section>
@@ -269,7 +323,7 @@ export default function OperationsWorkspace({ kind }) {
               <h2>Ca làm ngày {date}</h2>
               {table(
                 ["Nhân viên", "Bắt đầu", "Kết thúc", "Thao tác"],
-                (data.shifts || []).map((r) => (
+                shiftsFilter.filteredRows.map((r) => (
                   <tr key={r.staffShiftId}>
                     <td>{r.fullName}</td>
                     <td>{r.startTime}</td>
@@ -277,21 +331,24 @@ export default function OperationsWorkspace({ kind }) {
                     <td>
                       <Button
                         size="sm"
-                        variant="outline-danger"
+                        variant="link"
+                        className="manager-list-action manager-list-action--delete"
                         onClick={() =>
                           remove({ action: "deleteShift", id: r.staffShiftId })
                         }
                       >
+                        <i className="bi bi-trash" aria-hidden="true" />
                         Xóa ca
                       </Button>
                     </td>
                   </tr>
                 )),
+                shiftsFilter.toolbar,
               )}
               <h2>Ngày nghỉ</h2>
               {table(
                 ["Nhân viên", "Từ ngày", "Đến ngày", "Lý do", "Thao tác"],
-                (data.leaves || []).map((r) => (
+                leavesFilter.filteredRows.map((r) => (
                   <tr key={r.leaveId}>
                     <td>{r.fullName}</td>
                     <td>{r.startDate}</td>
@@ -300,28 +357,32 @@ export default function OperationsWorkspace({ kind }) {
                     <td>
                       <Button
                         size="sm"
-                        variant="outline-danger"
+                        variant="link"
+                        className="manager-list-action manager-list-action--delete"
                         onClick={() =>
                           remove({ action: "deleteLeave", id: r.leaveId })
                         }
                       >
+                        <i className="bi bi-trash" aria-hidden="true" />
                         Xóa
                       </Button>
                     </td>
                   </tr>
                 )),
+                leavesFilter.toolbar,
               )}
               <h2>Kỹ năng đã gán</h2>
               {table(
                 ["Kỹ thuật viên", "Dịch vụ", "Thao tác"],
-                (data.skills || []).map((r) => (
+                skillsFilter.filteredRows.map((r) => (
                   <tr key={`${r.staffId}-${r.serviceId}`}>
                     <td>{r.fullName}</td>
                     <td>{r.serviceName}</td>
                     <td>
                       <Button
                         size="sm"
-                        variant="outline-danger"
+                        variant="link"
+                        className="manager-list-action manager-list-action--delete"
                         onClick={() =>
                           remove({
                             action: "deleteSkill",
@@ -330,11 +391,13 @@ export default function OperationsWorkspace({ kind }) {
                           })
                         }
                       >
+                        <i className="bi bi-trash" aria-hidden="true" />
                         Bỏ gán
                       </Button>
                     </td>
                   </tr>
                 )),
+                skillsFilter.toolbar,
               )}
             </>
           )}
@@ -399,7 +462,7 @@ export default function OperationsWorkspace({ kind }) {
               <h2>Vật tư tiêu hao</h2>
               {table(
                 ["Dịch vụ", "Vật tư", "Định mức", "Thao tác"],
-                (data.materials || []).map((r) => (
+                materialsFilter.filteredRows.map((r) => (
                   <tr key={`${r.serviceId}-${r.productId}`}>
                     <td>{r.serviceName}</td>
                     <td>{r.productName}</td>
@@ -409,7 +472,8 @@ export default function OperationsWorkspace({ kind }) {
                     <td>
                       <Button
                         size="sm"
-                        variant="outline-danger"
+                        variant="link"
+                        className="manager-list-action manager-list-action--delete"
                         onClick={() =>
                           remove({
                             action: "deleteMaterial",
@@ -418,23 +482,26 @@ export default function OperationsWorkspace({ kind }) {
                           })
                         }
                       >
+                        <i className="bi bi-trash" aria-hidden="true" />
                         Xóa
                       </Button>
                     </td>
                   </tr>
                 )),
+                materialsFilter.toolbar,
               )}
               <h2>Thiết bị bắt buộc</h2>
               {table(
                 ["Dịch vụ", "Thiết bị", "Thao tác"],
-                (data.requirements || []).map((r) => (
+                requirementsFilter.filteredRows.map((r) => (
                   <tr key={`${r.serviceId}-${r.equipmentId}`}>
                     <td>{r.serviceName}</td>
                     <td>{r.equipmentName}</td>
                     <td>
                       <Button
                         size="sm"
-                        variant="outline-danger"
+                        variant="link"
+                        className="manager-list-action manager-list-action--delete"
                         onClick={() =>
                           remove({
                             action: "deleteEquipment",
@@ -443,11 +510,13 @@ export default function OperationsWorkspace({ kind }) {
                           })
                         }
                       >
+                        <i className="bi bi-trash" aria-hidden="true" />
                         Xóa
                       </Button>
                     </td>
                   </tr>
                 )),
+                requirementsFilter.toolbar,
               )}
             </>
           )}
@@ -498,7 +567,7 @@ export default function OperationsWorkspace({ kind }) {
               </Card>
               {table(
                 ["Sản phẩm", "Loại", "Tồn kho", "Mức tối thiểu"],
-                (data.products || []).map((r) => (
+                productsFilter.filteredRows.map((r) => (
                   <tr key={r.productId}>
                     <td>{r.productName}</td>
                     <td>{r.productType}</td>
@@ -514,11 +583,12 @@ export default function OperationsWorkspace({ kind }) {
                     <td>{r.reorderLevel}</td>
                   </tr>
                 )),
+                productsFilter.toolbar,
               )}
               <h2>300 biến động gần nhất</h2>
               {table(
                 ["Thời gian", "Sản phẩm", "Loại", "Thay đổi", "Lý do"],
-                (data.movements || []).map((r) => (
+                movementsFilter.filteredRows.map((r) => (
                   <tr key={r.movementId}>
                     <td>{r.createdAt}</td>
                     <td>{r.productName}</td>
@@ -527,6 +597,7 @@ export default function OperationsWorkspace({ kind }) {
                     <td>{r.reason}</td>
                   </tr>
                 )),
+                movementsFilter.toolbar,
               )}
             </>
           )}
@@ -594,13 +665,14 @@ export default function OperationsWorkspace({ kind }) {
               </div>
               {table(
                 ["Tháng", "Trạng thái", "Chốt lúc"],
-                (data.periods || []).map((r) => (
+                periodsFilter.filteredRows.map((r) => (
                   <tr key={r.periodId}>
                     <td>{r.periodMonth}</td>
                     <td>{r.status}</td>
                     <td>{r.closedAt || "—"}</td>
                   </tr>
                 )),
+                periodsFilter.toolbar,
               )}
               <h2>Thông báo Zalo gần nhất</h2>
               <p className="text-muted">
@@ -616,7 +688,7 @@ export default function OperationsWorkspace({ kind }) {
                   "Kết quả",
                   "Thao tác",
                 ],
-                (data.notifications || []).map((r) => (
+                notificationsFilter.filteredRows.map((r) => (
                   <tr key={r.notificationId}>
                     <td>{r.notificationId}</td>
                     <td>{r.fullName}</td>
@@ -626,8 +698,9 @@ export default function OperationsWorkspace({ kind }) {
                     <td>
                       {["Failed", "Sending"].includes(r.status) && (
                         <Button
-                          variant="outline-primary"
+                          variant="link"
                           size="sm"
+                          className="manager-list-action manager-list-action--view"
                           onClick={() =>
                             setConfirm({
                               action: "retryNotification",
@@ -636,12 +709,14 @@ export default function OperationsWorkspace({ kind }) {
                             })
                           }
                         >
+                          <i className="bi bi-arrow-repeat" aria-hidden="true" />
                           Đã đối soát, gửi lại
                         </Button>
                       )}
                     </td>
                   </tr>
                 )),
+                notificationsFilter.toolbar,
               )}
             </>
           )}

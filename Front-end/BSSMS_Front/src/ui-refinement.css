@@ -24,10 +24,78 @@
   outline: 2px solid var(--ui-accent);
   outline-offset: 3px;
 }
-.app-dashboard .manager-sidebar { background: var(--ui-surface); border-right: 1px solid var(--ui-line); box-shadow: none; }
-.app-dashboard .manager-sidebar :is(.manager-group-button,.manager-home-link) { color: var(--ui-ink); }
-.app-dashboard .manager-sidebar :is(.manager-group-button,.manager-home-link):hover { background: var(--ui-neutral); }
-.app-dashboard .manager-sidebar :is(.manager-group-button,.manager-home-link).active { color: var(--ui-accent); background: var(--ui-tint); box-shadow: none; }
+.app-dashboard .app-sidebar.manager-sidebar {
+  background: #fff !important;
+  border-right: 1px solid var(--ui-line) !important;
+  box-shadow: none;
+}
+.app-dashboard .app-sidebar.manager-sidebar.collapsed {
+  background: #fff !important;
+  border-right-color: var(--ui-line) !important;
+}
+.app-dashboard .manager-sidebar-head {
+  border-bottom: 1px solid var(--ui-line);
+  background: #fff;
+}
+.app-dashboard .manager-sidebar .staff-sidebar-role {
+  width: fit-content;
+  margin: 14px 16px 8px;
+  padding: 5px 10px;
+  border: 1px solid rgb(169 39 96 / 14%);
+  border-radius: 999px;
+  background: #f8eaf0;
+  color: #861e4b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+.app-dashboard .manager-sidebar :is(.manager-group-button,.manager-home-link) {
+  color: #51454d;
+  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.app-dashboard .manager-sidebar :is(.manager-group-button,.manager-home-link) i:first-child {
+  color: #a92760;
+}
+.app-dashboard .manager-sidebar :is(.manager-group-button,.manager-home-link):hover {
+  background: #f8eaf0;
+  color: #861e4b;
+}
+.app-dashboard .manager-sidebar .manager-group-button.current {
+  background: linear-gradient(100deg, #f7e8ef, #fbf3f7);
+  box-shadow: inset 3px 0 #a92760;
+  color: #861e4b;
+}
+.app-dashboard .manager-sidebar .manager-group-button[aria-expanded="true"] {
+  background: #f5e9ef;
+  color: #861e4b;
+}
+.app-dashboard .manager-sidebar .manager-group-button[aria-expanded="true"] .manager-chevron {
+  color: #a92760;
+}
+.app-dashboard .manager-sidebar .manager-home-link.active {
+  background: linear-gradient(100deg, #f8e6ee, #fdf4f8);
+  box-shadow: inset 3px 0 #a92760;
+  color: #861e4b;
+}
+.app-dashboard .manager-sidebar .manager-submenu {
+  border-left-color: #e8bfd0;
+}
+.app-dashboard .manager-sidebar .manager-submenu a {
+  color: #685963;
+}
+.app-dashboard .manager-sidebar .manager-submenu a:hover,
+.app-dashboard .manager-sidebar .manager-submenu a.active {
+  background: #f8eaf0;
+  color: #861e4b;
+}
+.app-dashboard .manager-sidebar .manager-menu-toggle {
+  background: #fff;
+  border-color: #ead8e1;
+  color: #861e4b;
+}
+.app-dashboard .manager-sidebar .manager-menu-toggle:hover {
+  background: #f8eaf0;
+}
 .app-dashboard .manager-section-nav { background: var(--ui-surface); border-color: var(--ui-line); box-shadow: none; }
 .app-dashboard .manager-section-nav a { color: var(--ui-muted); }
 .app-dashboard .manager-section-nav a.active { background: var(--ui-tint); color: var(--ui-accent); }

@@ -4,13 +4,12 @@ import {
     Badge,
     Button,
     Card,
-    Col,
     Container,
-    Form,
-    Row,
     Spinner,
     Table,
 } from "react-bootstrap";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
+import "./ServiceHistory.css";
 
 function formatDate(value) {
     if (!value) return "—";
@@ -34,14 +33,11 @@ export default function ServiceHistory({ user }) {
     const canFilterByCustomer = role === "Manager" || role === "Receptionist";
 
     const [history, setHistory] = useState([]);
-    const [keyword, setKeyword] = useState("");
-    const [customerIdInput, setCustomerIdInput] = useState("");
-    const [appliedCustomerId, setAppliedCustomerId] = useState("");
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
 
-    const loadHistory = useCallback(async (customerId = "", isRefresh = false) => {
+    const loadHistory = useCallback(async (isRefresh = false) => {
         setError("");
         if (isRefresh) {
             setRefreshing(true);
@@ -50,17 +46,7 @@ export default function ServiceHistory({ user }) {
         }
 
         try {
-            const params = new URLSearchParams();
-            if (canFilterByCustomer && customerId.trim()) {
-                params.set("customerId", customerId.trim());
-            }
-
-            const queryString = params.toString();
-            const url = queryString
-                ? `/api/service-history?${queryString}`
-                : "/api/service-history";
-
-            const response = await fetch(url, { credentials: "include" });
+            const response = await fetch("/api/service-history", { credentials: "include" });
             let responseData = null;
             try {
                 responseData = await response.json();
@@ -86,42 +72,24 @@ export default function ServiceHistory({ user }) {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [canFilterByCustomer]);
+    }, []);
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the view while synchronizing external data for this selection.
-        loadHistory(appliedCustomerId);
-    }, [loadHistory, appliedCustomerId]);
+        loadHistory();
+    }, [loadHistory]);
 
-    const filteredHistory = useMemo(() => {
-        const normalizedKeyword = keyword.trim().toLocaleLowerCase("vi-VN");
-        if (!normalizedKeyword) return history;
-
-        return history.filter((item) => {
-            const searchableValues = [
-                item.appointmentId,
-                item.customerName,
-                item.serviceName,
-                item.staffName,
-                item.notes,
-                item.appointmentDate,
-            ];
-
-            return searchableValues.some((value) =>
-                String(value ?? "").toLocaleLowerCase("vi-VN").includes(normalizedKeyword)
-            );
-        });
-    }, [history, keyword]);
-
-    const handleFilterSubmit = (event) => {
-        event.preventDefault();
-        setAppliedCustomerId(customerIdInput.trim());
-    };
-
-    const handleResetCustomerFilter = () => {
-        setCustomerIdInput("");
-        setAppliedCustomerId("");
-    };
+    const searchFields = useMemo(() => [
+        { key: "appointmentId", label: "Mã lịch hẹn" },
+        { key: "customerName", label: "Khách hàng", filterable: canFilterByCustomer },
+        { key: "customerPhone", label: "Số điện thoại", filterable: false },
+        { key: "serviceName", label: "Dịch vụ" },
+        { key: "staffName", label: "Nhân viên phụ trách" },
+        { key: "notes", label: "Ghi chú", filterable: false },
+        { key: "appointmentDate", label: "Ngày thực hiện", type: "date" },
+    ], [canFilterByCustomer]);
+    const { filteredRows: filteredHistory, toolbar: searchFilterToolbar } =
+        useManagerSearchFilter(history, searchFields, "Tìm theo mã lịch, khách hàng, dịch vụ, nhân viên...");
 
     return (
         <Container fluid className="service-history-page py-3 py-lg-4">
@@ -136,7 +104,7 @@ export default function ServiceHistory({ user }) {
                 <Button
                     variant="outline-secondary"
                     className="service-history-refresh"
-                    onClick={() => loadHistory(appliedCustomerId, true)}
+                    onClick={() => loadHistory(true)}
                     disabled={loading || refreshing}
                 >
                     {refreshing ? (
@@ -157,7 +125,7 @@ export default function ServiceHistory({ user }) {
                         size="sm"
                         variant="outline-danger"
                         className="mt-2"
-                        onClick={() => loadHistory(appliedCustomerId, true)}
+                        onClick={() => loadHistory(true)}
                         disabled={refreshing}
                     >
                         Thử lại
@@ -165,73 +133,9 @@ export default function ServiceHistory({ user }) {
                 </Alert>
             )}
 
-            <Card className="service-history-filter-card border-0 mb-4">
+            <Card className="service-history-search-card border-0 mb-4">
                 <Card.Body>
-                    <Form onSubmit={handleFilterSubmit}>
-                        <Row className="g-3 align-items-end">
-                            {canFilterByCustomer && (
-                                <Col xs={12} md={4} lg={3}>
-                                    <Form.Group controlId="serviceHistoryCustomerId">
-                                        <Form.Label className="service-history-label">
-                                            Mã khách hàng
-                                        </Form.Label>
-                                        <Form.Control
-                                            type="number"
-                                            min="1"
-                                            step="1"
-                                            placeholder="Tất cả khách hàng"
-                                            value={customerIdInput}
-                                            onChange={(event) => setCustomerIdInput(event.target.value)}
-                                        />
-                                    </Form.Group>
-                                </Col>
-                            )}
-                            <Col xs={12} md={canFilterByCustomer ? 5 : 9}>
-                                <Form.Group controlId="serviceHistoryKeyword">
-                                    <Form.Label className="service-history-label">
-                                        Tìm trong lịch sử
-                                    </Form.Label>
-                                    <Form.Control
-                                        type="search"
-                                        placeholder="Tìm theo dịch vụ, nhân viên, ghi chú..."
-                                        value={keyword}
-                                        onChange={(event) => setKeyword(event.target.value)}
-                                    />
-                                </Form.Group>
-                            </Col>
-                            {canFilterByCustomer && (
-                                <Col
-                                    xs={12}
-                                    md={4}
-                                    lg={3}
-                                    className="d-flex gap-2"
-                                >
-                                    <Button
-                                        type="submit"
-                                        variant="primary"
-                                        className="flex-grow-1 text-nowrap"
-                                    >
-                                        Tra cứu
-                                    </Button>
-
-                                    <Button
-                                        type="button"
-                                        variant="outline-secondary"
-                                        className="flex-grow-1 text-nowrap"
-                                        onClick={handleResetCustomerFilter}
-                                        title="Bỏ lọc khách hàng"
-                                    >
-                                        Xóa lọc
-                                    </Button>
-                                </Col>
-                            )}
-                        </Row>
-                        {canFilterByCustomer && (
-                            <div className="service-history-filter-hint mt-2">
-                                Để trống mã khách hàng để xem lịch sử của tất cả khách hàng.
-                            </div>
-                        )}
-                    </Form>
+                    {searchFilterToolbar}
                 </Card.Body>
             </Card>
 
@@ -268,7 +172,7 @@ export default function ServiceHistory({ user }) {
                         <p className="text-secondary mb-0">
                             {history.length === 0
                                 ? "Các lịch hẹn hoàn thành sẽ xuất hiện ở đây khi đã được ghi nhận trong hệ thống."
-                                : "Hãy thử từ khóa khác hoặc bỏ bộ lọc khách hàng."}
+                                : "Hãy thử từ khóa khác."}
                         </p>
                     </div>
                 ) : (
@@ -311,6 +215,7 @@ export default function ServiceHistory({ user }) {
                     </Table>
                 )}
             </Card>
+
         </Container>
     );
 }

@@ -5,6 +5,7 @@ export default function ManagerSectionNav({ role = "Manager" }) {
   const { pathname } = useLocation();
   const config = staffNavigation[role];
   const section = staffSection(role, pathname);
+  if (role === "Manager") return null;
   if (!config || pathname === config.home) return null;
   if (!section) {
     const accountPage = [

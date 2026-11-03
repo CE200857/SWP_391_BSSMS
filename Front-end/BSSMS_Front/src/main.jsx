@@ -4,9 +4,11 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import './styles.css';
 import './ui-refinement.css';
+import './crud-ui.css';
 import App from './App.jsx';
 import axios from 'axios';
-axios.defaults.withCredentials = true;
+
+   axios.defaults.baseURL = '';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

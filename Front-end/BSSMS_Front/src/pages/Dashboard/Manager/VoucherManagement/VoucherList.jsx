@@ -13,22 +13,24 @@ import {
   Col,
 } from "react-bootstrap";
 import axios from "axios";
+import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
 
 const VoucherList = () => {
   const [vouchers, setVouchers] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [refresh, setRefresh] = useState(0);
 
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
   const canManage = user?.role === "Manager" || user?.role === "Receptionist";
+  const canIssueBirthdayBenefits = user?.role === "Manager";
 
   const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
+  const [isIssuingBenefits, setIsIssuingBenefits] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [detailVoucher, setDetailVoucher] = useState(null);
   const [formData, setFormData] = useState({
     voucherId: 0,
     customerId: "",
@@ -196,21 +198,61 @@ const VoucherList = () => {
     }
   };
 
+  const handleIssueBirthdayBenefits = async () => {
+    if (isIssuingBenefits) return;
+    setIsIssuingBenefits(true);
+    setError("");
+    setMessage("");
+    try {
+      await axios.post(
+        "/api/operations/policy",
+        { action: "issueBenefits" },
+        { withCredentials: true },
+      );
+      setMessage(
+        "Đã cấp ưu đãi tháng hiện tại cho khách đủ điều kiện. Không cấp trùng.",
+      );
+      setRefresh((previous) => previous + 1);
+    } catch (requestError) {
+      console.error("Lỗi cấp ưu đãi sinh nhật:", requestError);
+      setError(
+        requestError.response?.data?.message ||
+          "Không thể cấp ưu đãi tháng này. Vui lòng thử lại.",
+      );
+    } finally {
+      setIsIssuingBenefits(false);
+    }
+  };
+
   const getCustomerName = (customerId) => {
     if (!customerId) return "Tất cả khách hàng";
     const customer = customers.find((c) => c.customerId === customerId);
     return customer ? customer.fullName : `Khách hàng #${customerId}`;
   };
 
-  const filteredVouchers = vouchers.filter((v) => {
-    const matchesSearch =
-      !searchTerm ||
-      v.voucherCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.voucherName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || v.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const { filteredRows: filteredVouchers, toolbar } = useManagerSearchFilter(
+    vouchers,
+    [
+      { key: "voucherCode", label: "Mã voucher", filterable: false },
+      { key: "voucherName", label: "Tên voucher", filterable: false },
+      {
+        key: "customerId",
+        label: "Khách hàng",
+        getValue: (voucher) => getCustomerName(voucher.customerId),
+      },
+      {
+        key: "status",
+        label: "Trạng thái",
+        formatValue: (value) => ({
+          Active: "Đang hoạt động",
+          Used: "Đã sử dụng",
+          Expired: "Đã hết hạn",
+        }[value] || value),
+      },
+      { key: "startDate", label: "Thời gian áp dụng", type: "date" },
+    ],
+    "Tìm theo mã, tên voucher hoặc khách hàng...",
+  );
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -233,18 +275,46 @@ const VoucherList = () => {
 
   return (
     <Container fluid className="mt-4 px-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="manager-page-title fw-bold">Quản lý voucher</h2>
-        {canManage && (
-          <Button
-            variant="danger"
-            className="fw-bold"
-            onClick={handleOpenAdd}
-            style={{ backgroundColor: "#a61e4d", border: "none" }}
-          >
-            <i className="bi bi-ticket-perforated me-1"></i> Tạo Voucher mới
-          </Button>
-        )}
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+          <h2 className="manager-page-title fw-bold mb-1">Voucher &amp; ưu đãi sinh nhật</h2>
+          {canIssueBirthdayBenefits && (
+            <p className="text-muted mb-0">
+              Quản lý voucher và cấp ưu đãi tháng sinh nhật cho khách đủ điều kiện.
+            </p>
+          )}
+        </div>
+        <div className="d-flex flex-wrap gap-2">
+          {canIssueBirthdayBenefits && (
+            <Button
+              variant="outline-danger"
+              onClick={handleIssueBirthdayBenefits}
+              disabled={isIssuingBenefits}
+            >
+              {isIssuingBenefits ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />
+                  Đang cấp ưu đãi...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-gift me-2" aria-hidden="true" />
+                  Cấp ưu đãi tháng này
+                </>
+              )}
+            </Button>
+          )}
+          {canManage && (
+            <Button
+              variant="danger"
+              className="fw-bold"
+              onClick={handleOpenAdd}
+              style={{ backgroundColor: "#a61e4d", border: "none" }}
+            >
+              <i className="bi bi-ticket-perforated me-1"></i> Tạo Voucher mới
+            </Button>
+          )}
+        </div>
       </div>
 
       {message && (
@@ -256,102 +326,79 @@ const VoucherList = () => {
 
       <Card className="shadow-sm border-0 mb-4">
         <Card.Body>
-          <Row className="g-3">
-            <Col md={6}>
-              <InputGroup>
-                <InputGroup.Text>
-                  <i className="bi bi-search"></i>
-                </InputGroup.Text>
-                <Form.Control
-                  placeholder="Tìm theo mã voucher, tên voucher..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </InputGroup>
-            </Col>
-            <Col md={4}>
-              <Form.Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="Active">Đang hoạt động</option>
-                <option value="Used">Đã sử dụng</option>
-                <option value="Expired">Đã hết hạn</option>
-              </Form.Select>
-            </Col>
-          </Row>
+          <div className="manager-list-toolbar">{toolbar}</div>
         </Card.Body>
       </Card>
 
       <Card className="shadow-sm border-0">
         <Card.Body className="p-0">
-          <Table striped bordered hover responsive className="align-middle mb-0">
+          <Table hover responsive className="align-middle mb-0 manager-list-table">
             <thead className="table-dark">
               <tr>
-                <th>ID</th>
                 <th>Mã Voucher</th>
-                <th>Tên Voucher</th>
                 <th>Khách hàng</th>
-                <th>Loại giảm giá</th>
-                <th>Giá trị</th>
-                <th>Ngày bắt đầu</th>
-                <th>Ngày kết thúc</th>
+                <th>Ưu đãi</th>
                 <th>Trạng thái</th>
-                {canManage && <th className="text-center">Hành động</th>}
+                <th className="text-center">Hành động</th>
               </tr>
             </thead>
             <tbody>
               {filteredVouchers.length > 0 ? (
                 filteredVouchers.map((v) => (
                   <tr key={v.voucherId}>
-                    <td className="fw-bold">#{v.voucherId}</td>
                     <td>
                       <Badge bg-primary className="font-monospace">
                         {v.voucherCode}
                       </Badge>
                     </td>
-                    <td>{v.voucherName || "-"}</td>
                     <td>{getCustomerName(v.customerId)}</td>
-                    <td>
-                      {v.discountType === "Percentage"
-                        ? "Phần trăm (%)"
-                        : "Số tiền cố định (VNĐ)"}
-                    </td>
                     <td className="text-danger fw-bold">
                       {v.discountType === "Percentage"
                         ? `${v.discountValue}%`
                         : `${Number(v.discountValue).toLocaleString("vi-VN")} VNĐ`}
+                      <div className="small text-muted fw-normal">
+                        {v.discountType === "Percentage" ? "Phần trăm" : "Số tiền cố định"}
+                      </div>
                     </td>
-                    <td>{formatDate(v.startDate)}</td>
-                    <td>{formatDate(v.endDate)}</td>
                     <td>{getStatusBadge(v.status)}</td>
-                    {canManage && (
-                      <td className="text-center">
+                    <td className="text-center">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="manager-list-action manager-list-action--view"
+                        onClick={() => setDetailVoucher(v)}
+                      >
+                        <i className="bi bi-eye-fill" aria-hidden="true" />
+                        Xem
+                      </Button>
+                      {canManage && (
+                        <>
                         <Button
-                          variant="warning"
+                          variant="link"
                           size="sm"
-                          className="me-2"
+                          className="manager-list-action manager-list-action--edit"
                           onClick={() => handleOpenEdit(v)}
                           disabled={v.status === "Used"}
                         >
                           <i className="bi bi-pencil-square"></i> Sửa
                         </Button>
                         <Button
-                          variant="danger"
+                          variant="link"
                           size="sm"
+                          className="manager-list-action manager-list-action--delete"
                           onClick={() => handleDeleteClick(v)}
                         >
                           <i className="bi bi-trash"></i> Xóa
                         </Button>
-                      </td>
-                    )}
+                        </>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={canManage ? "10" : "9"}
+                    colSpan="5"
                     className="text-center py-4 text-muted"
                   >
                     Chưa có voucher nào.
@@ -362,6 +409,44 @@ const VoucherList = () => {
           </Table>
         </Card.Body>
       </Card>
+
+      <Modal
+        show={!!detailVoucher}
+        onHide={() => setDetailVoucher(null)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Chi tiết voucher</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <dl className="row mb-0">
+            <dt className="col-sm-5">Mã voucher</dt>
+            <dd className="col-sm-7">{detailVoucher?.voucherCode || "—"}</dd>
+            <dt className="col-sm-5">Tên voucher</dt>
+            <dd className="col-sm-7">{detailVoucher?.voucherName || "—"}</dd>
+            <dt className="col-sm-5">Khách hàng</dt>
+            <dd className="col-sm-7">
+              {detailVoucher ? getCustomerName(detailVoucher.customerId) : "—"}
+            </dd>
+            <dt className="col-sm-5">Giá trị giảm</dt>
+            <dd className="col-sm-7">
+              {detailVoucher?.discountType === "Percentage"
+                ? `${detailVoucher.discountValue}%`
+                : detailVoucher
+                  ? `${Number(detailVoucher.discountValue).toLocaleString("vi-VN")} VNĐ`
+                  : "—"}
+            </dd>
+            <dt className="col-sm-5">Thời hạn</dt>
+            <dd className="col-sm-7">
+              {detailVoucher
+                ? `${formatDate(detailVoucher.startDate)} – ${formatDate(detailVoucher.endDate)}`
+                : "—"}
+            </dd>
+            <dt className="col-sm-5">Trạng thái</dt>
+            <dd className="col-sm-7">{detailVoucher?.status || "—"}</dd>
+          </dl>
+        </Modal.Body>
+      </Modal>
 
       {/* Modal Thêm / Sửa Voucher */}
       <Modal

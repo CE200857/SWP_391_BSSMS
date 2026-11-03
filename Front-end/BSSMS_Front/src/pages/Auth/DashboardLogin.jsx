@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { loginAccount, loginDestination, roleHome, staffRoles } from '../../auth/login';
+import Footer from '../../components/Footer';
 import SeoulBrand from '../../components/SeoulBrand';
+import spaPhoto from '../../assets/figma/login-spa-original.jpeg';
 
 export default function DashboardLogin({ user, setUser }) {
   const [email, setEmail] = useState('');
@@ -34,47 +36,73 @@ export default function DashboardLogin({ user, setUser }) {
   }
 
   return (
-    <main className="staff-login">
-      <section className="staff-login-intro">
-        <Link to="/bssms-guest" className="staff-login-brand"><SeoulBrand /><span className="staff-login-portal">STAFF PORTAL</span></Link>
-        <div className="staff-login-story">
-          <span className="staff-login-eyebrow">KHÔNG GIAN LÀM VIỆC</span>
-          <h1>Mỗi ngày chỉn chu.<br />Mỗi khách hàng hài lòng.</h1>
-          <p>Quản lý lịch hẹn, phối hợp đội ngũ và chăm sóc khách hàng trong cùng một hệ thống.</p>
-          <div className="staff-login-features">
-            <span><i className="bi bi-calendar2-check" aria-hidden="true" /> Lịch hẹn &amp; điều phối</span>
-            <span><i className="bi bi-people" aria-hidden="true" /> Đội ngũ &amp; khách hàng</span>
-            <span><i className="bi bi-bar-chart" aria-hidden="true" /> Báo cáo &amp; vận hành</span>
+    <>
+      <main className="staff-login">
+        <header className="staff-login-header">
+          <div className="staff-login-header-inner">
+            <Link to="/bssms-guest" className="staff-login-brand">
+              <SeoulBrand />
+              <span className="staff-login-portal">STAFF PORTAL</span>
+            </Link>
+            <Link to="/bssms-guest" className="staff-login-back">
+              <i className="bi bi-arrow-left" aria-hidden="true" /> Về trang chủ
+            </Link>
           </div>
-        </div>
-        <small>BSSMS · Hệ thống quản lý salon &amp; spa</small>
-      </section>
-      <section className="staff-login-panel">
-        <Link to="/bssms-guest" className="staff-login-back"><i className="bi bi-arrow-left" aria-hidden="true" /> Về trang chủ</Link>
-        <div className="staff-login-form">
-          <div className="staff-login-icon"><i className="bi bi-shield-lock" aria-hidden="true" /></div>
-          <h2>Đăng nhập Dashboard</h2>
-          <p>Dành cho Quản lý, Lễ tân và Kỹ thuật viên.</p>
-          {error && <div className="alert alert-danger" role="alert">{error}</div>}
-          {user?.role === 'Customer' ? (
-            <div className="alert alert-info">Bạn đang đăng nhập bằng tài khoản khách hàng. Hãy đăng xuất trong hồ sơ trước khi dùng tài khoản nhân viên. <Link to="/profile">Mở hồ sơ</Link></div>
-          ) : (
-            <form onSubmit={submit}>
-              <label htmlFor="staff-email">Email hoặc số điện thoại</label>
-              <input id="staff-email" name="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} placeholder="Nhập email hoặc số điện thoại" disabled={loading} />
-              <label htmlFor="staff-password">Mật khẩu</label>
-              <div className="staff-password-field">
-                <input id="staff-password" name="password" autoComplete="current-password" type={showPassword ? 'text' : 'password'} required value={password} onChange={e => setPassword(e.target.value)} placeholder="Nhập mật khẩu" disabled={loading} />
-                <button type="button" aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}><i className={showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'} aria-hidden="true" /></button>
+        </header>
+        <div className="staff-login-content auth-page-grid">
+          <section className="staff-login-intro auth-page-intro">
+            <span className="home-eyebrow">KHÔNG GIAN LÀM VIỆC</span>
+            <h1>Mỗi ngày chỉn chu.<br />Mỗi khách hàng hài lòng.</h1>
+            <p>Quản lý lịch hẹn, phối hợp đội ngũ và vận hành chăm sóc khách hàng.</p>
+            <div className="auth-intro-note">
+              <i className="bi bi-calendar2-check" aria-hidden="true" />
+              <span>
+                <strong>Dành cho đội ngũ Seoul Center</strong>
+                <small>Quản lý lịch hẹn và khách hàng.</small>
+              </span>
+            </div>
+            <img className="staff-login-photo" src={spaPhoto} alt="Chăm sóc khách hàng tại Seoul Center" />
+            <small className="staff-login-caption">BSSMS · Hệ thống quản lý salon &amp; spa</small>
+          </section>
+          <section className="staff-login-panel">
+            <div className="staff-login-form app-login-card">
+              <div className="card-body">
+                <div className="position-relative mb-4">
+                  <Link to="/bssms-guest" className="staff-login-card-back" aria-label="Quay lại trang chủ">
+                    <i className="bi bi-arrow-left" aria-hidden="true" />
+                  </Link>
+                  <h3 className="text-center fw-bold text-uppercase m-0">Đăng nhập</h3>
+                </div>
+                {error && <div className="alert alert-danger" role="alert">{error}</div>}
+                {user?.role === 'Customer' ? (
+                  <div className="alert alert-info">Bạn đang đăng nhập bằng tài khoản khách hàng. Hãy đăng xuất trong hồ sơ trước khi dùng tài khoản nhân viên. <Link to="/profile">Mở hồ sơ</Link></div>
+                ) : (
+                  <form onSubmit={submit}>
+                    <div className="mb-3">
+                      <label className="form-label fw-bold" htmlFor="staff-email">Email hoặc Số điện thoại*</label>
+                      <input className="form-control" id="staff-email" name="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} placeholder="Vui lòng nhập email hoặc sđt" disabled={loading} />
+                    </div>
+                    <div className="mb-4">
+                      <label className="form-label fw-bold" htmlFor="staff-password">Mật khẩu*</label>
+                      <div className="staff-password-field">
+                        <input className="form-control" id="staff-password" name="password" autoComplete="current-password" type={showPassword ? 'text' : 'password'} required value={password} onChange={e => setPassword(e.target.value)} placeholder="Vui lòng nhập mật khẩu" disabled={loading} />
+                        <button type="button" aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}><i className={showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'} aria-hidden="true" /></button>
+                      </div>
+                    </div>
+                    <button className="btn btn-primary w-100 mb-4 fw-bold" type="submit" disabled={loading}>{loading ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>
+                  </form>
+                )}
+                <div className="staff-login-links d-flex flex-column text-start">
+                  <Link className="auth-inline-link mb-2" to="/forgot-password?portal=staff">Quên mật khẩu?</Link>
+                  <span>Cần tài khoản? Liên hệ quản lý để được cấp quyền.</span>
+                  <Link className="auth-inline-link mt-3" to="/login">Bạn là khách hàng? Đăng nhập tại đây</Link>
+                </div>
               </div>
-              <Link className="staff-login-forgot" to="/forgot-password?portal=staff">Quên mật khẩu?</Link>
-              <button className="staff-login-submit" type="submit" disabled={loading}>{loading ? 'Đang đăng nhập…' : 'Đăng nhập'} <i className="bi bi-arrow-right" aria-hidden="true" /></button>
-            </form>
-          )}
-          <div className="staff-login-help"><i className="bi bi-info-circle" aria-hidden="true" /> Cần tài khoản? Liên hệ quản lý để được cấp quyền.</div>
-          <Link className="staff-login-customer" to="/login">Bạn là khách hàng? Đăng nhập tại đây</Link>
+            </div>
+          </section>
         </div>
-      </section>
-    </main>
+      </main>
+      <Footer user={user} />
+    </>
   );
 }

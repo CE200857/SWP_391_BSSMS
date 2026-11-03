@@ -20,6 +20,12 @@ const initialForm = {
     notes: ""
 };
 
+const initialNewCustomer = {
+    fullName: "",
+    phone: "",
+    gender: "Female"
+};
+
 const DRAFT_STORAGE_KEY = "bssms.walkInAppointmentDraft";
 
 const readAppointmentDraft = () => {
@@ -75,6 +81,14 @@ const CreateWalkInAppointment = () => {
     const [customerSearch, setCustomerSearch] = useState(() => {
         return readAppointmentDraft().customerSearch || "";
     });
+    const [customerMode, setCustomerMode] = useState(() => {
+        return readAppointmentDraft().customerMode || "existing";
+    });
+    const [showCustomerList, setShowCustomerList] = useState(false);
+    const [newCustomer, setNewCustomer] = useState(() => ({
+        ...initialNewCustomer,
+        ...(readAppointmentDraft().newCustomer || {})
+    }));
 
     const [customers, setCustomers] = useState([]);
     const [services, setServices] = useState([]);
@@ -142,20 +156,25 @@ const CreateWalkInAppointment = () => {
     useEffect(() => {
         const hasData =
             Object.values(formData).some((value) => value !== "")
-            || customerSearch !== "";
+            || customerSearch !== ""
+            || newCustomer.fullName !== ""
+            || newCustomer.phone !== ""
+            || newCustomer.gender !== "Female";
 
         if (hasData) {
             sessionStorage.setItem(
                 DRAFT_STORAGE_KEY,
                 JSON.stringify({
                     formData,
-                    customerSearch
+                    customerSearch,
+                    customerMode,
+                    newCustomer
                 })
             );
         } else {
             sessionStorage.removeItem(DRAFT_STORAGE_KEY);
         }
-    }, [formData, customerSearch]);
+    }, [formData, customerSearch, customerMode, newCustomer]);
 
     const filteredCustomers = useMemo(() => {
         const keyword = customerSearch.trim().toLowerCase();
@@ -169,6 +188,13 @@ const CreateWalkInAppointment = () => {
             || customer.phone?.toLowerCase().includes(keyword)
         );
     }, [customers, customerSearch]);
+
+    const selectedCustomer = useMemo(
+        () => customers.find(
+            (customer) => String(customer.customerId) === formData.customerId
+        ),
+        [customers, formData.customerId]
+    );
 
     const selectedService = useMemo(
         () => services.find(
@@ -196,12 +222,28 @@ const CreateWalkInAppointment = () => {
         setSuccess(null);
 
         if (
-            !formData.customerId
+            (customerMode === "existing" && !formData.customerId)
             || !formData.serviceId
             || !formData.appointmentDate
             || !formData.startTime
         ) {
             setError("Vui lòng điền đầy đủ các trường bắt buộc.");
+            return;
+        }
+
+        if (customerMode === "new") {
+            if (!newCustomer.fullName.trim()) {
+                setError("Vui lòng nhập họ tên khách hàng.");
+                return;
+            }
+            if (!/^0[1-9]\d{8}$/.test(newCustomer.phone.trim())) {
+                setError("Số điện thoại phải gồm 10 số và bắt đầu bằng 0.");
+                return;
+            }
+        }
+
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(formData.startTime)) {
+            setError("Vui lòng nhập giờ bắt đầu theo định dạng 24 giờ (HH:mm).");
             return;
         }
 
@@ -212,9 +254,45 @@ const CreateWalkInAppointment = () => {
 
         setIsSubmitting(true);
 
+        let createdCustomer = null;
         try {
+            let customerId = Number(formData.customerId);
+            if (customerMode === "new") {
+                const customerResponse = await fetch("/api/customers", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        action: "walkInProfile",
+                        fullName: newCustomer.fullName.trim(),
+                        phone: newCustomer.phone.trim(),
+                        gender: newCustomer.gender
+                    })
+                });
+                const customerResult = await customerResponse.json().catch(() => null);
+                if (!customerResponse.ok) {
+                    if (customerResponse.status === 409) {
+                        setCustomerMode("existing");
+                        setCustomerSearch(newCustomer.phone.trim());
+                    }
+                    throw new Error(
+                        customerResult?.message || "Không thể tạo hồ sơ khách hàng."
+                    );
+                }
+                createdCustomer = customerResult;
+                customerId = Number(customerResult.customerId);
+                setCustomers((previous) => [
+                    ...previous,
+                    { ...customerResult, status: "Active" }
+                ]);
+                setFormData((previous) => ({
+                    ...previous,
+                    customerId: String(customerId)
+                }));
+            }
+
             const payload = {
-                customerId: Number(formData.customerId),
+                customerId,
                 serviceId: Number(formData.serviceId),
                 appointmentDate: formData.appointmentDate,
                 startTime: formData.startTime,
@@ -253,11 +331,18 @@ const CreateWalkInAppointment = () => {
 
             setFormData(initialForm);
             setCustomerSearch("");
+            setCustomerMode("existing");
+            setNewCustomer(initialNewCustomer);
         } catch (err) {
-            setError(
-                err.message
-                || "Có lỗi xảy ra khi tạo lịch hẹn."
-            );
+            if (createdCustomer) {
+                setCustomerMode("existing");
+                setCustomerSearch(createdCustomer.fullName);
+                setError(
+                    `Đã tạo hồ sơ khách hàng #${createdCustomer.customerId}, nhưng chưa tạo được lịch: ${err.message}`
+                );
+            } else {
+                setError(err.message || "Có lỗi xảy ra khi tạo lịch hẹn.");
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -273,23 +358,25 @@ const CreateWalkInAppointment = () => {
     }
 
     return (
-        <Container className="py-4">
-            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <Container className="py-4 appointment-create-page">
+            <div className="appointment-create-heading">
                 <div>
-                    <h2 className="fw-bold mb-1">
-                        Create Walk-in Appointment
-                    </h2>
+                    <span className="appointment-create-eyebrow">LỊCH HẸN · TẠI QUẦY</span>
+                    <h1>Tạo lịch hẹn trực tiếp</h1>
                     <p className="text-muted mb-0">
-                        Tạo lịch hẹn trực tiếp cho khách hàng tại spa.
+                        Đặt lịch tại spa và chọn dịch vụ, thời gian phù hợp cho khách hàng.
                     </p>
                 </div>
 
                 <Button
-                    variant="outline-secondary"
+                    variant="light"
+                    className="appointment-create-back"
                     onClick={() => {
                         sessionStorage.removeItem(DRAFT_STORAGE_KEY);
                         setFormData(initialForm);
                         setCustomerSearch("");
+                        setCustomerMode("existing");
+                        setNewCustomer(initialNewCustomer);
                         navigate("/appointments");
                     }}
                 >
@@ -335,79 +422,189 @@ const CreateWalkInAppointment = () => {
                 </Alert>
             )}
 
-            <Card className="border-0 shadow-sm">
-                <Card.Body className="p-4">
+            <Card className="appointment-create-card">
+                <Card.Body>
                     <Form onSubmit={handleSubmit}>
-                        <h5 className="fw-bold mb-3">
-                            1. Customer Information
-                        </h5>
+                        <section className="appointment-create-section">
+                            <h2><span>01</span>Thông tin khách hàng</h2>
+                            <div className="appointment-customer-mode" role="group" aria-label="Loại hồ sơ khách hàng">
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    className={customerMode === "existing" ? "active" : ""}
+                                    onClick={() => {
+                                        setCustomerMode("existing");
+                                        setError("");
+                                        setSuccess(null);
+                                    }}
+                                >
+                                    <i className="bi bi-person-check"></i>
+                                    Khách đã có hồ sơ
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    className={customerMode === "new" ? "active" : ""}
+                                    onClick={() => {
+                                        setCustomerMode("new");
+                                        setFormData((previous) => ({ ...previous, customerId: "" }));
+                                        setError("");
+                                        setSuccess(null);
+                                    }}
+                                >
+                                    <i className="bi bi-person-plus"></i>
+                                    Khách mới tại quầy
+                                </Button>
+                            </div>
 
-                        <Row className="g-3 mb-4">
-                            <Col md={6}>
+                            {customerMode === "existing" ? (
                                 <Form.Group controlId="customerSearch">
-                                    <Form.Label>
-                                        Tìm khách hàng
-                                    </Form.Label>
-
-                                    <Form.Control
-                                        type="text"
-                                        placeholder="Nhập tên hoặc số điện thoại"
-                                        value={customerSearch}
-                                        onChange={(event) => {
-                                            setCustomerSearch(event.target.value);
-                                            setFormData((previous) => ({
-                                                ...previous,
-                                                customerId: ""
-                                            }));
-                                        }}
-                                    />
-                                </Form.Group>
-                            </Col>
-
-                            <Col md={6}>
-                                <Form.Group controlId="customerId">
-                                    <Form.Label>
-                                        Khách hàng <span className="text-danger">*</span>
-                                    </Form.Label>
-
-                                    <Form.Select
-                                        name="customerId"
-                                        value={formData.customerId}
-                                        onChange={handleChange}
-                                        required
-                                    >
-                                        <option value="">
-                                            -- Chọn khách hàng --
-                                        </option>
-
-                                        {filteredCustomers.map((customer) => (
-                                            <option
-                                                key={customer.customerId}
-                                                value={customer.customerId}
+                                    <Form.Label>Khách hàng <span className="text-danger">*</span></Form.Label>
+                                    {selectedCustomer ? (
+                                        <div className="appointment-customer-selected">
+                                            <div>
+                                                <strong>{selectedCustomer.fullName}</strong>
+                                                <span>{selectedCustomer.phone || "Chưa có số điện thoại"}</span>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="light"
+                                                aria-label="Đổi khách hàng đã chọn"
+                                                onClick={() => {
+                                                    setFormData((previous) => ({ ...previous, customerId: "" }));
+                                                    setShowCustomerList(true);
+                                                }}
                                             >
-                                                {customer.fullName}
-                                                {customer.phone
-                                                    ? ` - ${customer.phone}`
-                                                    : ""}
-                                            </option>
-                                        ))}
-                                    </Form.Select>
-
-                                    {filteredCustomers.length === 0 && (
-                                        <Form.Text className="text-danger">
-                                            Không tìm thấy khách hàng đang hoạt động.
-                                            Hãy kiểm tra lại hoặc tạo hồ sơ khách hàng trước.
-                                        </Form.Text>
+                                                Đổi khách
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className={`appointment-customer-picker${showCustomerList || customerSearch.trim() ? " is-open" : ""}`}>
+                                                <Form.Control
+                                                    type="search"
+                                                    placeholder="Nhập tên hoặc số điện thoại để tìm"
+                                                    value={customerSearch}
+                                                    aria-controls="appointment-customer-results"
+                                                    aria-expanded={showCustomerList}
+                                                    onChange={(event) => {
+                                                        setCustomerSearch(event.target.value);
+                                                        setError("");
+                                                        setSuccess(null);
+                                                    }}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="light"
+                                                    className="appointment-customer-list-toggle"
+                                                    aria-label={showCustomerList ? "Ẩn danh sách khách hàng" : "Mở danh sách khách hàng"}
+                                                    aria-expanded={showCustomerList}
+                                                    aria-controls="appointment-customer-results"
+                                                    onClick={() => setShowCustomerList((visible) => !visible)}
+                                                >
+                                                    <i className={`bi bi-chevron-${showCustomerList ? "up" : "down"}`} aria-hidden="true"></i>
+                                                </Button>
+                                                {(customerSearch.trim() || showCustomerList) && (
+                                                    <div id="appointment-customer-results" className="appointment-customer-results">
+                                                        {filteredCustomers.length ? filteredCustomers.map((customer) => (
+                                                            <button
+                                                                type="button"
+                                                                key={customer.customerId}
+                                                                onClick={() => {
+                                                                    setFormData((previous) => ({
+                                                                        ...previous,
+                                                                        customerId: String(customer.customerId)
+                                                                    }));
+                                                                    setCustomerSearch("");
+                                                                    setShowCustomerList(false);
+                                                                    setError("");
+                                                                    setSuccess(null);
+                                                                }}
+                                                            >
+                                                                <strong>{customer.fullName}</strong>
+                                                                <span>{customer.phone || "Chưa có số điện thoại"}</span>
+                                                            </button>
+                                                        )) : (
+                                                            <p className="mb-0">
+                                                                Không tìm thấy hồ sơ phù hợp. Hãy chọn <strong>Khách mới tại quầy</strong> để tạo hồ sơ không cần tài khoản.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {!customerSearch.trim() && !showCustomerList && (
+                                                <Form.Text className="text-muted d-block">
+                                                    Tìm theo tên hoặc số điện thoại, hoặc mở danh sách để chọn khách hàng.
+                                                </Form.Text>
+                                            )}
+                                        </>
                                     )}
                                 </Form.Group>
-                            </Col>
-                        </Row>
+                            ) : (
+                                <>
+                                    <Alert variant="light" className="appointment-customer-account-note">
+                                        Chỉ tạo hồ sơ để đặt lịch, không tạo tài khoản đăng nhập. Khách có thể đăng ký riêng sau nếu cần.
+                                    </Alert>
+                                    <Row className="g-3">
+                                        <Col md={6}>
+                                            <Form.Group controlId="newCustomerName">
+                                                <Form.Label>Họ và tên <span className="text-danger">*</span></Form.Label>
+                                                <Form.Control
+                                                    value={newCustomer.fullName}
+                                                    onChange={(event) => {
+                                                        setNewCustomer((previous) => ({ ...previous, fullName: event.target.value }));
+                                                        setError("");
+                                                        setSuccess(null);
+                                                    }}
+                                                    placeholder="Nhập họ và tên khách hàng"
+                                                    maxLength={100}
+                                                    required
+                                                />
+                                            </Form.Group>
+                                        </Col>
+                                        <Col md={3}>
+                                            <Form.Group controlId="newCustomerPhone">
+                                                <Form.Label>Số điện thoại <span className="text-danger">*</span></Form.Label>
+                                                <Form.Control
+                                                    type="tel"
+                                                    inputMode="numeric"
+                                                    value={newCustomer.phone}
+                                                    onChange={(event) => {
+                                                        setNewCustomer((previous) => ({ ...previous, phone: event.target.value }));
+                                                        setError("");
+                                                        setSuccess(null);
+                                                    }}
+                                                    placeholder="09xxxxxxxx"
+                                                    maxLength={10}
+                                                    required
+                                                />
+                                            </Form.Group>
+                                        </Col>
+                                        <Col md={3}>
+                                            <Form.Group controlId="newCustomerGender">
+                                                <Form.Label>Giới tính</Form.Label>
+                                                <Form.Select
+                                                    value={newCustomer.gender}
+                                                    onChange={(event) => {
+                                                        setNewCustomer((previous) => ({ ...previous, gender: event.target.value }));
+                                                        setError("");
+                                                        setSuccess(null);
+                                                    }}
+                                                >
+                                                    <option value="Female">Nữ</option>
+                                                    <option value="Male">Nam</option>
+                                                    <option value="Other">Khác</option>
+                                                </Form.Select>
+                                            </Form.Group>
+                                        </Col>
+                                    </Row>
+                                </>
+                            )}
+                        </section>
 
-                        <h5 className="fw-bold mb-3">
-                            2. Service Information
-                        </h5>
-
-                        <Row className="g-3 mb-4">
+                        <section className="appointment-create-section">
+                            <h2><span>02</span>Chọn dịch vụ</h2>
+                            <Row className="g-3">
                             <Col md={6}>
                                 <Form.Group controlId="serviceId">
                                     <Form.Label>
@@ -469,13 +666,12 @@ const CreateWalkInAppointment = () => {
                                     />
                                 </Form.Group>
                             </Col>
-                        </Row>
+                            </Row>
+                        </section>
 
-                        <h5 className="fw-bold mb-3">
-                            3. Appointment Schedule
-                        </h5>
-
-                        <Row className="g-3 mb-4">
+                        <section className="appointment-create-section">
+                            <h2><span>03</span>Thời gian & nhân viên</h2>
+                            <Row className="g-3">
                             <Col md={4}>
                                 <Form.Group controlId="appointmentDate">
                                     <Form.Label>
@@ -500,12 +696,21 @@ const CreateWalkInAppointment = () => {
                                     </Form.Label>
 
                                     <Form.Control
-                                        type="time"
+                                        type="text"
+                                        inputMode="numeric"
                                         name="startTime"
                                         value={formData.startTime}
+                                        placeholder="HH:mm"
+                                        maxLength={5}
+                                        pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                                        title="Nhập theo định dạng 24 giờ, ví dụ 09:30"
+                                        aria-describedby="startTimeHelp"
                                         onChange={handleChange}
                                         required
                                     />
+                                    <Form.Text id="startTimeHelp" className="text-muted">
+                                        Nhập theo giờ 24h, ví dụ 09:30.
+                                    </Form.Text>
                                 </Form.Group>
                             </Col>
 
@@ -538,13 +743,12 @@ const CreateWalkInAppointment = () => {
                                     </Form.Text>
                                 </Form.Group>
                             </Col>
-                        </Row>
+                            </Row>
+                        </section>
 
-                        <h5 className="fw-bold mb-3">
-                            4. Additional Information
-                        </h5>
-
-                        <Form.Group controlId="notes" className="mb-4">
+                        <section className="appointment-create-section appointment-create-notes">
+                            <h2><span>04</span>Ghi chú thêm <small>Không bắt buộc</small></h2>
+                            <Form.Group controlId="notes">
                             <Form.Label>Ghi chú</Form.Label>
 
                             <Form.Control
@@ -560,12 +764,14 @@ const CreateWalkInAppointment = () => {
                             <Form.Text className="text-muted">
                                 Tối đa 500 ký tự.
                             </Form.Text>
-                        </Form.Group>
+                            </Form.Group>
+                        </section>
 
-                        <div className="d-flex justify-content-end gap-2">
+                        <div className="appointment-create-actions">
                             <Button
                                 type="button"
-                                variant="outline-secondary"
+                                variant="light"
+                                className="appointment-create-cancel"
                                 onClick={() => navigate("/appointments")}
                                 disabled={isSubmitting}
                             >
@@ -589,7 +795,7 @@ const CreateWalkInAppointment = () => {
                                 ) : (
                                     <>
                                         <i className="bi bi-calendar-plus me-2"></i>
-                                        Create Appointment
+                                        Tạo lịch hẹn
                                     </>
                                 )}
                             </Button>

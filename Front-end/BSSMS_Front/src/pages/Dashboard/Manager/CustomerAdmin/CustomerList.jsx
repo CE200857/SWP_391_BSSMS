@@ -4,20 +4,19 @@ import {
   Table,
   Button,
   Badge,
-  Form,
-  InputGroup,
   Modal,
 } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
 
 const CustomerList = ({ user }) => {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
   const [refresh, setRefresh] = useState(0);
 
   const [showModal, setShowModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [detailCustomer, setDetailCustomer] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,28 +71,28 @@ const CustomerList = ({ user }) => {
     }
   };
 
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone?.includes(searchTerm) ||
-      c.email?.toLowerCase().includes(searchTerm.toLowerCase()),
+  const { filteredRows: filteredCustomers, toolbar } = useManagerSearchFilter(
+    customers,
+    [
+      { key: "fullName", label: "Khách hàng" },
+      { key: "customerId", label: "Mã khách hàng", filterable: false },
+      { key: "phone", label: "Số điện thoại", filterable: false },
+      { key: "email", label: "Email", filterable: false },
+      {
+        key: "status",
+        label: "Trạng thái",
+        formatValue: (value) => value === "Active" ? "Đang hoạt động" : "Không hoạt động",
+      },
+    ],
+    "Tìm theo tên, email, số điện thoại...",
   );
 
   return (
     <Container fluid className="mt-4 px-4">
         <h2 className="manager-page-title fw-bold mb-4">Danh sách khách hàng</h2>
 
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <InputGroup className="mb-3 w-50">
-          <InputGroup.Text>
-            <i className="bi bi-search"></i>
-          </InputGroup.Text>
-          <Form.Control
-            placeholder="Tìm theo tên, email, số điện thoại..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </InputGroup>
+      <div className="d-flex justify-content-between align-items-center gap-3 mb-4">
+        <div className="manager-list-toolbar">{toolbar}</div>
         {user?.role === "Receptionist" && (
             <Button
               variant="danger"
@@ -104,25 +103,24 @@ const CustomerList = ({ user }) => {
         )}
       </div>
 
-      <Table striped bordered hover responsive className="align-middle">
+      <Table hover responsive className="align-middle manager-list-table customer-admin-list">
         <thead className="table-dark">
           <tr>
-            <th>ID</th>
             <th>Họ và Tên</th>
             <th>Số điện thoại</th>
-            <th>Email</th>
             <th>Trạng thái</th>
-            <th>Hành động</th>
+            <th className="text-center">Hành động</th>
           </tr>
         </thead>
         <tbody>
           {filteredCustomers.length > 0 ? (
             filteredCustomers.map((c) => (
               <tr key={c.customerId}>
-                <td>{c.customerId}</td>
-                <td>{c.fullName}</td>
+                <td>
+                  <strong>{c.fullName}</strong>
+                  <div className="small text-muted">#{c.customerId}</div>
+                </td>
                 <td>{c.phone}</td>
-                <td>{c.email}</td>
                 <td>
                   {c.status === "Active" ? (
                     <Badge bg="success">Đang hoạt động</Badge>
@@ -130,37 +128,76 @@ const CustomerList = ({ user }) => {
                     <Badge bg="danger">Không hoạt động</Badge>
                   )}
                 </td>
-                <td>
+                <td className="text-center">
+                  <div className="manager-list-actions customer-admin-actions">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="manager-list-action manager-list-action--view"
+                    onClick={() => setDetailCustomer(c)}
+                    aria-label={`Xem khách hàng ${c.fullName}`}
+                  >
+                    <i className="bi bi-eye-fill me-1" aria-hidden="true" />
+                    Xem
+                  </Button>
                   {(user?.role === "Manager" ||
                     user?.role === "Receptionist") && (
                     <Button
-                      variant="danger"
+                      variant="link"
                       size="sm"
-                      className="me-2"
+                      className="manager-list-action manager-list-action--edit"
                       onClick={() => navigate(`/customers/edit/${c.customerId}`)}
+                      aria-label={`Sửa khách hàng ${c.fullName}`}
                     >
-                      <i className="bi bi-pencil-square"></i> Chỉnh sửa
+                      <i className="bi bi-pencil-square" aria-hidden="true" /> Sửa
                     </Button>
                   )}
                   <Button
-                    variant="danger"
+                    variant="link"
                     size="sm"
+                    className="manager-list-action manager-list-action--delete"
                     onClick={() => handleShowModal(c)}
+                    aria-label={`Xóa khách hàng ${c.fullName}`}
                   >
-                    <i className="bi bi-trash"></i> Xóa
+                    <i className="bi bi-trash" aria-hidden="true" /> Xóa
                   </Button>
+                  </div>
                 </td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="6" className="text-center text-muted">
+              <td colSpan="4" className="text-center text-muted">
                 Không tìm thấy khách hàng nào.
               </td>
             </tr>
           )}
         </tbody>
       </Table>
+
+      <Modal
+        show={!!detailCustomer}
+        onHide={() => setDetailCustomer(null)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Thông tin khách hàng</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <dl className="row mb-0">
+            <dt className="col-sm-4">Mã khách hàng</dt>
+            <dd className="col-sm-8">#{detailCustomer?.customerId}</dd>
+            <dt className="col-sm-4">Họ và tên</dt>
+            <dd className="col-sm-8">{detailCustomer?.fullName || "—"}</dd>
+            <dt className="col-sm-4">Số điện thoại</dt>
+            <dd className="col-sm-8">{detailCustomer?.phone || "—"}</dd>
+            <dt className="col-sm-4">Email</dt>
+            <dd className="col-sm-8">{detailCustomer?.email || "—"}</dd>
+            <dt className="col-sm-4">Trạng thái</dt>
+            <dd className="col-sm-8">{detailCustomer?.status || "—"}</dd>
+          </dl>
+        </Modal.Body>
+      </Modal>
 
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>

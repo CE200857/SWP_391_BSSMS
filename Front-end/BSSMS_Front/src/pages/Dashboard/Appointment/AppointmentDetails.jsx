@@ -115,16 +115,11 @@ const AppointmentDetails = ({ user }) => {
 
       case "No-show":
       case "No Show":
-        return (
-          <Badge bg="warning" text="dark">
-            Không đến
-          </Badge>
-        );
+        return <Badge bg="warning" text="dark">Không đến</Badge>;
 
       case "Pending": return <Badge bg="secondary">Chờ xác nhận</Badge>;
       case "Checked-in": case "Checked In": return <Badge bg="info">Đã đến</Badge>;
       case "In-progress": case "In Progress": return <Badge bg="primary">Đang thực hiện</Badge>;
-      case "No-show": return <Badge bg="warning" text="dark">Không đến</Badge>;
       default: return <Badge bg="secondary">{status}</Badge>;
     }
   };
@@ -239,13 +234,16 @@ const AppointmentDetails = ({ user }) => {
     appointment.status === "Confirmed";
 
   return (
-    <Container className="mt-4">
-      <div className="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
-        <h2 className="fw-bold text-uppercase">Chi tiết lịch hẹn</h2>
-
-        <Button variant="secondary" onClick={() => navigate("/appointments")}>
-          <i className="bi bi-arrow-left me-2"></i>
-          Quay lại
+    <Container className="mt-4 appointment-detail-page">
+      <div className="appointment-detail-heading">
+        <div>
+          <div className="appointment-detail-eyebrow">LỊCH HẸN · #{appointment.appointmentId}</div>
+          <h1>Chi tiết lịch hẹn</h1>
+          <p>Thông tin dịch vụ và thời gian đặt hẹn</p>
+        </div>
+        <Button variant="light" className="appointment-detail-back" onClick={() => navigate("/appointments")}>
+          <i className="bi bi-arrow-left"></i>
+          Quay lại danh sách
         </Button>
       </div>
 
@@ -262,106 +260,93 @@ const AppointmentDetails = ({ user }) => {
           />}
         </>
       )}
-      <Card className="shadow-sm">
-        <Card.Header className="fw-bold">
-          Lịch hẹn #{appointment.appointmentId}
+      <Card className="appointment-detail-card">
+        <Card.Header className="appointment-detail-card-header">
+          <div>
+            <span className="appointment-detail-label">MÃ LỊCH HẸN</span>
+            <strong>#{appointment.appointmentId}</strong>
+          </div>
+          {getStatusBadge(appointment.status)}
         </Card.Header>
 
-        <Card.Body>
-          <div className="row">
-            <div className="col-md-6 mb-4">
-              <label className="text-muted fw-bold">Khách hàng</label>
-              <div className="fs-5">{appointment.customerName}</div>
+        <Card.Body className="appointment-detail-card-body">
+          <section className="appointment-detail-service">
+            <div className="appointment-detail-icon"><i className="bi bi-stars"></i></div>
+            <div>
+              <span className="appointment-detail-label">DỊCH VỤ</span>
+              <h2>{appointment.serviceName}</h2>
             </div>
+          </section>
 
-            <div className="col-md-6 mb-4">
-              <label className="text-muted fw-bold">Nhân viên</label>
-              <div className="fs-5">{appointment.staffName}</div>
-            </div>
-
-            <div className="col-md-6 mb-4">
-              <label className="text-muted fw-bold">Dịch vụ</label>
-              <div className="fs-5">{appointment.serviceName}</div>
-            </div>
-
-            <div className="col-md-6 mb-4">
-              <label className="text-muted fw-bold">Phòng</label>
-              <div className="fs-5">
-                {appointment.roomName || "Chưa phân phòng"}
+          <div className="appointment-detail-grid">
+            <section className="appointment-detail-section">
+              <h3><i className="bi bi-calendar2-week"></i> Thời gian</h3>
+              <div className="appointment-detail-fields">
+                <div className="appointment-detail-field">
+                  <span>Ngày hẹn</span>
+                  <strong>{appointment.appointmentDate}</strong>
+                </div>
+                <div className="appointment-detail-field">
+                  <span>Thời gian</span>
+                  <strong>{String(appointment.startTime || "").slice(0, 5)} – {String(appointment.endTime || "").slice(0, 5)}</strong>
+                </div>
               </div>
-            </div>
+            </section>
 
-            <div className="col-md-4 mb-4">
-              <label className="text-muted fw-bold">Ngày hẹn</label>
-              <div className="fs-5">{appointment.appointmentDate}</div>
-            </div>
-
-            <div className="col-md-4 mb-4">
-              <label className="text-muted fw-bold">Giờ bắt đầu</label>
-              <div className="fs-5">{appointment.startTime}</div>
-            </div>
-
-            <div className="col-md-4 mb-4">
-              <label className="text-muted fw-bold">Giờ kết thúc</label>
-              <div className="fs-5">{appointment.endTime}</div>
-            </div>
-
-            <div className="col-md-6">
-              <label className="text-muted fw-bold">Trạng thái</label>
-
-              <div className="mt-1">{getStatusBadge(appointment.status)}</div>
-            </div>
-
-            <div className="col-md-12 mt-4">
-              <label className="text-muted fw-bold">Ghi chú</label>
-
-              <div className="fs-5">
-                {appointment.notes || "Không có ghi chú"}
+            <section className="appointment-detail-section">
+              <h3><i className="bi bi-person-vcard"></i> Thông tin phục vụ</h3>
+              <div className="appointment-detail-fields">
+                <div className="appointment-detail-field">
+                  <span>Khách hàng</span>
+                  <strong>{appointment.customerName || "—"}</strong>
+                </div>
+                <div className="appointment-detail-field">
+                  <span>Nhân viên</span>
+                  <strong>{appointment.staffName || "Chưa phân công"}</strong>
+                </div>
+                <div className="appointment-detail-field">
+                  <span>Phòng</span>
+                  <strong>{appointment.roomName || "Chưa phân phòng"}</strong>
+                </div>
               </div>
-            </div>
-
-            {cancelSuccess && <Alert variant="success" className="mt-3" role="status">Đã hủy lịch hẹn thành công.</Alert>}
-            {appointment.cancellationReason && <p className="mt-3">Lý do hủy: {appointment.cancellationReason}</p>}
-            {cancelError && !showCancel && (
-              <div className="col-md-12 mt-4">
-                <Alert variant="danger">{cancelError}</Alert>
-              </div>
-            )}
-
-            {canModify && (
-              <div className="mt-4 d-flex gap-2">
-                <Button
-                  variant="warning"
-                  onClick={() =>
-                    navigate(
-                      `/appointments/${appointment.appointmentId}/reschedule`,
-                    )
-                  }
-                >
-                  <i aria-hidden="true" className="bi bi-calendar-event me-2"></i>
-                  Đổi lịch
-                </Button>
-
-                <Button
-                  variant="danger"
-                  onClick={() => { setCancelError(""); setShowCancel(true); }}
-                  disabled={cancelling}
-                >
-                  {cancelling ? (
-                    <>
-                      <Spinner size="sm" className="me-2" />
-                      Đang hủy...
-                    </>
-                  ) : (
-                    <>
-                      <i aria-hidden="true" className="bi bi-x-circle me-2"></i>
-                      Hủy lịch
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
+            </section>
           </div>
+
+          <section className="appointment-detail-note">
+            <h3><i className="bi bi-chat-left-text"></i> Ghi chú</h3>
+            <p>{appointment.notes || "Không có ghi chú cho lịch hẹn này."}</p>
+          </section>
+
+          {cancelSuccess && <Alert variant="success" className="mt-4 mb-0" role="status">Đã hủy lịch hẹn thành công.</Alert>}
+          {appointment.cancellationReason && (
+            <Alert variant="light" className="appointment-detail-cancellation mb-0">
+              <strong>Lý do hủy:</strong> {appointment.cancellationReason}
+            </Alert>
+          )}
+          {cancelError && !showCancel && <Alert variant="danger" className="mt-4 mb-0">{cancelError}</Alert>}
+
+          {canModify && (
+            <div className="appointment-detail-actions">
+                <Button
+                  className="appointment-detail-reschedule"
+                onClick={() => navigate(`/appointments/${appointment.appointmentId}/reschedule`)}
+              >
+                <i aria-hidden="true" className="bi bi-calendar-event"></i>
+                Đổi lịch
+              </Button>
+              <Button
+                variant="outline-danger"
+                onClick={() => { setCancelError(""); setShowCancel(true); }}
+                disabled={cancelling}
+              >
+                {cancelling ? (
+                  <><Spinner size="sm" className="me-2" />Đang hủy...</>
+                ) : (
+                  <><i aria-hidden="true" className="bi bi-x-circle"></i>Hủy lịch</>
+                )}
+              </Button>
+            </div>
+          )}
         </Card.Body>
       </Card>
 
@@ -385,8 +370,8 @@ const AppointmentDetails = ({ user }) => {
 
       {/* ============== PHẦN ĐÁNH GIÁ - chỉ hiển thị khi Completed ============== */}
       {appointment.status === "Completed" && (
-        <Card className="shadow-sm mt-4">
-          <Card.Header className="fw-bold d-flex align-items-center">
+        <Card className="appointment-feedback-card">
+          <Card.Header className="appointment-feedback-header">
             <i className="bi bi-chat-quote-fill me-2 text-danger"></i>
             Đánh giá từ khách hàng
             {feedback && (
