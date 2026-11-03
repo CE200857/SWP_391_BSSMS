@@ -12,6 +12,8 @@ import {
 } from "react-bootstrap";
 import { api, post, money } from "../../../services/api";
 import { refundableAmount } from "../../../services/billing";
+import servicePhoto03 from "../../../assets/figma/service-card-exact-03.png";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 export default function InvoiceManagement({ user }) {
   const location = useLocation();
   const role = user?.role || "Manager";
@@ -28,6 +30,17 @@ export default function InvoiceManagement({ user }) {
     [success, setSuccess] = useState(""),
     [action, setAction] = useState(null),
     [busy, setBusy] = useState(false);
+  const { filteredRows: managerInvoices, toolbar } = useManagerSearchFilter(
+    rows,
+    [
+      { key: "invoiceId", label: "Mã hóa đơn", filterable: false },
+      { key: "customerName", label: "Khách hàng" },
+      { key: "customerPhone", label: "Số điện thoại", filterable: false },
+      { key: "status", label: "Trạng thái" },
+      { key: "invoiceDate", label: "Ngày tạo", type: "date" },
+    ],
+    "Tìm theo mã hóa đơn, khách hàng, số điện thoại...",
+  );
   async function load() {
     setLoading(true);
     try {
@@ -131,7 +144,7 @@ export default function InvoiceManagement({ user }) {
   }
   const table = (headers, records, cells) => (
     <div className="table-responsive">
-      <Table size="sm" bordered>
+      <Table size="sm" hover className="manager-list-table">
         <thead>
           <tr>
             {headers.map((h) => (
@@ -151,8 +164,25 @@ export default function InvoiceManagement({ user }) {
     </div>
   );
   return (
-    <section>
-      <div className="ui-page-heading">
+    <div className={role === "Customer" ? "public-service-page customer-invoices-page" : "invoice-management-page"}>
+      {role === "Customer" && (
+        <section className="public-service-hero customer-invoices-hero">
+          <div className="public-service-hero-copy">
+            <span className="seoul-eyebrow">TÀI KHOẢN · GIAO DỊCH</span>
+            <h1>Hóa đơn của tôi</h1>
+            <p>
+              Tra cứu hóa đơn, số dư còn lại và lịch sử giao dịch của bạn tại
+              Seoul Center.
+            </p>
+            <span className="public-service-hero-note">
+              <i className="bi bi-receipt" aria-hidden="true" /> Thanh toán an toàn tại quầy hoặc qua VNPay
+            </span>
+          </div>
+          <img src={servicePhoto03} alt="Trải nghiệm chăm sóc tại Seoul Center" />
+        </section>
+      )}
+      <section className={role === "Customer" ? "public-service-content customer-invoices-content" : undefined}>
+      <div className={`ui-page-heading${role === "Customer" ? " customer-invoices-heading" : ""}`}>
         <div>
           <h1>
             {role === "Customer" ? "Hóa đơn của tôi" : "Hóa đơn & thanh toán"}
@@ -182,26 +212,30 @@ export default function InvoiceManagement({ user }) {
       )}
       {error && !selected && <Alert variant="danger">{error}</Alert>}
       {success && <Alert variant="success">{success}</Alert>}
-      <Card>
+      <Card className={role === "Customer" ? "customer-invoices-card" : undefined}>
         <Card.Body>
-          <div className="ui-toolbar">
-            <Form.Control
-              aria-label="Tìm hóa đơn"
-              placeholder="Mã hóa đơn, tên hoặc số điện thoại…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <Form.Select
-              aria-label="Trạng thái hóa đơn"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="">Tất cả trạng thái</option>
-              {["Unpaid", "Paid", "Refunded", "Cancelled"].map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </Form.Select>
-          </div>
+          {role === "Manager" ? (
+            <div className="manager-list-toolbar mb-3">{toolbar}</div>
+          ) : (
+            <div className="ui-toolbar">
+              <Form.Control
+                aria-label="Tìm hóa đơn"
+                placeholder="Mã hóa đơn, tên hoặc số điện thoại…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <Form.Select
+                aria-label="Trạng thái hóa đơn"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="">Tất cả trạng thái</option>
+                {["Unpaid", "Paid", "Refunded", "Cancelled"].map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </Form.Select>
+            </div>
+          )}
           {loading ? (
             <div className="ui-empty">
               <Spinner animation="border" />
@@ -210,29 +244,35 @@ export default function InvoiceManagement({ user }) {
             table(
               [
                 "Mã",
-                "Ngày",
                 "Khách hàng",
-                "Tổng tiền",
-                "Đã thu",
-                "Còn lại",
+                "Thanh toán",
                 "Trạng thái",
                 "Chi tiết",
               ],
-              rows.filter(
-                (r) =>
-                  (!status || r.status === status) &&
-                  `${r.invoiceId} ${r.customerName} ${r.customerPhone}`
-                    .toLowerCase()
-                    .includes(query.toLowerCase()),
-              ),
+              role === "Manager"
+                ? managerInvoices
+                : rows.filter(
+                    (r) =>
+                      (!status || r.status === status) &&
+                      `${r.invoiceId} ${r.customerName} ${r.customerPhone}`
+                        .toLowerCase()
+                        .includes(query.toLowerCase()),
+                  ),
               (r) => (
                 <>
                   <td>#{r.invoiceId}</td>
-                  <td>{r.invoiceDate?.slice(0, 10)}</td>
-                  <td>{r.customerName}</td>
-                  <td>{money(r.totalAmount)}</td>
-                  <td>{money(r.paidAmount)}</td>
-                  <td>{money(r.outstandingAmount)}</td>
+                  <td>
+                    <strong>{r.customerName}</strong>
+                    <div className="small text-muted">
+                      {r.invoiceDate?.slice(0, 10)}
+                    </div>
+                  </td>
+                  <td>
+                    <strong>{money(r.outstandingAmount)}</strong>
+                    <div className="small text-muted">
+                      Còn lại · Tổng {money(r.totalAmount)}
+                    </div>
+                  </td>
                   <td>
                     <Badge
                       bg={
@@ -247,13 +287,16 @@ export default function InvoiceManagement({ user }) {
                     </Badge>
                   </td>
                   <td>
+                    <div className="manager-list-actions">
                     <Button
                       size="sm"
-                      variant="outline-primary"
+                      variant="link"
+                      className="manager-list-action manager-list-action--view"
                       onClick={() => setSelected(r.invoiceId)}
                     >
-                      Xem
+                      <i className="bi bi-eye-fill" aria-hidden="true" /> Xem
                     </Button>
+                    </div>
                   </td>
                 </>
               ),
@@ -568,6 +611,7 @@ export default function InvoiceManagement({ user }) {
           </Modal.Footer>
         </Form>
       </Modal>
-    </section>
+      </section>
+    </div>
   );
 }

@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Container, Card, Table, Button, Form, InputGroup, Modal, Badge, Alert, Tabs, Tab } from "react-bootstrap";
+import { Container, Card, Table, Button, Form, Modal, Badge, Alert, Tabs, Tab } from "react-bootstrap";
 import axios from "axios";
+import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
 
-const ResourceManagement = () => {
+const ResourceManagement = ({ user: routeUser }) => {
   const [activeTab, setActiveTab] = useState("rooms");
-  const [searchTerm, setSearchTerm] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -12,6 +12,37 @@ const ResourceManagement = () => {
   const [rooms, setRooms] = useState([]);
   const [beds, setBeds] = useState([]);
   const [equipments, setEquipments] = useState([]);
+  const roomFilters = useManagerSearchFilter(
+    rooms,
+    [
+      { key: "roomName", label: "Phòng", filterable: false },
+      { key: "roomType", label: "Loại phòng" },
+      { key: "status", label: "Trạng thái" },
+    ],
+    "Tìm theo tên phòng...",
+  );
+  const bedFilters = useManagerSearchFilter(
+    beds,
+    [
+      { key: "bedNumber", label: "Mã giường", filterable: false },
+      {
+        key: "roomId",
+        label: "Phòng",
+        getValue: (bed) => rooms.find((room) => room.roomId === bed.roomId)?.roomName || `Phòng #${bed.roomId}`,
+      },
+      { key: "status", label: "Trạng thái" },
+    ],
+    "Tìm theo mã giường hoặc phòng...",
+  );
+  const equipmentFilters = useManagerSearchFilter(
+    equipments,
+    [
+      { key: "equipmentName", label: "Thiết bị", filterable: false },
+      { key: "description", label: "Mô tả", filterable: false },
+      { key: "status", label: "Trạng thái" },
+    ],
+    "Tìm theo tên thiết bị hoặc mô tả...",
+  );
 
   // Quản lý Modal chung
   const [showModal, setShowModal] = useState(false);
@@ -24,7 +55,7 @@ const ResourceManagement = () => {
   // Dữ liệu Form linh hoạt
   const [formData, setFormData] = useState({});
 
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const user = routeUser || JSON.parse(localStorage.getItem("user") || "null");
   const isManager = user?.role === "Manager";
 
   // Lấy dữ liệu khi đổi tab hoặc refresh
@@ -143,44 +174,36 @@ const ResourceManagement = () => {
 
       <Card className="shadow-sm border-0 mb-4 rounded-3">
         <Card.Body>
-          <InputGroup style={{ maxWidth: "400px" }}>
-            <InputGroup.Text><i className="bi bi-search"></i></InputGroup.Text>
-            <Form.Control
-              placeholder={`Tìm kiếm ${activeTab === 'rooms' ? 'phòng' : activeTab === 'beds' ? 'giường' : 'thiết bị'}...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </InputGroup>
+          <div className="manager-list-toolbar">
+            {activeTab === "rooms" ? roomFilters.toolbar : activeTab === "beds" ? bedFilters.toolbar : equipmentFilters.toolbar}
+          </div>
         </Card.Body>
       </Card>
 
       {/* TABS CHUYỂN ĐỔI */}
       <Tabs
         activeKey={activeTab}
-        onSelect={(k) => { setActiveTab(k); setSearchTerm(""); }}
+        onSelect={(k) => k && setActiveTab(k)}
         className="mb-3"
       >
         <Tab eventKey="rooms" title="Phòng (Room)">
           <RoomTable 
-            rooms={rooms} 
-            searchTerm={searchTerm} 
+            rooms={roomFilters.filteredRows}
             onEdit={handleOpenEdit} 
             onDelete={handleDelete} 
           />
         </Tab>
         <Tab eventKey="beds" title="Giường (Bed)">
           <BedTable 
-            beds={beds} 
+            beds={bedFilters.filteredRows}
             rooms={rooms} 
-            searchTerm={searchTerm} 
             onEdit={handleOpenEdit} 
             onDelete={handleDelete} 
           />
         </Tab>
         <Tab eventKey="equipments" title="Thiết bị (Equipment)">
           <EquipmentTable 
-            equipments={equipments} 
-            searchTerm={searchTerm} 
+            equipments={equipmentFilters.filteredRows}
             onEdit={handleOpenEdit} 
             onDelete={handleDelete} 
           />
@@ -298,19 +321,18 @@ const ResourceManagement = () => {
 };
 
 // --- COMPONENT CON CHO BẢNG PHÒNG ---
-const RoomTable = ({ rooms, searchTerm, onEdit, onDelete }) => {
-  const filtered = rooms.filter(r => r.roomName?.toLowerCase().includes(searchTerm.toLowerCase()));
+const RoomTable = ({ rooms, onEdit, onDelete }) => {
   return (
     <Card className="shadow-sm border-0 rounded-3">
       <Card.Body className="p-0">
-        <Table striped bordered hover responsive className="align-middle mb-0">
+        <Table hover responsive className="align-middle mb-0 manager-list-table">
           <thead className="table-dark">
             <tr>
               <th>ID</th><th>Tên phòng</th><th>Loại phòng</th><th>Trạng thái</th><th className="text-center">Hành động</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length > 0 ? filtered.map((r) => (
+            {rooms.length > 0 ? rooms.map((r) => (
               <tr key={r.roomId}>
                 <td className="fw-bold text-muted">#{r.roomId}</td>
                 <td className="fw-bold">{r.roomName}</td>
@@ -320,9 +342,11 @@ const RoomTable = ({ rooms, searchTerm, onEdit, onDelete }) => {
                     {r.status === "Active" ? "Đang hoạt động" : r.status === "Maintenance" ? "Bảo trì" : r.status}
                   </Badge>
                 </td>
-                <td className="text-center">
-                  <Button variant="outline-warning" size="sm" className="me-2" onClick={() => onEdit(r)}><i className="bi bi-pencil-square"></i> Sửa</Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => onDelete(r.roomId)}><i className="bi bi-trash"></i> Xóa</Button>
+                <td>
+                  <div className="manager-list-actions">
+                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => onEdit(r)}><i className="bi bi-pencil-square"></i> Sửa</Button>
+                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => onDelete(r.roomId)}><i className="bi bi-trash"></i> Xóa</Button>
+                  </div>
                 </td>
               </tr>
             )) : <tr><td colSpan="5" className="text-center text-muted py-4">Chưa có dữ liệu phòng.</td></tr>}
@@ -334,20 +358,19 @@ const RoomTable = ({ rooms, searchTerm, onEdit, onDelete }) => {
 };
 
 // --- COMPONENT CON CHO BẢNG GIƯỜNG ---
-const BedTable = ({ beds, rooms, searchTerm, onEdit, onDelete }) => {
-  const filtered = beds.filter(b => b.bedNumber?.toLowerCase().includes(searchTerm.toLowerCase()));
+const BedTable = ({ beds, rooms, onEdit, onDelete }) => {
   const getRoomName = (roomId) => rooms.find(r => r.roomId === roomId)?.roomName || `Phòng #${roomId}`;
   return (
     <Card className="shadow-sm border-0 rounded-3">
       <Card.Body className="p-0">
-        <Table striped bordered hover responsive className="align-middle mb-0">
+        <Table hover responsive className="align-middle mb-0 manager-list-table">
           <thead className="table-dark">
             <tr>
               <th>ID</th><th>Mã Giường</th><th>Thuộc phòng</th><th>Trạng thái</th><th className="text-center">Hành động</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length > 0 ? filtered.map((b) => (
+            {beds.length > 0 ? beds.map((b) => (
               <tr key={b.bedId}>
                 <td className="fw-bold text-muted">#{b.bedId}</td>
                 <td className="fw-bold">{b.bedNumber}</td>
@@ -357,9 +380,11 @@ const BedTable = ({ beds, rooms, searchTerm, onEdit, onDelete }) => {
                     {b.status === "Active" ? "Đang hoạt động" : b.status === "Maintenance" ? "Bảo trì" : b.status}
                   </Badge>
                 </td>
-                <td className="text-center">
-                  <Button variant="outline-warning" size="sm" className="me-2" onClick={() => onEdit(b)}><i className="bi bi-pencil-square"></i> Sửa</Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => onDelete(b.bedId)}><i className="bi bi-trash"></i> Xóa</Button>
+                <td>
+                  <div className="manager-list-actions">
+                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => onEdit(b)}><i className="bi bi-pencil-square"></i> Sửa</Button>
+                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => onDelete(b.bedId)}><i className="bi bi-trash"></i> Xóa</Button>
+                  </div>
                 </td>
               </tr>
             )) : <tr><td colSpan="5" className="text-center text-muted py-4">Chưa có dữ liệu giường.</td></tr>}
@@ -371,19 +396,18 @@ const BedTable = ({ beds, rooms, searchTerm, onEdit, onDelete }) => {
 };
 
 // --- COMPONENT CON CHO BẢNG THIẾT BỊ ---
-const EquipmentTable = ({ equipments, searchTerm, onEdit, onDelete }) => {
-  const filtered = equipments.filter(e => e.equipmentName?.toLowerCase().includes(searchTerm.toLowerCase()));
+const EquipmentTable = ({ equipments, onEdit, onDelete }) => {
   return (
     <Card className="shadow-sm border-0 rounded-3">
       <Card.Body className="p-0">
-        <Table striped bordered hover responsive className="align-middle mb-0">
+        <Table hover responsive className="align-middle mb-0 manager-list-table">
           <thead className="table-dark">
             <tr>
               <th>ID</th><th>Tên thiết bị</th><th>Mô tả</th><th>Trạng thái</th><th className="text-center">Hành động</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length > 0 ? filtered.map((e) => (
+            {equipments.length > 0 ? equipments.map((e) => (
               <tr key={e.equipmentId}>
                 <td className="fw-bold text-muted">#{e.equipmentId}</td>
                 <td className="fw-bold">{e.equipmentName}</td>
@@ -393,9 +417,11 @@ const EquipmentTable = ({ equipments, searchTerm, onEdit, onDelete }) => {
                     {e.status === "Active" ? "Đang hoạt động" : e.status === "Maintenance" ? "Bảo trì" : e.status}
                   </Badge>
                 </td>
-                <td className="text-center">
-                  <Button variant="outline-warning" size="sm" className="me-2" onClick={() => onEdit(e)}><i className="bi bi-pencil-square"></i> Sửa</Button>
-                  <Button variant="outline-danger" size="sm" onClick={() => onDelete(e.equipmentId)}><i className="bi bi-trash"></i> Xóa</Button>
+                <td>
+                  <div className="manager-list-actions">
+                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => onEdit(e)}><i className="bi bi-pencil-square"></i> Sửa</Button>
+                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => onDelete(e.equipmentId)}><i className="bi bi-trash"></i> Xóa</Button>
+                  </div>
                 </td>
               </tr>
             )) : <tr><td colSpan="5" className="text-center text-muted py-4">Chưa có dữ liệu thiết bị.</td></tr>}

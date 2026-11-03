@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { Button, Modal, Spinner } from "react-bootstrap";
 import servicePhoto01 from "../../../assets/figma/service-card-exact-01.png";
 import servicePhoto02 from "../../../assets/figma/service-card-exact-02.png";
 import servicePhoto03 from "../../../assets/figma/service-card-exact-03.png";
@@ -12,6 +13,7 @@ import servicePhoto08 from "../../../assets/figma/service-card-exact-08.png";
 import servicePhoto09 from "../../../assets/figma/service-card-exact-09.png";
 import servicePhoto10 from "../../../assets/figma/service-card-exact-10.png";
 import servicePhoto11 from "../../../assets/figma/service-card-exact-11.png";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 
 const servicePhotos = [
   servicePhoto01,
@@ -28,13 +30,19 @@ const servicePhotos = [
 ];
 
 const ServiceList = ({ user }) => {
+  const location = useLocation();
   const [services, setServices] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [priceFilter, setPriceFilter] = useState("all");
   const [durationFilter, setDurationFilter] = useState("all");
   const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [serviceToDelete, setServiceToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [actionNotice, setActionNotice] = useState(
+    location.state?.serviceNotice || "",
+  );
 
   // 1. THÊM BIẾN REFRESH ĐỂ KÍCH HOẠT LOAD LẠI DATA
   const [refresh, setRefresh] = useState(0);
@@ -45,6 +53,43 @@ const ServiceList = ({ user }) => {
     user?.role,
   );
   const isGuest = !user; // Nếu không có user thì là khách vãng lai
+  const { filteredRows: staffServices, toolbar } = useManagerSearchFilter(
+    services,
+    [
+      { key: "serviceId", label: "Mã dịch vụ", filterable: false },
+      { key: "serviceName", label: "Dịch vụ", filterable: false },
+      {
+        key: "status",
+        label: "Trạng thái",
+        formatValue: (value) => value === "Active" ? "Đang hoạt động" : "Ngừng hoạt động",
+      },
+      {
+        key: "priceRange",
+        label: "Mức giá",
+        getValue: (service) => Number(service.price) < 500000
+          ? "under500"
+          : Number(service.price) <= 1000000 ? "500to1m" : "over1m",
+        formatValue: (value) => ({
+          under500: "Dưới 500.000 đ",
+          "500to1m": "500.000 – 1.000.000 đ",
+          over1m: "Trên 1.000.000 đ",
+        }[value]),
+      },
+      {
+        key: "durationRange",
+        label: "Thời lượng",
+        getValue: (service) => Number(service.duration) < 60
+          ? "under60"
+          : Number(service.duration) <= 90 ? "60to90" : "over90",
+        formatValue: (value) => ({
+          under60: "Dưới 60 phút",
+          "60to90": "60 – 90 phút",
+          over90: "Trên 90 phút",
+        }[value]),
+      },
+    ],
+    "Tìm theo tên hoặc mã dịch vụ...",
+  );
 
   const filteredServices = services.filter((service) => {
     const search = searchTerm.trim().toLowerCase();
@@ -52,8 +97,6 @@ const ServiceList = ({ user }) => {
       !search ||
       String(service.serviceId).toLowerCase().includes(search) ||
       service.serviceName?.toLowerCase().includes(search);
-    const matchesStatus =
-      statusFilter === "all" || service.status === statusFilter;
     const price = Number(service.price);
     const duration = Number(service.duration);
     const matchesPrice =
@@ -66,7 +109,7 @@ const ServiceList = ({ user }) => {
       (durationFilter === "under60" && duration < 60) ||
       (durationFilter === "60to90" && duration >= 60 && duration <= 90) ||
       (durationFilter === "over90" && duration > 90);
-    return matchesSearch && matchesStatus && matchesPrice && matchesDuration;
+    return matchesSearch && matchesPrice && matchesDuration;
   });
 
   // 2. ĐƯA TOÀN BỘ LOGIC GỌI API VÀO TRONG useEffect
@@ -288,48 +331,53 @@ const ServiceList = ({ user }) => {
     );
   }
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa dịch vụ này?")) {
-      try {
-        await axios.delete(`/api/service?id=${id}`);
-        alert("Xóa thành công!");
+  const handleDelete = (service) => {
+    setDeleteError("");
+    setServiceToDelete(service);
+  };
 
-        // 3. THAY VÌ GỌI fetchServices(), TA CHỈ CẦN TĂNG BIẾN REFRESH LÊN 1
-        setRefresh((prev) => prev + 1);
-      } catch (error) {
-        console.error("Lỗi xóa:", error);
-      }
+  const confirmDelete = async () => {
+    if (!serviceToDelete || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await axios.delete(`/api/service?id=${serviceToDelete.serviceId}`);
+      setServiceToDelete(null);
+      setActionNotice(
+        `Dịch vụ "${serviceToDelete.serviceName}" đã được chuyển sang trạng thái ngừng hoạt động.`,
+      );
+      setRefresh((prev) => prev + 1);
+    } catch (error) {
+      console.error("Lỗi xóa dịch vụ:", error);
+      const message = error.response?.data?.message;
+      setDeleteError(
+        typeof message === "string"
+          ? message
+          : "Không thể ngừng hoạt động dịch vụ. Vui lòng thử lại.",
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
   return (
     <div className="container mt-4">
       <h2 className="mb-3">Danh sách dịch vụ</h2>
+      {actionNotice && (
+        <div className="alert alert-success alert-dismissible" role="status">
+          {actionNotice}
+          <button
+            type="button"
+            className="btn-close"
+            aria-label="Đóng thông báo"
+            onClick={() => setActionNotice("")}
+          />
+        </div>
+      )}
       {loadError && <div className="alert alert-danger" role="alert">Không tải được danh sách dịch vụ. <button className="btn btn-sm btn-outline-danger" onClick={() => setRefresh(n => n + 1)}>Thử lại</button></div>}
 
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
-        <div className="d-flex flex-wrap gap-2 flex-grow-1">
-          <input
-            type="search"
-            className="form-control"
-            style={{ maxWidth: "360px" }}
-            placeholder="Tìm theo tên hoặc ID dịch vụ..."
-            aria-label="Tìm dịch vụ theo tên hoặc ID"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
-          <select
-            className="form-select"
-            style={{ maxWidth: "190px" }}
-            aria-label="Lọc theo trạng thái"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="Active">Đang hoạt động</option>
-            <option value="Inactive">Ngừng hoạt động</option>
-          </select>
-        </div>
+        <div className="manager-list-toolbar">{toolbar}</div>
 
         {/* CHỈ MANAGER MỚI THẤY NÚT THÊM MỚI */}
         {isManager && (
@@ -341,31 +389,25 @@ const ServiceList = ({ user }) => {
 
       <p className="d-md-none small text-muted">Kéo ngang bảng để xem đầy đủ thông tin và thao tác.</p>
       <div className="table-responsive" tabIndex={0} aria-label="Danh sách dịch vụ, có thể cuộn ngang">
-        <table className="table table-bordered table-hover align-middle mb-0">
+        <table className="table table-hover align-middle mb-0 manager-list-table">
           <thead className="table-dark">
             <tr>
-              <th>ID</th>
               <th>Tên dịch vụ</th>
               <th>Giá (VNĐ)</th>
-              <th>Thời lượng (phút)</th>
+              <th>Thời lượng</th>
               <th>Trạng thái</th>
               <th>Hành động</th>
             </tr>
           </thead>
           <tbody>
-            {filteredServices.length > 0 ? (
-              filteredServices.map((s) => (
+            {staffServices.length > 0 ? (
+              staffServices.map((s) => (
                 <tr key={s.serviceId}>
-                  <td>{s.serviceId}</td>
                   <td>{s.serviceName}</td>
                   <td>{Number(s.price).toLocaleString("vi-VN")}</td>
                   <td>{s.duration}</td>
                   <td>
-                    <span
-                      className={
-                        s.status === "Active" ? "text-success" : "text-danger"
-                      }
-                    >
+                    <span className={`badge ${s.status === "Active" ? "bg-success" : "bg-secondary"}`}>
                       {s.status === "Active"
                         ? "Đang hoạt động"
                         : s.status === "Inactive"
@@ -373,7 +415,7 @@ const ServiceList = ({ user }) => {
                           : s.status}
                     </span>
                   </td>
-                  <td><div className="table-actions">
+                  <td><div className="manager-list-actions">
                     {/* 1. NÚT XEM CHI TIẾT DÀNH CHO TẤT CẢ MỌI NGƯỜI */}
                     <Link
                       to={
@@ -381,9 +423,9 @@ const ServiceList = ({ user }) => {
                           ? `/guest/services/${s.serviceId}`
                           : `/services/detail/${s.serviceId}`
                       }
-                      className="btn btn-outline-primary btn-sm"
+                      className="manager-list-action manager-list-action--view"
                     >
-                      Xem chi tiết
+                      <i className="bi bi-eye-fill" aria-hidden="true" /> Xem
                     </Link>
 
                     {/* 2. NÚT SỬA/XÓA CHỈ DÀNH RIÊNG CHO MANAGER */}
@@ -391,14 +433,17 @@ const ServiceList = ({ user }) => {
                       <>
                         <Link
                           to={`/services/edit/${s.serviceId}`}
-                          className="btn btn-warning btn-sm me-2"
+                          className="manager-list-action manager-list-action--edit"
                         >
+                          <i className="bi bi-pencil-square" aria-hidden="true" />
                           Sửa
                         </Link>
                         <button
-                          onClick={() => handleDelete(s.serviceId)}
-                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDelete(s)}
+                          className="manager-list-action manager-list-action--delete"
+                          aria-label={`Xóa dịch vụ ${s.serviceName}`}
                         >
+                          <i className="bi bi-trash" aria-hidden="true" />
                           Xóa
                         </button>
                       </>
@@ -408,7 +453,7 @@ const ServiceList = ({ user }) => {
               ))
             ) : (
               <tr>
-                <td colSpan="6" className="text-center text-muted py-4">
+                <td colSpan="5" className="text-center text-muted py-4">
                   {loading ? "Đang tải danh sách dịch vụ…" : loadError
                     ? "Không tải được danh sách dịch vụ. Hãy kiểm tra backend và thử tải lại."
                     : services.length === 0
@@ -420,6 +465,61 @@ const ServiceList = ({ user }) => {
           </tbody>
         </table>
       </div>
+      <Modal
+        show={Boolean(serviceToDelete)}
+        onHide={() => {
+          if (!deleting) setServiceToDelete(null);
+        }}
+        centered
+        aria-labelledby="delete-service-title"
+      >
+        <Modal.Header closeButton={!deleting}>
+          <Modal.Title id="delete-service-title">
+            Xác nhận ngừng dịch vụ
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deleteError && (
+            <div className="alert alert-danger mb-3" role="alert">
+              {deleteError}
+            </div>
+          )}
+          <p className="mb-2">
+            Bạn có chắc muốn ngừng hoạt động dịch vụ{" "}
+            <strong>{serviceToDelete?.serviceName}</strong>?
+          </p>
+          <p className="text-muted small mb-0">
+            Dịch vụ sẽ không còn hiển thị cho khách hàng. Dữ liệu dịch vụ vẫn
+            được giữ lại trong hệ thống.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="outline-secondary"
+            onClick={() => setServiceToDelete(null)}
+            disabled={deleting}
+          >
+            Hủy
+          </Button>
+          <Button
+            variant="danger"
+            onClick={confirmDelete}
+            disabled={deleting}
+          >
+            {deleting ? (
+              <>
+                <Spinner size="sm" animation="border" className="me-2" />
+                Đang xử lý
+              </>
+            ) : (
+              <>
+                <i className="bi bi-pause-circle me-2" aria-hidden="true" />
+                Ngừng hoạt động
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

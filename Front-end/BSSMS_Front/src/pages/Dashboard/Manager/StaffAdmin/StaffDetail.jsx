@@ -3,37 +3,41 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   Container,
   Card,
-  Row,
-  Col,
-  Form,
   Button,
   Spinner,
+  Alert,
+  Badge,
 } from "react-bootstrap";
+import "./StaffAdmin.css";
+
+const roleLabels = {
+  Manager: "Quản lý",
+  Receptionist: "Lễ tân",
+  Technician: "Kỹ thuật viên",
+};
 
 const StaffDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [staff, setStaff] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchStaffDetail = async () => {
       try {
-        const response = await fetch(
-          `/api/staff?id=${id}`,
-          {
-            credentials: "include",
-          },
-        );
+        const response = await fetch(`/api/staff?id=${id}`, {
+          credentials: "include",
+        });
         if (response.ok) {
           const data = await response.json();
           setStaff(data);
         } else {
-          alert("Không tìm thấy thông tin nhân viên!");
-          navigate("/staffs");
+          setError("Không tìm thấy thông tin nhân viên.");
         }
       } catch (error) {
         console.error("Lỗi tải chi tiết nhân viên:", error);
+        setError("Không thể tải hồ sơ nhân viên. Vui lòng kiểm tra kết nối và thử lại.");
       } finally {
         setLoading(false);
       }
@@ -44,13 +48,24 @@ const StaffDetail = () => {
 
   if (loading) {
     return (
-      <Container className="d-flex justify-content-center align-items-center mt-5">
+      <Container className="staff-admin d-flex justify-content-center align-items-center mt-5">
         <Spinner animation="border" variant="danger" />
       </Container>
     );
   }
 
-  if (!staff) return null;
+  if (!staff) {
+    return (
+      <Container fluid className="staff-admin mt-4 px-3 px-lg-4">
+        <Alert variant="danger" role="alert">
+          {error || "Không tìm thấy thông tin nhân viên."}
+        </Alert>
+        <Button variant="outline-secondary" onClick={() => navigate("/staffs")}>
+          <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Trở về danh sách
+        </Button>
+      </Container>
+    );
+  }
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -59,129 +74,77 @@ const StaffDetail = () => {
     }).format(amount || 0);
   };
 
+  const role = staff.role || staff.position;
+  const hireDate = staff.hireDate
+    ? staff.hireDate.substring(0, 10).split("-").reverse().join("/")
+    : "Chưa cập nhật";
+
   return (
-    <Container className="mt-4 px-4 d-flex justify-content-center">
-      <Card className="shadow border-0 w-75" style={{ borderRadius: "15px" }}>
-        <Card.Header
-          className="text-white p-3 rounded-top"
-          style={{
-            backgroundColor: "#a61e4d",
-            borderTopLeftRadius: "15px",
-            borderTopRightRadius: "15px",
-          }}
-        >
-          <h4 className="mb-0 fw-bold">
-            <i className="bi bi-person-vcard me-2"></i> Hồ sơ chi tiết nhân viên
-          </h4>
-        </Card.Header>
-        <Card.Body className="p-4 bg-light">
-          <Row>
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-muted">Staff ID</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={staff.staffId}
-                  readOnly
-                  className="bg-white"
-                />
-              </Form.Group>
+    <Container fluid className="staff-admin mt-4 px-3 px-lg-4">
+      <div className="staff-page-heading">
+        <div>
+          <h2>Hồ sơ nhân viên</h2>
+          <p>Thông tin liên hệ và công việc của nhân sự.</p>
+        </div>
+      </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-muted">
-                  Họ và Tên
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  value={staff.fullName}
-                  readOnly
-                  className="bg-white fw-bold text-primary"
-                />
-              </Form.Group>
+      <Card className="staff-detail-card">
+        <div className="staff-detail-banner">
+          <div className="staff-detail-identity">
+            <div className="staff-detail-avatar" aria-hidden="true">
+              {staff.fullName?.trim()?.charAt(0)?.toUpperCase() || "N"}
+            </div>
+            <div>
+              <h3>{staff.fullName || "Nhân viên"}</h3>
+              <p>{roleLabels[role] || role || "Chưa cập nhật"} · Mã nhân viên #{staff.staffId}</p>
+            </div>
+          </div>
+          {staff.status && (
+            <Badge className={`staff-status-badge${staff.status !== "Active" ? " is-inactive" : ""}`}>
+              {staff.status === "Active" ? "Đang hoạt động" : "Không hoạt động"}
+            </Badge>
+          )}
+        </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-muted">Username</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={staff.username}
-                  readOnly
-                  className="bg-white"
-                />
-              </Form.Group>
+        <Card.Body className="staff-detail-content">
+          <h3 className="staff-detail-section-title">
+            <i className="bi bi-person-lines-fill me-2" aria-hidden="true"></i>
+            Thông tin chi tiết
+          </h3>
+          <div className="staff-detail-grid">
+            <div className="staff-detail-item">
+              <span>Mã nhân viên</span>
+              <strong>#{staff.staffId}</strong>
+            </div>
+            <div className="staff-detail-item">
+              <span>Tên đăng nhập</span>
+              <strong>{staff.username || "Chưa cập nhật"}</strong>
+            </div>
+            <div className="staff-detail-item">
+              <span>Email</span>
+              <strong>{staff.email || "Chưa cập nhật"}</strong>
+            </div>
+            <div className="staff-detail-item">
+              <span>Số điện thoại</span>
+              <strong>{staff.phone || "Chưa cập nhật"}</strong>
+            </div>
+            <div className="staff-detail-item">
+              <span>Chức vụ</span>
+              <strong>{roleLabels[role] || role || "Chưa cập nhật"}</strong>
+            </div>
+            <div className="staff-detail-item">
+              <span>Ngày vào làm</span>
+              <strong>{hireDate}</strong>
+            </div>
+            <div className="staff-detail-item">
+              <span>Mức lương</span>
+              <strong className="staff-salary">{formatCurrency(staff.salary)}</strong>
+            </div>
+          </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-muted">Email</Form.Label>
-                <Form.Control
-                  type="email"
-                  value={staff.email}
-                  readOnly
-                  className="bg-white"
-                />
-              </Form.Group>
-            </Col>
-
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-muted">
-                  Số điện thoại (Phone)
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  value={staff.phone}
-                  readOnly
-                  className="bg-white"
-                />
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-muted">
-                  Chức vụ (Role)
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  value={staff.role}
-                  readOnly
-                  className="bg-white"
-                />
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-muted">
-                  Ngày vào làm (Hire Date)
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  value={staff.hireDate || "Chưa cập nhật"}
-                  readOnly
-                  className="bg-white"
-                />
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-bold text-muted">
-                  Mức lương (Salary)
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  value={formatCurrency(staff.salary)}
-                  readOnly
-                  className="bg-white text-danger fw-bold"
-                />
-              </Form.Group>
-            </Col>
-          </Row>
-
-          <div className="d-flex justify-content-end mt-4">
-            <Button
-              variant="outline-danger"
-              onClick={() => navigate("/staffs")}
-              style={{
-                color: "#a61e4d",
-                borderColor: "#f8d7da",
-                backgroundColor: "#fdf6f7",
-              }}
-            >
-              <i className="bi bi-arrow-left me-1"></i> Trở về danh sách
+          <div className="staff-detail-footer">
+            <Button variant="outline-secondary" onClick={() => navigate("/staffs")}>
+              <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Trở về danh sách
             </Button>
           </div>
         </Card.Body>

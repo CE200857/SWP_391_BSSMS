@@ -1,8 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
-  Container,
   Card,
   Row,
   Col,
@@ -12,10 +11,12 @@ import {
   Spinner,
   Alert,
 } from "react-bootstrap";
+import servicePhoto02 from "../../../assets/figma/service-card-exact-02.png";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 
-const PublicFeedbackList = () => {
+const PublicFeedbackList = ({ user, managerCompact = false }) => {
+  const location = useLocation();
   const [feedbacks, setFeedbacks] = useState([]);
-  const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [ratingFilter, setRatingFilter] = useState("all");
@@ -31,16 +32,6 @@ const PublicFeedbackList = () => {
         if (Array.isArray(data)) setServices(data);
       })
       .catch((err) => console.error("Lỗi tải dịch vụ:", err));
-  }, []);
-
-  // Lấy tất cả appointments để map service info
-  useEffect(() => {
-    fetch("/api/appointment")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (Array.isArray(data)) setAppointments(data);
-      })
-      .catch((err) => console.error("Lỗi tải appointments:", err));
   }, []);
 
   // Lấy tất cả feedback công khai
@@ -76,34 +67,26 @@ const PublicFeedbackList = () => {
     };
   }, []);
 
-  const getServiceName = (serviceId) => {
-    const s = services.find((x) => x.serviceId === serviceId);
-    return s ? s.serviceName : `Dịch vụ #${serviceId}`;
-  };
+  // Đánh giá là của dịch vụ: liên kết tới trang dịch vụ (không liên quan tới lịch hẹn của người khác)
+  const serviceLink = (serviceId) =>
+    location.pathname.startsWith("/guest")
+      ? `/guest/services/${serviceId}`
+      : `/services/detail/${serviceId}`;
 
-  const getServiceIdByAppointment = (appointmentId) => {
-    const appt = appointments.find((a) => a.appointmentId === appointmentId);
-    return appt ? appt.serviceId : null;
-  };
-
-  // Tên appointment hiển thị: "Appointment #ID - Dịch vụ"
-  const getAppointmentName = (appointmentId) => {
-    const appt = appointments.find((a) => a.appointmentId === appointmentId);
-    if (!appt) return `Appointment #${appointmentId}`;
-    return `Appointment #${appt.appointmentId} - ${getServiceName(appt.serviceId)}`;
-  };
-
-  // Tính số sao trung bình + hình
+  // Khi chọn một dịch vụ thì thống kê chỉ tính cho dịch vụ đó
+  const serviceScoped = feedbacks.filter(
+    (fb) => serviceFilter === "all" || String(fb.serviceId) === serviceFilter,
+  );
   const stats = {
-    total: feedbacks.length,
+    total: serviceScoped.length,
     avg:
-      feedbacks.length > 0
+      serviceScoped.length > 0
         ? (
-            feedbacks.reduce((sum, fb) => sum + (fb.rating || 0), 0) /
-            feedbacks.length
+            serviceScoped.reduce((sum, fb) => sum + (fb.rating || 0), 0) /
+            serviceScoped.length
           ).toFixed(1)
         : 0,
-    fiveStar: feedbacks.filter((fb) => fb.rating === 5).length,
+    fiveStar: serviceScoped.filter((fb) => fb.rating === 5).length,
   };
 
   const filteredFeedbacks = feedbacks.filter((fb) => {
@@ -112,20 +95,28 @@ const PublicFeedbackList = () => {
       !search ||
       fb.comment?.toLowerCase().includes(search) ||
       (fb.customerName || "").toLowerCase().includes(search) ||
-      (() => {
-        const sid = getServiceIdByAppointment(fb.appointmentId);
-        return sid ? getServiceName(sid).toLowerCase().includes(search) : false;
-      })();
+      (fb.serviceName || "").toLowerCase().includes(search);
 
     const matchesRating =
       ratingFilter === "all" || String(fb.rating) === ratingFilter;
 
     const matchesService =
-      serviceFilter === "all" ||
-      String(getServiceIdByAppointment(fb.appointmentId)) === serviceFilter;
+      serviceFilter === "all" || String(fb.serviceId) === serviceFilter;
 
     return matchesSearch && matchesRating && matchesService;
   });
+  const { filteredRows: managerFeedbacks, toolbar } = useManagerSearchFilter(
+    feedbacks,
+    [
+      { key: "customerName", label: "Khách hàng", getValue: (feedback) => feedback.customerName || feedback.fullName, filterable: false },
+      { key: "serviceName", label: "Dịch vụ" },
+      { key: "comment", label: "Nội dung đánh giá", filterable: false },
+      { key: "rating", label: "Số sao" },
+      { key: "createdAt", label: "Ngày đánh giá", type: "date" },
+    ],
+    "Tìm theo khách hàng, dịch vụ, nội dung...",
+  );
+  const visibleFeedbacks = user?.role === "Manager" ? managerFeedbacks : filteredFeedbacks;
 
   const renderStars = (rating) => {
     const stars = [];
@@ -162,17 +153,31 @@ const PublicFeedbackList = () => {
   };
 
   return (
-    <Container fluid className="mt-4 px-4 feedback-management-page">
+    <div className={managerCompact ? "feedback-manager-compact" : "public-service-page feedback-public-page"}>
+      {!managerCompact && <section className="public-service-hero feedback-public-hero">
+        <div className="public-service-hero-copy">
+          <span className="seoul-eyebrow">CHIA SẺ · TRẢI NGHIỆM</span>
+          <h1>Đánh giá từ khách hàng</h1>
+          <p>
+            Những chia sẻ chân thực về trải nghiệm dịch vụ tại Seoul Center giúp
+            bạn lựa chọn chăm sóc phù hợp.
+          </p>
+          <span className="public-service-hero-note">
+            <i className="bi bi-chat-heart" aria-hidden="true" /> Lắng nghe để phục vụ bạn tốt hơn
+          </span>
+        </div>
+        <img src={servicePhoto02} alt="Trải nghiệm chăm sóc tại Seoul Center" />
+      </section>}
+
+      <section className={`${managerCompact ? "feedback-manager-compact-content" : "public-service-content"} feedback-page feedback-management-page`}>
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h2 className="fw-bold text-uppercase mb-0">
-          Đánh giá từ khách hàng
-        </h2>
+        <h2 className="fw-bold mb-0">Tổng quan đánh giá</h2>
       </div>
 
       {/* Thẻ thống kê */}
       <Row className="mb-3 g-3">
         <Col md={4}>
-          <Card className="shadow-sm border-0" style={{ borderRadius: "12px" }}>
+          <Card className="shadow-sm border-0 feedback-stat-card" style={{ borderRadius: "12px" }}>
             <Card.Body className="text-center">
               <i className="bi bi-chat-quote-fill text-primary" style={{ fontSize: "32px" }}></i>
               <h3 className="fw-bold mt-2 mb-0">{stats.total}</h3>
@@ -181,7 +186,7 @@ const PublicFeedbackList = () => {
           </Card>
         </Col>
         <Col md={4}>
-          <Card className="shadow-sm border-0" style={{ borderRadius: "12px" }}>
+          <Card className="shadow-sm border-0 feedback-stat-card" style={{ borderRadius: "12px" }}>
             <Card.Body className="text-center">
               <i className="bi bi-star-fill text-warning" style={{ fontSize: "32px" }}></i>
               <h3 className="fw-bold mt-2 mb-0">{stats.avg} / 5</h3>
@@ -190,7 +195,7 @@ const PublicFeedbackList = () => {
           </Card>
         </Col>
         <Col md={4}>
-          <Card className="shadow-sm border-0" style={{ borderRadius: "12px" }}>
+          <Card className="shadow-sm border-0 feedback-stat-card" style={{ borderRadius: "12px" }}>
             <Card.Body className="text-center">
               <i className="bi bi-emoji-laughing-fill text-success" style={{ fontSize: "32px" }}></i>
               <h3 className="fw-bold mt-2 mb-0">{stats.fiveStar}</h3>
@@ -201,9 +206,12 @@ const PublicFeedbackList = () => {
       </Row>
 
       {/* Bộ lọc */}
-      <Card className="shadow-sm border-0 mb-3" style={{ borderRadius: "12px" }}>
+      <Card className="shadow-sm border-0 mb-3 feedback-filter-card" style={{ borderRadius: "12px" }}>
         <Card.Body>
-          <div className="d-flex flex-wrap gap-3 align-items-center">
+          {user?.role === "Manager" ? (
+            <div className="manager-list-toolbar">{toolbar}</div>
+          ) : (
+            <div className="d-flex flex-wrap gap-3 align-items-center">
             <InputGroup style={{ maxWidth: "320px" }}>
               <InputGroup.Text>
                 <i className="bi bi-search"></i>
@@ -244,9 +252,17 @@ const PublicFeedbackList = () => {
             <Badge bg="secondary" className="px-3 py-2">
               Kết quả: {filteredFeedbacks.length}
             </Badge>
-          </div>
+            </div>
+          )}
         </Card.Body>
       </Card>
+
+      <div className="public-service-list-heading feedback-review-heading">
+        <div>
+          <h2>Cảm nhận từ khách hàng</h2>
+          <span className="public-service-count">{visibleFeedbacks.length} đánh giá</span>
+        </div>
+      </div>
 
       {loadError && <Alert variant="danger">{loadError}</Alert>}
 
@@ -255,7 +271,7 @@ const PublicFeedbackList = () => {
           <Spinner animation="border" variant="danger" />
           <p className="mt-3 text-muted">Đang tải đánh giá...</p>
         </div>
-      ) : filteredFeedbacks.length === 0 ? (
+      ) : visibleFeedbacks.length === 0 ? (
         <Card className="shadow-sm border-0" style={{ borderRadius: "12px" }}>
           <Card.Body className="text-center py-5 text-muted">
             {feedbacks.length === 0
@@ -265,17 +281,17 @@ const PublicFeedbackList = () => {
         </Card>
       ) : (
         <Row className="g-3">
-          {filteredFeedbacks.map((fb) => {
+          {visibleFeedbacks.map((fb) => {
             return (
               <Col key={fb.feedbackId} md={6} lg={4}>
                 <Card
-                  className="shadow-sm border-0 h-100"
+                  className="shadow-sm border-0 h-100 feedback-review-card"
                   style={{ borderRadius: "12px" }}
                 >
                   <Card.Body>
                     <div className="d-flex align-items-center mb-3">
                       <div
-                        className="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center me-3"
+                        className="feedback-review-avatar text-white rounded-circle d-flex justify-content-center align-items-center me-3"
                         style={{
                           width: "48px",
                           height: "48px",
@@ -298,18 +314,14 @@ const PublicFeedbackList = () => {
                       {renderStars(fb.rating)}
                     </div>
 
-                    <Badge
-                      bg="info"
-                      className="mb-2"
-                      style={{ cursor: "pointer" }}
-                    >
+                    <Badge bg="info" className="mb-2 feedback-service-badge">
                       <Link
-                        to={`/appointments/${fb.appointmentId}`}
+                        to={serviceLink(fb.serviceId)}
                         className="text-white text-decoration-none"
-                        title="Xem chi tiết lịch hẹn"
+                        title="Xem dịch vụ"
                       >
-                        <i className="bi bi-calendar-check me-1"></i>
-                        {getAppointmentName(fb.appointmentId)}
+                        <i className="bi bi-stars me-1"></i>
+                        {fb.serviceName || `Dịch vụ #${fb.serviceId}`}
                       </Link>
                     </Badge>
 
@@ -329,7 +341,8 @@ const PublicFeedbackList = () => {
           })}
         </Row>
       )}
-    </Container>
+      </section>
+    </div>
   );
 };
 

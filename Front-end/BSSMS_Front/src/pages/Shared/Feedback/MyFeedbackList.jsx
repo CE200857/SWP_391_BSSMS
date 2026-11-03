@@ -12,11 +12,10 @@ import {
   Spinner,
   Alert,
 } from "react-bootstrap";
+import servicePhoto04 from "../../../assets/figma/service-card-exact-04.png";
 
 const MyFeedbackList = () => {
   const [feedbacks, setFeedbacks] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-  const [services, setServices] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [ratingFilter, setRatingFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -29,43 +28,6 @@ const MyFeedbackList = () => {
     const saved = localStorage.getItem("user");
     return saved ? JSON.parse(saved) : null;
   });
-
-  // Lấy danh sách services để map tên từ appointment.serviceId
-  useEffect(() => {
-    fetch("/api/service")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (Array.isArray(data)) setServices(data);
-      })
-      .catch((err) => console.error("Lỗi tải dịch vụ:", err));
-  }, []);
-
-  // Lấy danh sách appointments của customer hiện tại để map thông tin
-  useEffect(() => {
-    if (!user) return;
-
-    let cancelled = false;
-
-    const loadAppointments = async () => {
-      try {
-        const res = await fetch(
-          `/api/appointment?customerId=${user.customerId ?? user.accountId}`
-        );
-        if (!cancelled && res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) setAppointments(data);
-        }
-      } catch (err) {
-        if (!cancelled) console.error("Lỗi tải appointments:", err);
-      }
-    };
-
-    loadAppointments();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
 
   // Load feedback của user hiện tại
   useEffect(() => {
@@ -107,29 +69,9 @@ const MyFeedbackList = () => {
     };
   }, [user]);
 
-  const getServiceName = (serviceId) => {
-    const s = services.find((x) => x.serviceId === serviceId);
-    return s ? s.serviceName : `Dịch vụ #${serviceId}`;
-  };
-
-  // Trả về nhãn hiển thị cho 1 appointment: "Appointment #ID - Dịch vụ - Ngày giờ"
-  const getAppointmentName = (appointmentId) => {
-    const appt = appointments.find((a) => a.appointmentId === appointmentId);
-    if (!appt) return `Appointment #${appointmentId}`;
-    const serviceName = getServiceName(appt.serviceId);
-    return `Appointment #${appt.appointmentId} - ${serviceName}`;
-  };
-
-  // Dùng cho dropdown / bảng nếu cần lấy tên đơn thuần (giữ để tương thích)
-  const getAppointmentInfo = (appointmentId) => {
-    return getAppointmentName(appointmentId);
-  };
-
-  const getAppointmentDate = (appointmentId) => {
-    const appt = appointments.find((a) => a.appointmentId === appointmentId);
-    if (!appt) return "—";
-    return formatDateTime(appt.appointmentDate, appt.startTime);
-  };
+  // Đánh giá là của dịch vụ: tên dịch vụ và ngày sử dụng lấy thẳng từ đánh giá
+  const getServiceLabel = (fb) => fb.serviceName || `Dịch vụ #${fb.serviceId}`;
+  const getVisitDate = (fb) => formatDateTime(fb.appointmentDate, fb.startTime);
 
   const handleShowDelete = (fb) => {
     setSelectedFeedback(fb);
@@ -193,7 +135,7 @@ const MyFeedbackList = () => {
     const matchesSearch =
       !search ||
       fb.comment?.toLowerCase().includes(search) ||
-      getAppointmentInfo(fb.appointmentId).toLowerCase().includes(search);
+      getServiceLabel(fb).toLowerCase().includes(search);
     const matchesRating =
       ratingFilter === "all" || String(fb.rating) === ratingFilter;
     return matchesSearch && matchesRating;
@@ -253,15 +195,34 @@ const MyFeedbackList = () => {
   }
 
   return (
-    <Container fluid className="mt-4 px-4">
-      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h2 className="fw-bold text-uppercase mb-0">Đánh giá của tôi</h2>
+    <div className="public-service-page customer-my-feedback-page">
+      <section className="public-service-hero customer-my-feedback-hero">
+        <div className="public-service-hero-copy">
+          <span className="seoul-eyebrow">CHIA SẺ · TRẢI NGHIỆM</span>
+          <h1>Đánh giá của tôi</h1>
+          <p>
+            Theo dõi những đánh giá bạn đã gửi và chia sẻ thêm cảm nhận sau mỗi
+            lần trải nghiệm dịch vụ.
+          </p>
+          <span className="public-service-hero-note">
+            <i className="bi bi-chat-heart" aria-hidden="true" /> Mỗi chia sẻ giúp Seoul Center chăm sóc tốt hơn
+          </span>
+        </div>
+        <img src={servicePhoto04} alt="Chăm sóc tại Seoul Center" />
+      </section>
+
+      <section className="public-service-content customer-my-feedback-content">
+      <div className="public-service-list-heading customer-my-feedback-heading">
+        <div>
+          <h2>Những đánh giá của bạn</h2>
+          <span className="public-service-count">{filteredFeedbacks.length} đánh giá</span>
+        </div>
         <Link to="/feedback/new" className="btn btn-danger">
           <i className="bi bi-plus-circle me-1"></i> Tạo đánh giá mới
         </Link>
       </div>
 
-      <Card className="shadow-sm border-0 mb-3" style={{ borderRadius: "12px" }}>
+      <Card className="shadow-sm border-0 mb-3 customer-my-feedback-filter">
         <Card.Body>
           <div className="d-flex flex-wrap gap-3 align-items-center">
             <InputGroup style={{ maxWidth: "360px" }}>
@@ -297,7 +258,7 @@ const MyFeedbackList = () => {
 
       {loadError && <Alert variant="danger">{loadError}</Alert>}
 
-      <Card className="shadow-sm border-0" style={{ borderRadius: "12px" }}>
+      <Card className="shadow-sm border-0 customer-my-feedback-table-card">
         <Card.Body className="p-0">
           {isLoading ? (
             <div className="text-center py-5">
@@ -305,12 +266,12 @@ const MyFeedbackList = () => {
               <p className="mt-3 text-muted">Đang tải đánh giá...</p>
             </div>
           ) : (
-            <Table striped bordered hover responsive className="align-middle mb-0">
-              <thead className="table-dark">
+            <Table striped bordered hover responsive className="align-middle mb-0 customer-my-feedback-table">
+              <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Tên lịch hẹn</th>
-                  <th>Ngày hẹn</th>
+                  <th>Dịch vụ</th>
+                  <th>Ngày sử dụng</th>
                   <th>Đánh giá</th>
                   <th>Nội dung</th>
                   <th>Ngày đánh giá</th>
@@ -324,17 +285,17 @@ const MyFeedbackList = () => {
                       <td>{fb.feedbackId}</td>
                       <td>
                         <Link
-                          to={`/appointments/${fb.appointmentId}`}
+                          to={`/services/detail/${fb.serviceId}`}
                           className="text-decoration-none"
-                          title="Xem chi tiết lịch hẹn"
+                          title="Xem dịch vụ"
                         >
-                          <span className="fw-semibold text-primary">
-                            <i className="bi bi-calendar-check me-1"></i>
-                            {getAppointmentName(fb.appointmentId)}
+                          <span className="fw-semibold customer-my-feedback-service">
+                            <i className="bi bi-stars me-1"></i>
+                            {getServiceLabel(fb)}
                           </span>
                         </Link>
                       </td>
-                      <td>{getAppointmentDate(fb.appointmentId)}</td>
+                      <td>{getVisitDate(fb)}</td>
                       <td style={{ fontSize: "18px" }}>{renderStars(fb.rating)}</td>
                       <td>
                         <div
@@ -390,9 +351,9 @@ const MyFeedbackList = () => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có chắc chắn muốn xóa đánh giá cho lịch hẹn{" "}
+          Bạn có chắc chắn muốn xóa đánh giá cho dịch vụ{" "}
           <span className="fw-bold text-primary">
-            {selectedFeedback && getAppointmentInfo(selectedFeedback.appointmentId)}
+            {selectedFeedback && getServiceLabel(selectedFeedback)}
           </span>{" "}
           không? Hành động này không thể hoàn tác.
         </Modal.Body>
@@ -405,7 +366,8 @@ const MyFeedbackList = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-    </Container>
+      </section>
+    </div>
   );
 };
 

@@ -9,6 +9,7 @@ import {
   Spinner,
 } from "react-bootstrap";
 import { api, post, money } from "../../../services/api";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 export default function PurchaseOrders() {
   const [orders, setOrders] = useState([]),
     [products, setProducts] = useState([]),
@@ -106,6 +107,16 @@ export default function PurchaseOrders() {
     (sum, g) => sum + g.items.length,
     0,
   );
+  const { filteredRows: filteredOrders, toolbar } = useManagerSearchFilter(
+    orders,
+    [
+      { key: "purchaseOrderId", label: "Mã đơn nhập", filterable: false },
+      { key: "supplierName", label: "Nhà cung cấp" },
+      { key: "status", label: "Trạng thái" },
+      { key: "expectedDate", label: "Ngày dự kiến", type: "date" },
+    ],
+    "Tìm theo mã đơn hoặc nhà cung cấp...",
+  );
   return (
     <section>
       <div className="ui-page-heading">
@@ -140,11 +151,11 @@ export default function PurchaseOrders() {
       ) : (
         <Card>
           <Card.Body>
+            <div className="manager-list-toolbar mb-3">{toolbar}</div>
             <div className="table-responsive">
-              <Table hover>
+              <Table hover className="manager-list-table">
                 <thead>
                   <tr>
-                    <th>Mã</th>
                     <th>Nhà cung cấp</th>
                     <th>Dự kiến</th>
                     <th>Tổng tiền</th>
@@ -153,17 +164,29 @@ export default function PurchaseOrders() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((o) => (
+                  {filteredOrders.map((o) => (
                     <tr key={o.purchaseOrderId}>
-                      <td>#{o.purchaseOrderId}</td>
-                      <td>{o.supplierName}</td>
+                      <td>
+                        <strong>{o.supplierName}</strong>
+                        <div className="small text-muted">#{o.purchaseOrderId}</div>
+                      </td>
                       <td>{o.expectedDate?.slice(0, 10) || "—"}</td>
                       <td>{money(o.totalAmount)}</td>
-                      <td>{o.status}</td>
-                      <td className="d-flex gap-2 flex-wrap">
+                      <td>
+                        <span className={`badge ${o.status === "Received" ? "bg-success" : o.status === "Cancelled" ? "bg-secondary" : o.status === "Sent" ? "bg-primary" : o.status === "Draft" ? "bg-warning text-dark" : "bg-secondary"}`}>
+                          {o.status === "Received" ? "Đã nhận" : o.status === "Cancelled" ? "Đã hủy" : o.status === "Sent" ? "Đã gửi" : o.status === "Draft" ? "Bản nháp" : o.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="manager-list-actions">
                         <Button
                           size="sm"
-                          variant="outline-primary"
+                          variant="link"
+                          className={`manager-list-action ${
+                            o.status === "Draft"
+                              ? "manager-list-action--edit"
+                              : "manager-list-action--view"
+                          }`}
                           onClick={() =>
                             setForm({
                               ...o,
@@ -172,11 +195,21 @@ export default function PurchaseOrders() {
                             })
                           }
                         >
+                          <i
+                            className={`bi ${
+                              o.status === "Draft"
+                                ? "bi-pencil-square"
+                                : "bi-eye-fill"
+                            }`}
+                            aria-hidden="true"
+                          />
                           {o.status === "Draft" ? "Xem / sửa" : "Chi tiết"}
                         </Button>
                         {o.status === "Draft" && (
                           <Button
                             size="sm"
+                            variant="link"
+                            className="manager-list-action manager-list-action--view"
                             onClick={() =>
                               setConfirm({
                                 action: "send",
@@ -184,12 +217,15 @@ export default function PurchaseOrders() {
                               })
                             }
                           >
+                            <i className="bi bi-send" aria-hidden="true" />
                             Đánh dấu đã gửi
                           </Button>
                         )}
                         {o.status === "Sent" && (
                           <Button
                             size="sm"
+                            variant="link"
+                            className="manager-list-action manager-list-action--view"
                             onClick={() =>
                               setConfirm({
                                 action: "receive",
@@ -197,13 +233,15 @@ export default function PurchaseOrders() {
                               })
                             }
                           >
+                            <i className="bi bi-box-seam" aria-hidden="true" />
                             Nhận hàng
                           </Button>
                         )}
                         {["Draft", "Sent"].includes(o.status) && (
                           <Button
                             size="sm"
-                            variant="outline-danger"
+                            variant="link"
+                            className="manager-list-action manager-list-action--delete"
                             onClick={() =>
                               setConfirm({
                                 action: "cancel",
@@ -211,9 +249,11 @@ export default function PurchaseOrders() {
                               })
                             }
                           >
+                            <i className="bi bi-x-circle" aria-hidden="true" />
                             Hủy
                           </Button>
                         )}
+                        </div>
                       </td>
                     </tr>
                   ))}

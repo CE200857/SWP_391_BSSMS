@@ -18,6 +18,7 @@ const customerLinks = [
   { to: "/treatment-packages", label: "Gói liệu trình" },
   { to: "/appointments", label: "Lịch hẹn" },
   { to: "/my-treatment-profile", label: "Liệu trình của tôi" },
+  { to: "/feedback", label: "Đánh giá khách hàng" },
 ];
 
 const customerAccountLinks = [
@@ -53,10 +54,50 @@ const Header = ({
   const [logoutError, setLogoutError] = useState("");
   const accountRef = useRef(null);
   const accountButtonRef = useRef(null);
+  const isCustomer = user?.role === "Customer";
+  const accountId = user?.accountId || user?.account_id;
+  const [loadedMembershipTier, setLoadedMembershipTier] = useState(null);
   const closeMenu = () => {
     setMenuOpen(false);
     setAccountOpen(false);
   };
+  useEffect(() => {
+    if (!isCustomer || !accountId) return undefined;
+
+    const controller = new AbortController();
+    const query = new URLSearchParams({
+      accountId: String(accountId),
+      role: "Customer",
+    });
+
+    fetch(`/api/profile?${query}`, {
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(
+            data?.message || `Không tải được hạng thành viên (HTTP ${response.status}).`,
+          );
+        }
+        return data;
+      })
+      .then((profile) => {
+        setLoadedMembershipTier({
+          accountId,
+          tierName:
+            profile?.membership?.tierName || profile?.membershipTierName || "",
+        });
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          console.error("Lỗi khi tải hạng thành viên:", error);
+        }
+      });
+
+    return () => controller.abort();
+  }, [accountId, isCustomer, user?.membership?.tierName, user?.tierName]);
   useEffect(() => {
     if (!accountOpen) return;
     const outside = (event) => {
@@ -75,6 +116,10 @@ const Header = ({
       document.removeEventListener("keydown", escape);
     };
   }, [accountOpen]);
+  const membershipTierName =
+    loadedMembershipTier && loadedMembershipTier.accountId === accountId
+      ? loadedMembershipTier.tierName
+      : user?.membership?.tierName || user?.tierName || "";
   const logout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
@@ -155,7 +200,6 @@ const Header = ({
     );
   }
 
-  const isCustomer = user?.role === "Customer";
   const links = isCustomer ? customerLinks : guestLinks;
 
   return (
@@ -254,7 +298,15 @@ const Header = ({
             >
               <span className="customer-account-avatar">{initial}</span>
               <span className="customer-account-identity">
-                <strong>{user.fullName || "Tài khoản của bạn"}</strong>
+                <span className="customer-account-name-line">
+                  <strong>{user.fullName || "Tài khoản của bạn"}</strong>
+                  {membershipTierName && (
+                    <>
+                      <span className="customer-account-tier-separator" aria-hidden="true">·</span>
+                      <small className="customer-account-tier">{membershipTierName}</small>
+                    </>
+                  )}
+                </span>
                 <small>Khách hàng</small>
               </span>
               <i className="bi bi-chevron-down" aria-hidden="true" />
@@ -266,7 +318,16 @@ const Header = ({
               >
                 <div className="customer-account-heading">
                   <span className="customer-account-avatar" aria-hidden="true">{initial}</span>
-                  <div><strong>{user.fullName || "Tài khoản của bạn"}</strong>
+                  <div>
+                    <div className="customer-account-heading-name">
+                      <strong>{user.fullName || "Tài khoản của bạn"}</strong>
+                      {membershipTierName && (
+                        <>
+                          <span className="customer-account-tier-separator" aria-hidden="true">·</span>
+                          <span className="customer-account-tier">{membershipTierName}</span>
+                        </>
+                      )}
+                    </div>
                     <span>{user.email || "Khách hàng Seoul Center"}</span></div>
                 </div>
                 <nav

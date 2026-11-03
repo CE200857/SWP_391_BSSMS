@@ -10,6 +10,7 @@ import {
   Table,
 } from "react-bootstrap";
 import { api, money } from "../../../services/api";
+import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 const empty = {
   productName: "",
   description: "",
@@ -23,8 +24,8 @@ const empty = {
 export default function ProductList({ user }) {
   const manager = user?.role === "Manager";
   const [rows, setRows] = useState([]),
-    [query, setQuery] = useState(""),
     [form, setForm] = useState(null),
+    [detailProduct, setDetailProduct] = useState(null),
     [confirm, setConfirm] = useState(null);
   const [error, setError] = useState(""),
     [success, setSuccess] = useState(""),
@@ -93,6 +94,33 @@ export default function ProductList({ user }) {
       />
     </Form.Group>
   );
+  const { filteredRows, toolbar } = useManagerSearchFilter(
+    rows,
+    [
+      { key: "productName", label: "Sản phẩm", filterable: false },
+      { key: "description", label: "Mô tả", filterable: false },
+      {
+        key: "productType",
+        label: "Loại sản phẩm",
+        formatValue: (value) => value === "Retail" ? "Bán lẻ" : "Tiêu hao",
+      },
+      {
+        key: "status",
+        label: "Trạng thái",
+        formatValue: (value) => value === "Active" ? "Đang kinh doanh" : "Ngừng kinh doanh",
+      },
+      {
+        key: "stockState",
+        label: "Tình trạng tồn kho",
+        getValue: (product) =>
+          Number(product.stockQuantity) < Number(product.reorderLevel)
+            ? "Low"
+            : "Available",
+        formatValue: (value) => value === "Low" ? "Dưới mức tồn tối thiểu" : "Đủ tồn kho",
+      },
+    ],
+    "Tìm theo tên sản phẩm, mô tả...",
+  );
   return (
     <section>
       <div className="ui-page-heading">
@@ -114,12 +142,7 @@ export default function ProductList({ user }) {
       {error && <Alert variant="danger">{error}</Alert>}
       {success && <Alert variant="success">{success}</Alert>}
       <div className="ui-toolbar">
-        <Form.Control
-          aria-label="Tìm sản phẩm"
-          placeholder="Tìm theo tên sản phẩm…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <div className="manager-list-toolbar">{toolbar}</div>
         {manager && (
           <>
             <Link
@@ -142,32 +165,24 @@ export default function ProductList({ user }) {
             </div>
           ) : (
             <div className="table-responsive">
-              <Table hover>
+              <Table hover className="manager-list-table">
                 <thead>
                   <tr>
                     <th>Sản phẩm</th>
-                    <th>Loại</th>
                     <th>Đơn giá</th>
                     <th>Tồn kho</th>
                     <th>Trạng thái</th>
-                    {manager && <th>Thao tác</th>}
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows
-                    .filter((r) =>
-                      r.productName.toLowerCase().includes(query.toLowerCase()),
-                    )
-                    .map((r) => (
+                  {filteredRows.map((r) => (
                       <tr key={r.productId}>
                         <td>
                           <strong>{r.productName}</strong>
                           <div className="text-muted small">
-                            {r.description}
+                            {r.productType === "Retail" ? "Bán lẻ" : "Tiêu hao"}
                           </div>
-                        </td>
-                        <td>
-                          {r.productType === "Retail" ? "Bán lẻ" : "Tiêu hao"}
                         </td>
                         <td>{money(r.unitPrice)}</td>
                         <td
@@ -180,31 +195,45 @@ export default function ProductList({ user }) {
                           {r.stockQuantity} {r.unit}
                         </td>
                         <td>{r.status}</td>
-                        {manager && (
-                          <td>
-                            <div className="d-flex gap-2">
+                        <td>
+                          <div className="manager-list-actions">
+                            <Button
+                              size="sm"
+                              variant="link"
+                              className="manager-list-action manager-list-action--view"
+                              onClick={() => setDetailProduct(r)}
+                            >
+                              <i className="bi bi-eye-fill" aria-hidden="true" /> Xem
+                            </Button>
+                            {manager && (
+                              <>
                               <Button
                                 size="sm"
-                                variant="outline-primary"
+                                variant="link"
+                                className="manager-list-action manager-list-action--edit"
                                 onClick={() => {
                                   setError("");
                                   setForm({ ...r });
                                 }}
                               >
+                                <i className="bi bi-pencil-square" aria-hidden="true" />
                                 Sửa
                               </Button>
                               {r.status === "Active" && (
                                 <Button
                                   size="sm"
-                                  variant="outline-danger"
+                                  variant="link"
+                                  className="manager-list-action manager-list-action--delete"
                                   onClick={() => setConfirm(r)}
                                 >
+                                  <i className="bi bi-trash" aria-hidden="true" />
                                   Ngừng bán
                                 </Button>
                               )}
-                            </div>
-                          </td>
-                        )}
+                              </>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                 </tbody>
@@ -214,6 +243,31 @@ export default function ProductList({ user }) {
           )}
         </Card.Body>
       </Card>
+      <Modal
+        show={!!detailProduct}
+        onHide={() => setDetailProduct(null)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Chi tiết sản phẩm</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <dl className="row mb-0">
+            <dt className="col-sm-5">Tên sản phẩm</dt>
+            <dd className="col-sm-7">{detailProduct?.productName || "—"}</dd>
+            <dt className="col-sm-5">Mô tả</dt>
+            <dd className="col-sm-7">{detailProduct?.description || "—"}</dd>
+            <dt className="col-sm-5">Loại</dt>
+            <dd className="col-sm-7">
+              {detailProduct?.productType === "Retail" ? "Bán lẻ" : "Tiêu hao"}
+            </dd>
+            <dt className="col-sm-5">Đơn vị</dt>
+            <dd className="col-sm-7">{detailProduct?.unit || "—"}</dd>
+            <dt className="col-sm-5">Mức tồn tối thiểu</dt>
+            <dd className="col-sm-7">{detailProduct?.reorderLevel ?? "—"}</dd>
+          </dl>
+        </Modal.Body>
+      </Modal>
       <Modal
         show={!!form}
         onHide={() => !busy && setForm(null)}
