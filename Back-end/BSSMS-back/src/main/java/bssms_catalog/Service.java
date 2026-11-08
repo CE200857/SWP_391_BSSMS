@@ -21,6 +21,7 @@ public class Service {
     private double price;
     private int duration; 
     private String status;
+    private String imageUrl; // ảnh dịch vụ (null nếu chưa có), do ServiceDAO điền
 
     public Service() {
     }
@@ -81,5 +82,9 @@ public class Service {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public String getImageUrl() { return imageUrl; }
+
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     
 }

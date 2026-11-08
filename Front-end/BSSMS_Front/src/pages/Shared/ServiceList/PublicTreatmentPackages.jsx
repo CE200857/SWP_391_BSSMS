@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
 import { Alert, Button, Modal } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 import { post } from "../../../services/api";
 import servicePhoto01 from "../../../assets/figma/service-card-exact-01.png";
 import servicePhoto02 from "../../../assets/figma/service-card-exact-02.png";
@@ -9,10 +9,11 @@ import servicePhoto03 from "../../../assets/figma/service-card-exact-03.png";
 import servicePhoto04 from "../../../assets/figma/service-card-exact-04.png";
 
 const photos = [servicePhoto01, servicePhoto02, servicePhoto03, servicePhoto04];
+const packageDescription = (description) =>
+  description?.replace(/Sử dụng trong 180 ngày kể từ ngày mua\.?/gi, "").trim();
 
-// Guest chỉ xem gói liệu trình và bảng giá; mua gói thực hiện tại quầy hoặc sau khi đăng nhập.
+// Guest xem gói liệu trình và bảng giá; bấm "Mua gói" sẽ chuyển sang đăng nhập rồi quay lại trang này để mua.
 export default function PublicTreatmentPackages({ user = null }) {
-  const serviceLink = (id) => (user ? `/services/detail/${id}` : `/guest/services/${id}`);
   const [packages, setPackages] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +24,7 @@ export default function PublicTreatmentPackages({ user = null }) {
   const [buyBusy, setBuyBusy] = useState(false);
   const [buyError, setBuyError] = useState("");
   const isCustomer = user?.role === "Customer";
+  const navigate = useNavigate();
 
   // Khách tự mua gói: tạo hóa đơn gói (Unpaid) rồi chuyển sang VNPay để thanh toán.
   const confirmPurchase = async () => {
@@ -145,22 +147,26 @@ export default function PublicTreatmentPackages({ user = null }) {
         ) : (
           <div className="public-service-grid">
             {visible.map((item, index) => (
-              <article className="public-service-card" key={item.treatmentPackageId}>
-                <Link
-                  to={serviceLink(item.serviceId)}
-                  className="public-service-card-image"
-                  aria-label={`Xem dịch vụ của gói ${item.packageName}`}
-                >
-                  <img src={photos[index % photos.length]} alt="" />
-                </Link>
+              <article className="public-service-card public-treatment-package-card" key={item.treatmentPackageId}>
+                <div className="public-service-card-image">
+                  <img
+                    src={`/api/service-image/${item.serviceId}`}
+                    alt=""
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.src = photos[index % photos.length];
+                    }}
+                  />
+                </div>
                 <div className="public-service-card-body">
                   <span className="public-service-code">{item.numberOfSessions} buổi</span>
                   <h3>{item.packageName}</h3>
                   <p className="small text-muted mb-2">
                     Dịch vụ: {serviceName(item.serviceId)}
-                    {item.validityDays ? ` · Hạn dùng ${item.validityDays} ngày` : ""}
                   </p>
-                  {item.description && <p className="small mb-2">{item.description}</p>}
+                  {packageDescription(item.description) && (
+                    <p className="small mb-2">{packageDescription(item.description)}</p>
+                  )}
                   <div className="public-service-card-meta">
                     <strong>
                       {Number(item.price).toLocaleString("vi-VN")} <small>VNĐ</small>
@@ -169,19 +175,28 @@ export default function PublicTreatmentPackages({ user = null }) {
                       <i className="bi bi-calendar-check" aria-hidden="true" /> {item.numberOfSessions} buổi
                     </span>
                   </div>
-                  <Link to={serviceLink(item.serviceId)} className="public-service-detail-link">
-                    Xem dịch vụ <i className="bi bi-arrow-up-right" aria-hidden="true" />
-                  </Link>
                   {isCustomer && (
-                    <Button
-                      className="mt-2 w-100"
-                      onClick={() => {
-                        setBuyError("");
-                        setBuying(item);
-                      }}
-                    >
-                      Mua gói
-                    </Button>
+                    <div className="public-treatment-package-action">
+                      <Button
+                        className="w-100"
+                        onClick={() => {
+                          setBuyError("");
+                          setBuying(item);
+                        }}
+                      >
+                        Mua gói
+                      </Button>
+                    </div>
+                  )}
+                  {!user && (
+                    <div className="public-treatment-package-action">
+                      <Button
+                        className="w-100"
+                        onClick={() => navigate("/login", { state: { from: "/treatment-packages" } })}
+                      >
+                        Mua gói
+                      </Button>
+                    </div>
                   )}
                 </div>
               </article>
