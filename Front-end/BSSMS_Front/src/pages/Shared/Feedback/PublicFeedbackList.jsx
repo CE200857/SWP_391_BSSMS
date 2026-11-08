@@ -10,6 +10,8 @@ import {
   Badge,
   Spinner,
   Alert,
+  Modal,
+  Table,
 } from "react-bootstrap";
 import servicePhoto02 from "../../../assets/figma/service-card-exact-02.png";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
@@ -23,6 +25,8 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
   const [serviceFilter, setServiceFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [detailFeedback, setDetailFeedback] = useState(null);
+  const isStaffManagementView = managerCompact || user?.role === "Manager";
 
   // Lấy danh sách services
   useEffect(() => {
@@ -116,7 +120,9 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
     ],
     "Tìm theo khách hàng, dịch vụ, nội dung...",
   );
-  const visibleFeedbacks = user?.role === "Manager" ? managerFeedbacks : filteredFeedbacks;
+  const visibleFeedbacks = isStaffManagementView
+    ? managerFeedbacks
+    : filteredFeedbacks;
 
   const renderStars = (rating) => {
     const stars = [];
@@ -148,12 +154,35 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
     }
   };
 
+  const formatFeedbackTime = (dateStr) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return null;
+    return {
+      date: date.toLocaleDateString("vi-VN"),
+      time: date.toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+  };
+
   const getInitial = (name) => {
     return name && name.length > 0 ? name.charAt(0).toUpperCase() : "K";
   };
 
   return (
     <div className={managerCompact ? "feedback-manager-compact" : "public-service-page feedback-public-page"}>
+      {managerCompact && (
+        <div className="feedback-staff-page-heading">
+          <div className="ui-page-heading">
+            <div>
+              <h1>Đánh giá khách hàng</h1>
+              <p>Theo dõi điểm đánh giá và phản hồi công khai về dịch vụ.</p>
+            </div>
+          </div>
+        </div>
+      )}
       {!managerCompact && <section className="public-service-hero feedback-public-hero">
         <div className="public-service-hero-copy">
           <span className="seoul-eyebrow">CHIA SẺ · TRẢI NGHIỆM</span>
@@ -175,7 +204,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
       </div>
 
       {/* Thẻ thống kê */}
-      <Row className="mb-3 g-3">
+      <Row className={`feedback-summary-stats mb-3 g-3${managerCompact ? " feedback-summary-stats-compact" : ""}`}>
         <Col md={4}>
           <Card className="shadow-sm border-0 feedback-stat-card" style={{ borderRadius: "12px" }}>
             <Card.Body className="text-center">
@@ -208,7 +237,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
       {/* Bộ lọc */}
       <Card className="shadow-sm border-0 mb-3 feedback-filter-card" style={{ borderRadius: "12px" }}>
         <Card.Body>
-          {user?.role === "Manager" ? (
+          {isStaffManagementView ? (
             <div className="manager-list-toolbar">{toolbar}</div>
           ) : (
             <div className="d-flex flex-wrap gap-3 align-items-center">
@@ -259,7 +288,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
 
       <div className="public-service-list-heading feedback-review-heading">
         <div>
-          <h2>Cảm nhận từ khách hàng</h2>
+          <h2>{managerCompact ? "Danh sách đánh giá" : "Cảm nhận từ khách hàng"}</h2>
           <span className="public-service-count">{visibleFeedbacks.length} đánh giá</span>
         </div>
       </div>
@@ -277,6 +306,65 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
             {feedbacks.length === 0
               ? "Chưa có đánh giá nào từ khách hàng."
               : "Không tìm thấy đánh giá phù hợp với bộ lọc hiện tại."}
+          </Card.Body>
+        </Card>
+      ) : managerCompact ? (
+        <Card className="feedback-staff-list-card">
+          <Card.Body>
+            <div className="table-responsive">
+              <Table hover className="manager-list-table feedback-staff-table">
+                <thead>
+                  <tr>
+                    <th>Khách hàng</th>
+                    <th>Dịch vụ</th>
+                    <th>Thời gian</th>
+                    <th>Đánh giá</th>
+                    <th>Trạng thái</th>
+                    <th className="feedback-staff-action-column">Hành động</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleFeedbacks.map((fb) => {
+                    const feedbackTime = formatFeedbackTime(fb.createdAt);
+                    return (
+                      <tr key={fb.feedbackId}>
+                        <td>{fb.customerName || fb.fullName || "Khách hàng ẩn danh"}</td>
+                        <td className="feedback-staff-service-column">{fb.serviceName || "—"}</td>
+                        <td className="feedback-staff-time-column">
+                          {feedbackTime ? (
+                            <>
+                              <div>{feedbackTime.time}</div>
+                              <div className="small text-muted">{feedbackTime.date}</div>
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="feedback-staff-rating" aria-label={`${fb.rating || 0} trên 5 sao`}>
+                          {renderStars(fb.rating)}
+                        </td>
+                        <td>
+                          <Badge bg="success">Đang hiển thị</Badge>
+                        </td>
+                        <td className="feedback-staff-action-column">
+                          <div className="manager-list-actions">
+                            <button
+                              type="button"
+                              className="btn manager-list-action manager-list-action--view"
+                              onClick={() => setDetailFeedback(fb)}
+                              aria-label={`Xem đánh giá của ${fb.customerName || fb.fullName || "khách hàng"}`}
+                            >
+                              <i className="bi bi-eye-fill" aria-hidden="true" />
+                              Xem
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </div>
           </Card.Body>
         </Card>
       ) : (
@@ -341,6 +429,38 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
           })}
         </Row>
       )}
+      <Modal
+        show={!!detailFeedback}
+        onHide={() => setDetailFeedback(null)}
+        centered
+        className="feedback-staff-detail-modal"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Chi tiết đánh giá</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            <strong>Khách hàng:</strong>{" "}
+            {detailFeedback?.customerName || detailFeedback?.fullName || "Khách hàng ẩn danh"}
+          </p>
+          <p><strong>Dịch vụ:</strong> {detailFeedback?.serviceName || "—"}</p>
+          <p>
+            <strong>Ngày đánh giá:</strong>{" "}
+            {detailFeedback?.createdAt ? formatDate(detailFeedback.createdAt) : "—"}
+          </p>
+          <p>
+            <strong>Đánh giá:</strong>{" "}
+            <span className="feedback-staff-rating">
+              {renderStars(detailFeedback?.rating)}
+            </span>
+          </p>
+          <p className="mb-0">
+            <strong>Nội dung:</strong>
+            <br />
+            {detailFeedback?.comment || "Không có nội dung."}
+          </p>
+        </Modal.Body>
+      </Modal>
       </section>
     </div>
   );

@@ -96,9 +96,6 @@
 .app-dashboard .manager-sidebar .manager-menu-toggle:hover {
   background: #f8eaf0;
 }
-.app-dashboard .manager-section-nav { background: var(--ui-surface); border-color: var(--ui-line); box-shadow: none; }
-.app-dashboard .manager-section-nav a { color: var(--ui-muted); }
-.app-dashboard .manager-section-nav a.active { background: var(--ui-tint); color: var(--ui-accent); }
 .app-dashboard :is(.card,.overview-panel) { border-color: var(--ui-line); box-shadow: none; }
 .app-dashboard :is(.form-control,.form-select) { border-color: var(--ui-line); color: var(--ui-ink); }
 .app-dashboard :is(.table th,.overview-panel th) { background: var(--ui-surface); color: var(--ui-muted); text-transform: none; letter-spacing: normal; }

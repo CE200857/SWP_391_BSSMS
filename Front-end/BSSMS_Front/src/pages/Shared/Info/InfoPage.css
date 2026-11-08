@@ -1,0 +1,11 @@
+.info-page { max-width: 880px; margin: 0 auto; padding: 32px 16px 56px; }
+.info-page h1 { font-size: 2rem; font-weight: 800; color: #8b1349; margin-bottom: 8px; }
+.info-page .info-lead { color: #5d5460; font-size: 1.05rem; margin-bottom: 28px; }
+.info-section { background: #fff; border: 1px solid #eadde3; border-radius: 14px; padding: 20px 24px; margin-bottom: 16px; }
+.info-section h2 { font-size: 1.15rem; font-weight: 700; color: #2b2330; margin: 0 0 10px; }
+.info-section p, .info-section li { color: #3b3340; line-height: 1.65; }
+.info-section ul { margin: 0; padding-left: 1.25rem; }
+.info-contact { margin-top: 24px; color: #5d5460; }
+.info-contact a { color: #d0146a; font-weight: 600; }
+.info-page .accordion-button:not(.collapsed) { color: #8b1349; background: #fdf1f6; box-shadow: none; }
+.info-page .accordion-item { border-color: #eadde3; }

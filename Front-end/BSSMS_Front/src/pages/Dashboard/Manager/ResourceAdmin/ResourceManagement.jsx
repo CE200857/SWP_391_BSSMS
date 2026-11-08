@@ -38,6 +38,11 @@ const ResourceManagement = ({ user: routeUser }) => {
     equipments,
     [
       { key: "equipmentName", label: "Thiết bị", filterable: false },
+      {
+        key: "roomName",
+        label: "Phòng",
+        formatValue: (value) => value || "Chưa phân phòng",
+      },
       { key: "description", label: "Mô tả", filterable: false },
       { key: "status", label: "Trạng thái" },
     ],
@@ -72,8 +77,12 @@ const ResourceManagement = ({ user: routeUser }) => {
           const response = await axios.get("/api/beds", { withCredentials: true });
           setBeds(response.data);
         } else if (activeTab === "equipments") {
-          const response = await axios.get("/api/equipment", { withCredentials: true });
-          setEquipments(response.data);
+          const [equipmentResponse, roomResponse] = await Promise.all([
+            axios.get("/api/equipment", { withCredentials: true }),
+            axios.get("/api/rooms", { withCredentials: true }),
+          ]);
+          setEquipments(equipmentResponse.data);
+          setRooms(roomResponse.data);
         }
       } catch (err) {
         console.error(`Lỗi tải dữ liệu tab ${activeTab}:`, err);
@@ -97,7 +106,7 @@ const ResourceManagement = ({ user: routeUser }) => {
     } else if (activeTab === "beds") {
       setFormData({ bedId: 0, roomId: rooms.length > 0 ? rooms[0].roomId : "", bedNumber: "", status: "Active" });
     } else if (activeTab === "equipments") {
-      setFormData({ equipmentId: 0, equipmentName: "", description: "", status: "Active" });
+      setFormData({ equipmentId: 0, equipmentName: "", description: "", roomId: null, status: "Active" });
     }
     setShowModal(true);
   };
@@ -204,6 +213,7 @@ const ResourceManagement = ({ user: routeUser }) => {
         <Tab eventKey="equipments" title="Thiết bị (Equipment)">
           <EquipmentTable 
             equipments={equipmentFilters.filteredRows}
+            rooms={rooms}
             onEdit={handleOpenEdit} 
             onDelete={handleDelete} 
           />
@@ -271,6 +281,22 @@ const ResourceManagement = ({ user: routeUser }) => {
                 <Form.Group className="mb-3">
                   <Form.Label className="fw-bold">Mô tả</Form.Label>
                   <Form.Control as="textarea" rows={3} name="description" value={formData.description || ""} onChange={handleChange} />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label className="fw-bold">Phòng được bố trí</Form.Label>
+                  <Form.Select
+                    name="roomId"
+                    value={formData.roomId || ""}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      roomId: e.target.value ? Number(e.target.value) : null,
+                    })}
+                  >
+                    <option value="">Chưa phân phòng / thiết bị dùng chung</option>
+                    {rooms.map((room) => (
+                      <option key={room.roomId} value={room.roomId}>{room.roomName}</option>
+                    ))}
+                  </Form.Select>
                 </Form.Group>
               </>
             )}
@@ -396,14 +422,14 @@ const BedTable = ({ beds, rooms, onEdit, onDelete }) => {
 };
 
 // --- COMPONENT CON CHO BẢNG THIẾT BỊ ---
-const EquipmentTable = ({ equipments, onEdit, onDelete }) => {
+const EquipmentTable = ({ equipments, rooms, onEdit, onDelete }) => {
   return (
     <Card className="shadow-sm border-0 rounded-3">
       <Card.Body className="p-0">
         <Table hover responsive className="align-middle mb-0 manager-list-table">
           <thead className="table-dark">
             <tr>
-              <th>ID</th><th>Tên thiết bị</th><th>Mô tả</th><th>Trạng thái</th><th className="text-center">Hành động</th>
+              <th>ID</th><th>Tên thiết bị</th><th>Phòng</th><th>Mô tả</th><th>Trạng thái</th><th className="text-center">Hành động</th>
             </tr>
           </thead>
           <tbody>
@@ -411,6 +437,7 @@ const EquipmentTable = ({ equipments, onEdit, onDelete }) => {
               <tr key={e.equipmentId}>
                 <td className="fw-bold text-muted">#{e.equipmentId}</td>
                 <td className="fw-bold">{e.equipmentName}</td>
+                <td>{e.roomName || rooms.find((room) => Number(room.roomId) === Number(e.roomId))?.roomName || "Chưa phân phòng"}</td>
                 <td>{e.description || "—"}</td>
                 <td>
                   <Badge bg={e.status === "Active" ? "success" : e.status === "Maintenance" ? "warning" : "secondary"}>
@@ -424,7 +451,7 @@ const EquipmentTable = ({ equipments, onEdit, onDelete }) => {
                   </div>
                 </td>
               </tr>
-            )) : <tr><td colSpan="5" className="text-center text-muted py-4">Chưa có dữ liệu thiết bị.</td></tr>}
+            )) : <tr><td colSpan="6" className="text-center text-muted py-4">Chưa có dữ liệu thiết bị.</td></tr>}
           </tbody>
         </Table>
       </Card.Body>

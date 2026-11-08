@@ -1,5 +1,12 @@
 import { Link } from "react-router-dom";
 import SeoulBrand from "./SeoulBrand";
+import { SITE } from "../siteConfig";
+
+const SOCIALS = [
+  { key: "facebook", label: "Facebook", url: SITE.facebookUrl, icon: "bi bi-facebook" },
+  { key: "instagram", label: "Instagram", url: SITE.instagramUrl, icon: "bi bi-instagram" },
+  { key: "zalo", label: "Zalo", url: SITE.zaloUrl, text: "Zalo" },
+].filter((item) => item.url);
 
 const Footer = ({ user }) => (
   <footer className="app-footer">
@@ -11,9 +18,11 @@ const Footer = ({ user }) => (
           bạn dành cho chính mình.
         </p>
         <div className="app-footer-socials" aria-label="Mạng xã hội">
-          <span aria-label="Facebook"><i className="bi bi-facebook" aria-hidden="true" /></span>
-          <span aria-label="Instagram"><i className="bi bi-instagram" aria-hidden="true" /></span>
-          <span aria-label="Zalo">Zalo</span>
+          {SOCIALS.map((item) => (
+            <a key={item.key} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={`${item.label} của ${SITE.name}`}>
+              {item.icon ? <i className={item.icon} aria-hidden="true" /> : item.text}
+            </a>
+          ))}
         </div>
       </div>
 
@@ -27,19 +36,18 @@ const Footer = ({ user }) => (
 
       <div className="app-footer-column">
         <h2>Hỗ trợ khách hàng</h2>
-        <span>Câu hỏi thường gặp</span>
-        <span>Chính sách bảo mật</span>
-        <span>Điều khoản sử dụng</span>
-        {user ? <Link to="/profile">Tài khoản của tôi</Link> : <Link to="/login">Đăng nhập</Link>}
-        <Link to="/dashboard/login">Dành cho nhân viên</Link>
+        <Link to="/faq">Câu hỏi thường gặp</Link>
+        <Link to="/privacy">Chính sách bảo mật</Link>
+        <Link to="/terms">Điều khoản sử dụng</Link>
+        {!user && <Link to="/login">Đăng nhập</Link>}
       </div>
 
       <div className="app-footer-column app-footer-location">
         <h2>Seoul Center · Cần Thơ</h2>
-        <p>329 Nguyễn Văn Cừ, Phường Cái Khế, Thành Phố Cần Thơ</p>
-        <a href="tel:+84914269346">(+84) 914 269 346</a>
-        <a href="mailto:cskh@seoulcenter.vn">cskh@seoulcenter.vn</a>
-        <p>08:30–18:30 hằng ngày</p>
+        <p>{SITE.address}</p>
+        <a href={`tel:${SITE.phoneLink}`}>{SITE.phoneDisplay}</a>
+        <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
+        <p>{SITE.hours}</p>
       </div>
     </div>
     <div className="app-footer-bottom">
