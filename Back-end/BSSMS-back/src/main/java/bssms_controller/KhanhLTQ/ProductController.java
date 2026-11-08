@@ -80,6 +80,9 @@ public class ProductController extends ControllerSupport {
         if(!body.has("productType")) product.setProductType(existing.getProductType());
         if(!body.has("unit")) product.setUnit(existing.getUnit());
         if(!body.has("stockQuantity")) product.setStockQuantity(existing.getStockQuantity());
+        if(!body.has("purchaseUnit")) product.setPurchaseUnit(existing.getPurchaseUnit());
+        if(!body.has("unitsPerPurchaseUnit")) product.setUnitsPerPurchaseUnit(existing.getUnitsPerPurchaseUnit());
+        if(!body.has("reorderPackageCount")) product.setReorderPackageCount(existing.getReorderPackageCount());
         InputValidation.product(product,true);
         boolean success = productDAO.updateProduct(product);
         PrintWriter out = resp.writer();

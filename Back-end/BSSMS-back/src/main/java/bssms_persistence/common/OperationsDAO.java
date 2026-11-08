@@ -36,13 +36,14 @@ public class OperationsDAO extends DBContext implements AutoCloseable {
                 "equipment",w.query("SELECT equipment_id,equipment_name FROM Equipment WHERE status='Active'"),
                 "materials",w.query("SELECT sm.*,s.service_name,p.product_name,p.unit FROM ServiceMaterial sm JOIN Service s ON s.service_id=sm.service_id JOIN Product p ON p.product_id=sm.product_id"),
                 "requirements",w.query("SELECT se.*,s.service_name,e.equipment_name FROM ServiceEquipment se JOIN Service s ON s.service_id=se.service_id JOIN Equipment e ON e.equipment_id=se.equipment_id"));
-        case "stock":return Map.of("products",w.query("SELECT * FROM Product ORDER BY product_name"),"movements",w.query("SELECT TOP(300) m.*,p.product_name FROM InventoryMovement m JOIN Product p ON p.product_id=m.product_id ORDER BY movement_id DESC"));
+        case "stock":return Map.of("products",w.query("SELECT * FROM Product ORDER BY product_name"),"movements",w.query("SELECT TOP(300) m.*,p.product_name,p.unit FROM InventoryMovement m JOIN Product p ON p.product_id=m.product_id ORDER BY movement_id DESC"));
         case "policy":return Map.of("policy",w.one("SELECT * FROM vw_CurrentPolicy"),"periods",w.query("SELECT * FROM CommissionPeriod ORDER BY period_month DESC"),"notifications",w.query("SELECT TOP(100) n.*,c.full_name FROM NotificationOutbox n JOIN Customer c ON c.customer_id=n.customer_id ORDER BY notification_id DESC"));
         default:throw new WorkflowException(404,"Không tìm thấy chức năng.");
         }
     }
     public Object write(String kind,JsonObject d) throws SQLException {
         Workflow w=workflow();w.roles("Manager");String action=text(d,"action");
+        final String[] msg={"Đã cập nhật thành công."};
         return w.transaction(()->{
             if(kind.equals("scheduling")) {
                 if(action.equals("shift")) {
@@ -61,6 +62,47 @@ public class OperationsDAO extends DBContext implements AutoCloseable {
                         || !w.query("SELECT leave_id FROM StaffLeave WHERE staff_id=? AND ? BETWEEN start_date AND end_date",staff,date).isEmpty())throw new WorkflowException(409,"Trùng ca làm hoặc ngày nghỉ.");
                     w.update("UPDATE StaffShift SET shift_date=?,start_time=?,end_time=? WHERE staff_shift_id=?",date,start,end,id);
                     if(!w.query("SELECT a.appointment_id FROM Appointment a JOIN AppointmentStaff ast ON ast.appointment_id=a.appointment_id WHERE ast.staff_id=? AND a.status IN ('Pending','Confirmed','Checked-in','In-progress') AND NOT EXISTS(SELECT 1 FROM StaffShift ss WHERE ss.staff_id=ast.staff_id AND ss.shift_date=a.appointment_date AND ss.start_time<=a.start_time AND ss.end_time>=a.end_time)",staff).isEmpty())throw new WorkflowException(409,"Ca mới không bao phủ lịch hẹn đã phân công.");
+                } else if(action.equals("monthShifts")) {
+                    // Lên lịch cả tháng: tạo ca cho các thứ đã chọn; ngày đã trùng ca hoặc trùng ngày nghỉ được bỏ qua.
+                    YearMonth month=YearMonth.parse(text(d,"month"));
+                    LocalTime start=LocalTime.parse(text(d,"start")),end=LocalTime.parse(text(d,"end"));
+                    if(!end.isAfter(start))throw new IllegalArgumentException("Giờ kết thúc phải sau giờ bắt đầu.");
+                    if(!d.has("weekdays")||!d.get("weekdays").isJsonArray()||d.getAsJsonArray("weekdays").size()==0)throw new IllegalArgumentException("Hãy chọn ít nhất một ngày trong tuần.");
+                    Set<Integer> weekdays=new HashSet<>();
+                    for(JsonElement e:d.getAsJsonArray("weekdays")){int wd=e.getAsInt();if(wd<1||wd>7)throw new IllegalArgumentException("Thứ trong tuần không hợp lệ.");weekdays.add(wd);}
+                    List<Integer> staffIds=new ArrayList<>();
+                    if(d.has("staffId")&&!d.get("staffId").isJsonNull()&&d.get("staffId").getAsInt()>0){
+                        int one=d.get("staffId").getAsInt();
+                        if(w.query("SELECT staff_id FROM Staff WHERE staff_id=? AND status='Active'",one).isEmpty())throw new IllegalArgumentException("Nhân viên không hoạt động.");
+                        staffIds.add(one);
+                    } else {
+                        for(Map<String,Object> row:w.query("SELECT staff_id FROM Staff WHERE status='Active' AND role IN ('Technician','Receptionist') ORDER BY staff_id"))staffIds.add(Workflow.id(row.get("staffId")));
+                    }
+                    if(staffIds.isEmpty())throw new IllegalArgumentException("Không có nhân viên nào để xếp lịch.");
+                    LocalDate todayVn=LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+                    int created=0,skipped=0;
+                    for(int staff:staffIds){
+                        for(int day=1;day<=month.lengthOfMonth();day++){
+                            LocalDate date=month.atDay(day);
+                            if(date.isBefore(todayVn)||!weekdays.contains(date.getDayOfWeek().getValue()))continue;
+                            boolean clash=!w.query("SELECT staff_shift_id FROM StaffShift WHERE staff_id=? AND shift_date=? AND start_time<CAST(? AS time) AND end_time>CAST(? AS time)",staff,date,end,start).isEmpty()
+                                ||!w.query("SELECT leave_id FROM StaffLeave WHERE staff_id=? AND ? BETWEEN start_date AND end_date",staff,date).isEmpty();
+                            if(clash){skipped++;continue;}
+                            w.update("INSERT StaffShift(staff_id,shift_date,start_time,end_time) VALUES(?,?,?,?)",staff,date,start,end);
+                            created++;
+                        }
+                    }
+                    msg[0]="Đã tạo "+created+" ca làm cho "+staffIds.size()+" nhân viên"+(skipped>0?"; bỏ qua "+skipped+" ngày vì đã có ca hoặc đang nghỉ":"")+". Ngày đã qua không được xếp.";
+                } else if(action.equals("updateLeave")) {
+                    int id=integer(d,"id");
+                    int staff=Workflow.id(w.one("SELECT staff_id FROM StaffLeave WHERE leave_id=?",id).get("staffId"));
+                    LocalDate start=LocalDate.parse(text(d,"start")),end=LocalDate.parse(text(d,"end"));
+                    if(end.isBefore(start))throw new IllegalArgumentException("Ngày kết thúc không hợp lệ.");
+                    if(!w.query("SELECT a.appointment_id FROM Appointment a JOIN AppointmentStaff ast ON ast.appointment_id=a.appointment_id WHERE ast.staff_id=? AND a.appointment_date BETWEEN ? AND ? AND a.status IN ('Pending','Confirmed','Checked-in','In-progress')",staff,start,end).isEmpty())throw new WorkflowException(409,"Nhân viên đã có lịch hẹn trong khoảng nghỉ này.");
+                    if(!w.query("SELECT leave_id FROM StaffLeave WHERE staff_id=? AND leave_id<>? AND start_date<=? AND end_date>=?",staff,id,end,start).isEmpty())throw new WorkflowException(409,"Khoảng nghỉ bị trùng.");
+                    String reason=d.has("reason")&&!d.get("reason").isJsonNull()?d.get("reason").getAsString().trim():"";
+                    if(reason.length()>500)throw new IllegalArgumentException("Lý do tối đa 500 ký tự.");
+                    w.update("UPDATE StaffLeave SET start_date=?,end_date=?,reason=? WHERE leave_id=?",start,end,reason.isEmpty()?null:reason,id);
                 } else if(action.equals("deleteShift")) {
                     int id=integer(d,"id");
                     if(!w.query("SELECT a.appointment_id FROM Appointment a JOIN AppointmentStaff ast ON ast.appointment_id=a.appointment_id JOIN StaffShift ss ON ss.staff_id=ast.staff_id AND ss.shift_date=a.appointment_date WHERE ss.staff_shift_id=? AND a.status IN ('Pending','Confirmed','Checked-in','In-progress') AND a.start_time<ss.end_time AND a.end_time>ss.start_time",id).isEmpty())throw new WorkflowException(409,"Ca làm còn lịch hẹn, cần điều phối lại trước.");
@@ -118,7 +160,7 @@ public class OperationsDAO extends DBContext implements AutoCloseable {
                 else if(action.equals("closeMonth"))w.call("usp_CloseCommissionPeriod",requireActorAccountId(),LocalDate.parse(text(d,"month")));
                 else throw new IllegalArgumentException("Thao tác không hợp lệ.");
             } else throw new WorkflowException(404,"Không tìm thấy chức năng.");
-            return Map.of("message","Đã cập nhật thành công.");
+            return Map.of("message",msg[0]);
         });
     }
 }

@@ -12,11 +12,13 @@ public class EquipmentController {
     public void create(Account user, Equipment value) throws SQLException {
         Validation.role(user, "Manager");
         validate(value);
+        validateRoom(value);
         if (!dao.addEquipment(value)) throw new SQLException("Insert affected no rows");
     }
     public void update(Account user, Equipment value) throws SQLException {
         Validation.role(user, "Manager");
         validate(value);
+        validateRoom(value);
         Validation.id(value.getEquipmentId(), "id");
         Validation.found(dao.updateEquipment(value));
     }
@@ -30,5 +32,10 @@ public class EquipmentController {
         value.setEquipmentName(Validation.text(value.getEquipmentName(), "equipmentName"));
         if (value.getStatus() == null) value.setStatus("Active");
         Validation.status(value.getStatus(), "Active", "Maintenance");
+    }
+    private void validateRoom(Equipment value) {
+        if (value.getRoomId() != null && value.getRoomId() <= 0) {
+            throw new IllegalArgumentException("Invalid roomId.");
+        }
     }
 }

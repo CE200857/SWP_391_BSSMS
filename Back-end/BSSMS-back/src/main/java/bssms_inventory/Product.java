@@ -14,10 +14,19 @@ public class Product {
     private String status;
     private String productType="Retail";
     private String unit="piece";
+    private String purchaseUnit;
+    private java.math.BigDecimal unitsPerPurchaseUnit;
+    private java.math.BigDecimal reorderPackageCount;
     public String getProductType(){return productType;}
     public void setProductType(String value){productType=value;}
     public String getUnit(){return unit;}
     public void setUnit(String value){unit=value;}
+    public String getPurchaseUnit(){return purchaseUnit;}
+    public void setPurchaseUnit(String value){purchaseUnit=value;}
+    public java.math.BigDecimal getUnitsPerPurchaseUnit(){return unitsPerPurchaseUnit;}
+    public void setUnitsPerPurchaseUnit(java.math.BigDecimal value){unitsPerPurchaseUnit=value;}
+    public java.math.BigDecimal getReorderPackageCount(){return reorderPackageCount;}
+    public void setReorderPackageCount(java.math.BigDecimal value){reorderPackageCount=value;}
     public void setStockQuantity(java.math.BigDecimal value){stockQuantity=value;}
     public void setReorderLevel(java.math.BigDecimal value){reorderLevel=value;}
     private int supplierId; // Thêm thuộc tính liên kết Nhà cung cấp
