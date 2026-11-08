@@ -9,6 +9,7 @@ import {
     Spinner,
     Alert,
 } from "react-bootstrap";
+import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
 
 const TreatmentStatus = () => {
     const [appointments, setAppointments] = useState([]);
@@ -56,19 +57,7 @@ const TreatmentStatus = () => {
         return service ? service.serviceName : `Dịch vụ #${serviceId}`;
     };
 
-    const getStatusBadge = (status) => {
-        const statusMap = {
-            "Checked-in": { bg: "info", text: "Đã check-in" },
-            "Pending": { bg: "primary", text: "Chờ xác nhận" },
-            "Confirmed": { bg: "info", text: "Đã xác nhận" },
-            "In-progress": { bg: "warning", text: "Đang thực hiện" },
-            "Completed": { bg: "success", text: "Hoàn thành" },
-            "Cancelled": { bg: "danger", text: "Đã hủy" },
-            "No-show": { bg: "secondary", text: "Không đến" },
-        };
-        const style = statusMap[status] || { bg: "dark", text: status };
-        return <Badge bg={style.bg}>{style.text}</Badge>;
-    };
+    const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
 
     const getPackageStatusBadge = (status) => {
         const statusMap = {

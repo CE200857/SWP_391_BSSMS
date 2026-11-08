@@ -97,6 +97,26 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
         return list(appointmentId);
     }
 
+    /** Technician xóa một ảnh trước/sau của lịch hẹn mình được phân công; trả về danh sách ảnh còn lại. */
+    public List<Map<String, Object>> delete(int photoId) throws Exception {
+        workflow().roles("Technician");
+        Map<String, Object> row = workflow().one("SELECT appointment_id,storage_key FROM TreatmentPhoto WHERE photo_id=?", photoId);
+        int appointmentId = ((Number) row.get("appointmentId")).intValue();
+        workflow().appointmentAccess(appointmentId);
+        String status = String.valueOf(workflow().one("SELECT status FROM Appointment WHERE appointment_id=?", appointmentId).get("status"));
+        if (!Arrays.asList("Checked-in", "In-progress", "Completed").contains(status))
+            throw new IllegalStateException("Không xóa được ảnh ở trạng thái lịch hẹn hiện tại.");
+        if (workflow().update("DELETE FROM TreatmentPhoto WHERE photo_id=?", photoId) != 1)
+            throw new WorkflowException(404, "Không tìm thấy ảnh.");
+        try {
+            Path path = root().resolve(String.valueOf(row.get("storageKey"))).normalize();
+            if (path.startsWith(root())) Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+            // ảnh đã xóa khỏi cơ sở dữ liệu; tệp còn sót lại không ảnh hưởng nghiệp vụ
+        }
+        return list(appointmentId);
+    }
+
     /** Resolves a stored photo after checking that the caller may see its appointment. */
     public Stored file(int photoId) throws SQLException {
         Map<String, Object> row = workflow().one("SELECT appointment_id,storage_key FROM TreatmentPhoto WHERE photo_id=?", photoId);

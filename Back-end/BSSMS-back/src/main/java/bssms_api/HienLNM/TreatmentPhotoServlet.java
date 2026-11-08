@@ -40,6 +40,19 @@ public class TreatmentPhotoServlet extends BaseApiServlet {
         });
     }
 
+    /** DELETE /api/treatment-photos/{photoId}: Technician xóa ảnh trước/sau của lịch hẹn mình phụ trách. */
+    @Override protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        handle(request, response, 200, () -> {
+            Account user = requireUser(request);
+            String path = request.getPathInfo();
+            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã ảnh.");
+            try (TreatmentPhotoDAO dao = new TreatmentPhotoDAO()) {
+                dao.setActorAccountId(user.getAccountId());
+                return dao.delete(Integer.parseInt(path.substring(1)));
+            }
+        });
+    }
+
     @Override protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String path = request.getPathInfo();
         if (path != null && path.matches("/file/[0-9]+")) { streamFile(request, response, Integer.parseInt(path.substring(6))); return; }
