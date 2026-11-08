@@ -9,7 +9,7 @@ export function roleHome(role) {
 
 export function loginDestination(role, from) {
   // Only resume local application routes. Route guards still check the user's role.
-  if (typeof from === 'string' && /^\/(slots|services|appointments|customer|manager|receptionist|technician)(\/|\?|$)/.test(from)) {
+  if (typeof from === 'string' && /^\/(slots|services|treatment-packages|appointments|customer|manager|receptionist|technician)(\/|\?|$)/.test(from)) {
     return from;
   }
   return roleHome(role);
