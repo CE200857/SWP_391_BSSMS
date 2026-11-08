@@ -14,7 +14,8 @@ export default function ManagerSidebar({
   const activeSection = staffSection(role, pathname);
   const activeGroup = activeSection?.group[0];
   const [openGroupState, setOpenGroupState] = useState(null);
-  const isManager = role === "Manager";
+  const hasExpandableGroups =
+    role === "Manager" || role === "Receptionist" || role === "Technician";
   const openGroupId =
     openGroupState?.pathname === pathname ? openGroupState.id : activeGroup;
 
@@ -67,66 +68,69 @@ export default function ManagerSidebar({
           <i className="bi bi-grid" aria-hidden="true" />
           <span>{config.homeLabel}</span>
         </NavLink>
-        {config.groups.map(([id, label, icon, links]) => (
-          <div className="manager-nav-group" key={id}>
-            {isManager ? (
-              <button
-                type="button"
-                title={collapsed ? label : undefined}
-                aria-label={label}
-                aria-expanded={!collapsed && openGroupId === id}
-                aria-controls={`manager-submenu-${id}`}
-                className={`manager-group-button ${activeGroup === id ? "current" : ""}`}
-                onClick={() => toggleGroup(id)}
-              >
-                <i className={`bi bi-${icon}`} aria-hidden="true" />
-                <span>{label}</span>
-                <i
-                  className={`bi bi-chevron-down manager-chevron ${!collapsed && openGroupId === id ? "open" : ""}`}
-                  aria-hidden="true"
-                />
-              </button>
-            ) : (
-              <NavLink
-                to={links[0][0]}
-                title={label}
-                aria-label={label}
-                className={`manager-group-button ${activeGroup === id ? "current" : ""}`}
-              >
-                <i className={`bi bi-${icon}`} aria-hidden="true" />
-                <span>{label}</span>
-              </NavLink>
-            )}
-            {isManager && !collapsed && openGroupId === id ? (
-              <div
-                className="manager-submenu"
-                id={`manager-submenu-${id}`}
-                aria-label={`Chức năng ${label}`}
-              >
-                {links.map(([path, title]) => (
-                  <Link
-                    key={path}
-                    to={path}
-                    className={
-                      activeSection?.group[0] === id &&
-                      activeSection.link[0] === path
-                        ? "active"
-                        : ""
-                    }
-                    aria-current={
-                      activeSection?.group[0] === id &&
-                      activeSection.link[0] === path
-                        ? "page"
-                        : undefined
-                    }
-                  >
-                    {title}
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ))}
+        {config.groups.map(([id, label, icon, links]) => {
+          const expandable = hasExpandableGroups && links.length > 1;
+          return (
+            <div className="manager-nav-group" key={id}>
+              {expandable ? (
+                <button
+                  type="button"
+                  title={collapsed ? label : undefined}
+                  aria-label={label}
+                  aria-expanded={!collapsed && openGroupId === id}
+                  aria-controls={`manager-submenu-${id}`}
+                  className={`manager-group-button ${activeGroup === id ? "current" : ""}`}
+                  onClick={() => toggleGroup(id)}
+                >
+                  <i className={`bi bi-${icon}`} aria-hidden="true" />
+                  <span>{label}</span>
+                  <i
+                    className={`bi bi-chevron-down manager-chevron ${!collapsed && openGroupId === id ? "open" : ""}`}
+                    aria-hidden="true"
+                  />
+                </button>
+              ) : (
+                <NavLink
+                  to={links[0][0]}
+                  title={label}
+                  aria-label={label}
+                  className={`manager-group-button ${activeGroup === id ? "current" : ""}`}
+                >
+                  <i className={`bi bi-${icon}`} aria-hidden="true" />
+                  <span>{label}</span>
+                </NavLink>
+              )}
+              {expandable && !collapsed && openGroupId === id ? (
+                <div
+                  className="manager-submenu"
+                  id={`manager-submenu-${id}`}
+                  aria-label={`Chức năng ${label}`}
+                >
+                  {links.map(([path, title]) => (
+                    <Link
+                      key={path}
+                      to={path}
+                      className={
+                        activeSection?.group[0] === id &&
+                        activeSection.link[0] === path
+                          ? "active"
+                          : ""
+                      }
+                      aria-current={
+                        activeSection?.group[0] === id &&
+                        activeSection.link[0] === path
+                          ? "page"
+                          : undefined
+                      }
+                    >
+                      {title}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </nav>
     </aside>
   );

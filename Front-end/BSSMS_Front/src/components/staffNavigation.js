@@ -18,7 +18,6 @@ export const staffNavigation = {
         "calendar2-week",
         [
           ["/appointments", "Danh sách lịch hẹn"],
-          ["/appointments/create", "Đặt lịch tại quầy"],
           ["/slots", "Tra cứu lịch trống"],
           ["/receptionist/coordination", "Check-in & điều phối"],
         ],
@@ -29,7 +28,6 @@ export const staffNavigation = {
         "people",
         [
           ["/customers", "Danh sách khách hàng"],
-          ["/receptionist/create-walkin", "Thêm khách tại quầy"],
           ["/membership-benefits", "Quyền lợi thành viên"],
           ["/vouchers", "Voucher"],
           ["/feedback", "Đánh giá khách hàng"],
@@ -102,7 +100,9 @@ export const staffNavigation = {
 
 export function staffSection(role, pathname) {
   if (role === "Manager") return managerSection(pathname);
-  const path = pathname === "/treatment-status"
+  const path = pathname === "/receptionist/create-walkin"
+    ? "/customers"
+    : pathname === "/treatment-status"
     ? "/my-treatment-profile"
     : pathname.startsWith("/treatment-profile/")
     ? "/my-treatment-profile"

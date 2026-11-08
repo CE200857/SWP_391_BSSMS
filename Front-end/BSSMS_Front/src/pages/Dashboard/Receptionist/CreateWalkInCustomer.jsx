@@ -91,50 +91,64 @@ const CreateWalkInCustomer = () => {
   };
 
   return (
-    <Container fluid className="mt-4 px-4 d-flex justify-content-center">
-      <Card className="shadow-sm border-0 w-50" style={{ borderRadius: "15px" }}>
-        <Card.Body className="p-5">
-          <h3 className="mb-4 fw-bold text-center text-uppercase">Tạo khách vãng lai</h3>
+    <Container fluid className="customer-create-page">
+      <div className="ui-page-heading">
+        <div>
+          <h1>Tạo tài khoản khách hàng</h1>
+          <p>Tạo hồ sơ khách hàng để sử dụng các dịch vụ tại Seoul Center.</p>
+        </div>
+      </div>
+      <Card className="customer-create-card">
+        <Card.Header className="customer-create-card-heading">
+          <i className="bi bi-person-plus" aria-hidden="true" />
+          <div>
+            <strong>Thông tin khách hàng</strong>
+            <span>Các trường có dấu (*) là bắt buộc.</span>
+          </div>
+        </Card.Header>
+        <Card.Body>
 
           {error && <Alert variant="danger">{error}</Alert>}
 
-          <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Họ và tên (*)</Form.Label>
-              <Form.Control 
-                type="text" 
-                name="fullName" 
-                value={formData.fullName} 
-                onChange={handleChange} 
-                placeholder="Nhập họ và tên khách hàng"
-                required 
-              />
-            </Form.Group>
+          <Form className="customer-create-form" onSubmit={handleSubmit}>
+            <div className="customer-create-fields">
+              <Form.Group>
+                <Form.Label className="fw-bold">Họ và tên (*)</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  placeholder="Nhập họ và tên khách hàng"
+                  required
+                />
+              </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Số điện thoại (*)</Form.Label>
-              <Form.Control 
-                type="text" 
-                name="phone" 
-                value={formData.phone} 
-                onChange={handleChange} 
-                placeholder="Nhập số điện thoại 10 số"
-                required 
-              />
-            </Form.Group>
+              <Form.Group>
+                <Form.Label className="fw-bold">Số điện thoại (*)</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="Nhập số điện thoại 10 số"
+                  required
+                />
+              </Form.Group>
 
-            <Form.Group className="mb-4">
-              <Form.Label className="fw-bold">Giới tính (*)</Form.Label>
-              <Form.Select name="gender" value={formData.gender} onChange={handleChange}>
-                <option value="Female">Nữ</option>
-                <option value="Male">Nam</option>
-                <option value="Other">Khác</option>
-              </Form.Select>
-            </Form.Group>
+              <Form.Group>
+                <Form.Label className="fw-bold">Giới tính (*)</Form.Label>
+                <Form.Select name="gender" value={formData.gender} onChange={handleChange}>
+                  <option value="Female">Nữ</option>
+                  <option value="Male">Nam</option>
+                  <option value="Other">Khác</option>
+                </Form.Select>
+              </Form.Group>
+            </div>
 
-            <div className="d-flex justify-content-end gap-2 mt-4">
-              <Button variant="secondary" onClick={() => navigate("/customers")}>Quay lại</Button>
-              <Button variant="danger" type="submit" disabled={isLoading}>
+            <div className="customer-create-actions">
+              <Button variant="outline-secondary" onClick={() => navigate("/customers")}>Hủy</Button>
+              <Button variant="primary" type="submit" disabled={isLoading}>
                 {isLoading ? "Đang tạo..." : "Xác nhận tạo"}
               </Button>
             </div>
@@ -142,15 +156,15 @@ const CreateWalkInCustomer = () => {
         </Card.Body>
       </Card>
 
-      <Modal show={showSuccessModal} onHide={handleCloseSuccess} centered backdrop="static" keyboard={false}>
+      <Modal className="customer-create-success" show={showSuccessModal} onHide={handleCloseSuccess} centered backdrop="static" keyboard={false}>
         <Modal.Header>
           <Modal.Title className="text-success fw-bold">
             <i className="bi bi-check-circle-fill me-2"></i> Tạo hồ sơ thành công
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Hồ sơ khách hàng vãng lai đã được tạo nhanh trên hệ thống.</p>
-          <div className="bg-light p-3 rounded border">
+          <p>Tài khoản khách hàng đã được tạo thành công.</p>
+          <div className="customer-created-credentials">
             <p className="mb-2"><strong>Tài khoản:</strong> <span className="text-primary fs-5">{accountInfo.username}</span></p>
             <p className="mb-0"><strong>Mật khẩu mặc định:</strong> <span className="text-danger fs-5">{accountInfo.password}</span></p>
           </div>

@@ -1,21 +1,26 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, today } from "../../services/api";
+import { appointmentStatusLabel } from "../../utils/appointmentStatus";
+import { setAppointmentStatus } from "../../utils/appointmentActions";
 
-const statuses = {
-  Pending: "Chờ xác nhận",
-  Confirmed: "Đã xác nhận",
-  "Checked-in": "Đã đến",
-  "In-progress": "Đang thực hiện",
-  Completed: "Hoàn thành",
-  Cancelled: "Đã hủy",
-  "No-show": "Không đến",
-};
 
 export default function StaffOverview({ role }) {
   const technician = role === "Technician";
   const [data, setData] = useState({ items: [], loading: true, error: "" });
   const [revision, setRevision] = useState(0);
+  const [approvingId, setApprovingId] = useState(null);
+  const approve = async (appointmentId) => {
+    setApprovingId(appointmentId);
+    try {
+      await setAppointmentStatus(appointmentId, "Confirmed");
+      setRevision((value) => value + 1);
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setApprovingId(null);
+    }
+  };
   useEffect(() => {
     let active = true;
     api("/api/appointments")
@@ -36,6 +41,20 @@ export default function StaffOverview({ role }) {
   const rows = data.items
     .filter((item) => String(item.appointmentDate).slice(0, 10) === day)
     .sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+  // Lịch đang chờ xác nhận của những ngày SAU hôm nay (bảng "hôm nay" ở trên không hiện các lịch này).
+  const upcomingPending = technician
+    ? []
+    : data.items
+        .filter(
+          (item) =>
+            item.status === "Pending" &&
+            String(item.appointmentDate).slice(0, 10) > day,
+        )
+        .sort(
+          (a, b) =>
+            String(a.appointmentDate).localeCompare(String(b.appointmentDate)) ||
+            String(a.startTime).localeCompare(String(b.startTime)),
+        );
   const metrics = [
     [
       "calendar2-week",
@@ -59,19 +78,6 @@ export default function StaffOverview({ role }) {
       rows.filter((a) => a.status === "Completed").length,
     ],
   ];
-  const shortcuts = technician
-    ? [
-        ["/record-treatment-outcome", "Ghi nhận kết quả", "clipboard-check"],
-        ["/treatment-status", "Theo dõi điều trị", "clipboard-pulse"],
-        ["/update-room-bed-status", "Phòng & giường", "building"],
-        ["/technician/commission", "Hoa hồng cá nhân", "cash-coin"],
-      ]
-    : [
-        ["/appointments/create", "Đặt lịch tại quầy", "calendar-plus"],
-        ["/receptionist/coordination", "Check-in & điều phối", "sliders"],
-        ["/receptionist/create-walkin", "Thêm khách hàng", "person-plus"],
-        ["/invoices/create", "Tạo hóa đơn", "receipt"],
-      ];
   return (
     <section className="staff-overview">
       <div className="ui-page-heading">
@@ -112,15 +118,6 @@ export default function StaffOverview({ role }) {
           </article>
         ))}
       </div>
-      <nav className="staff-shortcuts" aria-label="Thao tác nhanh">
-        {shortcuts.map(([path, label, icon]) => (
-          <Link key={path} to={path}>
-            <i className={`bi bi-${icon}`} aria-hidden="true" />
-            <span>{label}</span>
-            <i className="bi bi-arrow-up-right" aria-hidden="true" />
-          </Link>
-        ))}
-      </nav>
       <section className="staff-schedule card">
         <div className="card-header">
           <div>
@@ -159,15 +156,13 @@ export default function StaffOverview({ role }) {
                   <th>Khách hàng</th>
                   <th>Dịch vụ</th>
                   <th>Trạng thái</th>
-                  <th>
-                    <span className="visually-hidden">Thao tác</span>
-                  </th>
+                  <th className="text-center">Hành động</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((a) => (
                   <tr key={a.appointmentId}>
-                    <td>
+                    <td className="text-center">
                       {String(a.startTime || "").slice(0, 5)} –{" "}
                       {String(a.endTime || "").slice(0, 5)}
                     </td>
@@ -175,10 +170,20 @@ export default function StaffOverview({ role }) {
                     <td>{a.serviceName}</td>
                     <td>
                       <span className="staff-status">
-                        {statuses[a.status] || a.status}
+                        {appointmentStatusLabel(a.status)}
                       </span>
                     </td>
                     <td>
+                      {role === "Receptionist" && a.status === "Pending" && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary me-2"
+                          disabled={approvingId === a.appointmentId}
+                          onClick={() => approve(a.appointmentId)}
+                        >
+                          Duyệt
+                        </button>
+                      )}
                       <Link
                         className="btn btn-sm btn-outline-primary"
                         to={`/appointments/${a.appointmentId}`}
@@ -197,6 +202,71 @@ export default function StaffOverview({ role }) {
           </div>
         )}
       </section>
+      {!technician && !data.loading && !data.error && upcomingPending.length > 0 && (
+        <section className="staff-schedule card mt-4">
+          <div className="card-header">
+            <div>
+              <h2>Chờ xác nhận sắp tới</h2>
+              <span>
+                {upcomingPending.length} lịch hẹn của các ngày sau hôm nay đang chờ bạn duyệt
+              </span>
+            </div>
+            <Link to="/appointments">Xem tất cả</Link>
+          </div>
+          <div className="table-responsive">
+            <table className="table mb-0">
+              <thead>
+                <tr>
+                  <th>Ngày</th>
+                  <th>Giờ hẹn</th>
+                  <th>Khách hàng</th>
+                  <th>Dịch vụ</th>
+                  <th className="text-center">Hành động</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcomingPending.map((a) => (
+                  <tr key={a.appointmentId}>
+                    <td>
+                      {String(a.appointmentDate)
+                        .slice(0, 10)
+                        .split("-")
+                        .reverse()
+                        .join("/")}
+                    </td>
+                    <td className="text-center">
+                      {String(a.startTime || "").slice(0, 5)} –{" "}
+                      {String(a.endTime || "").slice(0, 5)}
+                    </td>
+                    <td>{a.customerName}</td>
+                    <td>{a.serviceName}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary me-2"
+                        disabled={approvingId === a.appointmentId}
+                        onClick={() => approve(a.appointmentId)}
+                      >
+                        Duyệt
+                      </button>
+                      <Link
+                        className="btn btn-sm btn-outline-primary"
+                        to={`/appointments/${a.appointmentId}`}
+                      >
+                        Chi tiết
+                        <span className="visually-hidden">
+                          {" "}
+                          lịch #{a.appointmentId}
+                        </span>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </section>
   );
 }

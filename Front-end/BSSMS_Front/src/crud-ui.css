@@ -12,7 +12,40 @@
   color: var(--crud-ink);
 }
 
+.app-dashboard .app-route-content {
+  --page-control-radius: 9px;
+  --page-card-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.app-dashboard .app-route-content :is(h1, h2, h3, h4) {
+  color: var(--crud-ink);
+  font-family: var(--crud-font);
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+
+.app-dashboard .app-route-content h1 {
+  font-size: clamp(1.35rem, 2.2vw, 1.65rem);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.app-dashboard .app-route-content h2 {
+  font-size: 1.125rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.app-dashboard .app-route-content h3 {
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
 .app-dashboard .app-route-content :is(.manager-page-title, .ui-page-heading h1),
+.app-dashboard .app-route-content > section > :is(h1, h2),
 .app-dashboard .app-route-content > :is(.container, .container-fluid) > :is(h1, h2) {
   padding-left: 12px;
   border-left: 4px solid var(--crud-accent);
@@ -36,11 +69,16 @@
   line-height: 1.6;
 }
 
+.app-dashboard .app-route-content :is(.form-control, .form-select, .form-check-input) {
+  accent-color: var(--crud-accent);
+}
+
 .app-dashboard .app-route-content :is(.form-label, .form-check-label, form label) {
   color: #51454e;
   font-family: var(--crud-font);
   font-size: 0.86rem;
   font-weight: 600;
+  line-height: 1.45;
 }
 
 .app-dashboard .app-route-content :is(.form-control, .form-select) {
@@ -76,10 +114,21 @@
 
 .app-dashboard .app-route-content .btn:not(.manager-list-action) {
   min-height: 38px;
-  border-radius: 9px;
+  border-radius: var(--page-control-radius);
   font-family: var(--crud-font);
   font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.35;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.app-dashboard .app-route-content .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .app-dashboard .app-route-content .btn.manager-list-action {
@@ -120,8 +169,12 @@
 
 .app-dashboard .app-route-content .card {
   border: 1px solid var(--crud-line);
-  border-radius: 12px;
+  border-radius: var(--page-card-radius);
   background: #fff;
+}
+
+.app-dashboard .app-route-content .card > .card-body {
+  min-width: 0;
 }
 
 .app-dashboard .app-route-content .card:has(form) {
@@ -140,13 +193,17 @@
 }
 
 .app-dashboard .app-route-content .card-header {
+  padding: 14px 18px;
   border-bottom-color: var(--crud-line);
   background: #fff;
   color: var(--crud-ink);
   font-weight: 650;
+  line-height: 1.45;
 }
 
 .app-dashboard .app-route-content .table {
+  --bs-table-color: var(--crud-ink);
+  --bs-table-border-color: var(--crud-line);
   font-family: var(--crud-font);
   font-size: 0.875rem;
 }
@@ -161,12 +218,435 @@
 
 .app-dashboard .app-route-content .table tbody td {
   padding: 12px;
+  line-height: 1.5;
+}
+
+.app-dashboard .app-route-content .table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.app-dashboard .app-route-content .table tbody tr:hover > * {
+  --bs-table-bg: #fcf8fa;
+}
+
+.app-dashboard .app-route-content .badge {
+  border-radius: 6px;
+  font-family: var(--crud-font);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.4;
+  padding: 0.35em 0.6em;
 }
 
 .app-dashboard .app-route-content .alert {
   border-radius: 10px;
   font-family: var(--crud-font);
   font-size: 0.875rem;
+}
+
+.app-dashboard .app-route-content :is(.ui-empty, .customer-empty-state) {
+  color: var(--crud-muted);
+  line-height: 1.6;
+}
+
+.app-dashboard .app-route-content :is(.ui-empty, .customer-empty-state) :is(strong, h2, h3) {
+  color: var(--crud-ink);
+}
+
+.app-dashboard .app-route-content .table-responsive {
+  border-radius: 8px;
+}
+
+.app-dashboard .customer-profile-page,
+.app-dashboard .customer-create-page {
+  width: min(100%, 1200px);
+  margin-inline: auto;
+}
+
+.app-dashboard .customer-profile-page .ui-page-heading {
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+.customer-profile-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.customer-profile-page .ui-page-heading h1 {
+  margin: 0;
+}
+
+.customer-profile-back {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  padding: 0;
+  font-size: 1rem;
+}
+
+.customer-profile-card > .card-body {
+  padding: clamp(18px, 2.5vw, 30px);
+}
+
+.customer-profile-form .customer-profile-layout {
+  --bs-gutter-x: clamp(18px, 2.5vw, 32px);
+  --bs-gutter-y: 20px;
+  margin-bottom: 0 !important;
+}
+
+.customer-profile-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.customer-profile-avatar {
+  display: grid;
+  width: 104px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid var(--crud-line);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #f8eaf0, #f2dce6);
+  color: var(--crud-accent);
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.customer-profile-summary > .badge {
+  margin-top: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+.customer-membership-summary {
+  width: 100%;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--crud-line);
+  border-radius: 10px;
+  background: #fcf8fa;
+}
+
+.customer-membership-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  color: var(--crud-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.customer-membership-title i {
+  color: var(--crud-accent);
+}
+
+.customer-membership-summary > .badge {
+  max-width: 100%;
+  border-radius: 6px;
+  white-space: normal;
+}
+
+.customer-membership-discount {
+  margin-top: 12px;
+  color: var(--crud-accent-hover);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.customer-membership-spending {
+  display: grid;
+  gap: 3px;
+  margin-top: 12px;
+  color: var(--crud-muted);
+  font-size: 0.78rem;
+}
+
+.customer-membership-spending strong {
+  color: var(--crud-ink);
+  font-size: 0.9rem;
+}
+
+.customer-membership-description {
+  margin-top: 12px;
+  color: var(--crud-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.customer-profile-id {
+  margin-top: 14px;
+  color: var(--crud-muted);
+  font-size: 0.8rem;
+}
+
+.customer-profile-fields {
+  min-width: 0;
+  padding-left: clamp(18px, 2.5vw, 32px);
+  border-left: 1px solid var(--crud-line);
+}
+
+.customer-profile-fields .form-text {
+  display: block;
+  margin-top: 6px;
+}
+
+.customer-profile-actions,
+.customer-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.customer-create-page .ui-page-heading {
+  margin-bottom: 20px;
+}
+
+.customer-create-card {
+  width: min(100%, 820px);
+  margin-inline: auto;
+}
+
+.customer-create-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px !important;
+}
+
+.customer-create-card-heading > i {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 10px;
+  background: #f8eaf0;
+  color: var(--crud-accent);
+  font-size: 1.1rem;
+}
+
+.customer-create-card-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.customer-create-card-heading strong {
+  color: var(--crud-ink);
+  font-size: 0.94rem;
+}
+
+.customer-create-card-heading span {
+  color: var(--crud-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.customer-create-card > .card-body {
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.customer-create-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 20px;
+}
+
+.customer-create-fields > :first-child {
+  grid-column: 1 / -1;
+}
+
+.customer-create-fields .form-label {
+  margin-bottom: 7px;
+}
+
+.customer-created-credentials {
+  padding: 16px;
+  border: 1px solid var(--crud-line);
+  border-radius: 10px;
+  background: #fcf8fa;
+}
+
+.customer-created-credentials p:last-child {
+  margin-bottom: 0;
+}
+
+.customer-create-success,
+.customer-detail-modal {
+  --crud-ink: #302b30;
+  --crud-muted: #6b6269;
+  --crud-line: #e7e1e4;
+  --crud-accent: #a92760;
+  --crud-accent-hover: #861e4b;
+  --crud-font: var(--app-font-sans, "Be Vietnam Pro", "Segoe UI", Arial, sans-serif);
+}
+
+.customer-detail-modal .modal-content {
+  width: min(100%, 560px);
+  margin-inline: auto;
+}
+
+.customer-detail-modal .modal-header {
+  padding: 18px 22px;
+}
+
+.customer-detail-modal .modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.customer-detail-modal .modal-title i {
+  color: var(--crud-accent);
+}
+
+.customer-detail-modal .modal-body {
+  padding: 18px 22px;
+}
+
+.customer-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr);
+  gap: 0;
+  margin: 0;
+}
+
+.customer-detail-grid dt,
+.customer-detail-grid dd {
+  min-width: 0;
+  margin: 0;
+  padding: 11px 0;
+  border-bottom: 1px solid #f0e9ed;
+  line-height: 1.5;
+}
+
+.customer-detail-grid dt {
+  padding-right: 14px;
+  color: var(--crud-muted);
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+
+.customer-detail-grid dd {
+  color: var(--crud-ink);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.customer-detail-grid > :nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.customer-detail-grid .badge {
+  border-radius: 999px;
+}
+
+.product-detail-modal {
+  --product-detail-accent: #a92760;
+  --product-detail-line: #f0e8ed;
+}
+
+.product-detail-modal .modal-content {
+  width: min(100%, 560px);
+  margin-inline: auto;
+  border-top: 3px solid var(--product-detail-accent);
+}
+
+.product-detail-modal .modal-header {
+  padding: 18px 22px;
+  background: #fcf8fa;
+}
+
+.product-detail-modal .modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.product-detail-modal .modal-title i {
+  color: var(--product-detail-accent);
+  font-size: 1.15rem;
+}
+
+.product-detail-modal .modal-body {
+  padding: 12px 22px 18px;
+}
+
+.product-detail-list {
+  margin: 0;
+}
+
+.product-detail-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.75fr) minmax(0, 1.25fr);
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--product-detail-line);
+  line-height: 1.5;
+}
+
+.product-detail-row:last-child {
+  border-bottom: 0;
+}
+
+.product-detail-row dt,
+.product-detail-row dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.product-detail-row dt {
+  color: #6b6269;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.product-detail-row dd {
+  color: #302b30;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.product-detail-row:first-child dd {
+  font-weight: 600;
+}
+
+.product-detail-row--description dd {
+  white-space: pre-wrap;
+}
+
+.customer-detail-modal .modal-footer {
+  padding: 12px 22px 18px;
+}
+
+.app-dashboard .app-route-content :is(.nav-tabs, .pagination) {
+  border-color: var(--crud-line);
+}
+
+.app-dashboard .app-route-content .nav-tabs .nav-link {
+  border-radius: 8px 8px 0 0;
+  color: var(--crud-muted);
+  font-weight: 600;
+}
+
+.app-dashboard .app-route-content .nav-tabs .nav-link.active {
+  border-color: var(--crud-line) var(--crud-line) #fff;
+  color: var(--crud-accent);
+}
+
+.app-dashboard .app-route-content :is(.page-link, .nav-link):focus-visible {
+  outline: 2px solid var(--crud-accent);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .modal .modal-content {
@@ -225,6 +705,54 @@
 }
 
 @media (max-width: 600px) {
+  .customer-profile-fields {
+    padding-left: calc(var(--bs-gutter-x) * 0.5);
+    border-left: 0;
+  }
+
+  .customer-create-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .customer-create-fields > :first-child {
+    grid-column: auto;
+  }
+
+  .customer-detail-modal .modal-header,
+  .customer-detail-modal .modal-body {
+    padding-inline: 16px;
+  }
+
+  .product-detail-modal .modal-header,
+  .product-detail-modal .modal-body {
+    padding-inline: 16px;
+  }
+
+  .product-detail-row {
+    grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.2fr);
+    gap: 10px;
+  }
+
+  .customer-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .customer-detail-grid dt,
+  .customer-detail-grid dd {
+    padding: 5px 0;
+    border: 0;
+  }
+
+  .customer-detail-grid dt {
+    padding-top: 10px;
+  }
+
+  .customer-detail-grid > :nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
   .app-dashboard .app-route-content :is(.form-control, .form-select) {
     font-size: 16px;
   }
