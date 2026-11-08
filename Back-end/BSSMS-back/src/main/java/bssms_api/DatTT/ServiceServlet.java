@@ -22,8 +22,7 @@ public class ServiceServlet extends BaseApiServlet {
         handle(request, response, 201, () -> {
             try (ServiceDAO dao = new ServiceDAO()) {
                 ServiceController controller = new ServiceController(dao);
-                controller.createService(body(request, Service.class));
-                return null;
+                return java.util.Map.of("serviceId", controller.createService(body(request, Service.class)));
             }
         });
     }

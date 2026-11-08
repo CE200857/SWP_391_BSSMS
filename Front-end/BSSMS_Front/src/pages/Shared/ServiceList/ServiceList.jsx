@@ -14,6 +14,7 @@ import servicePhoto09 from "../../../assets/figma/service-card-exact-09.png";
 import servicePhoto10 from "../../../assets/figma/service-card-exact-10.png";
 import servicePhoto11 from "../../../assets/figma/service-card-exact-11.png";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
+import { StatusToggleButton, StatusChangeModal } from "../../../components/StatusToggle";
 
 const servicePhotos = [
   servicePhoto01,
@@ -40,6 +41,8 @@ const ServiceList = ({ user }) => {
   const [serviceToDelete, setServiceToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [statusTarget, setStatusTarget] = useState(null); // dịch vụ đang chờ xác nhận đổi trạng thái
+  const [statusBusy, setStatusBusy] = useState(false);
   const [actionNotice, setActionNotice] = useState(
     location.state?.serviceNotice || "",
   );
@@ -266,7 +269,7 @@ const ServiceList = ({ user }) => {
                       className="public-service-card-image"
                       aria-label={`Xem dịch vụ ${service.serviceName}`}
                     >
-                      <img src={servicePhotos[imageIndex]} alt="" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
+                      <img src={service.imageUrl || servicePhotos[imageIndex]} alt="" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
                     </Link>
                     <div className="public-service-card-body">
                       <span className="public-service-code">
@@ -336,6 +339,26 @@ const ServiceList = ({ user }) => {
     setServiceToDelete(service);
   };
 
+  // Bấm vào trạng thái -> hộp thoại xác nhận -> đổi trạng thái hoạt động / ngừng hoạt động của dịch vụ.
+  const confirmStatusChange = async () => {
+    if (!statusTarget || statusBusy) return;
+    const next = statusTarget.status === "Active" ? "Inactive" : "Active";
+    setStatusBusy(true);
+    try {
+      await axios.put(`/api/service?id=${statusTarget.serviceId}`, { ...statusTarget, status: next });
+      setActionNotice(
+        `Dịch vụ "${statusTarget.serviceName}" ${next === "Active" ? "đã được kích hoạt lại" : "đã chuyển sang ngừng hoạt động"}.`,
+      );
+      setRefresh((prev) => prev + 1);
+      setStatusTarget(null);
+    } catch (error) {
+      const message = error.response?.data?.message;
+      alert(typeof message === "string" ? message : "Không đổi được trạng thái dịch vụ.");
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!serviceToDelete || deleting) return;
     setDeleting(true);
@@ -344,7 +367,7 @@ const ServiceList = ({ user }) => {
       await axios.delete(`/api/service?id=${serviceToDelete.serviceId}`);
       setServiceToDelete(null);
       setActionNotice(
-        `Dịch vụ "${serviceToDelete.serviceName}" đã được chuyển sang trạng thái ngừng hoạt động.`,
+        `Đã xóa dịch vụ "${serviceToDelete.serviceName}".`,
       );
       setRefresh((prev) => prev + 1);
     } catch (error) {
@@ -353,7 +376,7 @@ const ServiceList = ({ user }) => {
       setDeleteError(
         typeof message === "string"
           ? message
-          : "Không thể ngừng hoạt động dịch vụ. Vui lòng thử lại.",
+          : "Không thể xóa dịch vụ. Vui lòng thử lại.",
       );
     } finally {
       setDeleting(false);
@@ -407,13 +430,17 @@ const ServiceList = ({ user }) => {
                   <td>{Number(s.price).toLocaleString("vi-VN")}</td>
                   <td>{s.duration}</td>
                   <td>
-                    <span className={`badge ${s.status === "Active" ? "bg-success" : "bg-secondary"}`}>
-                      {s.status === "Active"
-                        ? "Đang hoạt động"
-                        : s.status === "Inactive"
-                          ? "Ngừng hoạt động"
-                          : s.status}
-                    </span>
+                    {isManager ? (
+                      <StatusToggleButton active={s.status === "Active"} onClick={() => setStatusTarget(s)} />
+                    ) : (
+                      <span className={`badge ${s.status === "Active" ? "bg-success" : "bg-secondary"}`}>
+                        {s.status === "Active"
+                          ? "Đang hoạt động"
+                          : s.status === "Inactive"
+                            ? "Ngừng hoạt động"
+                            : s.status}
+                      </span>
+                    )}
                   </td>
                   <td><div className="manager-list-actions">
                     {/* 1. NÚT XEM CHI TIẾT DÀNH CHO TẤT CẢ MỌI NGƯỜI */}
@@ -475,7 +502,7 @@ const ServiceList = ({ user }) => {
       >
         <Modal.Header closeButton={!deleting}>
           <Modal.Title id="delete-service-title">
-            Xác nhận ngừng dịch vụ
+            Xác nhận xóa dịch vụ
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -485,12 +512,13 @@ const ServiceList = ({ user }) => {
             </div>
           )}
           <p className="mb-2">
-            Bạn có chắc muốn ngừng hoạt động dịch vụ{" "}
+            Bạn có chắc muốn <strong>xóa vĩnh viễn</strong> dịch vụ{" "}
             <strong>{serviceToDelete?.serviceName}</strong>?
           </p>
           <p className="text-muted small mb-0">
-            Dịch vụ sẽ không còn hiển thị cho khách hàng. Dữ liệu dịch vụ vẫn
-            được giữ lại trong hệ thống.
+            Thao tác không thể hoàn tác. Dịch vụ đã có lịch hẹn, hóa đơn, gói liệu
+            trình hoặc đánh giá thì không xóa được; khi đó hãy bấm "Ngừng" để chuyển
+            sang không hoạt động.
           </p>
         </Modal.Body>
         <Modal.Footer>
@@ -513,13 +541,22 @@ const ServiceList = ({ user }) => {
               </>
             ) : (
               <>
-                <i className="bi bi-pause-circle me-2" aria-hidden="true" />
-                Ngừng hoạt động
+                <i className="bi bi-trash me-2" aria-hidden="true" />
+                Xóa vĩnh viễn
               </>
             )}
           </Button>
         </Modal.Footer>
       </Modal>
+      <StatusChangeModal
+        show={Boolean(statusTarget)}
+        entity="dịch vụ"
+        name={statusTarget?.serviceName}
+        nextActive={statusTarget?.status !== "Active"}
+        busy={statusBusy}
+        onCancel={() => setStatusTarget(null)}
+        onConfirm={confirmStatusChange}
+      />
     </div>
   );
 };

@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
 import servicePhoto from "../../../assets/figma/service-card-exact-02.png";
+import { imageFileToUpload } from "../../../utils/imageUpload";
 
 const initialFormData = {
   serviceName: "",
@@ -15,7 +16,6 @@ const initialFormData = {
 const statusLabels = {
   Active: "Đang hoạt động",
   Inactive: "Ngừng hoạt động",
-  Maintenance: "Đang bảo trì",
 };
 
 const getRequestErrorMessage = (error, fallback) => {
@@ -32,6 +32,10 @@ const ServiceForm = ({ isReadOnly = false }) => {
   const [loadedRequestKey, setLoadedRequestKey] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageUpload, setImageUpload] = useState(null); // ảnh mới đã thu nhỏ, chờ lưu
+  const [removeImage, setRemoveImage] = useState(false);
+  const [imageError, setImageError] = useState("");
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const isManager = user?.role === "Manager";
   const isEditing = Boolean(id);
@@ -49,6 +53,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
         if (cancelled) return;
         const service = response.data;
         setLoadError("");
+        setImageUrl(service.imageUrl || "");
         setFormData({
           serviceName: service.serviceName || "",
           description: service.description || "",
@@ -83,6 +88,20 @@ const ServiceForm = ({ isReadOnly = false }) => {
     setSaveError("");
   };
 
+  const handleImageChange = async (event) => {
+    const file = event.target.files?.[0];
+    setImageError("");
+    if (!file) return;
+    try {
+      setImageUpload(await imageFileToUpload(file));
+      setRemoveImage(false);
+    } catch (error) {
+      setImageUpload(null);
+      setImageError(error.message || "Không xử lý được ảnh.");
+      event.target.value = "";
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (saving) return;
@@ -98,18 +117,31 @@ const ServiceForm = ({ isReadOnly = false }) => {
     };
 
     try {
+      let serviceId = id;
       if (isEditing) {
         await axios.put(`/api/service?id=${id}`, payload);
       } else {
-        await axios.post("/api/service", payload);
+        const response = await axios.post("/api/service", payload);
+        serviceId = response.data?.serviceId;
+      }
+
+      // Ảnh dịch vụ: tải ảnh mới lên hoặc xóa ảnh hiện tại (dịch vụ đã được lưu trước)
+      let imageNotice = "";
+      try {
+        if (serviceId && imageUpload) {
+          await axios.post(`/api/service-image/${serviceId}`, imageUpload);
+        } else if (serviceId && isEditing && removeImage) {
+          await axios.delete(`/api/service-image/${serviceId}`);
+        }
+      } catch (imageErr) {
+        imageNotice = ` Nhưng chưa lưu được ảnh: ${getRequestErrorMessage(imageErr, "lỗi tải ảnh")}.`;
       }
 
       navigate("/services", {
         replace: true,
         state: {
-          serviceNotice: isEditing
-            ? "Đã cập nhật thông tin dịch vụ."
-            : "Đã thêm dịch vụ mới.",
+          serviceNotice:
+            (isEditing ? "Đã cập nhật thông tin dịch vụ." : "Đã thêm dịch vụ mới.") + imageNotice,
         },
       });
     } catch (error) {
@@ -170,7 +202,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
             <div className="public-detail-grid">
               <div className="public-detail-image">
                 <img
-                  src={servicePhoto}
+                  src={imageUrl || servicePhoto}
                   alt={`Trải nghiệm dịch vụ ${formData.serviceName}`}
                   loading="lazy"
                   decoding="async"
@@ -423,6 +455,40 @@ const ServiceForm = ({ isReadOnly = false }) => {
                 </div>
 
                 <div className="service-admin-field service-admin-field--wide">
+                  <label htmlFor="serviceImage">Ảnh dịch vụ</label>
+                  {(imageUpload || (imageUrl && !removeImage)) && (
+                    <img
+                      src={imageUpload ? `data:${imageUpload.contentType};base64,${imageUpload.data}` : imageUrl}
+                      alt="Ảnh dịch vụ"
+                      style={{ display: "block", width: 280, maxWidth: "100%", height: 170, objectFit: "cover", borderRadius: 12, marginBottom: 10 }}
+                    />
+                  )}
+                  <input
+                    id="serviceImage"
+                    type="file"
+                    className="form-control"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={saving}
+                    onChange={handleImageChange}
+                  />
+                  <small className="text-muted d-block mt-1">
+                    JPEG, PNG hoặc WebP; ảnh được tự thu nhỏ khi tải lên. Bỏ trống để giữ ảnh hiện tại.
+                  </small>
+                  {imageError && <div className="text-danger small mt-1">{imageError}</div>}
+                  {imageUrl && !removeImage && !imageUpload && (
+                    <button type="button" className="btn btn-sm btn-outline-danger mt-2" disabled={saving} onClick={() => setRemoveImage(true)}>
+                      Xóa ảnh hiện tại
+                    </button>
+                  )}
+                  {removeImage && (
+                    <div className="small text-muted mt-2">
+                      Ảnh hiện tại sẽ bị xóa khi lưu.{" "}
+                      <button type="button" className="btn btn-link btn-sm p-0" onClick={() => setRemoveImage(false)}>Hoàn tác</button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="service-admin-field service-admin-field--wide">
                   <label htmlFor="status">Trạng thái</label>
                   <select
                     id="status"
@@ -434,7 +500,6 @@ const ServiceForm = ({ isReadOnly = false }) => {
                   >
                     <option value="Active">Đang hoạt động</option>
                     <option value="Inactive">Ngừng hoạt động</option>
-                    <option value="Maintenance">Đang bảo trì</option>
                   </select>
                 </div>
               </div>

@@ -24,11 +24,11 @@ public class ServiceController {
         return service;
     }
 
-    public void createService(Service service) throws SQLException {
+    public int createService(Service service) throws SQLException {
         validateService(service);
-        if (serviceDAO.addService(service) != 1) {
-            throw new SQLException("Service insert did not affect exactly one row");
-        }
+        int id = serviceDAO.addServiceReturningId(service);
+        if (id <= 0) throw new SQLException("Service insert did not affect exactly one row");
+        return id;
     }
 
     public void updateService(int id, Service service) throws SQLException {
@@ -59,9 +59,8 @@ public class ServiceController {
             throw new IllegalArgumentException("Duration must be greater than zero.");
         }
         String status = service.getStatus();
-        if (!"Active".equals(status) && !"Inactive".equals(status)
-                && !"Maintenance".equals(status)) {
-            throw new IllegalArgumentException("Status must be Active, Inactive or Maintenance.");
+        if (!"Active".equals(status) && !"Inactive".equals(status)) {
+            throw new IllegalArgumentException("Status must be Active or Inactive.");
         }
         service.setServiceName(service.getServiceName().trim());
     }
