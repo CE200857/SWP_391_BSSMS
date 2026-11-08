@@ -64,7 +64,8 @@ const CustomerList = ({ user }) => {
       if (response.ok) {
         setRefresh((prev) => prev + 1);
       } else {
-        alert("Lỗi: Không thể vô hiệu hóa tài khoản này.");
+        const data = await response.json().catch(() => null);
+        alert(data?.message || "Lỗi: Không thể xóa khách hàng này.");
       }
     } finally {
       handleCloseModal();
@@ -98,7 +99,7 @@ const CustomerList = ({ user }) => {
               variant="danger"
               onClick={() => navigate("/receptionist/create-walkin")}
             >
-              <i className="bi bi-person-plus-fill me-1"></i> Thêm khách vãng lai
+              <i className="bi bi-person-plus-fill me-1"></i> Tạo tài khoản khách hàng
             </Button>
         )}
       </div>
@@ -145,6 +146,18 @@ const CustomerList = ({ user }) => {
                     <Button
                       variant="link"
                       size="sm"
+                      className="manager-list-action manager-list-action--view"
+                      onClick={() => navigate(`/treatment-profile/${c.customerId}`)}
+                      aria-label={`Xem gói liệu trình và số buổi của ${c.fullName}`}
+                    >
+                      <i className="bi bi-box-seam" aria-hidden="true" /> Liệu trình
+                    </Button>
+                  )}
+                  {(user?.role === "Manager" ||
+                    user?.role === "Receptionist") && (
+                    <Button
+                      variant="link"
+                      size="sm"
                       className="manager-list-action manager-list-action--edit"
                       onClick={() => navigate(`/customers/edit/${c.customerId}`)}
                       aria-label={`Sửa khách hàng ${c.fullName}`}
@@ -152,15 +165,17 @@ const CustomerList = ({ user }) => {
                       <i className="bi bi-pencil-square" aria-hidden="true" /> Sửa
                     </Button>
                   )}
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="manager-list-action manager-list-action--delete"
-                    onClick={() => handleShowModal(c)}
-                    aria-label={`Xóa khách hàng ${c.fullName}`}
-                  >
-                    <i className="bi bi-trash" aria-hidden="true" /> Xóa
-                  </Button>
+                  {user?.role === "Manager" && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="manager-list-action manager-list-action--delete"
+                      onClick={() => handleShowModal(c)}
+                      aria-label={`Xóa khách hàng ${c.fullName}`}
+                    >
+                      <i className="bi bi-trash" aria-hidden="true" /> Xóa
+                    </Button>
+                  )}
                   </div>
                 </td>
               </tr>
@@ -176,27 +191,42 @@ const CustomerList = ({ user }) => {
       </Table>
 
       <Modal
+        className="customer-detail-modal"
         show={!!detailCustomer}
         onHide={() => setDetailCustomer(null)}
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>Thông tin khách hàng</Modal.Title>
+          <Modal.Title>
+            <i className="bi bi-person-vcard" aria-hidden="true" />
+            Thông tin khách hàng
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <dl className="row mb-0">
-            <dt className="col-sm-4">Mã khách hàng</dt>
-            <dd className="col-sm-8">#{detailCustomer?.customerId}</dd>
-            <dt className="col-sm-4">Họ và tên</dt>
-            <dd className="col-sm-8">{detailCustomer?.fullName || "—"}</dd>
-            <dt className="col-sm-4">Số điện thoại</dt>
-            <dd className="col-sm-8">{detailCustomer?.phone || "—"}</dd>
-            <dt className="col-sm-4">Email</dt>
-            <dd className="col-sm-8">{detailCustomer?.email || "—"}</dd>
-            <dt className="col-sm-4">Trạng thái</dt>
-            <dd className="col-sm-8">{detailCustomer?.status || "—"}</dd>
+          <dl className="customer-detail-grid">
+            <dt>Mã khách hàng</dt>
+            <dd>#{detailCustomer?.customerId || "—"}</dd>
+            <dt>Họ và tên</dt>
+            <dd>{detailCustomer?.fullName || "—"}</dd>
+            <dt>Số điện thoại</dt>
+            <dd>{detailCustomer?.phone || "—"}</dd>
+            <dt>Email</dt>
+            <dd>{detailCustomer?.email || "—"}</dd>
+            <dt>Trạng thái</dt>
+            <dd>
+              {detailCustomer?.status ? (
+                <Badge bg={detailCustomer.status === "Active" ? "success" : "secondary"}>
+                  {detailCustomer.status === "Active" ? "Đang hoạt động" : "Không hoạt động"}
+                </Badge>
+              ) : "—"}
+            </dd>
           </dl>
         </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={() => setDetailCustomer(null)}>
+            Đóng
+          </Button>
+        </Modal.Footer>
       </Modal>
 
       <Modal show={showModal} onHide={handleCloseModal} centered>
@@ -207,18 +237,20 @@ const CustomerList = ({ user }) => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có chắc chắn muốn xóa hóa tài khoản của khách hàng{" "}
+          Bạn có chắc chắn muốn <strong>xóa vĩnh viễn</strong> khách hàng{" "}
           <span className="fw-bold text-primary">
             {selectedCustomer?.fullName}
           </span>{" "}
-          không?
+          không? Thao tác này không thể hoàn tác. Khách đã có lịch hẹn, hóa đơn
+          hoặc gói liệu trình thì không xóa được; khi đó hãy bấm <strong>Sửa</strong> và
+          đổi trạng thái sang "Không hoạt động".
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>
             Hủy bỏ
           </Button>
           <Button variant="danger" onClick={confirmDelete}>
-            Xóa tài khoản
+            Xóa vĩnh viễn
           </Button>
         </Modal.Footer>
       </Modal>

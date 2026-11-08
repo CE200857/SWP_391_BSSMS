@@ -16,6 +16,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import servicePhoto01 from "../../../../assets/figma/service-card-exact-01.png";
 import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
+import AppointmentStatusBadge from "../../../../components/AppointmentStatusBadge";
 
 const toDateInputValue = (dateValue) => {
   if (!dateValue) return "";
@@ -294,26 +295,7 @@ const CustomerTreatmentProfile = () => {
     }
   };
 
-  const getAppointmentStatusBadge = (status) => {
-    switch (status) {
-      case "Pending":
-        return <Badge bg="info">Chờ xác nhận</Badge>;
-      case "Confirmed":
-        return <Badge bg="info">Đã xác nhận</Badge>;
-      case "Checked-in":
-        return <Badge bg="primary">Đã check-in</Badge>;
-      case "In-progress":
-        return <Badge bg="warning" text="dark">Đang điều trị</Badge>;
-      case "Completed":
-        return <Badge bg="success">Hoàn thành</Badge>;
-      case "Cancelled":
-        return <Badge bg="danger">Đã hủy</Badge>;
-      case "No-show":
-        return <Badge bg="secondary">Không đến</Badge>;
-      default:
-        return <Badge bg="secondary">{status}</Badge>;
-    }
-  };
+  const getAppointmentStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
 
   const packageFilters = useManagerSearchFilter(
     packages,

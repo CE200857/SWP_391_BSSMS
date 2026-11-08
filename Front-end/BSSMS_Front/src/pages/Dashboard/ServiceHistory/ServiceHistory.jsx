@@ -180,8 +180,7 @@ export default function ServiceHistory({ user }) {
                         <thead>
                             <tr>
                                 <th>Mã lịch hẹn</th>
-                                <th>Ngày thực hiện</th>
-                                <th>Giờ</th>
+                                <th>Ngày &amp; giờ</th>
                                 {!isCustomer && <th>Khách hàng</th>}
                                 <th>Dịch vụ</th>
                                 <th>Nhân viên phụ trách</th>
@@ -193,10 +192,12 @@ export default function ServiceHistory({ user }) {
                             {filteredHistory.map((item) => (
                                 <tr key={item.appointmentId}>
                                     <td className="service-history-id">#{item.appointmentId}</td>
-                                    <td>{formatDate(item.appointmentDate)}</td>
-                                    <td className="text-nowrap">
-                                        {formatTime(item.startTime)}
-                                        {item.endTime ? ` – ${formatTime(item.endTime)}` : ""}
+                                    <td className="service-history-date-time">
+                                        <div className="fw-semibold">{formatDate(item.appointmentDate)}</div>
+                                        <small className="text-muted">
+                                            {formatTime(item.startTime)}
+                                            {item.endTime ? `–${formatTime(item.endTime)}` : ""}
+                                        </small>
                                     </td>
                                     {!isCustomer && <td>{item.customerName || "—"}</td>}
                                     <td className="service-history-service-name">
