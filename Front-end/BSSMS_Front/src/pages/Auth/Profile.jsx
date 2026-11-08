@@ -141,9 +141,6 @@ const Profile = ({ user, setUser }) => {
             </div>
 
             <div className="customer-profile-actions">
-              <Button variant="outline-primary" onClick={() => navigate("/change-password")}>
-                <i className="bi bi-key" aria-hidden="true" /> Đổi mật khẩu
-              </Button>
               <Button
                 variant="primary"
                 onClick={() => navigate("/edit-profile", { state: { profileData } })}

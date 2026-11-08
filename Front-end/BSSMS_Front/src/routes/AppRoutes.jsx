@@ -8,7 +8,6 @@ import RouteErrorBoundary from "../components/RouteErrorBoundary";
 import { roleHome } from "../auth/login";
 import Footer from "../components/Footer";
 import Sidebar from "../components/Sidebar";
-import ManagerSectionNav from "../components/ManagerSectionNav";
 
 // Nhóm Auth & Guest
 import GuestHome from "../pages/Homepages/Guest/GuestHome";
@@ -200,7 +199,6 @@ const DashboardLayout = ({ user, setUser }) => {
           className="app-dashboard-content flex-grow-1"
           id="main-content"
         >
-          <ManagerSectionNav role={user.role} />
           <div className="app-route-content">
             <RouteErrorBoundary key={location.pathname} home={roleHome(user.role)}><Outlet /></RouteErrorBoundary>
           </div>
@@ -536,7 +534,10 @@ export default function AppRoutes({ user, setUser }) {
             >
               {user?.role === "Manager"
                 ? <ManagerFeedbackWorkspace user={user} />
-                : <PublicFeedbackList user={user} />}
+                : <PublicFeedbackList
+                    user={user}
+                    managerCompact={user?.role === "Receptionist"}
+                  />}
             </ProtectedRoute>
           }
         />

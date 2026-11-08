@@ -5,6 +5,7 @@ import AppRoutes from "./AppRoutes";
 import ManagerSidebar from "../components/ManagerSidebar";
 import ManagerDashboard from "../pages/Dashboard/Manager/ManagerDashboard";
 import { managerGroups, managerSection } from "../components/managerNavigation";
+import { staffNavigation, staffSection } from "../components/staffNavigation";
 
 const renderRoute = (path, user = null) =>
   renderToString(
@@ -97,6 +98,12 @@ describe("Separate login portals", () => {
     const html = renderRoute("/slots?serviceId=2", { role: "Customer" });
     expect(html).toContain("Tìm khung giờ dành cho bạn");
   });
+  it("renders a responsive slot availability workspace for Receptionist", () => {
+    const html = renderRoute("/slots", { role: "Receptionist" });
+    expect(html).toContain('class="staff-slot-availability');
+    expect(html).toContain('class="ui-page-heading"');
+    expect(html).toContain("Tra cứu lịch trống");
+  });
 });
 
 describe("Operations permissions", () => {
@@ -179,6 +186,36 @@ describe("Concise management lists", () => {
 
 });
 
+describe("Customer profile screens", () => {
+  it.each(["Manager", "Receptionist"])(
+    "applies customer list and edit styling to %s",
+    (role) => {
+      const list = renderRoute("/customers", { role });
+      const edit = renderRoute("/customers/edit/9", { role });
+
+      expect(list).toContain('class="app-route-content"');
+      expect(list).toContain("Danh sách khách hàng");
+      expect(edit).toContain('class="ui-page-heading"');
+      expect(edit).toContain('class="customer-profile-card');
+      expect(edit).toContain('class="customer-profile-summary');
+      expect(edit).toContain("Chỉnh sửa hồ sơ khách hàng");
+      expect(list.includes("Tạo tài khoản khách hàng"))
+        .toBe(role === "Receptionist");
+    },
+  );
+
+  it("keeps account creation available only to Receptionist", () => {
+    const create = renderRoute("/receptionist/create-walkin", {
+      role: "Receptionist",
+    });
+
+    expect(create).toContain('class="ui-page-heading"');
+    expect(create).toContain('class="customer-create-card');
+    expect(create).toContain('class="customer-create-fields"');
+    expect(create).toContain("Tạo tài khoản khách hàng");
+  });
+});
+
 describe("Manager function groups", () => {
   const groupFor = (path) => managerSection(path)?.group;
   const groupIds = (group) => group?.[3].map(([path]) => path);
@@ -253,6 +290,17 @@ describe("Manager function groups", () => {
     expect(html).toContain("Tổng đánh giá công khai");
     expect(html).not.toContain("Đánh giá khách hàng</span>");
   });
+  it("uses the Manager-style review workspace for Receptionist without moderation actions", () => {
+    const html = renderRoute("/feedback", { role: "Receptionist" });
+
+    expect(html).toContain('class="feedback-manager-compact"');
+    expect(html).toContain("Đánh giá khách hàng");
+    expect(html).toContain('class="manager-list-toolbar"');
+    expect(html).toContain("Danh sách đánh giá");
+    expect(html).not.toContain("feedback-public-hero");
+    expect(html).not.toContain("Ẩn đánh giá vi phạm");
+    expect(html).not.toContain("Hiển thị lại đánh giá");
+  });
 
   it("combines membership benefits and tier management for Managers", () => {
     const html = renderRoute("/membership-benefits", { role: "Manager" });
@@ -299,6 +347,127 @@ describe("Manager sidebar collapse", () => {
   });
 });
 
+describe("Receptionist sidebar groups", () => {
+  it("links directly to groups that have only one page", () => {
+    for (const [path, label] of [
+      ["/invoices", "Bán hàng &amp; thanh toán"],
+      ["/products", "Quản lý kho"],
+    ]) {
+      const html = renderToString(
+        <MemoryRouter initialEntries={[path]}>
+          <ManagerSidebar role="Receptionist" collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+      expect(html).toContain(`href="${path}"`);
+      expect(html).toContain(label);
+      expect(html).not.toContain(`aria-controls="manager-submenu-${path === "/invoices" ? "finance" : "inventory"}"`);
+    }
+  });
+
+  it("expands the active group and its links", () => {
+    const html = renderToString(
+      <MemoryRouter initialEntries={["/appointments"]}>
+        <ManagerSidebar role="Receptionist" collapsed={false} onToggle={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('class="manager-submenu"');
+    expect(html).toContain("Danh sách lịch hẹn");
+  });
+
+  it("allows groups to be expanded from the overview", () => {
+    const html = renderToString(
+      <MemoryRouter initialEntries={["/receptionist/dashboard"]}>
+        <ManagerSidebar role="Receptionist" collapsed={false} onToggle={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain('class="manager-submenu"');
+  });
+});
+
+describe("Technician sidebar groups", () => {
+  it("links directly to groups that have only one page", () => {
+    const html = renderToString(
+      <MemoryRouter initialEntries={["/update-room-bed-status"]}>
+        <ManagerSidebar role="Technician" collapsed={false} onToggle={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('href="/update-room-bed-status"');
+    expect(html).not.toContain('aria-controls="manager-submenu-resources"');
+  });
+
+  it("expands the active group and its links", () => {
+    const html = renderToString(
+      <MemoryRouter initialEntries={["/appointments"]}>
+        <ManagerSidebar role="Technician" collapsed={false} onToggle={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('class="manager-submenu"');
+    expect(html).toContain("Ghi nhận kết quả");
+  });
+
+  it("allows groups to be expanded from the overview", () => {
+    const html = renderToString(
+      <MemoryRouter initialEntries={["/technician/dashboard"]}>
+        <ManagerSidebar role="Technician" collapsed={false} onToggle={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain('class="manager-submenu"');
+  });
+});
+
+describe("Receptionist customer navigation", () => {
+  it("keeps customer creation under the customer list instead of a duplicate menu item", () => {
+    const customerLinks = staffNavigation.Receptionist.groups
+      .find(([id]) => id === "customers")[3];
+    const list = renderRoute("/customers", { role: "Receptionist" });
+    const createForm = renderRoute("/receptionist/create-walkin", {
+      role: "Receptionist",
+    });
+
+    expect(customerLinks).toContainEqual(["/customers", "Danh sách khách hàng"]);
+    expect(customerLinks.some(([path]) => path === "/receptionist/create-walkin")).toBe(false);
+    expect(list).toContain("Tạo tài khoản khách hàng");
+    expect(list).not.toContain("Thêm khách vãng lai");
+    expect(createForm).toContain("Tạo tài khoản khách hàng");
+    expect(staffSection("Receptionist", "/receptionist/create-walkin")?.group[0])
+      .toBe("customers");
+  });
+});
+
+describe("Receptionist inventory navigation", () => {
+  it("keeps product stock under inventory instead of sales and payments", () => {
+    const groups = staffNavigation.Receptionist.groups;
+    const inventoryGroup = groups.find(([id]) => id === "inventory");
+    const financeGroup = groups.find(([id]) => id === "finance");
+
+    expect(inventoryGroup[1]).toBe("Quản lý kho");
+    expect(inventoryGroup[3]).toContainEqual(["/products", "Sản phẩm & vật tư"]);
+    expect(financeGroup[3].some(([path]) => path === "/products")).toBe(false);
+    expect(staffSection("Receptionist", "/products")?.group[0]).toBe("inventory");
+  });
+});
+
+describe("Receptionist billing navigation", () => {
+  it("keeps invoice creation in the billing page instead of duplicating it in navigation", () => {
+    const financeGroup = staffNavigation.Receptionist.groups
+      .find(([id]) => id === "finance");
+
+    expect(financeGroup[3]).toEqual([["/invoices", "Hóa đơn & thanh toán"]]);
+    expect(staffSection("Receptionist", "/invoices/create")?.link[0])
+      .toBe("/invoices");
+  });
+});
+
 describe("Manager dashboard navigation", () => {
   it("omits the quick navigation strip from the overview", () => {
     const html = renderToString(
@@ -322,6 +491,16 @@ describe("Shared staff workspaces", () => {
       expect(html).toContain("staff-metrics");
       expect(html).not.toContain('href="/manager/policy"');
       expect(html).not.toContain('href="/staffs"');
+      expect(html).not.toContain('aria-label="Thao tác nhanh"');
+      expect(html).not.toContain('class="staff-shortcuts"');
+    },
+  );
+  it.each(["Receptionist", "Technician"])(
+    "keeps %s navigation in the sidebar without a duplicate section bar",
+    (role) => {
+      const html = renderRoute("/appointments", { role });
+      expect(html).toContain('id="staff-sidebar"');
+      expect(html).not.toContain('class="manager-section-nav"');
     },
   );
   it.each(["Receptionist", "Technician", "Manager"])(

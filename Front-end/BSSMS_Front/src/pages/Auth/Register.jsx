@@ -59,6 +59,9 @@ const Register = () => {
         setSuccessMsg("Mã xác thực đã được gửi tới Email của bạn!");
       }
     } catch (err) {
+      if (err.response?.status === 429) {
+        setCountdown(60);
+      }
       setError(
         err.response?.data?.message ||
           "Không thể gửi mã xác thực. Vui lòng thử lại!",
