@@ -25,6 +25,18 @@ public final class InputValidation {
         if(value.getStockQuantity().scale()>3 || value.getReorderLevel().scale()>3) throw new IllegalArgumentException("Stock quantities allow at most 3 decimal places.");
         if(!java.util.Arrays.asList("Retail","Consumable").contains(value.getProductType())) throw new IllegalArgumentException("Invalid productType.");
         value.setUnit(text(value.getUnit(),"unit"));
+        if("Consumable".equals(value.getProductType()) && "ml".equalsIgnoreCase(value.getUnit())) {
+            value.setPurchaseUnit(text(value.getPurchaseUnit(),"purchaseUnit"));
+            if(value.getUnitsPerPurchaseUnit()==null || value.getUnitsPerPurchaseUnit().signum()<=0
+                    || value.getReorderPackageCount()==null || value.getReorderPackageCount().signum()<0)
+                throw new IllegalArgumentException("Milliliter products require a package size and minimum stock in packages.");
+            if(value.getUnitsPerPurchaseUnit().scale()>3 || value.getReorderPackageCount().scale()>3)
+                throw new IllegalArgumentException("Package quantities allow at most 3 decimal places.");
+        } else {
+            value.setPurchaseUnit(null);
+            value.setUnitsPerPurchaseUnit(null);
+            value.setReorderPackageCount(null);
+        }
         if(value.getStatus()==null) value.setStatus("Active");
         if(!java.util.Arrays.asList("Active","Inactive").contains(value.getStatus())) throw new IllegalArgumentException("Invalid product status.");
         if(update) positive(value.getProductId(),"productId");

@@ -21,12 +21,30 @@ export default function PersonalCommission() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the view while synchronizing external data for this selection.
     load();
   }, []);
+  const formatAppointment = (row) => {
+    if (!row.appointmentDate) return "Không có lịch hẹn";
+    const date = new Date(row.appointmentDate);
+    const dateText = Number.isNaN(date.getTime())
+      ? row.appointmentDate
+      : date.toLocaleDateString("vi-VN");
+    return row.startTime
+      ? `${dateText} · ${String(row.startTime).slice(0, 5)}`
+      : dateText;
+  };
+  const getStatusLabel = (status) => ({
+    Accrued: "Đã ghi nhận",
+    Paid: "Đã thanh toán",
+    Reversed: "Đã thu hồi",
+  }[status] || status || "—");
   return (
     <section>
       <div className="ui-page-heading">
         <div>
           <h1>Hoa hồng cá nhân</h1>
-          <p>Hoa hồng sau điều chỉnh hoàn tiền, theo từng buổi dịch vụ.</p>
+          <p>
+            Mỗi dòng là hoa hồng gắn với một dịch vụ trong lịch hẹn bạn thực hiện.
+            Số thực nhận đã bao gồm các khoản điều chỉnh.
+          </p>
         </div>
         <Button variant="outline-primary" disabled={loading} onClick={load}>
           Làm mới
@@ -56,10 +74,10 @@ export default function PersonalCommission() {
               <Table>
                 <thead>
                   <tr>
-                    <th>Mã</th>
+                    <th>Dịch vụ đã thực hiện</th>
+                    <th>Lịch hẹn</th>
                     <th>Hóa đơn</th>
-                    <th>Ngày</th>
-                    <th>Tỷ lệ</th>
+                    <th>Vai trò / tỷ lệ</th>
                     <th>Điều chỉnh</th>
                     <th>Thực nhận</th>
                     <th>Trạng thái</th>
@@ -68,13 +86,22 @@ export default function PersonalCommission() {
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.commissionId}>
-                      <td>#{r.commissionId}</td>
+                      <td>
+                        <div className="fw-semibold">{r.serviceName || "Không xác định dịch vụ"}</div>
+                        <small className="text-muted">Hoa hồng #{r.commissionId}</small>
+                      </td>
+                      <td>{formatAppointment(r)}</td>
                       <td>#{r.invoiceId}</td>
-                      <td>{r.createdAt}</td>
-                      <td>{r.commissionRate}%</td>
+                      <td>
+                        {r.staffRole === "Assistant" ? "Phụ" : "Chính"} · {r.commissionRate}%
+                        <br />
+                        <small className="text-muted">
+                          {Number(r.sharePercent ?? 100)}% quỹ hoa hồng của dịch vụ
+                        </small>
+                      </td>
                       <td>{money(r.adjustmentAmount)}</td>
                       <td>{money(r.netCommission ?? r.commissionAmount)}</td>
-                      <td>{r.status}</td>
+                      <td>{getStatusLabel(r.status)}</td>
                     </tr>
                   ))}
                 </tbody>

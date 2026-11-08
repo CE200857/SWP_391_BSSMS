@@ -49,6 +49,19 @@ public class VoucherController extends ControllerSupport {
 
             String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : null;
 
+            if ("setStatus".equals(action)) {
+                int voucherId = jsonObject.get("voucherId").getAsInt();
+                String newStatus = jsonObject.get("status").getAsString();
+                if (dao.setVoucherStatus(voucherId, newStatus)) {
+                    out.print("{\"message\": \"Đã cập nhật trạng thái voucher.\"}");
+                } else {
+                    response.status(409);
+                    out.print("{\"message\": \"Chỉ đổi được trạng thái của voucher đang hoạt động hoặc đang tạm ngừng.\"}");
+                }
+                out.flush();
+                return;
+            }
+
             if ("update".equals(action)) {
                 int voucherId = jsonObject.get("voucherId").getAsInt();
                 Integer customerId = jsonObject.has("customerId") && !jsonObject.get("customerId").isJsonNull() 
@@ -127,7 +140,7 @@ public class VoucherController extends ControllerSupport {
                 out.print("{\"message\": \"Xóa voucher thành công!\"}");
             } else {
                 response.status(400);
-                out.print("{\"message\": \"Không tìm thấy voucher để xóa!\"}");
+                out.print("{\"message\": \"Không xóa được: chỉ xóa vĩnh viễn voucher thủ công chưa từng được dùng. Hãy dùng nút Ngừng để tạm ngừng voucher.\"}");
             }
         } catch (NumberFormatException e) {
             response.status(400);

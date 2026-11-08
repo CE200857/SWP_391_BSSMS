@@ -137,18 +137,22 @@ const EditCustomerProfile = ({ user }) => {
   };
 
   return (
-    <Container className="mt-4">
-      <div className="d-flex align-items-center mb-4">
-        <Button
-          variant="link"
-          className="text-decoration-none text-secondary p-0 me-3"
-          onClick={() => navigate("/customers")}
-        >
-          <i className="bi bi-arrow-left fs-4"></i>
-        </Button>
-        <h2 className="manager-page-title fw-bold m-0">
-          Chỉnh sửa hồ sơ khách hàng
-        </h2>
+    <Container fluid className="customer-profile-page">
+      <div className="ui-page-heading">
+        <div className="customer-profile-heading">
+          <Button
+            variant="outline-secondary"
+            className="customer-profile-back"
+            onClick={() => navigate("/customers")}
+            aria-label="Quay lại danh sách khách hàng"
+          >
+            <i className="bi bi-arrow-left" aria-hidden="true" />
+          </Button>
+          <div>
+            <h1>Chỉnh sửa hồ sơ khách hàng</h1>
+            <p>Cập nhật thông tin tài khoản và hồ sơ khách hàng.</p>
+          </div>
+        </div>
       </div>
 
       {message && (
@@ -164,14 +168,14 @@ const EditCustomerProfile = ({ user }) => {
         </Alert>
       )}
 
-      <Card className="shadow-sm border-0 rounded-3">
-        <Card.Body className="p-4">
-          <Form onSubmit={handlePreSubmit}>
-            <Row className="mb-4">
-              <Col md={3} className="text-center mb-3 mb-md-0">
+      <Card className="customer-profile-card">
+        <Card.Body>
+          <Form className="customer-profile-form" onSubmit={handlePreSubmit}>
+            <Row className="customer-profile-layout">
+              <Col md={3} className="customer-profile-summary">
                 <div
-                  className="rounded bg-secondary d-flex align-items-center justify-content-center mx-auto text-white"
-                  style={{ width: "150px", height: "150px", fontSize: "3rem" }}
+                  className="customer-profile-avatar"
+                  aria-label={`Ảnh đại diện ${formData.fullName || "khách hàng"}`}
                 >
                   {formData.fullName
                     ? formData.fullName.charAt(0).toUpperCase()
@@ -187,9 +191,9 @@ const EditCustomerProfile = ({ user }) => {
                       : "Không hoạt động"}
                   </Badge>
                 </div>
-                <div className="mt-3 p-3 rounded border bg-light w-100">
-                  <div className="text-muted small mb-2">
-                    <i className="bi bi-award me-1"></i>
+                <div className="customer-membership-summary">
+                  <div className="customer-membership-title">
+                    <i className="bi bi-award" aria-hidden="true" />
                     Hạng thành viên
                   </div>
 
@@ -203,18 +207,16 @@ const EditCustomerProfile = ({ user }) => {
                         {membership.tierName}
                       </Badge>
 
-                      <div className="mt-2 fw-bold text-danger">
-                        <i className="bi bi-percent me-1"></i>
+                      <div className="customer-membership-discount">
+                        <i className="bi bi-percent" aria-hidden="true" />
                         Giảm giá:{" "}
                         {Number(
                           membership.discountPercent ?? 0
                         ).toLocaleString("vi-VN")}%
                       </div>
 
-                      <div className="text-muted small mt-2">
-                        <div>
-                          Mức chi tiêu yêu cầu:
-                        </div>
+                      <div className="customer-membership-spending">
+                        <span>Mức chi tiêu yêu cầu</span>
                         <strong>
                           {Number(
                             membership.minSpending ?? 0
@@ -223,7 +225,7 @@ const EditCustomerProfile = ({ user }) => {
                       </div>
 
                       {membership.description && (
-                        <div className="text-muted small mt-2">
+                        <div className="customer-membership-description">
                           {membership.description}
                         </div>
                       )}
@@ -234,12 +236,12 @@ const EditCustomerProfile = ({ user }) => {
                     </div>
                   )}
                 </div>
-                <div className="mt-2 text-muted small">
+                <div className="customer-profile-id">
                   ID Khách hàng: #{formData.customerId}
                 </div>
               </Col>
 
-              <Col md={9}>
+              <Col md={9} className="customer-profile-fields">
                 <Row>
                   <Col md={12}>
                     <Form.Group className="mb-3">
@@ -250,10 +252,6 @@ const EditCustomerProfile = ({ user }) => {
                         type="text"
                         value={formData.username}
                         disabled
-                        style={{
-                          backgroundColor: "#e9ecef",
-                          cursor: "not-allowed",
-                        }}
                       />
                       <Form.Text className="text-muted">
                         Tên đăng nhập không thể thay đổi.
@@ -372,7 +370,7 @@ const EditCustomerProfile = ({ user }) => {
                   />
                 </Form.Group>
 
-                <div className="d-flex justify-content-end gap-2">
+                <div className="customer-profile-actions">
                   <Button
                     variant="outline-secondary"
                     onClick={() => setShowCancelModal(true)}
@@ -383,7 +381,6 @@ const EditCustomerProfile = ({ user }) => {
                     variant="danger"
                     type="submit"
                     disabled={isLoading}
-                    style={{ backgroundColor: "#a61e4d", border: "none" }}
                   >
                     {isLoading ? "Đang lưu..." : "Lưu Thay Đổi"}
                   </Button>

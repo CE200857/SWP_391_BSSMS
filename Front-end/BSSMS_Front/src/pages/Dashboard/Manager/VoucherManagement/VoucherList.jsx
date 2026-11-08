@@ -14,6 +14,7 @@ import {
 } from "react-bootstrap";
 import axios from "axios";
 import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
+import { StatusToggleButton, StatusChangeModal } from "../../../../components/StatusToggle";
 
 const VoucherList = () => {
   const [vouchers, setVouchers] = useState([]);
@@ -30,6 +31,8 @@ const VoucherList = () => {
   const [isIssuingBenefits, setIsIssuingBenefits] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [statusTarget, setStatusTarget] = useState(null); // voucher đang chờ xác nhận đổi trạng thái
+  const [statusBusy, setStatusBusy] = useState(false);
   const [detailVoucher, setDetailVoucher] = useState(null);
   const [formData, setFormData] = useState({
     voucherId: 0,
@@ -178,6 +181,30 @@ const VoucherList = () => {
     }
   };
 
+  // Bấm vào trạng thái -> hộp thoại xác nhận -> đổi trạng thái hoạt động / ngừng hoạt động của voucher.
+  const confirmStatusChange = async () => {
+    if (!statusTarget || statusBusy) return;
+    const next = statusTarget.status === "Active" ? "Inactive" : "Active";
+    setStatusBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await axios.post(
+        "/api/vouchers",
+        { action: "setStatus", voucherId: statusTarget.voucherId, status: next },
+        { withCredentials: true },
+      );
+      setMessage(next === "Active" ? "Đã kích hoạt lại voucher." : "Đã chuyển voucher sang ngừng hoạt động.");
+      setRefresh((prev) => prev + 1);
+      setStatusTarget(null);
+    } catch (err) {
+      setStatusTarget(null);
+      setError(err.response?.data?.message || "Không đổi được trạng thái voucher.");
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
   const handleDeleteClick = (voucher) => {
     setSelectedVoucher(voucher);
     setShowDeleteModal(true);
@@ -193,8 +220,8 @@ const VoucherList = () => {
       setRefresh((prev) => prev + 1);
       setShowDeleteModal(false);
       setSelectedVoucher(null);
-    } catch {
-      alert("Không thể xóa voucher này!");
+    } catch (err) {
+      alert(err.response?.data?.message || "Không thể xóa voucher này!");
     }
   };
 
@@ -262,6 +289,8 @@ const VoucherList = () => {
         return <Badge bg="warning" text="dark">Đã sử dụng</Badge>;
       case "Expired":
         return <Badge bg="danger">Đã hết hạn</Badge>;
+      case "Inactive":
+        return <Badge bg="secondary">Ngừng hoạt động</Badge>;
       default:
         return <Badge bg="secondary">{status}</Badge>;
     }
@@ -360,7 +389,13 @@ const VoucherList = () => {
                         {v.discountType === "Percentage" ? "Phần trăm" : "Số tiền cố định"}
                       </div>
                     </td>
-                    <td>{getStatusBadge(v.status)}</td>
+                    <td>
+                      {user?.role === "Manager" && (v.status === "Active" || v.status === "Inactive") ? (
+                        <StatusToggleButton active={v.status === "Active"} onClick={() => setStatusTarget(v)} />
+                      ) : (
+                        getStatusBadge(v.status)
+                      )}
+                    </td>
                     <td className="text-center">
                       <Button
                         variant="link"
@@ -669,6 +704,15 @@ const VoucherList = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+      <StatusChangeModal
+        show={Boolean(statusTarget)}
+        entity="voucher"
+        name={statusTarget?.voucherCode}
+        nextActive={statusTarget?.status !== "Active"}
+        busy={statusBusy}
+        onCancel={() => setStatusTarget(null)}
+        onConfirm={confirmStatusChange}
+      />
     </Container>
   );
 };

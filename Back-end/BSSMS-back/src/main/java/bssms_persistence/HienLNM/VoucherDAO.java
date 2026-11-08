@@ -171,17 +171,27 @@ public class VoucherDAO extends DBContext implements AutoCloseable {
         return false;
     }
 
-    // Xóa voucher
+    /** Đổi trạng thái hoạt động / ngừng hoạt động của voucher (mọi loại voucher, trừ voucher đã dùng hoặc hết hạn). */
+    public boolean setVoucherStatus(int voucherId, String status) {
+        requireConnection();
+        if (!"Active".equals(status) && !"Inactive".equals(status)) throw new IllegalArgumentException("Trạng thái phải là Active hoặc Inactive.");
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE Voucher SET status=? WHERE voucher_id=? AND status IN ('Active','Inactive')")) {
+            ps.setString(1, status);
+            ps.setInt(2, voucherId);
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            DataAccessException.rethrowIfDatabase(e);
+        }
+        return false;
+    }
+
+    /** Xóa vĩnh viễn voucher thủ công chưa từng được dùng; voucher đã dùng hoặc tự cấp thì dùng "ngừng hoạt động". */
     public boolean deleteVoucher(int voucherId) {
         requireConnection();
-        String query = "UPDATE Voucher SET status='Inactive' WHERE voucher_id = ? AND voucher_kind='Manual' AND used_count=0 AND NOT EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.REDEMPTIONS + " vr WHERE vr.voucher_id=Voucher.voucher_id)";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, voucherId);
-                int rowsAffected = ps.executeUpdate();
-                return rowsAffected > 0;
-            }
+        String query = "DELETE FROM Voucher WHERE voucher_id = ? AND voucher_kind='Manual' AND used_count=0 AND NOT EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.REDEMPTIONS + " vr WHERE vr.voucher_id=Voucher.voucher_id) AND NOT EXISTS(SELECT 1 FROM Invoice i WHERE i.voucher_id=Voucher.voucher_id)";
+        try (PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, voucherId);
+            return ps.executeUpdate() > 0;
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
         }

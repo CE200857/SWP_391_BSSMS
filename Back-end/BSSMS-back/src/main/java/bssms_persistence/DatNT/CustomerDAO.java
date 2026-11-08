@@ -69,6 +69,37 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
         } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
+    /**
+     * Xóa vĩnh viễn khách hàng (chỉ Manager). Khách đã có lịch hẹn, hóa đơn hoặc gói liệu trình thì không xóa được
+     * (phải đổi trạng thái sang Inactive); thông báo và voucher riêng của khách được xóa cùng.
+     */
+    public void deleteCustomer(int customerId) {
+        requireConnection();
+        try {
+            workflow().roles("Manager");
+            workflow().transaction(() -> {
+                java.util.Map<String, Object> used = workflow().one(
+                    "SELECT (SELECT COUNT(*) FROM Appointment WHERE customer_id=?) AS appointments,"
+                  + "(SELECT COUNT(*) FROM Invoice WHERE customer_id=?) AS invoices,"
+                  + "(SELECT COUNT(*) FROM CustomerPackage WHERE customer_id=?) AS packages",
+                    customerId, customerId, customerId);
+                if (used.values().stream().anyMatch(v -> ((Number) v).intValue() > 0))
+                    throw new bssms_persistence.common.WorkflowException(409,
+                        "Khách hàng đã có lịch hẹn, hóa đơn hoặc gói liệu trình nên không xóa vĩnh viễn được. Hãy bấm Sửa và đổi trạng thái sang \"Không hoạt động\".");
+                workflow().update("DELETE FROM NotificationOutbox WHERE customer_id=?", customerId);
+                workflow().update("DELETE FROM Voucher WHERE customer_id=?", customerId);
+                if (workflow().update("DELETE FROM Customer WHERE customer_id=?", customerId) != 1)
+                    throw new bssms_persistence.common.WorkflowException(404, "Không tìm thấy khách hàng.");
+                return Boolean.TRUE;
+            });
+        } catch (java.sql.SQLException e) {
+            if (e.getErrorCode() == 547)
+                throw new bssms_persistence.common.WorkflowException(409,
+                    "Khách hàng còn dữ liệu liên quan nên không xóa được. Hãy đổi trạng thái sang \"Không hoạt động\".");
+            throw new DataAccessException(e);
+        }
+    }
+
     public boolean createWalkInCustomer(String username, String password, String email, String phone, String fullName, String dob, String gender) {
         requireConnection();
         try {

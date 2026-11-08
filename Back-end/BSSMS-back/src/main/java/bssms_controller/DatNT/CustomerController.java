@@ -52,15 +52,10 @@ public class CustomerController extends ControllerSupport {
         try {
             int customerId = Integer.parseInt(request.parameter("id"));
             CustomerDAO dao = use(new CustomerDAO());
-            boolean isSuccess = dao.deactivateCustomer(customerId);
+            dao.deleteCustomer(customerId);
 
             PrintWriter out = response.writer();
-            if (isSuccess) {
-                out.print("{\"message\": \"Hủy/Vô hiệu hóa tài khoản thành công\", \"status\": 200}");
-            } else {
-                response.status(400);
-                out.print("{\"message\": \"Không tìm thấy tài khoản để xóa\", \"status\": 400}");
-            }
+            out.print("{\"message\": \"Đã xóa khách hàng\", \"status\": 200}");
             out.flush();
         } catch (NumberFormatException e) {
             response.status(400);
