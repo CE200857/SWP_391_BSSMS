@@ -14,8 +14,26 @@ import { api, post, money } from "../../../services/api";
 import { refundableAmount } from "../../../services/billing";
 import servicePhoto03 from "../../../assets/figma/service-card-exact-03.png";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
+import "./InvoiceManagement.css";
+import PaymentFields from "./PaymentFields";
+// Kết quả thanh toán VNPay: backend chuyển về /invoices?payment=success|failed|pending|invalid|error&invoice=ID
+function paymentNotice(search) {
+  const query = new URLSearchParams(search);
+  const result = query.get("payment");
+  const id = query.get("invoice");
+  const label = id ? `hóa đơn #${id}` : "hóa đơn";
+  if (result === "success") return { variant: "success", text: `Thanh toán ${label} qua VNPay thành công.` };
+  if (result === "failed") return { variant: "warning", text: `Thanh toán ${label} qua VNPay bị gián đoạn hoặc tạm ngưng. Hóa đơn chưa được thanh toán; bạn có thể tiếp tục thanh toán khi sẵn sàng.` };
+  if (result === "released") return { variant: "info", text: `Thanh toán trước cho ${label} chưa thành công. Lịch hẹn của bạn vẫn được giữ; bạn thanh toán tại quầy sau khi sử dụng dịch vụ.` };
+  if (result === "pending") return { variant: "warning", text: `Đang chờ VNPay xác nhận ${label}. Nếu đã bị trừ tiền, hóa đơn sẽ chuyển sang "Đã thanh toán" sau ít phút.` };
+  if (result === "invalid" || result === "error") return { variant: "danger", text: "Không xác nhận được kết quả thanh toán. Vui lòng kiểm tra lại hóa đơn hoặc liên hệ quầy." };
+  if (result === "returned") return { variant: "info", text: "Bạn đã quay về từ cổng thanh toán." };
+  return null;
+}
+
 export default function InvoiceManagement({ user }) {
   const location = useLocation();
+  const [paymentNote] = useState(() => paymentNotice(location.search));
   const role = user?.role || "Manager";
   const [rows, setRows] = useState([]),
     [details, setDetails] = useState(null),
@@ -142,9 +160,13 @@ export default function InvoiceManagement({ user }) {
       setBusy(false);
     }
   }
-  const table = (headers, records, cells) => (
-    <div className="table-responsive">
-      <Table size="sm" hover className="manager-list-table">
+  const table = (headers, records, cells, detail = false, tableClass = "") => (
+    <div className={`table-responsive${detail ? " invoice-detail-table-wrap" : ""}`}>
+      <Table
+        size="sm"
+        hover
+        className={`${detail ? "invoice-detail-table" : "manager-list-table"} ${tableClass}`}
+      >
         <thead>
           <tr>
             {headers.map((h) => (
@@ -160,7 +182,11 @@ export default function InvoiceManagement({ user }) {
           ))}
         </tbody>
       </Table>
-      {!records.length && <p className="text-muted">Chưa có dữ liệu.</p>}
+      {!records.length && (
+        <p className={detail ? "invoice-detail-empty" : "text-muted"}>
+          Chưa có dữ liệu.
+        </p>
+      )}
     </div>
   );
   return (
@@ -210,6 +236,7 @@ export default function InvoiceManagement({ user }) {
           </div>
         </div>
       )}
+      {paymentNote && <Alert variant={paymentNote.variant}>{paymentNote.text}</Alert>}
       {error && !selected && <Alert variant="danger">{error}</Alert>}
       {success && <Alert variant="success">{success}</Alert>}
       <Card className={role === "Customer" ? "customer-invoices-card" : undefined}>
@@ -300,11 +327,14 @@ export default function InvoiceManagement({ user }) {
                   </td>
                 </>
               ),
+              false,
+              "invoice-list-table",
             )
           )}
         </Card.Body>
       </Card>
       <Modal
+        className="invoice-detail-modal"
         show={!!selected}
         onHide={() => !busy && !action && setSelected(null)}
         size="xl"
@@ -313,117 +343,177 @@ export default function InvoiceManagement({ user }) {
         <Modal.Header closeButton={!busy}>
           <Modal.Title>Hóa đơn #{selected}</Modal.Title>
         </Modal.Header>
-        <Modal.Body className="invoice-print">
+        <Modal.Body className="invoice-print invoice-detail-body">
           {error && <Alert variant="danger">{error}</Alert>}
           {detailLoading ? (
             <Spinner animation="border" />
           ) : (
             invoice && (
               <>
-                <div className="ui-page-heading">
-                  <div>
+                <div className="invoice-detail-customer">
+                  <div className="invoice-detail-customer-icon" aria-hidden="true">
+                    <i className="bi bi-person" />
+                  </div>
+                  <div className="invoice-detail-customer-info">
+                    <span className="invoice-detail-eyebrow">THÔNG TIN HÓA ĐƠN</span>
                     <h2>{invoice.customerName}</h2>
-                    <p>
-                      {invoice.customerPhone} · {invoice.invoiceDate}
-                    </p>
+                    <div className="invoice-detail-meta">
+                      {invoice.customerPhone && (
+                        <span><i className="bi bi-telephone" aria-hidden="true" /> {invoice.customerPhone}</span>
+                      )}
+                      <span><i className="bi bi-calendar3" aria-hidden="true" /> {invoice.invoiceDate}</span>
+                    </div>
                   </div>
                   <Badge
-                    bg={invoice.status === "Paid" ? "success" : "secondary"}
+                    className="invoice-detail-status"
+                    bg={invoice.status === "Paid" ? "success" : invoice.status === "Unpaid" ? "warning" : "secondary"}
+                    text={invoice.status === "Unpaid" ? "dark" : undefined}
                   >
                     {invoice.status}
                   </Badge>
                 </div>
-                <h3>Chi tiết hàng hóa / dịch vụ</h3>
-                {table(
-                  ["Nội dung", "Số lượng", "Đơn giá", "Giảm giá", "Thành tiền"],
-                  [
-                    ...(details.services || []).map((r) => ({
-                      ...r,
-                      name: r.serviceName,
-                      quantity: 1,
-                    })),
-                    ...(details.packages || []).map((r) => ({
-                      ...r,
-                      name: r.packageName,
-                      quantity: 1,
-                    })),
-                    ...(details.products || []).map((r) => ({
-                      ...r,
-                      name: r.productName,
-                    })),
-                  ],
-                  (r) => (
-                    <>
-                      <td>{r.name}</td>
-                      <td>{r.quantity}</td>
-                      <td>{money(r.unitPrice)}</td>
-                      <td>{money(r.discountAmount)}</td>
-                      <td>
-                        {money(
-                          r.quantity * Number(r.unitPrice) -
-                            Number(r.discountAmount || 0),
-                        )}
-                      </td>
-                    </>
-                  ),
-                )}
-                <p>
-                  Tạm tính: <strong>{money(invoice.subtotal)}</strong> · Giảm
-                  giá: <strong>{money(invoice.discount)}</strong> · Tổng cộng:{" "}
-                  <strong>{money(invoice.totalAmount)}</strong>
-                </p>
-                <p>
-                  Đã thu: {money(invoice.paidAmount)} · Đã hoàn:{" "}
-                  {money(invoice.refundedAmount)} · Còn phải thu:{" "}
-                  <strong>{money(invoice.outstandingAmount)}</strong>
-                </p>
-                <h3>Thanh toán</h3>
-                {table(
-                  ["Mã giao dịch", "Phương thức", "Số tiền", "Trạng thái"],
-                  details.payments || [],
-                  (r) => (
-                    <>
-                      <td>{r.transactionCode || `#${r.paymentId}`}</td>
-                      <td>{r.paymentMethod}</td>
-                      <td>{money(r.amount)}</td>
-                      <td>{r.status}</td>
-                    </>
-                  ),
-                )}
-                <h3>Hoàn tiền</h3>
-                {table(
-                  ["Mã", "Số tiền", "Lý do", "Trạng thái", "Xử lý"],
-                  details.refunds || [],
-                  (r) => (
-                    <>
-                      <td>#{r.refundId}</td>
-                      <td>{money(r.amount)}</td>
-                      <td>{r.reason}</td>
-                      <td>{r.status}</td>
-                      <td>
-                        {role === "Manager" && r.status === "Pending" && (
-                          <Button
-                            size="sm"
-                            disabled={busy}
-                            onClick={() =>
-                              openAction("complete", {
-                                refundId: r.refundId,
-                                paymentMethod: r.paymentMethod,
-                              })
-                            }
-                          >
-                            {r.paymentMethod === "VNPay"
-                              ? "Hoàn / đối soát VNPay"
-                              : "Xác nhận đã trả tiền"}
-                          </Button>
-                        )}
-                      </td>
-                    </>
-                  ),
-                )}
+
+                <div className="invoice-detail-summary">
+                  <div className="invoice-summary-card">
+                    <span>Tổng cộng</span>
+                    <strong>{money(invoice.totalAmount)}</strong>
+                  </div>
+                  <div className="invoice-summary-card">
+                    <span>Đã thu</span>
+                    <strong>{money(invoice.paidAmount)}</strong>
+                  </div>
+                  <div className="invoice-summary-card">
+                    <span>Đã hoàn</span>
+                    <strong>{money(invoice.refundedAmount)}</strong>
+                  </div>
+                  <div className="invoice-summary-card invoice-summary-card--due">
+                    <span>Còn phải thu</span>
+                    <strong>{money(invoice.outstandingAmount)}</strong>
+                  </div>
+                </div>
+
+                <section className="invoice-detail-section">
+                  <div className="invoice-detail-section-heading">
+                    <span className="invoice-detail-section-icon"><i className="bi bi-receipt" aria-hidden="true" /></span>
+                    <div>
+                      <h3>Hàng hóa & dịch vụ</h3>
+                      <p>Chi tiết các khoản được ghi nhận trên hóa đơn</p>
+                    </div>
+                  </div>
+                  {table(
+                    ["Nội dung", "Số lượng", "Đơn giá", "Giảm giá", "Thành tiền"],
+                    [
+                      ...(details.services || []).map((r) => ({
+                        ...r,
+                        name: r.serviceName,
+                        quantity: 1,
+                      })),
+                      ...(details.packages || []).map((r) => ({
+                        ...r,
+                        name: r.packageName,
+                        quantity: 1,
+                      })),
+                      ...(details.products || []).map((r) => ({
+                        ...r,
+                        name: r.productName,
+                      })),
+                    ],
+                    (r) => (
+                      <>
+                        <td className="invoice-detail-item-name">{r.name}</td>
+                        <td>{r.quantity}</td>
+                        <td>{money(r.unitPrice)}</td>
+                        <td>{money(r.discountAmount)}</td>
+                        <td className="invoice-detail-amount">
+                          {money(
+                            r.quantity * Number(r.unitPrice) -
+                              Number(r.discountAmount || 0),
+                          )}
+                        </td>
+                      </>
+                    ),
+                    true,
+                  )}
+                  <div className="invoice-detail-totals">
+                    <span>Tạm tính <strong>{money(invoice.subtotal)}</strong></span>
+                    <span>Giảm giá <strong>{money(invoice.discount)}</strong></span>
+                    <span className="invoice-detail-grand-total">Tổng cộng <strong>{money(invoice.totalAmount)}</strong></span>
+                  </div>
+                </section>
+
+                <section className="invoice-detail-section">
+                  <div className="invoice-detail-section-heading">
+                    <span className="invoice-detail-section-icon"><i className="bi bi-credit-card" aria-hidden="true" /></span>
+                    <div>
+                      <h3>Lịch sử thanh toán</h3>
+                      <p>Các giao dịch thu tiền của hóa đơn</p>
+                    </div>
+                  </div>
+                  {table(
+                    ["Mã giao dịch", "Phương thức", "Số tiền", "Trạng thái"],
+                    details.payments || [],
+                    (r) => (
+                      <>
+                        <td>{r.transactionCode || `#${r.paymentId}`}</td>
+                        <td>{r.paymentMethod}</td>
+                        <td className="invoice-detail-amount">{money(r.amount)}</td>
+                        <td>{r.status}</td>
+                      </>
+                    ),
+                    true,
+                  )}
+                </section>
+
+                <section className="invoice-detail-section">
+                  <div className="invoice-detail-section-heading">
+                    <span className="invoice-detail-section-icon"><i className="bi bi-arrow-counterclockwise" aria-hidden="true" /></span>
+                    <div>
+                      <h3>Hoàn tiền</h3>
+                      <p>Trạng thái xử lý các yêu cầu hoàn tiền</p>
+                    </div>
+                  </div>
+                  {table(
+                    ["Mã", "Số tiền", "Lý do", "Trạng thái", "Xử lý"],
+                    details.refunds || [],
+                    (r) => (
+                      <>
+                        <td>#{r.refundId}</td>
+                        <td className="invoice-detail-amount">{money(r.amount)}</td>
+                        <td>{r.reason}</td>
+                        <td>{r.status}</td>
+                        <td>
+                          {role === "Manager" && r.status === "Pending" && (
+                            <Button
+                              size="sm"
+                              disabled={busy}
+                              onClick={() =>
+                                openAction("complete", {
+                                  refundId: r.refundId,
+                                  paymentMethod: r.paymentMethod,
+                                })
+                              }
+                            >
+                              {r.paymentMethod === "VNPay"
+                                ? "Hoàn / đối soát VNPay"
+                                : "Xác nhận đã trả tiền"}
+                            </Button>
+                          )}
+                        </td>
+                      </>
+                    ),
+                    true,
+                  )}
+                </section>
+
                 {role !== "Customer" && (
-                  <>
-                    <h3>Lịch sử thao tác</h3>
+                  <section className="invoice-detail-section">
+                    <div className="invoice-detail-section-heading">
+                      <span className="invoice-detail-section-icon"><i className="bi bi-clock-history" aria-hidden="true" /></span>
+                      <div>
+                        <h3>Lịch sử thao tác</h3>
+                        <p>Theo dõi các thay đổi và xử lý hóa đơn</p>
+                      </div>
+                    </div>
                     {table(
                       ["Thao tác", "Lý do", "Thời gian"],
                       details.actions || [],
@@ -434,8 +524,9 @@ export default function InvoiceManagement({ user }) {
                           <td>{r.createdAt}</td>
                         </>
                       ),
+                      true,
                     )}
-                  </>
+                  </section>
                 )}
               </>
             )
@@ -510,64 +601,7 @@ export default function InvoiceManagement({ user }) {
           <Modal.Body>
             {error && <Alert variant="danger">{error}</Alert>}
             {action?.type === "pay" ? (
-              <>
-                <Form.Group className="mb-3">
-                  <Form.Label>Phương thức</Form.Label>
-                  <Form.Select
-                    disabled={busy}
-                    value={action.paymentMethod}
-                    onChange={(e) =>
-                      setAction({
-                        ...action,
-                        paymentMethod: e.target.value,
-                        requestKey: crypto.randomUUID(),
-                      })
-                    }
-                  >
-                    <option>Cash</option>
-                    <option>Bank Transfer</option>
-                  </Form.Select>
-                </Form.Group>
-                <Form.Group>
-                  <Form.Label>Số tiền khách đưa (VND)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    required
-                    min=".01"
-                    step=".01"
-                    disabled={busy}
-                    value={action.receivedAmount}
-                    onChange={(e) =>
-                      setAction({
-                        ...action,
-                        receivedAmount: e.target.value,
-                        requestKey: crypto.randomUUID(),
-                      })
-                    }
-                  />
-                </Form.Group>
-                <Form.Group className="mt-3">
-                  <Form.Label>Mã chuyển khoản (nếu có)</Form.Label>
-                  <Form.Control
-                    value={action.transactionCode || ""}
-                    onChange={(e) =>
-                      setAction({ ...action, transactionCode: e.target.value })
-                    }
-                  />
-                </Form.Group>
-                <p className="text-muted mt-3">
-                  Tiền thừa:{" "}
-                  {money(
-                    action.paymentMethod === "Cash"
-                      ? Math.max(
-                          0,
-                          Number(action.receivedAmount) -
-                            Number(invoice?.outstandingAmount || 0),
-                        )
-                      : 0,
-                  )}
-                </p>
-              </>
+              <PaymentFields action={action} setAction={setAction} invoice={invoice} busy={busy} />
             ) : action?.type === "complete" ? (
               <Alert variant="warning">
                 {action?.paymentMethod === "VNPay"

@@ -37,7 +37,7 @@ public class VnPayRefundDAO extends DBContext implements AutoCloseable {
   String fields=send?"RequestId,Version,Command,TmnCode,TransactionType,TxnRef,Amount,TransactionNo,TransactionDate,CreateBy,CreateDate,IpAddr,OrderInfo":"RequestId,Version,Command,TmnCode,TxnRef,TransactionDate,CreateDate,IpAddr,OrderInfo";
   p.put("vnp_SecureHash",VnPay.hmac(joined(p,fields),secret));
   try {
-   HttpRequest req=HttpRequest.newBuilder(URI.create(System.getenv().getOrDefault("VNPAY_API_URL","https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"))).timeout(Duration.ofSeconds(20)).header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(new Gson().toJson(p))).build();
+   HttpRequest req=HttpRequest.newBuilder(URI.create(bssms_common.AppConfig.get("VNPAY_API_URL","https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"))).timeout(Duration.ofSeconds(20)).header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(new Gson().toJson(p))).build();
    HttpResponse<String> response=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build().send(req,HttpResponse.BodyHandlers.ofString());
    if(response.statusCode()!=200)throw new IllegalStateException("HTTP "+response.statusCode());
    JsonObject json=JsonParser.parseString(response.body()).getAsJsonObject();Map<String,String> result=new HashMap<>();json.entrySet().forEach(e->{if(!e.getValue().isJsonNull())result.put(e.getKey(),e.getValue().getAsString());});

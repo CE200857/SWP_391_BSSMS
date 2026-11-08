@@ -65,6 +65,15 @@ export default function CreateInvoice({ packageOnly = false }) {
       (s, p) => s + Number(p.unitPrice) * Number(form.quantities[p.productId]),
       0,
     );
+  // Nút chỉ bật khi đủ thông tin; phần còn thiếu được liệt kê ngay dưới nút.
+  const missing = [];
+  if (mode === "appointment") {
+    if (!form.appointmentId) missing.push("lịch hẹn đã hoàn thành");
+  } else {
+    if (!form.customerId) missing.push("khách hàng");
+    if (mode === "package" && !form.treatmentPackageId) missing.push("gói liệu trình");
+    if (mode === "retail" && !products.length) missing.push("ít nhất một sản phẩm (nhập số lượng mua)");
+  }
   async function submit(e) {
     e.preventDefault();
     if (busy) return;
@@ -145,6 +154,11 @@ export default function CreateInvoice({ packageOnly = false }) {
                         </option>
                       ))}
                     </Form.Select>
+                    {data.appointments.length === 0 && (
+                      <Form.Text className="text-danger">
+                        Chưa có lịch hẹn nào hoàn thành cần lập hóa đơn.
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 ) : (
                   <Form.Group className="mb-3">
@@ -282,13 +296,16 @@ export default function CreateInvoice({ packageOnly = false }) {
               </Button>
               <Button
                 type="submit"
-                disabled={
-                  !customerId || (mode === "retail" && !products.length)
-                }
+                disabled={busy || !customerId || missing.length > 0}
               >
                 {busy ? "Đang tạo…" : "Tạo hóa đơn"}
               </Button>
             </div>
+            {missing.length > 0 && (
+              <p className="text-muted small mt-2 mb-0">
+                Để tạo hóa đơn, hãy chọn: {missing.join(", ")}.
+              </p>
+            )}
           </fieldset>
         </Form>
       )}

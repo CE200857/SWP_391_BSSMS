@@ -9,7 +9,7 @@ import java.util.*;
 public final class VnPay {
     private VnPay() {}
     public static String required(String key) {
-        String value=System.getenv(key);
+        String value=bssms_common.AppConfig.get(key);
         if(value==null||value.isBlank())throw new bssms_persistence.common.WorkflowException(503,"Thanh toán VNPay chưa được cấu hình.");return value;
     }
     public static String canonical(Map<String,String> values) {
