@@ -5,7 +5,6 @@ import {
     Container,
     Card,
     Table,
-    Badge,
     Button,
     Form,
     InputGroup,
@@ -15,6 +14,7 @@ import {
     Spinner,
     Alert,
 } from "react-bootstrap";
+import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
 
 const ReceptionistBookingDesk = () => {
     const navigate = useNavigate();
@@ -32,6 +32,18 @@ const ReceptionistBookingDesk = () => {
     const [newStatus, setNewStatus] = useState("Checked-in");
     const [statusNotes, setStatusNotes] = useState("");
     const [savingStatus, setSavingStatus] = useState(false);
+    const getTodayInVietnam = () => {
+        const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Ho_Chi_Minh",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).formatToParts(new Date());
+        const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+        return `${values.year}-${values.month}-${values.day}`;
+    };
+    const canStartAppointment = (appointment) =>
+        String(appointment?.appointmentDate || "").slice(0, 10) === getTodayInVietnam();
 
     // State cho Modal Coordinate Service (Điều phối KTV, Phòng, Giường, Thiết bị)
     const [showCoordModal, setShowCoordModal] = useState(false);
@@ -42,6 +54,7 @@ const ReceptionistBookingDesk = () => {
     const [selectedBedId, setSelectedBedId] = useState("");
     const [selectedEquipmentIds, setSelectedEquipmentIds] = useState([]);
     const [savingCoord, setSavingCoord] = useState(false);
+    const [coordError, setCoordError] = useState(""); // lỗi hiện trong hộp thoại điều phối
 
     const loadAppointments = async () => {
         setLoading(true);
@@ -83,6 +96,13 @@ const ReceptionistBookingDesk = () => {
 
     // --- XỬ LÝ CHECK-IN & STATUS UPDATE NHANH ---
     const handleQuickStatusUpdate = async (appointmentId, statusValue, customNotes = null) => {
+        if (statusValue === "In-progress" && !canStartAppointment(statusTarget)) {
+            setAlertMsg({
+                type: "warning",
+                text: "Chỉ được bắt đầu thực hiện dịch vụ vào đúng ngày hẹn. Vui lòng điều phối lại lịch nếu cần đổi ngày.",
+            });
+            return;
+        }
         try {
             setSavingStatus(true);
             const res = await fetch("/api/booking/checkin", {
@@ -101,7 +121,13 @@ const ReceptionistBookingDesk = () => {
                 setShowStatusModal(false);
                 setRefresh((prev) => prev + 1);
             } else {
-                setAlertMsg({ type: "danger", text: data.message || "Cập nhật thất bại!" });
+                const message = data.message || "Cập nhật thất bại!";
+                setAlertMsg({
+                    type: "danger",
+                    text: message.includes("Execution must be on appointment date")
+                        ? "Chỉ được bắt đầu thực hiện dịch vụ vào đúng ngày hẹn. Vui lòng điều phối lại lịch nếu cần đổi ngày."
+                        : message,
+                });
             }
         } catch (err) {
             setAlertMsg({ type: "danger", text: "Lỗi kết nối máy chủ!" });
@@ -122,6 +148,7 @@ const ReceptionistBookingDesk = () => {
         setShowCoordModal(true);
         setCoordLoading(true);
         setCoordData(null);
+        setCoordError("");
 
         try {
             const res = await fetch(
@@ -165,6 +192,7 @@ const ReceptionistBookingDesk = () => {
         if (!coordData?.appointment) return;
 
         setSavingCoord(true);
+        setCoordError("");
         try {
             const res = await fetch("/api/booking/coordinate", {
                 method: "PUT",
@@ -184,10 +212,10 @@ const ReceptionistBookingDesk = () => {
                 setShowCoordModal(false);
                 setRefresh((prev) => prev + 1);
             } else {
-                setAlertMsg({ type: "danger", text: data.message || "Điều phối thất bại!" });
+                setCoordError(data.message || "Điều phối thất bại!");
             }
         } catch (err) {
-            setAlertMsg({ type: "danger", text: "Lỗi kết nối máy chủ!" });
+            setCoordError("Lỗi kết nối máy chủ!");
         } finally {
             setSavingCoord(false);
         }
@@ -199,20 +227,7 @@ const ReceptionistBookingDesk = () => {
             (r) => String(r.roomId) === String(selectedRoomId)
         )?.beds || [];
 
-    const getStatusBadge = (status) => {
-        const map = {
-            Scheduled: { bg: "secondary", label: "Đã lên lịch" },
-            Pending: { bg: "secondary", label: "Chờ xác nhận" },
-            Confirmed: { bg: "info", label: "Đã xác nhận" },
-            "Checked-in": { bg: "warning", label: "Đã Check-in" },
-            "In-progress": { bg: "primary", label: "Đang thực hiện" },
-            Completed: { bg: "success", label: "Hoàn thành" },
-            Cancelled: { bg: "danger", label: "Đã hủy" },
-            "No-show": { bg: "dark", label: "Không đến (No-show)" },
-        };
-        const item = map[status] || { bg: "secondary", label: status };
-        return <Badge bg={item.bg}>{item.label}</Badge>;
-    };
+    const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
 
     const filteredAppointments = appointments.filter((a) => {
         const kw = searchTerm.trim().toLowerCase();
@@ -288,7 +303,12 @@ const ReceptionistBookingDesk = () => {
                                 <option value="Pending">Chờ xác nhận</option>
                                 <option value="Confirmed">Đã xác nhận (Confirmed)</option>
                                 <option value="Checked-in">Đã Check-in</option>
-                                <option value="In-progress">Đang thực hiện</option>
+                                <option
+                                    value="In-progress"
+                                    disabled={!canStartAppointment(statusTarget)}
+                                >
+                                    Đang thực hiện {!canStartAppointment(statusTarget) ? "(chỉ vào ngày hẹn)" : ""}
+                                </option>
                                 <option value="Completed">Đã hoàn thành</option>
                                 <option value="No-show">Không đến (No-show)</option>
                                 <option value="Cancelled">Đã hủy</option>
@@ -453,6 +473,11 @@ const ReceptionistBookingDesk = () => {
                                     <option value="Cancelled">Hủy lịch (Cancelled)</option>
                                 </Form.Select>
                             </Form.Group>
+                            {!canStartAppointment(statusTarget) && (
+                                <Alert variant="info" className="mb-3">
+                                    Chỉ được bắt đầu thực hiện dịch vụ vào đúng ngày hẹn. Nếu khách cần đổi ngày, hãy điều phối lại lịch trước.
+                                </Alert>
+                            )}
                             <Form.Group>
                                 <Form.Label className="fw-bold">Ghi chú Lễ tân</Form.Label>
                                 <Form.Control
@@ -501,6 +526,11 @@ const ReceptionistBookingDesk = () => {
                 </Modal.Header>
                 <Form onSubmit={handleSaveCoordination}>
                     <Modal.Body>
+                        {coordError && (
+                            <Alert variant="danger" className="mb-3" role="alert">
+                                {coordError}
+                            </Alert>
+                        )}
                         {coordLoading ? (
                             <div className="text-center py-4">
                                 <Spinner animation="border" variant="danger" />

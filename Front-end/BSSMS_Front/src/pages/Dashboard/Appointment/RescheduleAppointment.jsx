@@ -9,6 +9,57 @@ import {
     Spinner
 } from "react-bootstrap";
 
+const addMinutesToTime = (time, duration) => {
+    if (!time || !Number.isFinite(Number(duration)) || Number(duration) <= 0) {
+        return "";
+    }
+
+    const [hours, minutes] = time.split(":").map(Number);
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return "";
+
+    const totalMinutes = (hours * 60 + minutes + Number(duration)) % (24 * 60);
+    return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`;
+};
+
+const getStartTimeOptions = (duration, currentTime) => {
+    const serviceDuration = Number(duration);
+    if (!Number.isFinite(serviceDuration) || serviceDuration <= 0) return [];
+
+    const options = [];
+    for (let minutes = 8 * 60 + 30; minutes + serviceDuration <= 18 * 60 + 30; minutes += 30) {
+        options.push({
+            value: `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`,
+            isCurrent: false,
+        });
+    }
+
+    if (currentTime && !options.some((option) => option.value === currentTime)) {
+        options.unshift({ value: currentTime, isCurrent: true });
+    }
+
+    return options;
+};
+
+const getAppointmentDuration = (appointment) => {
+    const serviceDuration = Number(appointment.duration);
+    if (Number.isFinite(serviceDuration) && serviceDuration > 0) {
+        return serviceDuration;
+    }
+
+    const start = appointment.startTime?.slice(0, 5);
+    const end = appointment.endTime?.slice(0, 5);
+    if (!start || !end) return 0;
+
+    const toMinutes = (time) => {
+        const [hours, minutes] = time.split(":").map(Number);
+        return Number.isInteger(hours) && Number.isInteger(minutes)
+            ? hours * 60 + minutes
+            : NaN;
+    };
+    const duration = toMinutes(end) - toMinutes(start);
+    return Number.isFinite(duration) && duration > 0 ? duration : 0;
+};
+
 const RescheduleAppointment = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -16,7 +67,6 @@ const RescheduleAppointment = () => {
     const [appointment, setAppointment] = useState(null);
     const [appointmentDate, setAppointmentDate] = useState("");
     const [startTime, setStartTime] = useState("");
-    const [endTime, setEndTime] = useState("");
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -57,8 +107,12 @@ const RescheduleAppointment = () => {
                 }
 
                 const data = await response.json();
+                const duration = getAppointmentDuration(data);
+                if (!duration) {
+                    throw new Error("Không lấy được thời lượng dịch vụ của lịch hẹn.");
+                }
 
-                setAppointment(data);
+                setAppointment({ ...data, duration });
 
                 setAppointmentDate(
                     formatDateForInput(data.appointmentDate)
@@ -70,15 +124,9 @@ const RescheduleAppointment = () => {
                         : ""
                 );
 
-                setEndTime(
-                    data.endTime
-                        ? data.endTime.substring(0, 5)
-                        : ""
-                );
-
             } catch (error) {
                 console.error("Lỗi khi lấy lịch hẹn:", error);
-                setError("Không thể tải thông tin lịch hẹn.");
+                setError(error.message || "Không thể tải thông tin lịch hẹn.");
             } finally {
                 setLoading(false);
             }
@@ -87,6 +135,9 @@ const RescheduleAppointment = () => {
         fetchAppointment();
     }, [id]);
 
+    const endTime = addMinutesToTime(startTime, appointment?.duration);
+    const startTimeOptions = getStartTimeOptions(appointment?.duration, startTime);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -94,12 +145,7 @@ const RescheduleAppointment = () => {
         setSuccess("");
 
         if (!appointmentDate || !startTime || !endTime) {
-            setError("Vui lòng nhập đầy đủ ngày và thời gian.");
-            return;
-        }
-
-        if (startTime >= endTime) {
-            setError("Giờ kết thúc phải sau giờ bắt đầu.");
+            setError("Vui lòng nhập ngày hẹn và giờ bắt đầu hợp lệ.");
             return;
         }
 
@@ -171,39 +217,44 @@ const RescheduleAppointment = () => {
     }
 
     return (
-        <Container fluid className="mt-4 px-0">
-
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2 className="fw-bold text-uppercase">
-                    Reschedule lịch hẹn
-                </h2>
+        <Container fluid className="appointment-reschedule-page">
+            <div className="appointment-reschedule-heading">
+                <div>
+                    <span className="appointment-reschedule-eyebrow">QUẢN LÝ LỊCH HẸN</span>
+                    <h1>Đổi lịch hẹn</h1>
+                    <p>Chọn ngày và khung giờ phù hợp cho buổi hẹn của bạn.</p>
+                </div>
 
                 <Button
-                    variant="secondary"
+                    variant="light"
+                    className="appointment-reschedule-back"
                     onClick={() => navigate(`/appointments/${id}`)}
                     disabled={saving}
                 >
-                    <i className="bi bi-arrow-left me-2"></i>
+                    <i className="bi bi-arrow-left" aria-hidden="true"></i>
                     Quay lại
                 </Button>
             </div>
 
-            <Card className="shadow-sm">
-
-                <Card.Header className="fw-bold">
-                    Appointment #{appointment.appointmentId}
+            <Card className="appointment-reschedule-card">
+                <Card.Header className="appointment-reschedule-card-header">
+                    <div>
+                        <span>THÔNG TIN LỊCH HẸN</span>
+                        <strong>#{appointment.appointmentId}</strong>
+                    </div>
+                    <i className="bi bi-calendar2-check" aria-hidden="true"></i>
                 </Card.Header>
 
                 <Card.Body>
-
-                    <div className="mb-4">
-                        <strong>Khách hàng:</strong>{" "}
-                        {appointment.customerName}
-                    </div>
-
-                    <div className="mb-4">
-                        <strong>Dịch vụ:</strong>{" "}
-                        {appointment.serviceName}
+                    <div className="appointment-reschedule-summary">
+                        <div>
+                            <span><i className="bi bi-person" aria-hidden="true"></i> Khách hàng</span>
+                            <strong>{appointment.customerName}</strong>
+                        </div>
+                        <div>
+                            <span><i className="bi bi-stars" aria-hidden="true"></i> Dịch vụ</span>
+                            <strong>{appointment.serviceName}</strong>
+                        </div>
                     </div>
 
                     {success && (
@@ -217,55 +268,51 @@ const RescheduleAppointment = () => {
                     )}
 
                     <Form onSubmit={handleSubmit}>
+                        <div className="appointment-reschedule-fields">
+                            <Form.Group className="appointment-reschedule-field appointment-reschedule-field--date">
+                                <Form.Label>Ngày hẹn</Form.Label>
 
-                        <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold">
-                                Ngày hẹn
-                            </Form.Label>
+                                <Form.Control
+                                    type="date"
+                                    value={appointmentDate}
+                                    onChange={(e) => setAppointmentDate(e.target.value)}
+                                    disabled={saving || !!success}
+                                />
 
-                            <Form.Control
-                                type="date"
-                                value={appointmentDate}
-                                onChange={(e) =>
-                                    setAppointmentDate(e.target.value)
-                                }
-                                disabled={saving || !!success}
-                            />
+                                <Form.Text>
+                                    Ngày hiện tại của lịch hẹn được hiển thị sẵn.
+                                </Form.Text>
+                            </Form.Group>
 
-                            <Form.Text className="text-muted">
-                                Ngày hiện tại của lịch hẹn được hiển thị sẵn.
-                            </Form.Text>
-                        </Form.Group>
+                            <Form.Group className="appointment-reschedule-field appointment-reschedule-field--time-range">
+                                <Form.Label>
+                                    Giờ hẹn
+                                    <span className="appointment-reschedule-duration">
+                                        {appointment.duration} phút theo dịch vụ
+                                    </span>
+                                </Form.Label>
 
-                        <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold">
-                                Giờ bắt đầu
-                            </Form.Label>
-
-                            <Form.Control
-                                type="time"
-                                value={startTime}
-                                onChange={(e) =>
-                                    setStartTime(e.target.value)
-                                }
-                                disabled={saving || !!success}
-                            />
-                        </Form.Group>
-
-                        <Form.Group className="mb-4">
-                            <Form.Label className="fw-bold">
-                                Giờ kết thúc
-                            </Form.Label>
-
-                            <Form.Control
-                                type="time"
-                                value={endTime}
-                                onChange={(e) =>
-                                    setEndTime(e.target.value)
-                                }
-                                disabled={saving || !!success}
-                            />
-                        </Form.Group>
+                                <div className="appointment-reschedule-time-range">
+                                    <Form.Select
+                                        aria-label="Giờ bắt đầu"
+                                        value={startTime}
+                                        onChange={(e) => setStartTime(e.target.value)}
+                                        disabled={saving || !!success}
+                                    >
+                                        {startTimeOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.value}{option.isCurrent ? " (giờ hiện tại)" : ""}
+                                            </option>
+                                        ))}
+                                    </Form.Select>
+                                    <i className="bi bi-arrow-right" aria-hidden="true"></i>
+                                    <output className="appointment-reschedule-end-time" aria-label="Giờ kết thúc tự động">
+                                        {endTime || "—"}
+                                    </output>
+                                </div>
+                                <Form.Text>Giờ kết thúc được tự động tính theo thời lượng dịch vụ.</Form.Text>
+                            </Form.Group>
+                        </div>
 
                         {error && (
                             <Alert variant="danger">
@@ -273,14 +320,12 @@ const RescheduleAppointment = () => {
                             </Alert>
                         )}
 
-                        <div className="d-flex gap-2">
-
+                        <div className="appointment-reschedule-actions">
                             <Button
-                                variant="secondary"
+                                variant="light"
+                                className="appointment-reschedule-cancel"
                                 type="button"
-                                onClick={() =>
-                                    navigate(`/appointments/${id}`)
-                                }
+                                onClick={() => navigate(`/appointments/${id}`)}
                                 disabled={saving || !!success}
                             >
                                 Hủy
@@ -288,6 +333,7 @@ const RescheduleAppointment = () => {
 
                             <Button
                                 variant="primary"
+                                className="appointment-reschedule-submit"
                                 type="submit"
                                 disabled={saving || !!success}
                             >
