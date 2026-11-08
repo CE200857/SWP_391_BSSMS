@@ -8,8 +8,8 @@ import java.math.BigDecimal;
 import java.util.*;
 public class PaymentGatewayDAO extends DBContext implements AutoCloseable {
  public void close()throws SQLException{if(conn!=null)conn.close();}
- public Object create(int invoiceId,String ip)throws SQLException {
-    String merchant=VnPay.required("VNPAY_TMN_CODE"),secret=VnPay.required("VNPAY_HASH_SECRET"),returnUrl=VnPay.required("VNPAY_RETURN_URL");
+ public Object create(int invoiceId,String ip,String defaultReturnUrl)throws SQLException {
+    String merchant=VnPay.required("VNPAY_TMN_CODE"),secret=VnPay.required("VNPAY_HASH_SECRET"),returnUrl=bssms_common.AppConfig.get("VNPAY_RETURN_URL",defaultReturnUrl);
     Workflow w=workflow();w.roles("Customer","Receptionist");
     return w.transaction(()->{
         Map<String,Object> account=w.one("SELECT role,customer_id FROM vw_AccountIdentity WHERE account_id=? AND status='Active'",requireActorAccountId());
@@ -26,9 +26,34 @@ public class PaymentGatewayDAO extends DBContext implements AutoCloseable {
         else {ref=existing.get(0).get("merchantReference").toString();now=LocalDateTime.parse(existing.get(0).get("createdAt").toString().replace(' ','T')).atZone(ZoneId.of("Asia/Ho_Chi_Minh"));}
         Map<String,String> p=new TreeMap<>();
         p.put("vnp_Version","2.1.0");p.put("vnp_Command","pay");p.put("vnp_TmnCode",merchant);p.put("vnp_Amount",amount.multiply(new BigDecimal(100)).toBigIntegerExact().toString());p.put("vnp_CurrCode","VND");p.put("vnp_TxnRef",ref);p.put("vnp_OrderInfo","Thanh toan hoa don "+invoiceId);p.put("vnp_OrderType","other");p.put("vnp_Locale","vn");p.put("vnp_ReturnUrl",returnUrl);p.put("vnp_IpAddr",ip);p.put("vnp_CreateDate",now.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));p.put("vnp_ExpireDate",now.plusMinutes(15).format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
-        String base=System.getenv().getOrDefault("VNPAY_PAYMENT_URL","https://sandbox.vnpayment.vn/paymentv2/vpcpay.html");
+        String base=bssms_common.AppConfig.get("VNPAY_PAYMENT_URL","https://sandbox.vnpayment.vn/paymentv2/vpcpay.html");
         return Map.of("paymentUrl",base+"?"+VnPay.canonical(p)+"&vnp_SecureHash="+VnPay.sign(p,secret));
     });
+ }
+
+ /**
+  * Khách được VNPay đưa về website. Chữ ký đã được kiểm tra ở servlet. Nếu cho phép (VNPAY_CONFIRM_ON_RETURN, mặc định bật),
+  * áp dụng đúng quy trình của IPN (kiểm tra số tiền, một giao dịch chỉ ghi một lần) để hóa đơn chuyển Paid ngay cả khi
+  * máy chủ không nhận được IPN (ví dụ chạy trên localhost). Trả về {outcome: success|failed|pending|invalid, invoiceId}.
+  */
+ public Map<String,String> handleReturn(Map<String,String> p,boolean confirm)throws SQLException {
+    Workflow w=new Workflow(conn,0);
+    Map<String,String> out=new HashMap<>();
+    List<Map<String,Object>> attempts=w.query("SELECT invoice_id,status FROM PaymentAttempt WHERE merchant_reference=?",p.get("vnp_TxnRef"));
+    if(attempts.isEmpty()){out.put("outcome","invalid");return out;}
+    out.put("invoiceId",String.valueOf(attempts.get(0).get("invoiceId")));
+    if(confirm)ipn(p);
+    String status=String.valueOf(w.one("SELECT status FROM PaymentAttempt WHERE merchant_reference=?",p.get("vnp_TxnRef")).get("status"));
+    String outcome="Success".equals(status)?"success":"Failed".equals(status)?"failed":"pending";
+    if("failed".equals(outcome)) {
+        // Thanh toán thất bại: dọn hóa đơn trả trước của lịch lẻ (lịch hẹn vẫn giữ, khách trả tại quầy).
+        // Hóa đơn mua gói được giữ để khách thử lại, chỉ tự hủy sau 24 giờ.
+        w.call("usp_ExpireUnpaidOnlineInvoices");
+        Map<String,Object> invoice=w.one("SELECT invoice_type,status FROM Invoice WHERE invoice_id=?",Integer.parseInt(out.get("invoiceId")));
+        if("Appointment".equals(invoice.get("invoiceType"))&&"Cancelled".equals(invoice.get("status")))outcome="released";
+    }
+    out.put("outcome",outcome);
+    return out;
  }
  public Object ipn(Map<String,String> p)throws SQLException {
     if(!VnPay.verify(p,VnPay.required("VNPAY_HASH_SECRET"))||!VnPay.required("VNPAY_TMN_CODE").equals(p.get("vnp_TmnCode")))return Map.of("RspCode","97","Message","Invalid signature");
