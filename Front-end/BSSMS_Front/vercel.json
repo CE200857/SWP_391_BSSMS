@@ -1,6 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://acid-grit-handed.ngrok-free.dev/BSSMS-back/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
