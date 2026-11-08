@@ -68,6 +68,21 @@ public class TreatmentOutcomeDAO extends DBContext implements AutoCloseable {
         return true;
     }
 
+    /** Sửa kết quả điều trị đã ghi (chỉ kỹ thuật viên được phân công, chỉ lịch đã hoàn thành). */
+    public boolean updateOutcome(int appointmentId, String notes, String skinReaction) throws Exception {
+        workflow().roles("Technician");
+        workflow().appointmentAccess(appointmentId);
+        if (notes == null || notes.trim().isEmpty()) throw new IllegalArgumentException("Vui lòng nhập kết quả điều trị.");
+        if (notes.length() > 500) throw new IllegalArgumentException("Kết quả tối đa 500 ký tự.");
+        if (skinReaction != null && skinReaction.length() > 1000) throw new IllegalArgumentException("Phản ứng da tối đa 1000 ký tự.");
+        String reaction = skinReaction == null || skinReaction.trim().isEmpty() ? null : skinReaction.trim();
+        int changed = workflow().update(
+            "UPDATE Appointment SET result_notes=?,skin_reaction=?,treatment_updated_at=SYSDATETIME() WHERE appointment_id=? AND status='Completed'",
+            notes.trim(), reaction, appointmentId);
+        if (changed != 1) throw new IllegalStateException("Chỉ sửa được kết quả của lịch hẹn đã hoàn thành.");
+        return true;
+    }
+
     public java.util.Map<String,Object> outcome(int appointmentId) throws java.sql.SQLException {
         workflow().appointmentAccess(appointmentId);
         java.util.Map<String,Object> result=workflow().one(

@@ -8,7 +8,6 @@ import com.google.gson.Gson;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.List;
 import java.util.Map;
 /**
  * @author HienLNM
@@ -24,8 +23,8 @@ public class RoomBedStatusController extends ControllerSupport {
 
         PrintWriter out = resp.writer();
 
-        List<Map<String, Object>> list = dao.getAllRoomsWithBeds();
-        out.print(gson.toJson(list));
+        Map<String, Object> resources = dao.getAllRoomsWithBeds();
+        out.print(gson.toJson(resources));
         out.flush();
     }
 

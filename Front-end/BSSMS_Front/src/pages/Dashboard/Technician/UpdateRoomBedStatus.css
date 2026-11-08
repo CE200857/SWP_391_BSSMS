@@ -1,0 +1,155 @@
+.room-bed-page .ui-page-heading {
+  margin-bottom: 20px;
+}
+
+.room-bed-page .ui-page-heading p {
+  max-width: 760px;
+}
+
+.room-bed-filter-card,
+.room-bed-list-card {
+  overflow: hidden;
+  border: 1px solid #eee3e8;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(80, 17, 47, 0.045);
+}
+
+.room-bed-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.room-bed-toolbar .input-group {
+  width: min(100%, 360px);
+}
+
+.room-bed-toolbar .form-select {
+  width: auto;
+  min-width: 190px;
+}
+
+.room-bed-list-card-header {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f0e2e9;
+  background: #fff8fb;
+  color: #302833;
+  font-weight: 700;
+}
+
+.room-bed-list-card-header > span:first-child {
+  display: flex;
+  align-items: center;
+}
+
+.room-bed-list-card-header > span:first-child i {
+  color: #a92760;
+}
+
+.room-bed-list-card-header .badge {
+  border: 1px solid #f0d7e2;
+  border-radius: 999px;
+  color: #851343 !important;
+  font-weight: 700;
+}
+
+.app-dashboard-content .room-bed-table {
+  font-size: 0.82rem;
+}
+
+.app-dashboard-content .room-bed-table thead th {
+  padding: 12px 10px;
+  font-size: 0.73rem;
+}
+
+.app-dashboard-content .room-bed-table tbody td {
+  padding: 11px 10px;
+}
+
+.room-bed-table th:first-child,
+.room-bed-table td:first-child {
+  width: 52px;
+  color: #817680;
+  white-space: nowrap;
+}
+
+.room-bed-table th:last-child,
+.room-bed-table td:last-child {
+  min-width: 190px;
+  text-align: center;
+}
+
+.room-bed-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.room-bed-row-actions .form-select {
+  min-width: 0;
+  max-width: 145px;
+  font-size: 0.76rem;
+}
+
+.room-bed-save-button {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: #a92760;
+}
+
+.room-bed-save-button:hover,
+.room-bed-save-button:focus {
+  background: #851343;
+}
+
+@media (max-width: 767.98px) {
+  .room-bed-page {
+    padding-right: 12px !important;
+    padding-left: 12px !important;
+  }
+
+  .room-bed-toolbar,
+  .room-bed-toolbar .input-group,
+  .room-bed-toolbar .form-select {
+    width: 100%;
+    max-width: none !important;
+  }
+
+  .room-bed-list-card-header {
+    padding: 12px 14px;
+  }
+
+  .room-bed-table {
+    min-width: 620px;
+  }
+}
+
+/* Hai bảng xếp dọc, chiếm hết chiều ngang; tên phòng, giường không bị bẻ chữ. */
+.room-bed-table th,
+.room-bed-table td {
+  white-space: nowrap;
+}
+
+.room-bed-table td:nth-child(2),
+.room-bed-table td:nth-child(3) {
+  min-width: 150px;
+}
+
+.room-bed-table .room-bed-row-actions .form-select {
+  max-width: none;
+  min-width: 150px;
+}

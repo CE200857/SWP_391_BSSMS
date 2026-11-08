@@ -12,10 +12,15 @@ import {
     Row,
     Col,
 } from "react-bootstrap";
+import "./UpdateRoomBedStatus.css";
+
+// Nhãn tình trạng sử dụng phòng, giường (Iter1)
+const USE_STATE_LABELS = { Available: "Sẵn sàng", InUse: "Đang dùng", NeedsCleaning: "Cần dọn" };
 
 const UpdateRoomBedStatus = ({ user: routeUser }) => {
     const [rooms, setRooms] = useState([]);
     const [beds, setBeds] = useState([]);
+    const [equipment, setEquipment] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [isLoading, setIsLoading] = useState(true);
@@ -27,6 +32,7 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
 
     const user = routeUser || JSON.parse(localStorage.getItem("user") || "null");
     const canUpdate = ["Manager", "Receptionist", "Technician"].includes(user?.role);
+    const isTechnician = user?.role === "Technician";
 
     async function fetchData() {
         setIsLoading(true);
@@ -36,9 +42,10 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
 
             if (response.ok) {
                 const data = await response.json();
-                
+
                 if (Array.isArray(data)) {
                     setRooms(data);
+                    setEquipment([]);
                     const allBeds = [];
                     data.forEach((room) => {
                         if (Array.isArray(room.beds)) {
@@ -51,8 +58,12 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
                         }
                     });
                     setBeds(allBeds);
+                } else if (data && Array.isArray(data.rooms) && Array.isArray(data.beds)) {
+                    setRooms(data.rooms);
+                    setBeds(data.beds);
+                    setEquipment(Array.isArray(data.equipment) ? data.equipment : []);
                 } else {
-                    setLoadError("Dữ liệu trả về không hợp lệ.");
+                    setLoadError("Dữ liệu phòng, giường hoặc thiết bị trả về không hợp lệ.");
                 }
             } else {
                 setLoadError(`Không thể tải dữ liệu (HTTP ${response.status}).`);
@@ -72,13 +83,13 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
     }, []);
 
 
-    const updateResourceStatus = async (type, id, status) => {
+    const updateResourceStatus = async (type, id, status, field) => {
         const endpoint = `/api/room-bed-status/${type}/${id}`;
         const response = await fetch(endpoint, {
             method: "PUT",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status }),
+            body: JSON.stringify(field ? { status, field } : { status }),
         });
         const responseText = await response.text();
         let responseData;
@@ -97,63 +108,45 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
         }
     };
 
-    const handleUpdateRoomStatus = async (room) => {
+    // Kỹ thuật viên cập nhật tình trạng sử dụng của phòng hoặc giường: Sẵn sàng / Đang dùng / Cần dọn (Iter1, UC-47)
+    const handleUpdateUseState = async (type, item) => {
         if (!canUpdate) return;
+        const id = type === "room" ? item.roomId : item.bedId;
+        const current = item.useState || "Available";
+        const next = document.getElementById(`${type}-use-select-${id}`)?.value || current;
 
-        const newStatus = document.getElementById(`room-status-select-${room.roomId}`)?.value || room.status;
-
-        if (newStatus === room.status) {
-            setUpdateError("Vui lòng chọn trạng thái khác trước khi lưu.");
+        if (next === current) {
+            setUpdateError("Vui lòng chọn tình trạng khác trước khi lưu.");
             return;
         }
 
-        setUpdatingId(room.roomId);
-        setUpdatingType("room");
+        setUpdatingId(id);
+        setUpdatingType(type);
         setSuccessMsg("");
         setUpdateError("");
 
         try {
-            await updateResourceStatus("room", room.roomId, newStatus);
-            setSuccessMsg(`Cập nhật trạng thái phòng "${room.roomName}" thành công!`);
-            setRooms((prev) =>
-                prev.map((r) =>
-                    r.roomId === room.roomId ? { ...r, status: newStatus } : r
-                )
-            );
+            await updateResourceStatus(type, id, next, "useState");
+            const target = type === "room" ? `phòng "${item.roomName}"` : `giường "${item.bedNumber}"`;
+            setSuccessMsg(`Đã cập nhật ${target}: ${USE_STATE_LABELS[next]}.`);
+            const patch = (r) => ({
+                ...r,
+                useState: next,
+                usageStatus:
+                    r.status === "Maintenance"
+                        ? "Maintenance"
+                        : next === "NeedsCleaning"
+                            ? "NeedsCleaning"
+                            : next === "InUse" || r.currentAppointmentStatus === "In-progress"
+                                ? "InUse"
+                                : r.currentAppointmentStatus === "Checked-in"
+                                    ? "CheckedIn"
+                                    : "Available",
+            });
+            if (type === "room") setRooms((prev) => prev.map((r) => (r.roomId === id ? patch(r) : r)));
+            else setBeds((prev) => prev.map((b) => (b.bedId === id ? patch(b) : b)));
         } catch (err) {
-            console.error("Lỗi cập nhật phòng:", err);
-            setUpdateError(err instanceof Error ? err.message : "Không thể kết nối đến máy chủ.");
-        } finally {
-            setUpdatingId(null);
-            setUpdatingType(null);
-        }
-    };
-
-    const handleUpdateBedStatus = async (bed) => {
-        if (!canUpdate) return;
-
-        const newStatus = document.getElementById(`bed-status-select-${bed.bedId}`)?.value || bed.status;
-
-        if (newStatus === bed.status) {
-            setUpdateError("Vui lòng chọn trạng thái khác trước khi lưu.");
-            return;
-        }
-
-        setUpdatingId(bed.bedId);
-        setUpdatingType("bed");
-        setSuccessMsg("");
-        setUpdateError("");
-
-        try {
-            await updateResourceStatus("bed", bed.bedId, newStatus);
-            setSuccessMsg(`Cập nhật trạng thái giường "${bed.bedNumber}" thành công!`);
-            setBeds((prev) =>
-                prev.map((b) =>
-                    b.bedId === bed.bedId ? { ...b, status: newStatus } : b
-                )
-            );
-        } catch (err) {
-            console.error("Lỗi cập nhật giường:", err);
+            console.error("Lỗi cập nhật tình trạng sử dụng:", err);
             setUpdateError(err instanceof Error ? err.message : "Không thể kết nối đến máy chủ.");
         } finally {
             setUpdatingId(null);
@@ -169,6 +162,35 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
         const style = statusMap[status] || { bg: "secondary", text: status };
         return <Badge bg={style.bg}>{style.text}</Badge>;
     };
+    const getRoomBedConditionStatus = (resource) => {
+        const status = resource.usageStatus;
+        if (["InUse", "NeedsCleaning", "CheckedIn", "Available", "Maintenance"].includes(status)) {
+            return status;
+        }
+        if (resource.status === "Maintenance") return "Maintenance";
+        return resource.currentAppointmentId || resource.currentCustomerName ? "CheckedIn" : "Available";
+    };
+    const getRoomBedConditionBadge = (resource) => {
+        const status = getRoomBedConditionStatus(resource);
+        const statusMap = {
+            CheckedIn: { bg: "warning", text: "Đã nhận khách" },
+            InUse: { bg: "primary", text: "Đang dùng" },
+            NeedsCleaning: { bg: "secondary", text: "Cần dọn" },
+            Available: { bg: "info", text: "Đang trống" },
+            Maintenance: { bg: "danger", text: "Bảo trì" },
+        };
+        const style = statusMap[status] || { bg: "secondary", text: "Chưa rõ" };
+        return <Badge bg={style.bg}>{style.text}</Badge>;
+    };
+    const getEquipmentConditionBadge = (item) => {
+        return getRoomBedConditionBadge(item);
+    };
+    const matchesRoomBedCondition = (resource) => {
+        const usageStatus = getRoomBedConditionStatus(resource);
+        return statusFilter === "all" ||
+            (statusFilter === "CheckedIn" && usageStatus === "CheckedIn") ||
+            usageStatus === statusFilter;
+    };
 
     const filteredRooms = rooms.filter((r) => {
         const search = searchTerm.trim().toLowerCase();
@@ -176,7 +198,7 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
             !search ||
             r.roomName?.toLowerCase().includes(search) ||
             r.roomType?.toLowerCase().includes(search);
-        const matchesStatus = statusFilter === "all" || r.status === statusFilter;
+        const matchesStatus = r.status === statusFilter || matchesRoomBedCondition(r);
         return matchesSearch && matchesStatus;
     });
 
@@ -186,7 +208,19 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
             !search ||
             b.bedNumber?.toLowerCase().includes(search) ||
             b.roomName?.toLowerCase().includes(search);
-        const matchesStatus = statusFilter === "all" || b.status === statusFilter;
+        const matchesStatus = b.status === statusFilter || matchesRoomBedCondition(b);
+        return matchesSearch && matchesStatus;
+    });
+    const filteredEquipment = equipment.filter((item) => {
+        const search = searchTerm.trim().toLowerCase();
+        const matchesSearch =
+            !search ||
+            item.equipmentName?.toLowerCase().includes(search) ||
+            item.roomName?.toLowerCase().includes(search);
+        const matchesStatus =
+            statusFilter === "all" ||
+            item.status === statusFilter ||
+            item.usageStatus === statusFilter;
         return matchesSearch && matchesStatus;
     });
 
@@ -194,7 +228,7 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
         return (
             <Container className="mt-4 px-4">
                 <Alert variant="warning">
-                    Bạn không có quyền truy cập trang này. Chỉ Quản lý, Lễ tân hoặc Kỹ thuật viên mới có thể cập nhật trạng thái phòng/giường.
+                    Bạn không có quyền truy cập trang này. Chỉ Quản lý, Lễ tân hoặc Kỹ thuật viên mới có thể xem tình trạng vận hành phòng/giường.
                 </Alert>
             </Container>
         );
@@ -211,17 +245,25 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
 
     return (
         <Container fluid className="room-bed-page mt-4 px-4">
-            <h2 className="manager-page-title fw-bold mb-4">Trạng thái vận hành phòng & giường</h2>
-            <p className="text-muted">Chuyển phòng, giường sang bảo trì hoặc đưa vào hoạt động trở lại. Phòng đang hoạt động vẫn có thể đã được đặt theo khung giờ.</p>
+            <div className="ui-page-heading">
+                <div>
+                    <h1>Trạng thái phòng & giường</h1>
+                    <p>Chuyển phòng, giường sang bảo trì hoặc đưa vào hoạt động trở lại. Phòng đang hoạt động vẫn có thể đã được đặt theo khung giờ.</p>
+                </div>
+                <Button variant="outline-primary" onClick={fetchData} disabled={isLoading}>
+                    <i className="bi bi-arrow-clockwise me-2" aria-hidden="true"></i>
+                    Làm mới
+                </Button>
+            </div>
 
             {successMsg && <Alert variant="success">{successMsg}</Alert>}
             {loadError && <Alert variant="danger">{loadError}</Alert>}
             {updateError && <Alert variant="danger" role="alert">{updateError}</Alert>}
 
             {/* Bộ lọc */}
-            <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "12px" }}>
+            <Card className="room-bed-filter-card mb-4">
                 <Card.Body>
-                    <div className="d-flex flex-wrap gap-3 align-items-center">
+                    <div className="room-bed-toolbar">
                         <InputGroup style={{ maxWidth: "280px" }}>
                             <InputGroup.Text>
                                 <i className="bi bi-search"></i>
@@ -241,6 +283,10 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
                             <option value="all">Tất cả trạng thái</option>
                             <option value="Active">Đang hoạt động</option>
                             <option value="Maintenance">Bảo trì</option>
+                            <option value="CheckedIn">Đã nhận khách</option>
+                            <option value="InUse">Đang dùng</option>
+                            <option value="NeedsCleaning">Cần dọn</option>
+                            <option value="Available">Đang trống</option>
                         </Form.Select>
                     </div>
                 </Card.Body>
@@ -248,23 +294,24 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
 
             <Row className="g-4">
                 {/* Bảng phòng */}
-                <Col md={6}>
-                    <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "12px" }}>
-                        <Card.Header className="bg-primary text-white fw-bold d-flex justify-content-between align-items-center">
+                <Col xs={12}>
+                    <Card className="room-bed-list-card h-100">
+                        <Card.Header className="room-bed-list-card-header">
                             <span>
                                 <i className="bi bi-door-open me-2"></i>Danh sách phòng
                             </span>
-                            <Badge bg="light" text="dark">{rooms.length}</Badge>
+                            <Badge bg="light" text="dark">{filteredRooms.length} / {rooms.length}</Badge>
                         </Card.Header>
                         <Card.Body className="p-0">
-                            <Table striped bordered hover responsive className="align-middle mb-0">
-                                <thead className="table-dark">
+                            <Table hover responsive className="align-middle mb-0 manager-list-table room-bed-table">
+                                <thead>
                                     <tr>
                                         <th>ID</th>
                                         <th>Tên phòng</th>
                                         <th>Loại phòng</th>
-                                        <th>Trạng thái</th>
-                                        <th style={{ minWidth: "180px" }}>Đổi trạng thái</th>
+                                        <th>Hoạt động</th>
+                                        <th>Tình trạng</th>
+                                        {isTechnician && <th className="text-center">Cập nhật</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -276,21 +323,33 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
                                                 <td>{r.roomType || "—"}</td>
                                                 <td>{getStatusBadge(r.status)}</td>
                                                 <td>
-                                                    <div className="d-flex gap-2 align-items-center">
+                                                    {getRoomBedConditionBadge(r)}
+                                                    {r.currentCustomerName && (
+                                                        <div className="small text-muted mt-1">
+                                                            {r.currentCustomerName} · {r.currentServiceName}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                {isTechnician && (
+                                                <td>
+                                                    {Number(r.technicianCanUpdate) === 1 && r.status !== "Maintenance" ? <div className="room-bed-row-actions">
                                                         <Form.Select
-                                                            id={`room-status-select-${r.roomId}`}
+                                                            id={`room-use-select-${r.roomId}`}
                                                             size="sm"
-                                                            defaultValue={r.status}
+                                                            defaultValue={r.useState || "Available"}
                                                             disabled={updatingId === r.roomId}
-                                                            style={{ maxWidth: "130px" }}
+                                                            aria-label={`Tình trạng sử dụng phòng ${r.roomName}`}
                                                         >
-                                                            <option value="Active">Đang hoạt động</option>
-                                                            <option value="Maintenance">Bảo trì</option>
+                                                            <option value="Available">Sẵn sàng</option>
+                                                            <option value="InUse">Đang dùng</option>
+                                                            <option value="NeedsCleaning">Cần dọn</option>
                                                         </Form.Select>
                                                         <Button
                                                             variant="primary"
+                                                            className="room-bed-save-button"
                                                             size="sm"
-                                                            onClick={() => handleUpdateRoomStatus(r)}
+                                                            aria-label={`Lưu tình trạng sử dụng phòng ${r.roomName}`}
+                                                            onClick={() => handleUpdateUseState("room", r)}
                                                             disabled={updatingId === r.roomId}
                                                         >
                                                             {updatingId === r.roomId && updatingType === "room" ? (
@@ -299,13 +358,14 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
                                                                 <i className="bi bi-check2"></i>
                                                             )}
                                                         </Button>
-                                                    </div>
+                                                    </div> : <span className="small text-muted">Chỉ xem</span>}
                                                 </td>
+                                                )}
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="5" className="text-center text-muted py-4">
+                                            <td colSpan={isTechnician ? 6 : 5} className="text-center text-muted py-4">
                                                 Không tìm thấy phòng nào.
                                             </td>
                                         </tr>
@@ -317,23 +377,24 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
                 </Col>
 
                 {/* Bảng giường */}
-                <Col md={6}>
-                    <Card className="shadow-sm border-0 h-100" style={{ borderRadius: "12px" }}>
-                        <Card.Header className="bg-info text-white fw-bold d-flex justify-content-between align-items-center">
+                <Col xs={12}>
+                    <Card className="room-bed-list-card h-100">
+                        <Card.Header className="room-bed-list-card-header">
                             <span>
                                 <i className="bi bi-lamp me-2"></i>Danh sách giường
                             </span>
-                            <Badge bg="light" text="dark">{beds.length}</Badge>
+                            <Badge bg="light" text="dark">{filteredBeds.length} / {beds.length}</Badge>
                         </Card.Header>
                         <Card.Body className="p-0">
-                            <Table striped bordered hover responsive className="align-middle mb-0">
-                                <thead className="table-dark">
+                            <Table hover responsive className="align-middle mb-0 manager-list-table room-bed-table">
+                                <thead>
                                     <tr>
                                         <th>ID</th>
                                         <th>Số giường</th>
                                         <th>Phòng</th>
-                                        <th>Trạng thái</th>
-                                        <th style={{ minWidth: "180px" }}>Đổi trạng thái</th>
+                                        <th>Hoạt động</th>
+                                        <th>Tình trạng</th>
+                                        {isTechnician && <th className="text-center">Cập nhật</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -345,21 +406,33 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
                                                 <td>{b.roomName || `Phòng #${b.roomId}`}</td>
                                                 <td>{getStatusBadge(b.status)}</td>
                                                 <td>
-                                                    <div className="d-flex gap-2 align-items-center">
+                                                    {getRoomBedConditionBadge(b)}
+                                                    {b.currentCustomerName && (
+                                                        <div className="small text-muted mt-1">
+                                                            {b.currentCustomerName} · {b.currentServiceName}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                {isTechnician && (
+                                                <td>
+                                                    {Number(b.technicianCanUpdate) === 1 && b.status !== "Maintenance" && b.usageStatus !== "Maintenance" ? <div className="room-bed-row-actions">
                                                         <Form.Select
-                                                            id={`bed-status-select-${b.bedId}`}
+                                                            id={`bed-use-select-${b.bedId}`}
                                                             size="sm"
-                                                            defaultValue={b.status}
+                                                            defaultValue={b.useState || "Available"}
                                                             disabled={updatingId === b.bedId}
-                                                            style={{ maxWidth: "130px" }}
+                                                            aria-label={`Tình trạng sử dụng giường ${b.bedNumber}`}
                                                         >
-                                                            <option value="Active">Đang hoạt động</option>
-                                                            <option value="Maintenance">Bảo trì</option>
+                                                            <option value="Available">Sẵn sàng</option>
+                                                            <option value="InUse">Đang dùng</option>
+                                                            <option value="NeedsCleaning">Cần dọn</option>
                                                         </Form.Select>
                                                         <Button
                                                             variant="primary"
+                                                            className="room-bed-save-button"
                                                             size="sm"
-                                                            onClick={() => handleUpdateBedStatus(b)}
+                                                            aria-label={`Lưu tình trạng sử dụng giường ${b.bedNumber}`}
+                                                            onClick={() => handleUpdateUseState("bed", b)}
                                                             disabled={updatingId === b.bedId}
                                                         >
                                                             {updatingId === b.bedId && updatingType === "bed" ? (
@@ -368,13 +441,14 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
                                                                 <i className="bi bi-check2"></i>
                                                             )}
                                                         </Button>
-                                                    </div>
+                                                    </div> : <span className="small text-muted">Chỉ xem</span>}
                                                 </td>
+                                                )}
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="5" className="text-center text-muted py-4">
+                                            <td colSpan={isTechnician ? 6 : 5} className="text-center text-muted py-4">
                                                 Không tìm thấy giường nào.
                                             </td>
                                         </tr>
@@ -385,6 +459,44 @@ const UpdateRoomBedStatus = ({ user: routeUser }) => {
                     </Card>
                 </Col>
             </Row>
+            <Card className="room-bed-list-card mt-4">
+                <Card.Header className="room-bed-list-card-header">
+                    <span><i className="bi bi-tools me-2" aria-hidden="true"></i>Thiết bị & vị trí sử dụng</span>
+                    <Badge bg="light" text="dark">{filteredEquipment.length} / {equipment.length}</Badge>
+                </Card.Header>
+                <Card.Body className="p-0">
+                    <Table hover responsive className="align-middle mb-0 manager-list-table room-bed-table">
+                        <thead>
+                            <tr>
+                                <th>Thiết bị</th>
+                                <th>Phòng hiện tại</th>
+                                <th>Tình trạng</th>
+                                <th>Đang phục vụ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredEquipment.length > 0 ? filteredEquipment.map((item) => (
+                                <tr key={item.equipmentId}>
+                                    <td className="fw-semibold">{item.equipmentName}</td>
+                                    <td>{item.roomName || "Kho / chưa phân phòng"}</td>
+                                    <td>{getEquipmentConditionBadge(item)}</td>
+                                    <td>
+                                        {item.currentCustomerName
+                                            ? `${item.currentCustomerName} · ${item.currentServiceName}`
+                                            : "—"}
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr>
+                                    <td colSpan="4" className="text-center text-muted py-4">
+                                        Không tìm thấy thiết bị phù hợp.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </Table>
+                </Card.Body>
+            </Card>
         </Container>
     );
 };

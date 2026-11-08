@@ -69,6 +69,15 @@ public class TreatmentOutcomeController extends ControllerSupport {
             String notes = data.get("notes");
             String status = data.get("status");
 
+            // Sửa kết quả của lịch đã hoàn thành: {"action":"update","notes":...,"skinReaction":...}
+            if ("update".equals(data.get("action"))) {
+                dao.updateOutcome(appointmentId, notes, data.get("skinReaction"));
+                resp.status(200);
+                out.print("{\"message\":\"Cap nhat ket qua dieu tri thanh cong\",\"appointmentId\":" + appointmentId + "}");
+                out.flush();
+                return;
+            }
+
             if ("Completed".equals(status) && (notes == null || notes.trim().isEmpty())) {
                 resp.status(400);
                 out.print("{\"message\":\"Ket qua dieu tri (notes) khong duoc de trong\"}");

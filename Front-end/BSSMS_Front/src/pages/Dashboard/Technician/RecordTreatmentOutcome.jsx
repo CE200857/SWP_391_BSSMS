@@ -4,7 +4,6 @@ import {
     Container,
     Card,
     Table,
-    Badge,
     Form,
     InputGroup,
     Button,
@@ -14,6 +13,7 @@ import {
     Row,
     Col,
 } from "react-bootstrap";
+import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
 
 const RecordTreatmentOutcome = () => {
     const [appointments, setAppointments] = useState([]);
@@ -30,13 +30,19 @@ const RecordTreatmentOutcome = () => {
         outcomeStatus: "Completed",
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [editingCompleted, setEditingCompleted] = useState(false);
     const [photos, setPhotos] = useState([]);
     const [photoBusy, setPhotoBusy] = useState(false);
     const [photoError, setPhotoError] = useState("");
+    const [photoToDelete, setPhotoToDelete] = useState(null);
+    const [deletePhotoError, setDeletePhotoError] = useState("");
 
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const isTechnician = user?.role === "Technician";
     const isManager = user?.role === "Manager";
+    const canEditPhotos =
+        isTechnician &&
+        (selectedAppointment?.status !== "Completed" || editingCompleted);
 
     async function fetchData() {
         setIsLoading(true);
@@ -100,7 +106,30 @@ const RecordTreatmentOutcome = () => {
         }
     };
 
+    const handleDeletePhoto = (photo) => {
+        setDeletePhotoError("");
+        setPhotoToDelete(photo);
+    };
+
+    const confirmDeletePhoto = async () => {
+        if (!photoToDelete || photoBusy) return;
+        setPhotoBusy(true);
+        setDeletePhotoError("");
+        try {
+            const response = await fetch(`/api/treatment-photos/${photoToDelete.photoId}`, { method: "DELETE", credentials: "include" });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(data?.message || "Không xóa được ảnh.");
+            setPhotos(Array.isArray(data) ? data : []);
+            setPhotoToDelete(null);
+        } catch (error) {
+            setDeletePhotoError(error.message || "Không xóa được ảnh.");
+        } finally {
+            setPhotoBusy(false);
+        }
+    };
+
     const handleOpenOutcome = (appointment) => {
+        setEditingCompleted(false);
         setSelectedAppointment(appointment);
         setOutcomeData({
             notes: "",
@@ -113,11 +142,12 @@ const RecordTreatmentOutcome = () => {
         setShowOutcomeModal(true);
     };
 
-    const handleViewOutcome = async (appointment) => {
+    const handleViewOutcome = async (appointment, editable = false) => {
         try {
             const response = await fetch(`/api/treatment-outcomes/${appointment.appointmentId}`);
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || "Không tải được kết quả điều trị.");
+            setEditingCompleted(editable);
             setSelectedAppointment(appointment);
             setOutcomeData({ notes: data.notes || "", skinReaction: data.skinReaction || "", outcomeStatus: "Completed" });
             setPhotos(Array.isArray(data.photos) ? data.photos : []);
@@ -143,7 +173,7 @@ const RecordTreatmentOutcome = () => {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    status: outcomeData.outcomeStatus,
+                    ...(editingCompleted ? { action: "update" } : { status: outcomeData.outcomeStatus }),
                     notes: outcomeData.notes,
                     skinReaction: outcomeData.skinReaction || null,
                 }),
@@ -172,19 +202,7 @@ const RecordTreatmentOutcome = () => {
         return service ? service.serviceName : `Dịch vụ #${serviceId}`;
     };
 
-    const getStatusBadge = (status) => {
-        const statusMap = {
-            "Checked-in": { bg: "info", text: "Đã check-in" },
-            "Pending": { bg: "primary", text: "Chờ xác nhận" },
-            "Confirmed": { bg: "info", text: "Đã xác nhận" },
-            "In-progress": { bg: "warning", text: "Đang thực hiện" },
-            "Completed": { bg: "success", text: "Hoàn thành" },
-            "Cancelled": { bg: "danger", text: "Đã hủy" },
-            "No-show": { bg: "secondary", text: "Không đến" },
-        };
-        const style = statusMap[status] || { bg: "dark", text: status };
-        return <Badge bg={style.bg}>{style.text}</Badge>;
-    };
+    const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
 
     const filteredAppointments = appointments.filter((a) => {
         const search = searchTerm.trim().toLowerCase();
@@ -278,7 +296,7 @@ const RecordTreatmentOutcome = () => {
                                 <th>Dịch vụ</th>
                                 <th>Nhân viên</th>
                                 <th>Trạng thái</th>
-                                <th>Hành động</th>
+                                <th className="text-center">Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -292,27 +310,44 @@ const RecordTreatmentOutcome = () => {
                                         <td>{a.serviceName || getServiceName(a.serviceId)}</td>
                                         <td>{a.staffName || "—"}</td>
                                         <td>{getStatusBadge(a.status)}</td>
-                                        <td>
-                                            {(isTechnician && (a.status === "Checked-in" || a.status === "In-progress")) && (
-                                                <Button
-                                                    variant="success"
-                                                    size="sm"
-                                                    onClick={() => handleOpenOutcome(a)}
-                                                >
-                                                    <i className="bi bi-clipboard-check me-1"></i>
-                                                    Ghi nhận
-                                                </Button>
-                                            )}
-                                            {a.status === "Completed" && (
-                                                <Button
-                                                    variant="info"
-                                                    size="sm"
-                                                    onClick={() => handleViewOutcome(a)}
-                                                >
-                                                    <i className="bi bi-eye me-1"></i>
-                                                    Xem
-                                                </Button>
-                                            )}
+                                        <td className="text-center">
+                                            <div className="manager-list-actions">
+                                                {(isTechnician && (a.status === "Checked-in" || a.status === "In-progress")) && (
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        className="manager-list-action manager-list-action--view"
+                                                        onClick={() => handleOpenOutcome(a)}
+                                                    >
+                                                        <i className="bi bi-clipboard-check me-1"></i>
+                                                        Ghi nhận
+                                                    </Button>
+                                                )}
+                                                {a.status === "Completed" && (
+                                                    <>
+                                                        <Button
+                                                            variant="link"
+                                                            size="sm"
+                                                            className="manager-list-action manager-list-action--view"
+                                                            onClick={() => handleViewOutcome(a)}
+                                                        >
+                                                            <i className="bi bi-eye me-1"></i>
+                                                            Xem
+                                                        </Button>
+                                                        {isTechnician && (
+                                                            <Button
+                                                                variant="link"
+                                                                size="sm"
+                                                                className="manager-list-action manager-list-action--edit"
+                                                                onClick={() => handleViewOutcome(a, true)}
+                                                            >
+                                                                <i className="bi bi-pencil-square me-1"></i>
+                                                                Sửa
+                                                            </Button>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -333,7 +368,7 @@ const RecordTreatmentOutcome = () => {
                 <Modal.Header closeButton className="bg-success text-white">
                     <Modal.Title>
                         <i className="bi bi-clipboard-check me-2"></i>
-                        Ghi nhận kết quả điều trị
+                        {editingCompleted ? "Sửa kết quả điều trị" : "Ghi nhận kết quả điều trị"}
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
@@ -361,7 +396,7 @@ const RecordTreatmentOutcome = () => {
                             <Form.Group className="mb-3">
                                 <Form.Label className="fw-bold">Kết quả điều trị *</Form.Label>
                                 <Form.Select
-                                    disabled={selectedAppointment.status === "Completed"}
+                                    disabled={(selectedAppointment.status === "Completed" && !editingCompleted)}
                                     value={outcomeData.outcomeStatus}
                                     onChange={(e) =>
                                         setOutcomeData((prev) => ({
@@ -382,7 +417,7 @@ const RecordTreatmentOutcome = () => {
                                 <Form.Label className="fw-bold">Kết quả điều trị {outcomeData.outcomeStatus === "Completed" ? "*" : ""}</Form.Label>
                                 <Form.Control
                                     as="textarea"
-                                    disabled={outcomeData.outcomeStatus !== "Completed" || selectedAppointment.status === "Completed"}
+                                    disabled={outcomeData.outcomeStatus !== "Completed" || (selectedAppointment.status === "Completed" && !editingCompleted)}
                                     rows={4}
                                     placeholder={outcomeData.outcomeStatus === "Completed" ? "Nhập kết quả điều trị..." : "Nhập kết quả khi hoàn thành buổi điều trị."}
                                     value={outcomeData.notes}
@@ -404,7 +439,7 @@ const RecordTreatmentOutcome = () => {
                                 <Form.Control
                                     as="textarea"
                                     rows={2}
-                                    disabled={outcomeData.outcomeStatus !== "Completed" || selectedAppointment.status === "Completed"}
+                                    disabled={outcomeData.outcomeStatus !== "Completed" || (selectedAppointment.status === "Completed" && !editingCompleted)}
                                     placeholder="Ví dụ: đỏ nhẹ, châm chích, không có phản ứng bất thường..."
                                     value={outcomeData.skinReaction}
                                     onChange={(e) =>
@@ -426,7 +461,8 @@ const RecordTreatmentOutcome = () => {
                                             <div className="small text-muted mb-1">{type === "Before" ? "Ảnh trước" : "Ảnh sau"} ({items.length})</div>
                                             <div className="d-flex flex-wrap gap-2 mb-1">
                                                 {items.map((photo) => (
-                                                    <a key={photo.photoId} href={`/api/treatment-photos/file/${photo.photoId}`} target="_blank" rel="noreferrer">
+                                                    <div key={photo.photoId} style={{ position: "relative" }}>
+                                                    <a href={`/api/treatment-photos/file/${photo.photoId}`} target="_blank" rel="noreferrer">
                                                         <img
                                                             src={`/api/treatment-photos/file/${photo.photoId}`}
                                                             alt={`${type === "Before" ? "Ảnh trước" : "Ảnh sau"} #${photo.photoId}`}
@@ -437,9 +473,23 @@ const RecordTreatmentOutcome = () => {
                                                             style={{ width: 84, height: 84, objectFit: "cover", borderRadius: 8 }}
                                                         />
                                                     </a>
+                                                    {isTechnician && (
+                                                        <Button
+                                                            variant="danger"
+                                                            size="sm"
+                                                            disabled={photoBusy}
+                                                            aria-label={`Xóa ${type === "Before" ? "ảnh trước" : "ảnh sau"} #${photo.photoId}`}
+                                                            title="Xóa ảnh"
+                                                            onClick={() => handleDeletePhoto(photo)}
+                                                            style={{ position: "absolute", top: 4, right: 4, padding: "0 6px", lineHeight: "20px" }}
+                                                        >
+                                                            ×
+                                                        </Button>
+                                                    )}
+                                                    </div>
                                                 ))}
                                             </div>
-                                            {isTechnician && (
+                                            {canEditPhotos && (
                                                 <Form.Control
                                                     type="file"
                                                     size="sm"
@@ -466,13 +516,55 @@ const RecordTreatmentOutcome = () => {
                     <Button variant="secondary" onClick={() => setShowOutcomeModal(false)}>
                         Hủy bỏ
                     </Button>
-                    {selectedAppointment?.status !== "Completed" && <Button
+                    {(selectedAppointment?.status !== "Completed" || editingCompleted) && <Button
                         variant="success"
                         onClick={handleSubmitOutcome}
                         disabled={isSubmitting}
                     >
-                        {isSubmitting ? "Đang xử lý..." : "Xác nhận"}
+                        {isSubmitting ? "Đang xử lý..." : editingCompleted ? "Lưu thay đổi" : "Xác nhận"}
                     </Button>}
+                </Modal.Footer>
+            </Modal>
+
+            <Modal
+                show={!!photoToDelete}
+                onHide={() => !photoBusy && setPhotoToDelete(null)}
+                centered
+                size="sm"
+                dialogClassName="treatment-photo-delete-dialog"
+            >
+                <Modal.Header closeButton={!photoBusy} className="treatment-photo-delete-header">
+                    <Modal.Title>Xóa ảnh điều trị?</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <div className="treatment-photo-delete-content">
+                        <span className="treatment-photo-delete-icon" aria-hidden="true">
+                            <i className="bi bi-trash3"></i>
+                        </span>
+                        <p>
+                            Ảnh {photoToDelete?.photoType === "Before" ? "trước" : "sau"} điều trị sẽ bị xóa khỏi hồ sơ.
+                            Bạn có chắc chắn muốn tiếp tục?
+                        </p>
+                    </div>
+                    {deletePhotoError && <Alert variant="danger" className="mb-0">{deletePhotoError}</Alert>}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button
+                        variant="light"
+                        className="treatment-photo-delete-cancel"
+                        onClick={() => setPhotoToDelete(null)}
+                        disabled={photoBusy}
+                    >
+                        Hủy
+                    </Button>
+                    <Button
+                        variant="danger"
+                        className="treatment-photo-delete-confirm"
+                        onClick={confirmDeletePhoto}
+                        disabled={photoBusy}
+                    >
+                        {photoBusy ? <><Spinner size="sm" className="me-2" />Đang xóa…</> : "Xóa ảnh"}
+                    </Button>
                 </Modal.Footer>
             </Modal>
         </Container>
