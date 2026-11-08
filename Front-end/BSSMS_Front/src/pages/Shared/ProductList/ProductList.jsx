@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -143,19 +142,6 @@ export default function ProductList({ user }) {
       {success && <Alert variant="success">{success}</Alert>}
       <div className="ui-toolbar">
         <div className="manager-list-toolbar">{toolbar}</div>
-        {manager && (
-          <>
-            <Link
-              className="btn btn-outline-primary"
-              to="/manager/purchase-orders"
-            >
-              Đơn nhập hàng
-            </Link>
-            <Link className="btn btn-outline-primary" to="/manager/stock">
-              Điều chỉnh tồn kho
-            </Link>
-          </>
-        )}
       </div>
       <Card>
         <Card.Body>
@@ -172,7 +158,7 @@ export default function ProductList({ user }) {
                     <th>Đơn giá</th>
                     <th>Tồn kho</th>
                     <th>Trạng thái</th>
-                    <th>Thao tác</th>
+                    <th className="text-center">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -195,7 +181,7 @@ export default function ProductList({ user }) {
                           {r.stockQuantity} {r.unit}
                         </td>
                         <td>{r.status}</td>
-                        <td>
+                        <td className="text-center">
                           <div className="manager-list-actions">
                             <Button
                               size="sm"
@@ -244,27 +230,41 @@ export default function ProductList({ user }) {
         </Card.Body>
       </Card>
       <Modal
+        className="product-detail-modal"
         show={!!detailProduct}
         onHide={() => setDetailProduct(null)}
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>Chi tiết sản phẩm</Modal.Title>
+          <Modal.Title>
+            <i className="bi bi-box-seam" aria-hidden="true" />
+            Chi tiết sản phẩm
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <dl className="row mb-0">
-            <dt className="col-sm-5">Tên sản phẩm</dt>
-            <dd className="col-sm-7">{detailProduct?.productName || "—"}</dd>
-            <dt className="col-sm-5">Mô tả</dt>
-            <dd className="col-sm-7">{detailProduct?.description || "—"}</dd>
-            <dt className="col-sm-5">Loại</dt>
-            <dd className="col-sm-7">
-              {detailProduct?.productType === "Retail" ? "Bán lẻ" : "Tiêu hao"}
-            </dd>
-            <dt className="col-sm-5">Đơn vị</dt>
-            <dd className="col-sm-7">{detailProduct?.unit || "—"}</dd>
-            <dt className="col-sm-5">Mức tồn tối thiểu</dt>
-            <dd className="col-sm-7">{detailProduct?.reorderLevel ?? "—"}</dd>
+          <dl className="product-detail-list">
+            <div className="product-detail-row">
+              <dt>Tên sản phẩm</dt>
+              <dd>{detailProduct?.productName || "—"}</dd>
+            </div>
+            <div className="product-detail-row product-detail-row--description">
+              <dt>Mô tả</dt>
+              <dd>{detailProduct?.description || "—"}</dd>
+            </div>
+            <div className="product-detail-row">
+              <dt>Loại</dt>
+              <dd>
+                {detailProduct?.productType === "Retail" ? "Bán lẻ" : "Tiêu hao"}
+              </dd>
+            </div>
+            <div className="product-detail-row">
+              <dt>Đơn vị</dt>
+              <dd>{detailProduct?.unit || "—"}</dd>
+            </div>
+            <div className="product-detail-row">
+              <dt>Mức tồn tối thiểu</dt>
+              <dd>{detailProduct?.reorderLevel ?? "—"}</dd>
+            </div>
           </dl>
         </Modal.Body>
       </Modal>

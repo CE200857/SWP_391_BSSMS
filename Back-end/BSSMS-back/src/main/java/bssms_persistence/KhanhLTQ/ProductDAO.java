@@ -41,6 +41,9 @@ public class ProductDAO extends DBContext implements AutoCloseable {
                 p.setReorderLevel(rs.getBigDecimal("reorder_level"));
                 p.setStatus(rs.getString("status"));
                 p.setProductType(rs.getString("product_type"));p.setUnit(rs.getString("unit"));
+                p.setPurchaseUnit(rs.getString("purchase_unit"));
+                p.setUnitsPerPurchaseUnit(rs.getBigDecimal("units_per_purchase_unit"));
+                p.setReorderPackageCount(rs.getBigDecimal("reorder_package_count"));
                 p.setSupplierId(rs.getInt("supplier_id")); // Tự động trả về 0 nếu chưa có đơn nhập
 
                 list.add(p);
@@ -78,6 +81,9 @@ public class ProductDAO extends DBContext implements AutoCloseable {
                     p.setReorderLevel(rs.getBigDecimal("reorder_level"));
                     p.setStatus(rs.getString("status"));
                 p.setProductType(rs.getString("product_type"));p.setUnit(rs.getString("unit"));
+                    p.setPurchaseUnit(rs.getString("purchase_unit"));
+                    p.setUnitsPerPurchaseUnit(rs.getBigDecimal("units_per_purchase_unit"));
+                    p.setReorderPackageCount(rs.getBigDecimal("reorder_package_count"));
                     p.setSupplierId(rs.getInt("supplier_id"));
                     return p;
                 }
@@ -93,7 +99,7 @@ public class ProductDAO extends DBContext implements AutoCloseable {
         try {
             bssms_persistence.common.Workflow w=workflow();w.roles("Manager");
             return w.transaction(()->{
-                int id=((Number)w.one("INSERT Product(product_name,description,unit_price,stock_quantity,reorder_level,status,product_type,unit) OUTPUT inserted.product_id VALUES(?,?,?,0,?,?,?,?)",product.getProductName(),product.getDescription(),product.getUnitPrice(),product.getReorderLevel(),product.getStatus(),product.getProductType(),product.getUnit()).get("productId")).intValue();
+                int id=((Number)w.one("INSERT Product(product_name,description,unit_price,stock_quantity,reorder_level,status,product_type,unit,purchase_unit,units_per_purchase_unit,reorder_package_count) OUTPUT inserted.product_id VALUES(?,?,?,0,?,?,?,?,?,?,?)",product.getProductName(),product.getDescription(),product.getUnitPrice(),product.getReorderLevel(),product.getStatus(),product.getProductType(),product.getUnit(),product.getPurchaseUnit(),product.getUnitsPerPurchaseUnit(),product.getReorderPackageCount()).get("productId")).intValue();
                 if(product.getStockQuantity().signum()!=0) w.call("usp_AdjustStock",requireActorAccountId(),id,product.getStockQuantity(),"Opening stock for new product");
                 return true;
             });
@@ -106,7 +112,7 @@ public class ProductDAO extends DBContext implements AutoCloseable {
             bssms_persistence.common.Workflow w=workflow();w.roles("Manager");
             java.math.BigDecimal current=(java.math.BigDecimal)w.one("SELECT stock_quantity FROM Product WHERE product_id=?",product.getProductId()).get("stockQuantity");
             if(current.compareTo(product.getStockQuantity())!=0) throw new bssms_persistence.common.WorkflowException(409,"Use stock adjustment with a reason to change quantity. Refresh the product first.");
-            return w.update("UPDATE Product SET product_name=?,description=?,unit_price=?,reorder_level=?,status=?,product_type=?,unit=? WHERE product_id=?",product.getProductName(),product.getDescription(),product.getUnitPrice(),product.getReorderLevel(),product.getStatus(),product.getProductType(),product.getUnit(),product.getProductId())==1;
+            return w.update("UPDATE Product SET product_name=?,description=?,unit_price=?,reorder_level=?,status=?,product_type=?,unit=?,purchase_unit=?,units_per_purchase_unit=?,reorder_package_count=? WHERE product_id=?",product.getProductName(),product.getDescription(),product.getUnitPrice(),product.getReorderLevel(),product.getStatus(),product.getProductType(),product.getUnit(),product.getPurchaseUnit(),product.getUnitsPerPurchaseUnit(),product.getReorderPackageCount(),product.getProductId())==1;
         } catch(SQLException e){throw new DataAccessException(e);}
     }
 

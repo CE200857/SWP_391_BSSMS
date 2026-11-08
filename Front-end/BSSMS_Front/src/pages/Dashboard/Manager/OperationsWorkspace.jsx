@@ -10,6 +10,7 @@ import {
 } from "react-bootstrap";
 import { api, post, today } from "../../../services/api";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
+import IntegrationPanel from "./IntegrationPanel";
 
 const titles = {
   scheduling: "Ca làm việc & kỹ năng",
@@ -51,6 +52,7 @@ export default function OperationsWorkspace({ kind }) {
   const [error, setError] = useState(""),
     [success, setSuccess] = useState("");
   const [confirm, setConfirm] = useState(null);
+  const [editing, setEditing] = useState(null); // ca làm / ngày nghỉ đang sửa
   const shiftsFilter = useManagerSearchFilter(data.shifts || [], [
     { key: "fullName", label: "Nhân viên", filterable: false },
     { key: "startTime", label: "Giờ bắt đầu", filterable: false },
@@ -145,18 +147,29 @@ export default function OperationsWorkspace({ kind }) {
     setError("");
     setSuccess("");
     try {
-      await post(
+      const result = await post(
         kind === "stock" ? "/api/purchase-orders" : `/api/operations/${kind}`,
         payload,
       );
       setConfirm(null);
-      setSuccess("Đã cập nhật thành công.");
+      setSuccess(result?.message || "Đã cập nhật thành công.");
       await load();
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+  async function saveEdit(e) {
+    e.preventDefault();
+    if (!editing) return;
+    const payload =
+      editing.type === "shift"
+        ? { action: "updateShift", id: editing.id, date: editing.date, start: editing.start, end: editing.end }
+        : { action: "updateLeave", id: editing.id, start: editing.start, end: editing.end, reason: editing.reason || "" };
+    if (await save(payload)) setEditing(null);
   }
   function submit(e) {
     e.preventDefault();
@@ -227,6 +240,7 @@ export default function OperationsWorkspace({ kind }) {
           {success}
         </Alert>
       )}
+      {kind === "policy" && <IntegrationPanel />}
       {loading ? (
         <div className="ui-empty">
           <Spinner animation="border" />
@@ -257,40 +271,100 @@ export default function OperationsWorkspace({ kind }) {
                             value={form.action}
                             onChange={(e) =>
                               setForm(
-                                e.target.value === "leave"
+                                e.target.value === "monthShifts"
                                   ? {
-                                      action: "leave",
-                                      start: today(),
-                                      end: today(),
+                                      action: "monthShifts",
+                                      month: today().slice(0, 7),
+                                      weekdays: [1, 2, 3, 4, 5, 6, 7],
+                                      start: "08:30",
+                                      end: "18:30",
+                                      staffId: 0,
                                     }
-                                  : e.target.value === "skill"
-                                    ? { action: "skill" }
-                                    : initialForm(kind),
+                                  : e.target.value === "leave"
+                                    ? {
+                                        action: "leave",
+                                        start: today(),
+                                        end: today(),
+                                      }
+                                    : e.target.value === "skill"
+                                      ? { action: "skill" }
+                                      : initialForm(kind),
                               )
                             }
                           >
                             <option value="shift">Thêm ca làm</option>
+                            <option value="monthShifts">Lên lịch cả tháng</option>
                             <option value="leave">Đăng ký ngày nghỉ</option>
                             <option value="skill">Gán kỹ năng dịch vụ</option>
                           </Form.Select>
                         </Form.Group>
-                        <Select
-                          label="Nhân viên"
-                          value={form.staffId}
-                          onChange={(v) => update("staffId", v)}
-                          rows={(data.staff || []).filter(
-                            (s) =>
-                              form.action !== "skill" ||
-                              s.role === "Technician",
-                          )}
-                          id="staffId"
-                          name="fullName"
-                        />
+                        {form.action === "monthShifts" ? (
+                          <Form.Group>
+                            <Form.Label>Nhân viên</Form.Label>
+                            <Form.Select
+                              value={form.staffId || 0}
+                              onChange={(e) => update("staffId", Number(e.target.value))}
+                            >
+                              <option value={0}>Tất cả nhân viên (kỹ thuật viên, lễ tân)</option>
+                              {(data.staff || []).map((s) => (
+                                <option key={s.staffId} value={s.staffId}>
+                                  {s.fullName}
+                                </option>
+                              ))}
+                            </Form.Select>
+                          </Form.Group>
+                        ) : (
+                          <Select
+                            label="Nhân viên"
+                            value={form.staffId}
+                            onChange={(v) => update("staffId", v)}
+                            rows={(data.staff || []).filter(
+                              (s) =>
+                                form.action !== "skill" ||
+                                s.role === "Technician",
+                            )}
+                            id="staffId"
+                            name="fullName"
+                          />
+                        )}
                         {form.action === "shift" && (
                           <>
                             {field("Ngày làm việc", "date", "date")}
                             {field("Bắt đầu", "start", "time")}
                             {field("Kết thúc", "end", "time")}
+                          </>
+                        )}
+                        {form.action === "monthShifts" && (
+                          <>
+                            {field("Tháng", "month", "month")}
+                            {field("Bắt đầu", "start", "time")}
+                            {field("Kết thúc", "end", "time")}
+                            <Form.Group>
+                              <Form.Label>Làm việc các ngày</Form.Label>
+                              <div className="d-flex flex-wrap gap-3">
+                                {[[1, "T2"], [2, "T3"], [3, "T4"], [4, "T5"], [5, "T6"], [6, "T7"], [7, "CN"]].map(([n, label]) => (
+                                  <Form.Check
+                                    key={n}
+                                    inline
+                                    type="checkbox"
+                                    id={`weekday-${n}`}
+                                    label={label}
+                                    checked={(form.weekdays || []).includes(n)}
+                                    onChange={(e) =>
+                                      update(
+                                        "weekdays",
+                                        e.target.checked
+                                          ? [...(form.weekdays || []), n].sort()
+                                          : (form.weekdays || []).filter((x) => x !== n),
+                                      )
+                                    }
+                                  />
+                                ))}
+                              </div>
+                              <Form.Text>
+                                Ngày đã qua, ngày đã có ca hoặc đang nghỉ sẽ được bỏ qua.
+                              </Form.Text>
+                            </Form.Group>
                           </>
                         )}
                         {form.action === "leave" && (
@@ -332,6 +406,24 @@ export default function OperationsWorkspace({ kind }) {
                       <Button
                         size="sm"
                         variant="link"
+                        className="manager-list-action manager-list-action--edit"
+                        onClick={() =>
+                          setEditing({
+                            type: "shift",
+                            id: r.staffShiftId,
+                            name: r.fullName,
+                            date: String(r.shiftDate || date).slice(0, 10),
+                            start: String(r.startTime).slice(0, 5),
+                            end: String(r.endTime).slice(0, 5),
+                          })
+                        }
+                      >
+                        <i className="bi bi-pencil-square" aria-hidden="true" />
+                        Sửa
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="link"
                         className="manager-list-action manager-list-action--delete"
                         onClick={() =>
                           remove({ action: "deleteShift", id: r.staffShiftId })
@@ -355,6 +447,24 @@ export default function OperationsWorkspace({ kind }) {
                     <td>{r.endDate}</td>
                     <td>{r.reason}</td>
                     <td>
+                      <Button
+                        size="sm"
+                        variant="link"
+                        className="manager-list-action manager-list-action--edit"
+                        onClick={() =>
+                          setEditing({
+                            type: "leave",
+                            id: r.leaveId,
+                            name: r.fullName,
+                            start: String(r.startDate).slice(0, 10),
+                            end: String(r.endDate).slice(0, 10),
+                            reason: r.reason || "",
+                          })
+                        }
+                      >
+                        <i className="bi bi-pencil-square" aria-hidden="true" />
+                        Sửa
+                      </Button>
                       <Button
                         size="sm"
                         variant="link"
@@ -749,6 +859,68 @@ export default function OperationsWorkspace({ kind }) {
             {busy ? "Đang xử lý…" : "Xác nhận"}
           </Button>
         </Modal.Footer>
+      </Modal>
+      <Modal
+        show={Boolean(editing)}
+        onHide={() => {
+          if (!busy) setEditing(null);
+        }}
+        centered
+      >
+        <Modal.Header closeButton={!busy}>
+          <Modal.Title>
+            {editing?.type === "leave" ? "Sửa ngày nghỉ" : "Sửa ca làm"}
+            {editing?.name ? ` · ${editing.name}` : ""}
+          </Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={saveEdit}>
+          <fieldset disabled={busy}>
+            <Modal.Body>
+              {error && <Alert variant="danger">{error}</Alert>}
+              {editing?.type === "shift" ? (
+                <>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Ngày làm việc</Form.Label>
+                    <Form.Control required type="date" value={editing.date} onChange={(e) => setEditing({ ...editing, date: e.target.value })} />
+                  </Form.Group>
+                  <div className="d-flex gap-3">
+                    <Form.Group className="flex-fill">
+                      <Form.Label>Bắt đầu</Form.Label>
+                      <Form.Control required type="time" value={editing.start} onChange={(e) => setEditing({ ...editing, start: e.target.value })} />
+                    </Form.Group>
+                    <Form.Group className="flex-fill">
+                      <Form.Label>Kết thúc</Form.Label>
+                      <Form.Control required type="time" value={editing.end} onChange={(e) => setEditing({ ...editing, end: e.target.value })} />
+                    </Form.Group>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="d-flex gap-3 mb-3">
+                    <Form.Group className="flex-fill">
+                      <Form.Label>Từ ngày</Form.Label>
+                      <Form.Control required type="date" value={editing?.start || ""} onChange={(e) => setEditing({ ...editing, start: e.target.value })} />
+                    </Form.Group>
+                    <Form.Group className="flex-fill">
+                      <Form.Label>Đến ngày</Form.Label>
+                      <Form.Control required type="date" value={editing?.end || ""} onChange={(e) => setEditing({ ...editing, end: e.target.value })} />
+                    </Form.Group>
+                  </div>
+                  <Form.Group>
+                    <Form.Label>Lý do</Form.Label>
+                    <Form.Control type="text" maxLength={500} value={editing?.reason || ""} onChange={(e) => setEditing({ ...editing, reason: e.target.value })} />
+                  </Form.Group>
+                </>
+              )}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setEditing(null)}>
+                Hủy
+              </Button>
+              <Button type="submit">{busy ? "Đang lưu…" : "Lưu thay đổi"}</Button>
+            </Modal.Footer>
+          </fieldset>
+        </Form>
       </Modal>
     </section>
   );

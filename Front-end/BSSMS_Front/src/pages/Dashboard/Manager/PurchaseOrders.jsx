@@ -13,7 +13,8 @@ import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter"
 export default function PurchaseOrders() {
   const [orders, setOrders] = useState([]),
     [products, setProducts] = useState([]),
-    [suppliers, setSuppliers] = useState([]);
+    [suppliers, setSuppliers] = useState([]),
+    [supplierPrices, setSupplierPrices] = useState([]);
   const [form, setForm] = useState(null),
     [confirm, setConfirm] = useState(null),
     [showSuggest, setShowSuggest] = useState(false),
@@ -24,14 +25,16 @@ export default function PurchaseOrders() {
   async function load() {
     setLoading(true);
     try {
-      const [o, p, s] = await Promise.all([
+      const [o, p, s, prices] = await Promise.all([
         api("/api/purchase-orders"),
         api("/api/products"),
         api("/api/suppliers"),
+        api("/api/supplier-prices"),
       ]);
       setOrders(o);
       setProducts(p);
       setSuppliers(s);
+      setSupplierPrices(prices);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -44,6 +47,13 @@ export default function PurchaseOrders() {
   }, []);
   async function send(payload) {
     if (busy) return;
+    if (
+      ["create", "update"].includes(payload.action || "create") &&
+      payload.items?.some((item) => !item.productId || item.unitPrice === "")
+    ) {
+      setError("Chọn nhà cung cấp và sản phẩm có giá đã thỏa thuận trước khi lưu.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -59,14 +69,28 @@ export default function PurchaseOrders() {
     }
   }
   function editLine(index, key, value) {
-    setForm((f) => ({
-      ...f,
-      items: f.items.map((item, i) =>
-        i === index ? { ...item, [key]: Number(value) } : item,
-      ),
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, i) => {
+        if (i !== index) return item;
+        if (key === "productId") {
+          const productId = Number(value);
+          const supplierPrice = supplierPrices.find(
+            (price) =>
+              Number(price.supplierId) === Number(current.supplierId) &&
+              Number(price.productId) === productId,
+          );
+          return {
+            ...item,
+            productId,
+            unitPrice: supplierPrice ? Number(supplierPrice.unitPrice) : "",
+          };
+        }
+        return { ...item, [key]: Number(value) };
+      }),
     }));
   }
-  const emptyLine = () => ({ productId: "", quantity: 1, unitPrice: 0 });
+  const emptyLine = () => ({ productId: "", quantity: 1, unitPrice: "" });
   // 6.8: suggest purchase orders from low-stock warnings, grouped by supplier.
   const pendingProductIds = new Set(
     orders
@@ -93,6 +117,11 @@ export default function PurchaseOrders() {
         groups[key].items.push({
           productId: p.productId,
           productName: p.productName,
+          unitPrice: supplierPrices.find(
+            (price) =>
+              Number(price.supplierId) === Number(p.supplierId) &&
+              Number(price.productId) === Number(p.productId),
+          )?.unitPrice ?? "",
           stockQuantity: Number(p.stockQuantity),
           reorderLevel: Number(p.reorderLevel),
           quantity: Math.max(
@@ -112,8 +141,21 @@ export default function PurchaseOrders() {
     [
       { key: "purchaseOrderId", label: "Mã đơn nhập", filterable: false },
       { key: "supplierName", label: "Nhà cung cấp" },
-      { key: "status", label: "Trạng thái" },
-      { key: "expectedDate", label: "Ngày dự kiến", type: "date" },
+      {
+        key: "status",
+        label: "Trạng thái",
+        formatValue: (value) =>
+          value === "Received"
+            ? "Đã nhận hàng"
+            : value === "Cancelled"
+              ? "Đã hủy"
+              : value === "Sent"
+                ? "Chờ nhà cung cấp giao"
+                : value === "Draft"
+                  ? "Bản nháp"
+                  : value,
+      },
+      { key: "expectedDate", label: "Ngày nhận dự kiến", type: "date" },
     ],
     "Tìm theo mã đơn hoặc nhà cung cấp...",
   );
@@ -122,7 +164,7 @@ export default function PurchaseOrders() {
       <div className="ui-page-heading">
         <div>
           <h1>Đơn nhập hàng</h1>
-          <p>Lập đơn nháp → gửi nhà cung cấp → xác nhận nhận hàng.</p>
+          <p>Tạo đơn đặt hàng → chờ nhà cung cấp giao → xác nhận nhận hàng.</p>
         </div>
         <div className="d-flex gap-2 flex-wrap">
           <Button
@@ -153,14 +195,14 @@ export default function PurchaseOrders() {
           <Card.Body>
             <div className="manager-list-toolbar mb-3">{toolbar}</div>
             <div className="table-responsive">
-              <Table hover className="manager-list-table">
+              <Table hover className="manager-list-table purchase-orders-table">
                 <thead>
                   <tr>
                     <th>Nhà cung cấp</th>
-                    <th>Dự kiến</th>
+                    <th>Ngày nhận dự kiến</th>
                     <th>Tổng tiền</th>
                     <th>Trạng thái</th>
-                    <th>Thao tác</th>
+                    <th className="purchase-orders-action-column">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -174,10 +216,10 @@ export default function PurchaseOrders() {
                       <td>{money(o.totalAmount)}</td>
                       <td>
                         <span className={`badge ${o.status === "Received" ? "bg-success" : o.status === "Cancelled" ? "bg-secondary" : o.status === "Sent" ? "bg-primary" : o.status === "Draft" ? "bg-warning text-dark" : "bg-secondary"}`}>
-                          {o.status === "Received" ? "Đã nhận" : o.status === "Cancelled" ? "Đã hủy" : o.status === "Sent" ? "Đã gửi" : o.status === "Draft" ? "Bản nháp" : o.status}
+                          {o.status === "Received" ? "Đã nhận hàng" : o.status === "Cancelled" ? "Đã hủy" : o.status === "Sent" ? "Chờ nhà cung cấp giao" : o.status === "Draft" ? "Bản nháp" : o.status}
                         </span>
                       </td>
-                      <td>
+                      <td className="purchase-orders-action-column">
                         <div className="manager-list-actions">
                         <Button
                           size="sm"
@@ -218,7 +260,7 @@ export default function PurchaseOrders() {
                             }
                           >
                             <i className="bi bi-send" aria-hidden="true" />
-                            Đánh dấu đã gửi
+                            Đặt hàng
                           </Button>
                         )}
                         {o.status === "Sent" && (
@@ -234,7 +276,7 @@ export default function PurchaseOrders() {
                             }
                           >
                             <i className="bi bi-box-seam" aria-hidden="true" />
-                            Nhận hàng
+                            Nhận
                           </Button>
                         )}
                         {["Draft", "Sent"].includes(o.status) && (
@@ -296,10 +338,18 @@ export default function PurchaseOrders() {
                     <Form.Label>Nhà cung cấp</Form.Label>
                     <Form.Select
                       required
-                      disabled={!!form.purchaseOrderId}
+                      disabled={!!form.purchaseOrderId || form.items.some((item) => item.productId)}
                       value={form.supplierId}
                       onChange={(e) =>
-                        setForm({ ...form, supplierId: Number(e.target.value) })
+                        setForm({
+                          ...form,
+                          supplierId: Number(e.target.value),
+                          items: form.items.map((item) => ({
+                            ...item,
+                            productId: "",
+                            unitPrice: "",
+                          })),
+                        })
                       }
                     >
                       <option value="">Chọn nhà cung cấp</option>
@@ -327,14 +377,19 @@ export default function PurchaseOrders() {
                     />
                   </Form.Group>
                 </div>
+                {!form.readOnly && (
+                  <p className="small text-muted mt-3 mb-0">
+                    Chọn nhà cung cấp và sản phẩm để tự điền giá đã thỏa thuận.
+                  </p>
+                )}
                 <div className="table-responsive mt-3">
                   <Table>
                     <thead>
                       <tr>
                         <th>Sản phẩm</th>
                         <th>Số lượng</th>
-                        <th>Giá nhập</th>
-                        <th />
+                        <th>Giá nhà cung cấp</th>
+                        {!form.readOnly && <th />}
                       </tr>
                     </thead>
                     <tbody>
@@ -344,17 +399,26 @@ export default function PurchaseOrders() {
                             <Form.Select
                               aria-label={`Sản phẩm dòng ${i + 1}`}
                               required
+                              disabled={!form.supplierId}
                               value={item.productId}
                               onChange={(e) =>
                                 editLine(i, "productId", e.target.value)
                               }
                             >
                               <option value="">Chọn sản phẩm</option>
-                              {products.map((p) => (
+                              {products
+                                .filter((product) =>
+                                  supplierPrices.some(
+                                    (price) =>
+                                      Number(price.supplierId) === Number(form.supplierId) &&
+                                      Number(price.productId) === Number(product.productId),
+                                  ),
+                                )
+                                .map((p) => (
                                 <option key={p.productId} value={p.productId}>
                                   {p.productName}
                                 </option>
-                              ))}
+                                ))}
                             </Form.Select>
                           </td>
                           <td>
@@ -372,44 +436,44 @@ export default function PurchaseOrders() {
                           </td>
                           <td>
                             <Form.Control
-                              aria-label={`Giá nhập dòng ${i + 1}`}
-                              type="number"
-                              required
-                              min="0"
-                              step=".01"
-                              value={item.unitPrice}
-                              onChange={(e) =>
-                                editLine(i, "unitPrice", e.target.value)
-                              }
+                              aria-label={`Giá nhà cung cấp dòng ${i + 1}`}
+                              type="text"
+                              readOnly
+                              value={item.unitPrice === "" ? "" : money(item.unitPrice)}
+                              placeholder="Chọn sản phẩm"
                             />
                           </td>
-                          <td>
-                            <Button
-                              variant="outline-danger"
-                              disabled={form.items.length === 1}
-                              onClick={() =>
-                                setForm({
-                                  ...form,
-                                  items: form.items.filter((_, n) => n !== i),
-                                })
-                              }
-                            >
-                              Bỏ
-                            </Button>
-                          </td>
+                          {!form.readOnly && (
+                            <td>
+                              <Button
+                                variant="outline-danger"
+                                disabled={form.items.length === 1}
+                                onClick={() =>
+                                  setForm({
+                                    ...form,
+                                    items: form.items.filter((_, n) => n !== i),
+                                  })
+                                }
+                              >
+                                Bỏ
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
                   </Table>
                 </div>
-                <Button
-                  variant="outline-primary"
-                  onClick={() =>
-                    setForm({ ...form, items: [...form.items, emptyLine()] })
-                  }
-                >
-                  Thêm dòng
-                </Button>
+                {!form.readOnly && (
+                  <Button
+                    variant="outline-primary"
+                    onClick={() =>
+                      setForm({ ...form, items: [...form.items, emptyLine()] })
+                    }
+                  >
+                    Thêm dòng
+                  </Button>
+                )}
                 <p className="mt-3 fw-bold">
                   Tổng:{" "}
                   {money(
@@ -465,7 +529,7 @@ export default function PurchaseOrders() {
                         items: g.items.map((i) => ({
                           productId: i.productId,
                           quantity: i.quantity,
-                          unitPrice: 0,
+                          unitPrice: i.unitPrice,
                         })),
                       });
                     }}
@@ -512,9 +576,9 @@ export default function PurchaseOrders() {
         </Modal.Header>
         <Modal.Body>
           {confirm?.action === "receive"
-            ? "Chỉ xác nhận khi đã nhận đủ hàng. Tồn kho sẽ được cộng đúng một lần."
+            ? "Chỉ xác nhận khi đã nhận đủ hàng từ nhà cung cấp. Tồn kho sẽ được cộng đúng một lần."
             : confirm?.action === "send"
-              ? "Đánh dấu đơn đã gửi cho nhà cung cấp."
+              ? "Xác nhận đặt đơn với nhà cung cấp. Sau đó, trạng thái sẽ chuyển thành chờ nhà cung cấp giao hàng."
               : "Hủy đơn nhập này?"}
           {error && <Alert variant="danger">{error}</Alert>}
         </Modal.Body>

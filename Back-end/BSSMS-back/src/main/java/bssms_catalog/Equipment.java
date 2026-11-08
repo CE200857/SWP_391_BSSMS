@@ -13,6 +13,8 @@ public class Equipment {
     private String equipmentName;
     private String description;
     private String status = "Available";
+    private Integer roomId;
+    private String roomName;
 
     public Equipment() {}
 
@@ -53,6 +55,22 @@ public class Equipment {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Integer getRoomId() {
+        return roomId;
+    }
+
+    public void setRoomId(Integer roomId) {
+        this.roomId = roomId;
+    }
+
+    public String getRoomName() {
+        return roomName;
+    }
+
+    public void setRoomName(String roomName) {
+        this.roomName = roomName;
     }
     
 }

@@ -11,14 +11,17 @@ public class EquipmentDAO extends DBContext implements AutoCloseable {
     public List<Equipment> getAllEquipments() throws SQLException {
         requireConnection();
         List<Equipment> result = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM Equipment ORDER BY equipment_id DESC");
+        try (PreparedStatement ps = conn.prepareStatement("SELECT e.*,r.room_name FROM Equipment e LEFT JOIN Room r ON r.room_id=e.room_id ORDER BY e.equipment_id DESC");
                 ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Equipment value = new Equipment();
-                    value.setEquipmentId(rs.getInt("equipment_id"));
-                    value.setEquipmentName(rs.getString("equipment_name"));
-                    value.setDescription(rs.getString("description"));
-                    value.setStatus(rs.getString("status"));
+                value.setEquipmentId(rs.getInt("equipment_id"));
+                value.setEquipmentName(rs.getString("equipment_name"));
+                value.setDescription(rs.getString("description"));
+                value.setStatus(rs.getString("status"));
+                int roomId = rs.getInt("room_id");
+                value.setRoomId(rs.wasNull() ? null : roomId);
+                value.setRoomName(rs.getString("room_name"));
                 result.add(value);
             }
         }
@@ -26,20 +29,24 @@ public class EquipmentDAO extends DBContext implements AutoCloseable {
     }
     public boolean addEquipment(Equipment value) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO Equipment (equipment_name, description, status) VALUES (?, ?, ?)")) {
+        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO Equipment (equipment_name, description, status, room_id) VALUES (?, ?, ?, ?)")) {
             ps.setString(1, value.getEquipmentName());
             ps.setString(2, value.getDescription());
             ps.setString(3, value.getStatus());
+            if (value.getRoomId() == null) ps.setNull(4, Types.INTEGER);
+            else ps.setInt(4, value.getRoomId());
             return ps.executeUpdate() > 0;
         }
     }
     public boolean updateEquipment(Equipment value) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE Equipment SET equipment_name = ?, description = ?, status = ? WHERE equipment_id = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE Equipment SET equipment_name = ?, description = ?, status = ?, room_id = ? WHERE equipment_id = ?")) {
             ps.setString(1, value.getEquipmentName());
             ps.setString(2, value.getDescription());
             ps.setString(3, value.getStatus());
-            ps.setInt(4, value.getEquipmentId());
+            if (value.getRoomId() == null) ps.setNull(4, Types.INTEGER);
+            else ps.setInt(4, value.getRoomId());
+            ps.setInt(5, value.getEquipmentId());
             return ps.executeUpdate() > 0;
         }
     }

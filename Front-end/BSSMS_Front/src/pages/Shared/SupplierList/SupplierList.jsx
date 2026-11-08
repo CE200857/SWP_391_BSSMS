@@ -7,6 +7,8 @@ const PRODUCT_API_URL = '/api/products';
 export default function SupplierList() {
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [supplierPrices, setSupplierPrices] = useState([]);
+  const [priceError, setPriceError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Modal Chi tiết Nhà cung cấp
@@ -36,21 +38,26 @@ export default function SupplierList() {
         if (resSuppliers.ok) {
           const supData = await resSuppliers.json();
           setSuppliers(Array.isArray(supData) ? supData : []);
+        } else {
+          throw new Error('Không thể tải danh sách nhà cung cấp.');
         }
 
-        // 2. Tải danh sách Products
-        try {
-          const resProducts = await fetch(PRODUCT_API_URL, { credentials: 'include' });
-          if (resProducts.ok) {
-            const prodData = await resProducts.json();
-            setProducts(Array.isArray(prodData) ? prodData : []);
-          }
-        } catch (pErr) {
-          console.warn('Không thể tải danh sách sản phẩm:', pErr);
+        const [resProducts, resPrices] = await Promise.all([
+          fetch(PRODUCT_API_URL, { credentials: 'include' }),
+          fetch('/api/supplier-prices', { credentials: 'include' }),
+        ]);
+        if (!resProducts.ok || !resPrices.ok) {
+          throw new Error('Không thể tải sản phẩm hoặc bảng giá nhà cung cấp.');
         }
+        const [prodData, priceData] = await Promise.all([
+          resProducts.json(),
+          resPrices.json(),
+        ]);
+        setProducts(Array.isArray(prodData) ? prodData : []);
+        setSupplierPrices(Array.isArray(priceData) ? priceData : []);
 
       } catch (err) {
-        console.error('Lỗi khi tải dữ liệu:', err);
+        setPriceError(err.message || 'Lỗi khi tải dữ liệu.');
       } finally {
         setLoading(false);
       }
@@ -58,30 +65,6 @@ export default function SupplierList() {
 
     fetchData();
   }, [refresh]);
-
-  // Bắt cặp danh sách sản phẩm liên kết với Supplier
-  const getSuppliedProducts = (supplier) => {
-    if (!supplier || !products || products.length === 0) return [];
-
-    const supId = supplier.supplier_id ?? supplier.supplierId ?? supplier.id;
-    const supName = (supplier.supplier_name || supplier.supplierName || supplier.name || '').toLowerCase().trim();
-
-    return products.filter((p) => {
-      // 1. So sánh ID nếu Backend có map sẵn field
-      const pSupId = p.supplier_id ?? p.supplierId ?? p.supplier?.supplier_id ?? p.supplier?.supplierId ?? p.supplier?.id;
-      if (pSupId !== undefined && pSupId !== null && String(pSupId) === String(supId)) {
-        return true;
-      }
-
-      // 2. So sánh tên nhà cung cấp nếu có
-      const pSupName = (p.supplier_name || p.supplierName || p.supplier?.supplier_name || p.supplier?.supplierName || '').toLowerCase().trim();
-      if (pSupName && supName && pSupName === supName) {
-        return true;
-      }
-
-      return false;
-    });
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -176,6 +159,22 @@ export default function SupplierList() {
     ],
     'Tìm theo tên, số điện thoại hoặc email...',
   );
+  const selectedSupplierId = selectedSupplier
+    ? selectedSupplier.supplier_id || selectedSupplier.supplierId || selectedSupplier.id
+    : null;
+  const supplierProducts = selectedSupplier
+    ? products
+        .filter((product) => product.status === 'Active')
+        .map((product) => {
+          const productId = product.productId || product.product_id || product.id;
+          const price = supplierPrices.find(
+            (item) =>
+              Number(item.supplierId) === Number(selectedSupplierId) &&
+              Number(item.productId) === Number(productId),
+          );
+          return { product, price };
+        })
+    : [];
 
   return (
     <div className="container-fluid py-4">
@@ -192,6 +191,9 @@ export default function SupplierList() {
       </div>
 
       <div className="manager-list-toolbar mb-4">{toolbar}</div>
+      {priceError && !selectedSupplier && (
+        <div className="alert alert-danger" role="alert">{priceError}</div>
+      )}
 
       {/* Bảng danh sách nhà cung cấp */}
       <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
@@ -233,7 +235,10 @@ export default function SupplierList() {
                           <div className="manager-list-actions">
                           <button
                             className="manager-list-action manager-list-action--view"
-                            onClick={() => setSelectedSupplier(s)}
+                            onClick={() => {
+                              setPriceError('');
+                              setSelectedSupplier(s);
+                            }}
                           >
                             <i className="bi bi-eye-fill" aria-hidden="true" /> Xem
                           </button>
@@ -308,58 +313,52 @@ export default function SupplierList() {
 
                 <hr className="my-3" />
 
-                <h6 className="fw-bold mb-3" style={{ color: '#800020' }}>
-                  <i className="bi bi-box-seam me-2"></i>Các sản phẩm đang cung cấp
+                <h6 className="fw-bold mb-1" style={{ color: '#800020' }}>
+                  <i className="bi bi-tags me-2"></i>Giá sản phẩm từ nhà cung cấp
                 </h6>
-
-                {(() => {
-                  const sProducts = getSuppliedProducts(selectedSupplier);
-                  if (sProducts.length === 0) {
-                    return (
-                      <div className="alert alert-light border text-center text-muted py-3">
-                        Nhà cung cấp này chưa phân phối sản phẩm nào trong hệ thống.
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="table-responsive rounded border">
-                      <table className="table table-sm table-striped table-hover mb-0 align-middle">
-                        <thead className="bg-light">
-                          <tr>
-                            <th className="ps-3 py-2">Mã SP</th>
-                            <th className="py-2">Tên sản phẩm</th>
-                            <th className="py-2">Đơn giá (VNĐ)</th>
-                            <th className="py-2">Số lượng tồn</th>
-                            <th className="py-2">Trạng thái</th>
+                <p className="text-muted small mb-3">
+                  Danh sách giá đã thỏa thuận với nhà cung cấp.
+                </p>
+                {priceError && <div className="alert alert-danger py-2" role="alert">{priceError}</div>}
+                <div className="table-responsive rounded border">
+                  <table className="table table-sm table-hover mb-0 align-middle">
+                    <thead className="bg-light">
+                      <tr>
+                        <th className="ps-3 py-2">Sản phẩm</th>
+                        <th className="py-2">Đơn vị</th>
+                        <th className="py-2 text-end pe-3">Giá đã thỏa thuận (VNĐ)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {supplierProducts.map(({ price, product }) => {
+                        const productId = product.productId || product.product_id || product.id;
+                        return (
+                          <tr key={productId}>
+                            <td className="ps-3 fw-semibold">{product.productName || product.product_name}</td>
+                            <td>{product.unit || '—'}</td>
+                            <td className="text-end pe-3">
+                              {price ? Number(price.unitPrice).toLocaleString('vi-VN') : 'Chưa có giá'}
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {sProducts.map((p) => {
-                            const pId = p.product_id || p.productId || p.id;
-                            const pName = p.product_name || p.productName;
-                            const uPrice = p.unit_price || p.unitPrice;
-                            const sQty = p.stock_quantity ?? p.stockQuantity ?? 0;
-                            return (
-                              <tr key={pId}>
-                                <td className="ps-3 font-monospace">#{pId}</td>
-                                <td className="fw-bold text-dark">{pName}</td>
-                                <td className="text-danger fw-semibold">
-                                  {uPrice ? uPrice.toLocaleString('vi-VN') : '0'}
-                                </td>
-                                <td>{sQty}</td>
-                                <td>
-                                  <span className={`badge ${p.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>
-                                    {p.status || 'Active'}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })()}
+                        );
+                      })}
+                      {loading && (
+                        <tr>
+                          <td colSpan="3" className="text-center text-muted py-3">
+                            Đang tải bảng giá...
+                          </td>
+                        </tr>
+                      )}
+                      {!loading && supplierProducts.length === 0 && (
+                        <tr>
+                          <td colSpan="3" className="text-center text-muted py-3">
+                            Chưa có sản phẩm đang kinh doanh.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div className="modal-footer bg-light">
