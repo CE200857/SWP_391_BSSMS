@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import {
     Container,
     Table,
-    Badge,
     Button
 } from "react-bootstrap";
 import treatmentPhoto from "../../../assets/figma/service-card-exact-02.png";
 import massagePhoto from "../../../assets/figma/service-card-exact-03.png";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
+import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
+import { setAppointmentStatus } from "../../../utils/appointmentActions";
 
 const AppointmentList = ({ user, setUser }) => {
     const [appointments, setAppointments] = useState([]);
@@ -35,6 +36,7 @@ const AppointmentList = ({ user, setUser }) => {
 
     const [loading, setLoading] = useState(true);
     const [attempt, setAttempt] = useState(0);
+    const [approvingId, setApprovingId] = useState(null);
     const [sessionExpired, setSessionExpired] = useState(false);
 
     useEffect(() => {
@@ -121,24 +123,20 @@ const AppointmentList = ({ user, setUser }) => {
             : new Intl.DateTimeFormat("vi-VN").format(date);
     };
 
-    const getStatusBadge = (status) => {
-        switch (status) {
-            case "Checked-in": return <Badge bg="info">Đã check-in</Badge>;
-      case "In-progress": return <Badge bg="warning">Đang thực hiện</Badge>;
-      case "Confirmed":
-                return <Badge bg="success">Đã xác nhận</Badge>;
-            case "Pending":
-                return <Badge bg="primary">Chờ xác nhận</Badge>;
-            case "Completed":
-                return <Badge bg="info">Đã hoàn thành</Badge>;
-            case "Cancelled":
-                return <Badge bg="danger">Đã hủy</Badge>;
-            case "No-show":
-                return <Badge bg="secondary">Không đến</Badge>;
-            default:
-                return <Badge bg="dark">{status}</Badge>;
+    // Lễ tân duyệt (xác nhận) lịch đang chờ ngay trên danh sách.
+    const approve = async (appointmentId) => {
+        setApprovingId(appointmentId);
+        try {
+            await setAppointmentStatus(appointmentId, "Confirmed");
+            setAttempt((value) => value + 1);
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setApprovingId(null);
         }
     };
+
+    const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
 
 
     if (user?.role === "Customer") {
@@ -304,13 +302,24 @@ const AppointmentList = ({ user, setUser }) => {
                                             <td className="ps-3 fw-bold">#{a.appointmentId}</td>
                                             <td>
                                                 <div className="fw-semibold">{formatAppointmentDate(a.appointmentDate)}</div>
-                                                <small className="text-muted">{a.startTime}–{a.endTime}</small>
+                                                <small className="text-muted">{String(a.startTime || "").slice(0, 5)}–{String(a.endTime || "").slice(0, 5)}</small>
                                             </td>
                                             <td className="fw-bold text-dark">{a.customerName}</td>
                                             <td>{a.serviceName}</td>
                                             <td>{getStatusBadge(a.status)}</td>
                                             <td className="text-center pe-3">
                                                 <div className="manager-list-actions">
+                                                {user?.role === "Receptionist" && a.status === "Pending" && (
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        className="manager-list-action manager-list-action--edit"
+                                                        disabled={approvingId === a.appointmentId}
+                                                        onClick={() => approve(a.appointmentId)}
+                                                    >
+                                                        <i className="bi bi-check2-circle me-1"></i> Duyệt
+                                                    </Button>
+                                                )}
                                                 <Button
                                                 variant="link"
                                                 size="sm"

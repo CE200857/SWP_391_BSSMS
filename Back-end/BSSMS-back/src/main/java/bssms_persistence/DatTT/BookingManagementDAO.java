@@ -254,12 +254,16 @@ public class BookingManagementDAO extends DBContext implements AutoCloseable {
         w.roles("Receptionist","Manager");
         return w.transaction(()->{
             Appointment a=w.one(ModelRows::appointment, "SELECT * FROM Appointment WHERE appointment_id=?",appointmentId);
-            if(bedId==null || technicianId==null || roomId==null) throw new IllegalArgumentException("Technician, room and bed are required.");
-            if(w.query(rs -> rs.getInt("bed_id"), "SELECT bed_id FROM Bed WHERE bed_id=? AND room_id=?",bedId,roomId).isEmpty()) throw new IllegalArgumentException("Bed does not belong to room.");
+            if(bedId==null || technicianId==null || roomId==null) throw new IllegalArgumentException("Vui lòng chọn đủ kỹ thuật viên, phòng và giường.");
+            if(w.query(rs -> rs.getInt("bed_id"), "SELECT bed_id FROM Bed WHERE bed_id=? AND room_id=?",bedId,roomId).isEmpty()) throw new IllegalArgumentException("Giường không thuộc phòng đã chọn.");
             int service=a.getServiceId();
             Set<Integer> required=new HashSet<>();
             required.addAll(w.query(rs -> rs.getInt("equipment_id"), "SELECT equipment_id FROM ServiceEquipment WHERE service_id=?",service));
-            if(equipmentIds!=null && !new HashSet<>(equipmentIds).equals(required)) throw new IllegalArgumentException("Select exactly the equipment configured for this service.");
+            if(equipmentIds!=null && !new HashSet<>(equipmentIds).equals(required)) {
+                List<String> unavailable=w.query(rs -> rs.getString("equipment_name"),"SELECT e.equipment_name FROM ServiceEquipment se JOIN Equipment e ON e.equipment_id=se.equipment_id WHERE se.service_id=? AND e.status<>'Active'",service);
+                if(!unavailable.isEmpty()) throw new IllegalArgumentException("Thiết bị bắt buộc của dịch vụ đang bảo trì: "+String.join(", ",unavailable)+". Nhờ Manager đưa thiết bị về Hoạt động rồi điều phối lại.");
+                throw new IllegalArgumentException("Hãy chọn đúng các thiết bị đã cấu hình cho dịch vụ này.");
+            }
             new bssms_persistence.common.BookingWorkflow(conn,requireActorAccountId()).save(a.getCustomerId(),service,a.getCustomerPackageId(),a.getAppointmentDate().toString(),a.getStartTime().toString(),technicianId,bedId,appointmentId,null);
             w.call("usp_ChangeAppointmentStatus",requireActorAccountId(),appointmentId,"Confirmed",null,null,null);
             return true;

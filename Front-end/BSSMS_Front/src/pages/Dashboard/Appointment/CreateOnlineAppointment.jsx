@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Form, Button, Alert, Spinner } from "react-bootstrap";
 import BookingPaymentNotice from "../../../components/BookingPaymentNotice";
+import { post } from "../../../services/api";
 import servicePhoto from "../../../assets/figma/service-card-exact-02.png";
 
 const getTodayString = () => {
@@ -28,6 +29,7 @@ const CreateOnlineAppointment = () => {
   );
   const [startTime, setStartTime] = useState(prefill.startTime || "");
   const [technicianId, setTechnicianId] = useState(prefill.technicianId || "");
+  const [paymentChoice, setPaymentChoice] = useState("counter"); // dịch vụ lẻ: "counter" (trả sau tại quầy) | "prepay" (trả trước qua VNPay)
   const [notes, setNotes] = useState("");
 
   const [slotInfo, setSlotInfo] = useState(null);
@@ -141,6 +143,22 @@ const CreateOnlineAppointment = () => {
   const selectedPackage = myPackages.find(
     (pkg) => String(pkg.customerPackageId) === String(customerPackageId),
   );
+  // Đặt bằng gói: không tính tiền, chỉ trừ 1 buổi trong gói.
+  const costText = !selectedService
+    ? ""
+    : bookingType === "package"
+      ? `0 đ · trừ 1 buổi trong gói${selectedPackage ? ` (còn ${selectedPackage.remainingSessions} buổi)` : ""}`
+      : `${Number(selectedService.price).toLocaleString("vi-VN")} đ`;
+  // Lý do khung giờ không chọn được (trước đây tất cả đều ghi "Đã kín").
+  const slotReason = (slot) => {
+    if (slot.available) return "Còn trống";
+    if (!slot.availableTechnicianCount) return "Hết kỹ thuật viên";
+    if (!slot.freeBeds) return "Hết phòng/giường";
+    return "Đã qua giờ";
+  };
+  const noRoomAtAll =
+    Boolean(slotInfo?.slots?.length) &&
+    slotInfo.slots.every((slot) => slot.availableTechnicianCount > 0 && !slot.freeBeds);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -195,11 +213,23 @@ const CreateOnlineAppointment = () => {
       const data = await response.json().catch(() => ({}));
       if (response.ok) {
         setBookingResult(data);
-        if (
-          Number.isInteger(Number(data.appointmentId)) &&
-          Number(data.appointmentId) > 0
-        ) {
-          navigate(`/appointments/${data.appointmentId}`, {
+        const appointmentId = Number(data.appointmentId);
+        const validId = Number.isInteger(appointmentId) && appointmentId > 0;
+        // Khách chọn thanh toán trước: tạo hóa đơn rồi chuyển sang cổng VNPay.
+        if (validId && bookingType !== "package" && paymentChoice === "prepay") {
+          try {
+            const prepaid = await post("/api/appointment-prepay", { appointmentId });
+            const payment = await post("/api/payments/vnpay/create", { invoiceId: prepaid.invoiceId });
+            window.location.replace(payment.paymentUrl);
+          } catch (payError) {
+            setError(
+              `Đặt lịch thành công nhưng chưa mở được thanh toán trước: ${payError.message}. Bạn có thể thanh toán tại quầy hoặc trong mục "Hóa đơn của tôi".`,
+            );
+          }
+          return;
+        }
+        if (validId) {
+          navigate(`/appointments/${appointmentId}`, {
             replace: true,
             state: { bookingCreated: true },
           });
@@ -411,14 +441,7 @@ const CreateOnlineAppointment = () => {
                 </Form.Group>
                 <Form.Group>
                   <Form.Label>Chi phí dự kiến</Form.Label>
-                  <Form.Control
-                    readOnly
-                    value={
-                      selectedService
-                        ? `${Number(selectedService.price).toLocaleString("vi-VN")} đ`
-                        : ""
-                    }
-                  />
+                  <Form.Control readOnly value={costText} />
                 </Form.Group>
               </div>
             )}
@@ -491,6 +514,12 @@ const CreateOnlineAppointment = () => {
                   </span>
                 </div>
 
+                {noRoomAtAll && !loadingSlots && (
+                  <Alert variant="warning" className="mb-3">
+                    Dịch vụ này hiện chưa có phòng hoặc giường trống (phòng đang bảo trì hoặc đã có lịch).
+                    Vui lòng chọn ngày khác hoặc liên hệ quầy để được hỗ trợ.
+                  </Alert>
+                )}
                 {loadingSlots ? (
                   <div className="customer-booking-slots-message" role="status">
                     <Spinner animation="border" size="sm" variant="danger" />
@@ -517,11 +546,7 @@ const CreateOnlineAppointment = () => {
                             Còn {slot.availableTechnicianCount} KTV
                           </span>
                           <small>
-                            {isSelected
-                              ? "Đã chọn"
-                              : slot.available
-                                ? "Còn trống"
-                                : "Đã kín"}
+                            {isSelected ? "Đã chọn" : slotReason(slot)}
                           </small>
                         </button>
                       );
@@ -642,12 +667,38 @@ const CreateOnlineAppointment = () => {
                 </dl>
                 <div className="customer-booking-summary-total">
                   <span>Chi phí dự kiến</span>
-                  <strong>
-                    {selectedService
-                      ? `${Number(selectedService.price).toLocaleString("vi-VN")} đ`
-                      : "—"}
-                  </strong>
+                  <strong>{costText || "—"}</strong>
                 </div>
+                {bookingType !== "package" && (
+                  <Form.Group className="customer-booking-payment">
+                    <Form.Label>Hình thức thanh toán</Form.Label>
+                    <Form.Check
+                      type="radio"
+                      id="pay-counter"
+                      name="paymentChoice"
+                      className="customer-booking-payment-option"
+                      label="Thanh toán sau, tại quầy"
+                      checked={paymentChoice === "counter"}
+                      onChange={() => setPaymentChoice("counter")}
+                      disabled={submitting || !!bookingResult}
+                    />
+                    <Form.Check
+                      type="radio"
+                      id="pay-online"
+                      name="paymentChoice"
+                      className="customer-booking-payment-option"
+                      label="Thanh toán trước qua VNPay"
+                      checked={paymentChoice === "prepay"}
+                      onChange={() => setPaymentChoice("prepay")}
+                      disabled={submitting || !!bookingResult}
+                    />
+                    <Form.Text className="customer-booking-payment-help">
+                      {paymentChoice === "prepay"
+                        ? "Sau khi đặt lịch, bạn được chuyển sang cổng VNPay. Ưu đãi VIP (nếu có) được tính tự động."
+                        : "Bạn thanh toán trực tiếp tại quầy sau khi sử dụng dịch vụ."}
+                    </Form.Text>
+                  </Form.Group>
+                )}
                 {error && (
                   <Alert variant="danger" role="alert" className="mt-3">
                     {error}

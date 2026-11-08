@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import {
-  Container,
   Card,
-  Row,
-  Col,
   Form,
-  Button,
   Badge,
   Spinner,
   Alert,
@@ -289,80 +285,66 @@ const CheckSlotAvailability = ({ user, setUser }) => {
   }
 
   return (
-    <Container fluid className="py-4 px-4">
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <section className="staff-slot-availability">
+      <div className="ui-page-heading">
         <div>
-          <h2 className="fw-bold text-uppercase mb-1" style={{ color: "#800020" }}>
-            <i className="bi bi-calendar2-week me-2"></i>Tra cứu lịch trống (Slot Availability)
-          </h2>
+          <h1>Tra cứu lịch trống</h1>
           <p className="text-muted mb-0">
             Kiểm tra các khung giờ còn trống theo dịch vụ, ngày hẹn và kỹ thuật viên.
           </p>
         </div>
-
-        {role === "Guest" && (
-          <Button
-            variant="outline-danger"
-            onClick={() => navigate("/bssms-guest")}
-          >
-            <i className="bi bi-house-door me-1"></i> Trang chủ
-          </Button>
-        )}
       </div>
 
-      {/* Bộ lọc tra cứu */}
-      <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "14px" }}>
-        <Card.Body className="p-4">
-          <Row className="g-3 align-items-end">
-            <Col md={5}>
-              <Form.Group>
-                <Form.Label className="fw-bold">Chọn dịch vụ *</Form.Label>
-                <Form.Select
-                  value={selectedServiceId}
-                  onChange={(e) => {
-                    setSelectedServiceId(e.target.value);
-                    setSelectedTechId("");
-                  }}
-                >
-                  {services.map((s) => (
-                    <option key={s.serviceId} value={s.serviceId}>
-                      {s.serviceName} ({s.duration} phút -{" "}
-                      {Number(s.price).toLocaleString("vi-VN")} ₫)
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-            </Col>
+      <Card className="staff-slot-filter-card mb-4">
+        <Card.Header className="staff-slot-card-heading">
+          <strong>Điều kiện tra cứu</strong>
+          <span>Chọn dịch vụ, ngày hẹn và kỹ thuật viên nếu cần.</span>
+        </Card.Header>
+        <Card.Body>
+          <div className="staff-slot-filters">
+            <Form.Group>
+              <Form.Label>Chọn dịch vụ *</Form.Label>
+              <Form.Select
+                value={selectedServiceId}
+                onChange={(e) => {
+                  setSelectedServiceId(e.target.value);
+                  setSelectedTechId("");
+                }}
+              >
+                {services.map((s) => (
+                  <option key={s.serviceId} value={s.serviceId}>
+                    {s.serviceName} ({s.duration} phút -{" "}
+                    {Number(s.price).toLocaleString("vi-VN")} ₫)
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
 
-            <Col md={3}>
-              <Form.Group>
-                <Form.Label className="fw-bold">Ngày hẹn *</Form.Label>
-                <Form.Control
-                  type="date"
-                  min={getTodayString()}
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                />
-              </Form.Group>
-            </Col>
+            <Form.Group>
+              <Form.Label>Ngày hẹn *</Form.Label>
+              <Form.Control
+                type="date"
+                min={getTodayString()}
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            </Form.Group>
 
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label className="fw-bold">Kỹ thuật viên (Tùy chọn)</Form.Label>
-                <Form.Select
-                  value={selectedTechId}
-                  onChange={(e) => setSelectedTechId(e.target.value)}
-                >
-                  <option value="">-- Tất cả kỹ thuật viên --</option>
-                  {slotData?.technicians?.map((t) => (
-                    <option key={t.staffId} value={t.staffId}>
-                      {t.fullName}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-            </Col>
-          </Row>
+            <Form.Group>
+              <Form.Label>Kỹ thuật viên (Tùy chọn)</Form.Label>
+              <Form.Select
+                value={selectedTechId}
+                onChange={(e) => setSelectedTechId(e.target.value)}
+              >
+                <option value="">-- Tất cả kỹ thuật viên --</option>
+                {slotData?.technicians?.map((t) => (
+                  <option key={t.staffId} value={t.staffId}>
+                    {t.fullName}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+          </div>
         </Card.Body>
       </Card>
 
@@ -374,73 +356,68 @@ const CheckSlotAvailability = ({ user, setUser }) => {
           <p className="mt-2 text-muted">Đang tính toán các khung giờ trống...</p>
         </div>
       ) : slotData ? (
-        <Card className="shadow-sm border-0" style={{ borderRadius: "14px" }}>
-          <Card.Header className="d-flex flex-wrap justify-content-between align-items-center py-3">
+        <Card className="staff-slot-results-card">
+          <Card.Header className="staff-slot-results-heading">
             <div>
-              <span className="fw-bold fs-5">{slotData.serviceName}</span>
-              <Badge bg="primary" className="ms-2">
+              <h2>{slotData.serviceName}</h2>
+              <Badge bg="primary">
                 Thời lượng: {slotData.duration} phút
               </Badge>
             </div>
-            <div className="d-flex gap-3 small">
-              <span>
-                <Badge bg="success" className="me-1">&nbsp;</Badge> Còn chỗ trống
+            <div className="staff-slot-results-meta">
+              <span className="staff-slot-date">
+                <i className="bi bi-calendar3" aria-hidden="true" />
+                {selectedDate}
               </span>
-              <span>
-                <Badge bg="secondary" className="me-1">&nbsp;</Badge> Đã kín lịch
-              </span>
+              <div className="staff-slot-legend">
+                <span className="is-available">
+                  <i aria-hidden="true" /> Còn chỗ trống
+                </span>
+                <span className="is-unavailable">
+                  <i aria-hidden="true" /> Đã kín lịch
+                </span>
+              </div>
             </div>
           </Card.Header>
 
-          <Card.Body className="p-4">
-            <Row className="g-3">
+          <Card.Body>
+            <div className="staff-slot-grid">
               {slotData.slots?.map((slot) => (
-                <Col key={slot.startTime} xs={6} sm={4} md={3} lg={2}>
-                  <Card
-                    onClick={() => handleSelectSlot(slot)}
-                    className={`h-100 text-center border ${
-                      slot.available
-                        ? "border-success shadow-sm"
-                        : "bg-light text-muted opacity-75"
-                    }`}
-                    style={{
-                      cursor: slot.available ? "pointer" : "not-allowed",
-                      borderRadius: "12px",
-                    }}
-                  >
-                    <Card.Body className="p-3">
-                      <div className="fw-bold fs-5 mb-1">
-                        {slot.startTime} - {slot.endTime}
-                      </div>
-                      {slot.available ? (
-                        <>
-                          <Badge bg="success" className="mb-2">
-                            Còn trống
-                          </Badge>
-                          <div className="small text-muted">
-                            <i className="bi bi-person-check me-1"></i>
-                            {slot.availableTechnicianCount} KTV rảnh
-                          </div>
-                          <div className="small text-primary fw-semibold mt-1">
-                            {role === "Customer"
-                              ? "Nhấn để đặt online →"
-                              : role === "Receptionist" || role === "Manager"
-                              ? "Tạo lịch tại quầy →"
-                              : "Đăng nhập để đặt →"}
-                          </div>
-                        </>
-                      ) : (
-                        <Badge bg="secondary">Hết chỗ</Badge>
-                      )}
-                    </Card.Body>
-                  </Card>
-                </Col>
+                <button
+                  key={slot.startTime}
+                  onClick={() => handleSelectSlot(slot)}
+                  type="button"
+                  disabled={!slot.available}
+                  className={`staff-slot-card${slot.available ? "" : " is-unavailable"}`}
+                  aria-label={
+                    slot.available
+                      ? `${slot.startTime} đến ${slot.endTime}, còn trống, ${slot.availableTechnicianCount} kỹ thuật viên rảnh`
+                      : `${slot.startTime} đến ${slot.endTime}, đã kín lịch`
+                  }
+                >
+                  <strong className="staff-slot-time">
+                    {slot.startTime} – {slot.endTime}
+                  </strong>
+                  <span className="staff-slot-status">
+                    {slot.available ? "Còn trống" : "Đã kín lịch"}
+                  </span>
+                  <span className="staff-slot-capacity">
+                    <i className="bi bi-person-check" aria-hidden="true" />
+                    {slot.availableTechnicianCount} KTV rảnh
+                  </span>
+                  {slot.available && (
+                    <span className="staff-slot-action">
+                      Tạo lịch tại quầy
+                      <i className="bi bi-arrow-right" aria-hidden="true" />
+                    </span>
+                  )}
+                </button>
               ))}
-            </Row>
+            </div>
           </Card.Body>
         </Card>
       ) : null}
-    </Container>
+    </section>
   );
 };
 

@@ -12,6 +12,11 @@ import {
 } from "react-bootstrap";
 
 import BookingPaymentNotice from "../../../components/BookingPaymentNotice";
+import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
+import AppointmentServices from "../../../components/AppointmentServices";
+
+// Gộp danh sách, bỏ trùng và giữ thứ tự xuất hiện.
+const joinUnique = (list) => [...new Set(list.filter(Boolean))].join(", ");
 
 const AppointmentDetails = ({ user }) => {
   const location = useLocation();
@@ -31,6 +36,7 @@ const AppointmentDetails = ({ user }) => {
   // Feedback cho appointment này (chỉ load khi status = Completed)
   const [feedback, setFeedback] = useState(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [serviceLines, setServiceLines] = useState([]); // các dịch vụ của lịch hẹn (từ AppointmentServices)
 
   useEffect(() => {
     const fetchAppointment = async () => {
@@ -99,30 +105,7 @@ const AppointmentDetails = ({ user }) => {
     };
   }, [appointment]);
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "Confirmed":
-        return <Badge bg="success">Đã xác nhận</Badge>;
-
-      case "Booked":
-        return <Badge bg="primary">Đã đặt</Badge>;
-
-      case "Completed":
-        return <Badge bg="info">Hoàn thành</Badge>;
-
-      case "Cancelled":
-        return <Badge bg="danger">Đã hủy</Badge>;
-
-      case "No-show":
-      case "No Show":
-        return <Badge bg="warning" text="dark">Không đến</Badge>;
-
-      case "Pending": return <Badge bg="secondary">Chờ xác nhận</Badge>;
-      case "Checked-in": case "Checked In": return <Badge bg="info">Đã đến</Badge>;
-      case "In-progress": case "In Progress": return <Badge bg="primary">Đang thực hiện</Badge>;
-      default: return <Badge bg="secondary">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
 
   // Render 5 sao theo rating (filled = vàng, còn lại = xám)
   const renderStars = (rating) => {
@@ -278,6 +261,8 @@ const AppointmentDetails = ({ user }) => {
             </div>
           </section>
 
+          <AppointmentServices appointment={appointment} role={user?.role} onLoaded={setServiceLines} />
+
           <div className="appointment-detail-grid">
             <section className="appointment-detail-section">
               <h3><i className="bi bi-calendar2-week"></i> Thời gian</h3>
@@ -302,11 +287,19 @@ const AppointmentDetails = ({ user }) => {
                 </div>
                 <div className="appointment-detail-field">
                   <span>Nhân viên</span>
-                  <strong>{appointment.staffName || "Chưa phân công"}</strong>
+                  <strong>
+                    {(serviceLines.length > 1
+                      ? joinUnique(serviceLines.flatMap((line) => (line.staff || []).map((s) => s.fullName)))
+                      : appointment.staffName) || "Chưa phân công"}
+                  </strong>
                 </div>
                 <div className="appointment-detail-field">
                   <span>Phòng</span>
-                  <strong>{appointment.roomName || "Chưa phân phòng"}</strong>
+                  <strong>
+                    {(serviceLines.length > 1
+                      ? joinUnique(serviceLines.map((line) => line.roomName))
+                      : appointment.roomName) || "Chưa phân phòng"}
+                  </strong>
                 </div>
               </div>
             </section>

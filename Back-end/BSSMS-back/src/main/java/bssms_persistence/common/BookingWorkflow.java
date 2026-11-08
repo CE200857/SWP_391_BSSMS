@@ -20,7 +20,7 @@ public final class BookingWorkflow {
         return free;
     }
     public List<AvailableBed> beds(int service,String date,String start,String end,Integer exclude) throws SQLException {
-        return w.query(ModelRows::availableBed, "SELECT b.bed_id,b.room_id,b.bed_number FROM Bed b JOIN Room r ON r.room_id=b.room_id JOIN Service s ON s.service_id=? WHERE b.status='Active' AND r.status='Active' AND (s.required_room_type IS NULL OR r.room_type=s.required_room_type) AND NOT EXISTS(SELECT 1 FROM Appointment a WHERE a.bed_id=b.bed_id AND a.appointment_date=? AND a.status IN "+LIVE+" AND a.appointment_id<>? AND a.start_time<CAST(? AS time) AND a.end_time>CAST(? AS time)) AND NOT EXISTS(SELECT 1 FROM ServiceEquipment se JOIN Equipment e ON e.equipment_id=se.equipment_id WHERE se.service_id=s.service_id AND (e.status<>'Active' OR (e.room_id IS NOT NULL AND e.room_id<>r.room_id))) AND NOT EXISTS(SELECT 1 FROM Appointment a JOIN AppointmentEquipment ae ON ae.appointment_id=a.appointment_id JOIN ServiceEquipment se ON se.equipment_id=ae.equipment_id WHERE se.service_id=s.service_id AND a.appointment_date=? AND a.status IN "+LIVE+" AND a.appointment_id<>? AND a.start_time<CAST(? AS time) AND a.end_time>CAST(? AS time)) ORDER BY b.bed_id",service,date,exclude==null?-1:exclude,end,start,date,exclude==null?-1:exclude,end,start);
+        return w.query(ModelRows::availableBed, "SELECT b.bed_id,b.room_id,b.bed_number FROM Bed b JOIN Room r ON r.room_id=b.room_id JOIN Service s ON s.service_id=? WHERE b.status='Active' AND r.status='Active' AND (s.required_room_type IS NULL OR r.room_type=s.required_room_type) AND NOT EXISTS(SELECT 1 FROM vw_AppointmentBedUsage a WHERE a.bed_id=b.bed_id AND a.appointment_date=? AND a.status IN "+LIVE+" AND a.appointment_id<>? AND a.start_time<CAST(? AS time) AND a.end_time>CAST(? AS time)) AND NOT EXISTS(SELECT 1 FROM ServiceEquipment se JOIN Equipment e ON e.equipment_id=se.equipment_id WHERE se.service_id=s.service_id AND (e.status<>'Active' OR (e.room_id IS NOT NULL AND e.room_id<>r.room_id))) AND NOT EXISTS(SELECT 1 FROM Appointment a JOIN AppointmentEquipment ae ON ae.appointment_id=a.appointment_id JOIN ServiceEquipment se ON se.equipment_id=ae.equipment_id WHERE se.service_id=s.service_id AND a.appointment_date=? AND a.status IN "+LIVE+" AND a.appointment_id<>? AND a.start_time<CAST(? AS time) AND a.end_time>CAST(? AS time)) ORDER BY b.bed_id",service,date,exclude==null?-1:exclude,end,start,date,exclude==null?-1:exclude,end,start);
     }
     public SlotAvailability slots(int service,String date,Integer staff) throws SQLException {
         LocalDate.parse(date);
@@ -46,13 +46,15 @@ public final class BookingWorkflow {
             int duration=w.one(rs -> rs.getInt("duration"), "SELECT duration FROM Service WHERE service_id=? AND status='Active'",service);
             if(duration<=0 || duration>600) throw new IllegalArgumentException("Invalid duration");
             LocalTime time=LocalTime.parse(start);
-            if(!LocalDateTime.of(LocalDate.parse(date),time).isAfter(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))))
-                throw new IllegalArgumentException("Appointment must be in the future.");
-            if(time.isBefore(LocalTime.of(8,30))||time.toSecondOfDay()+duration*60>66600) throw new IllegalArgumentException("Appointment must fit 08:30-18:30.");
+            // Điều phối lại (kỹ thuật viên, phòng, giường) cho lịch GIỮ NGUYÊN giờ thì không cần giờ hẹn còn ở tương lai (khách có thể đến trễ).
+            boolean sameTime=appointment!=null&&!w.query("SELECT appointment_id FROM Appointment WHERE appointment_id=? AND appointment_date=? AND start_time=CAST(? AS time) AND status IN ('Pending','Confirmed')",appointment,date,start).isEmpty();
+            if(!sameTime&&!LocalDateTime.of(LocalDate.parse(date),time).isAfter(LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))))
+                throw new IllegalArgumentException("Giờ hẹn mới phải chưa diễn ra.");
+            if(time.isBefore(LocalTime.of(8,30))||time.toSecondOfDay()+duration*60>66600) throw new IllegalArgumentException("Dịch vụ phải diễn ra trong giờ làm việc 08:30–18:30.");
             String end=time.plusMinutes(duration).toString();
             List<Staff> techs=freeTechnicians(service,date,start,end,staff,appointment);
             List<AvailableBed> freeBeds=beds(service,date,start,end,appointment);
-            if(techs.isEmpty()||freeBeds.isEmpty()) throw new WorkflowException(409,"No qualified technician, bed or equipment is available for this time.");
+            if(techs.isEmpty()||freeBeds.isEmpty()) throw new WorkflowException(409,"Không có kỹ thuật viên, giường hoặc thiết bị phù hợp còn trống trong khung giờ này.");
             int selectedStaff=techs.get(0).getStaffId();
             int selectedBed=bed==null?freeBeds.get(0).getBedId():bed;
             if(freeBeds.stream().noneMatch(candidate -> candidate.getBedId()==selectedBed))
