@@ -1,688 +1,292 @@
-/* eslint-disable no-unused-vars */
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-    Container,
-    Card,
-    Table,
-    Button,
-    Form,
-    InputGroup,
-    Modal,
-    Row,
-    Col,
-    Spinner,
-    Alert,
-} from "react-bootstrap";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Alert, Badge, Button, Card, Container, Form, Modal, Nav, Spinner, Table } from "react-bootstrap";
 import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
+import { api, put, today, time5, viDate, label } from "../../../services/api";
 
-const ReceptionistBookingDesk = () => {
-    const navigate = useNavigate();
-    const [appointments, setAppointments] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
-    const [dateFilter, setDateFilter] = useState("");
-    const [alertMsg, setAlertMsg] = useState({ type: "", text: "" });
-    const [refresh, setRefresh] = useState(0);
+function AssignmentModal({ appointmentId, mode, onClose, onDone }) {
+  const [plan, setPlan] = useState(null);
+  const [choice, setChoice] = useState({});
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-    // State cho Modal Check-in & Status Update
-    const [showStatusModal, setShowStatusModal] = useState(false);
-    const [statusTarget, setStatusTarget] = useState(null);
-    const [newStatus, setNewStatus] = useState("Checked-in");
-    const [statusNotes, setStatusNotes] = useState("");
-    const [savingStatus, setSavingStatus] = useState(false);
-    const getTodayInVietnam = () => {
-        const parts = new Intl.DateTimeFormat("en-US", {
-            timeZone: "Asia/Ho_Chi_Minh",
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-        }).formatToParts(new Date());
-        const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-        return `${values.year}-${values.month}-${values.day}`;
-    };
-    const canStartAppointment = (appointment) =>
-        String(appointment?.appointmentDate || "").slice(0, 10) === getTodayInVietnam();
+  useEffect(() => {
+    if (!appointmentId) return;
+    setPlan(null);
+    setError("");
+    const url = mode === "checkin" ? `/api/booking/coordination?appointmentId=${appointmentId}` : `/api/booking/affected?appointmentId=${appointmentId}`;
+    api(url)
+      .then((data) => {
+        setPlan(data);
+        setChoice(Object.fromEntries((data.lines || []).map((l) => [l.appointmentServiceId, {
+          technicianId: String(l.technicianId ?? l.suggestedTechnicianId ?? ""),
+          bedId: String(l.bedId ?? l.suggestedBedId ?? l.bedOptions?.[0]?.bedId ?? ""),
+        }])));
+      })
+      .catch((e) => setError(e.message));
+  }, [appointmentId, mode]);
 
-    // State cho Modal Coordinate Service (Điều phối KTV, Phòng, Giường, Thiết bị)
-    const [showCoordModal, setShowCoordModal] = useState(false);
-    const [coordLoading, setCoordLoading] = useState(false);
-    const [coordData, setCoordData] = useState(null);
-    const [selectedTechId, setSelectedTechId] = useState("");
-    const [selectedRoomId, setSelectedRoomId] = useState("");
-    const [selectedBedId, setSelectedBedId] = useState("");
-    const [selectedEquipmentIds, setSelectedEquipmentIds] = useState([]);
-    const [savingCoord, setSavingCoord] = useState(false);
-    const [coordError, setCoordError] = useState(""); // lỗi hiện trong hộp thoại điều phối
+  const set = (lineId, patch) => setChoice((c) => ({ ...c, [lineId]: { ...c[lineId], ...patch } }));
+  const setTechnician = (line, value) => {
+    const next = { ...choice };
+    (plan.lines || []).filter((l) => l.part === line.part).forEach((l) => { next[l.appointmentServiceId] = { ...next[l.appointmentServiceId], technicianId: value }; });
+    setChoice(next);
+  };
 
-    const loadAppointments = async () => {
-        setLoading(true);
-        try {
-            const res = await fetch("/api/booking/coordination", {
-                credentials: "include",
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setAppointments(Array.isArray(data) ? data : []);
-            }
-        } catch (err) {
-            console.error("Lỗi tải danh sách điều phối:", err);
-        } finally {
-            setLoading(false);
-        }
-    };
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const assignments = Object.entries(choice).map(([lineId, c]) => ({
+        appointmentServiceId: Number(lineId),
+        technicianId: c.technicianId ? Number(c.technicianId) : null,
+        bedId: c.bedId ? Number(c.bedId) : null,
+      }));
+      const r = await put(mode === "checkin" ? "/api/booking/checkin" : "/api/booking/coordinate", { appointmentId, assignments });
+      onDone(r.message);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
-    useEffect(() => {
-        const fetchAppointments = async () => {
-            setLoading(true);
-            try {
-                const res = await fetch("/api/booking/coordination", {
-                    credentials: "include",
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setAppointments(Array.isArray(data) ? data : []);
-                }
-            } catch (err) {
-                console.error("Lỗi tải danh sách lịch hẹn:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchAppointments();
-    }, [refresh]);
-
-    // --- XỬ LÝ CHECK-IN & STATUS UPDATE NHANH ---
-    const handleQuickStatusUpdate = async (appointmentId, statusValue, customNotes = null) => {
-        if (statusValue === "In-progress" && !canStartAppointment(statusTarget)) {
-            setAlertMsg({
-                type: "warning",
-                text: "Chỉ được bắt đầu thực hiện dịch vụ vào đúng ngày hẹn. Vui lòng điều phối lại lịch nếu cần đổi ngày.",
-            });
-            return;
-        }
-        try {
-            setSavingStatus(true);
-            const res = await fetch("/api/booking/checkin", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                    appointmentId,
-                    status: statusValue,
-                    notes: customNotes,
-                }),
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setAlertMsg({ type: "success", text: data.message });
-                setShowStatusModal(false);
-                setRefresh((prev) => prev + 1);
-            } else {
-                const message = data.message || "Cập nhật thất bại!";
-                setAlertMsg({
-                    type: "danger",
-                    text: message.includes("Execution must be on appointment date")
-                        ? "Chỉ được bắt đầu thực hiện dịch vụ vào đúng ngày hẹn. Vui lòng điều phối lại lịch nếu cần đổi ngày."
-                        : message,
-                });
-            }
-        } catch (err) {
-            setAlertMsg({ type: "danger", text: "Lỗi kết nối máy chủ!" });
-        } finally {
-            setSavingStatus(false);
-        }
-    };
-
-    const openStatusModal = (appt) => {
-        setStatusTarget(appt);
-        setNewStatus(appt.status === "Pending" ? "Confirmed" : appt.status === "Confirmed" ? "Checked-in" : appt.status);
-        setStatusNotes(appt.notes || "");
-        setShowStatusModal(true);
-    };
-
-    // --- XỬ LÝ COORDINATE SERVICE (PHÂN BỔ NHÂN SỰ & TÀI NGUYÊN) ---
-    const openCoordinateModal = async (appointmentId) => {
-        setShowCoordModal(true);
-        setCoordLoading(true);
-        setCoordData(null);
-        setCoordError("");
-
-        try {
-            const res = await fetch(
-                `/api/booking/coordination?appointmentId=${appointmentId}`,
-                { credentials: "include" }
-            );
-            if (res.ok) {
-                const data = await res.json();
-                setCoordData(data);
-
-                const appt = data.appointment || {};
-                const firstStaff = data.assignedStaff?.[0]?.staffId || "";
-                // Nếu chưa có KTV, tự động gợi ý KTV đầu tiên có isSuggested = true
-                const suggestedTech =
-                    firstStaff ||
-                    data.technicians?.find((t) => t.isSuggested)?.staffId ||
-                    "";
-
-                setSelectedTechId(String(suggestedTech));
-                setSelectedRoomId(appt.roomId ? String(appt.roomId) : "");
-                setSelectedBedId(appt.bedId ? String(appt.bedId) : "");
-                setSelectedEquipmentIds(
-                    (data.assignedEquipments || []).map((eq) => eq.equipmentId)
-                );
-            }
-        } catch (err) {
-            console.error("Lỗi tải dữ liệu điều phối:", err);
-        } finally {
-            setCoordLoading(false);
-        }
-    };
-
-    const handleToggleEquipment = (eqId) => {
-        setSelectedEquipmentIds((prev) =>
-            prev.includes(eqId) ? prev.filter((id) => id !== eqId) : [...prev, eqId]
-        );
-    };
-
-    const handleSaveCoordination = async (e) => {
-        e.preventDefault();
-        if (!coordData?.appointment) return;
-
-        setSavingCoord(true);
-        setCoordError("");
-        try {
-            const res = await fetch("/api/booking/coordinate", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                    appointmentId: coordData.appointment.appointmentId,
-                    technicianId: selectedTechId ? Number(selectedTechId) : null,
-                    roomId: selectedRoomId ? Number(selectedRoomId) : null,
-                    bedId: selectedBedId ? Number(selectedBedId) : null,
-                    equipmentIds: selectedEquipmentIds,
-                }),
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setAlertMsg({ type: "success", text: data.message });
-                setShowCoordModal(false);
-                setRefresh((prev) => prev + 1);
-            } else {
-                setCoordError(data.message || "Điều phối thất bại!");
-            }
-        } catch (err) {
-            setCoordError("Lỗi kết nối máy chủ!");
-        } finally {
-            setSavingCoord(false);
-        }
-    };
-
-    // Lấy danh sách giường thuộc phòng đang chọn trong Modal Coordinate
-    const availableBedsForSelectedRoom =
-        coordData?.roomsWithBeds?.find(
-            (r) => String(r.roomId) === String(selectedRoomId)
-        )?.beds || [];
-
-    const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
-
-    const filteredAppointments = appointments.filter((a) => {
-        const kw = searchTerm.trim().toLowerCase();
-        const matchKw =
-            !kw ||
-            a.customerName?.toLowerCase().includes(kw) ||
-            a.customerPhone?.toLowerCase().includes(kw) ||
-            a.serviceName?.toLowerCase().includes(kw) ||
-            a.staffName?.toLowerCase().includes(kw) ||
-            String(a.appointmentId).includes(kw);
-        const matchStatus = statusFilter === "all" || a.status === statusFilter;
-        const matchDate = !dateFilter || a.appointmentDate === dateFilter;
-        return matchKw && matchStatus && matchDate;
-    });
-
-    return (
-        <Container fluid className="mt-4 px-4">
-            <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-                <div>
-                    <h2 className="manager-page-title fw-bold mb-1">
-                        Check-in & điều phối dịch vụ (Receptionist)
-                    </h2>
-                    <p className="text-muted mb-0">
-                        Xác nhận khách, cập nhật trạng thái và phân công nhân sự, phòng, giường.
-                    </p>
-                </div>
-
-                <div className="d-flex gap-2">
-                    <Button variant="outline-danger" onClick={() => navigate("/slots")}>
-                        <i className="bi bi-calendar2-week me-1"></i> Xem lịch trống
-                    </Button>
-                    <Button
-                        variant="danger"
-                        onClick={() => navigate("/appointments/create")}
-                    >
-                        <i className="bi bi-calendar-plus me-1"></i> Tạo lịch Walk-in
-                    </Button>
-                </div>
-            </div>
-
-            {alertMsg.text && (
-                <Alert
-                    variant={alertMsg.type}
-                    dismissible
-                    onClose={() => setAlertMsg({ type: "", text: "" })}
-                >
-                    {alertMsg.text}
-                </Alert>
+  return (
+    <Modal show={!!appointmentId} onHide={() => !saving && onClose()} size="lg" centered>
+      <Modal.Header closeButton={!saving}>
+        <Modal.Title>{mode === "checkin" ? "Check-in & phân công" : "Điều phối lại"} · Lịch #{appointmentId}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {error && <Alert variant="danger">{error}</Alert>}
+        {!plan && !error && <div className="text-center py-4"><Spinner animation="border" variant="danger" /></div>}
+        {plan && (
+          <>
+            {plan.customerName && (
+              <p className="mb-3"><strong>{plan.customerName}</strong> · {plan.customerPhone} · {time5(plan.startTime)}–{time5(plan.endTime)}</p>
             )}
+            <Table responsive className="align-middle manager-list-table">
+              <thead className="table-light">
+                <tr><th>Dịch vụ</th><th>Giờ</th><th>Kỹ thuật viên</th><th>Giường</th></tr>
+              </thead>
+              <tbody>
+                {plan.lines.map((l) => (
+                  <tr key={l.appointmentServiceId}>
+                    <td className="fw-semibold">{l.serviceName}<small className="d-block text-muted">Phần {l.part} · {label(l.requiredRoomType)} · {l.tourCount} tour</small></td>
+                    <td>{time5(l.startTime)}–{time5(l.endTime)}</td>
+                    <td>
+                      <Form.Select size="sm" value={choice[l.appointmentServiceId]?.technicianId || ""} onChange={(e) => setTechnician(l, e.target.value)}>
+                        <option value="">-- Chọn KTV --</option>
+                        {(l.technicianOptions || []).map((t) => (
+                          <option key={t.staffId} value={t.staffId}>{t.fullName}{t.staffId === l.suggestedTechnicianId ? " (gợi ý theo tour)" : ""}</option>
+                        ))}
+                      </Form.Select>
+                      {!(l.technicianOptions || []).length && <small className="text-danger">Không có KTV phù hợp rảnh</small>}
+                    </td>
+                    <td>
+                      <Form.Select size="sm" value={choice[l.appointmentServiceId]?.bedId || ""} onChange={(e) => set(l.appointmentServiceId, { bedId: e.target.value })}>
+                        <option value="">-- Chọn giường --</option>
+                        {l.bedId && !(l.bedOptions || []).some((b) => b.bedId === l.bedId) && <option value={l.bedId}>Giường hiện tại</option>}
+                        {(l.bedOptions || []).map((b) => <option key={b.bedId} value={b.bedId}>{b.roomName} · {b.bedNumber}</option>)}
+                      </Form.Select>
+                      {!(l.bedOptions || []).length && !l.bedId && <small className="text-danger">Hết giường trống</small>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            <small className="text-muted">Lịch 3–4 dịch vụ được chia 2 phần; mỗi phần do một KTV đảm nhận. Gợi ý KTV theo số tour ít nhất trong ngày.</small>
+          </>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline-secondary" onClick={onClose} disabled={saving}>Đóng</Button>
+        <Button onClick={save} disabled={saving || !plan}>{saving ? "Đang lưu..." : mode === "checkin" ? "Check-in" : "Lưu điều phối"}</Button>
+      </Modal.Footer>
+    </Modal>
+  );
+}
 
-            {/* Thanh bộ lọc */}
-            <Card className="shadow-sm border-0 mb-4">
-                <Card.Body>
-                    <Row className="g-3">
-                        <Col md={5}>
-                            <InputGroup>
-                                <InputGroup.Text>
-                                    <i className="bi bi-search"></i>
-                                </InputGroup.Text>
-                                <Form.Control
-                                    placeholder="Tìm mã lịch, khách hàng, SĐT, dịch vụ, KTV..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </InputGroup>
-                        </Col>
-                        <Col md={4}>
-                            <Form.Select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                            >
-                                <option value="all">-- Tất cả trạng thái --</option>
-                                <option value="Pending">Chờ xác nhận</option>
-                                <option value="Confirmed">Đã xác nhận (Confirmed)</option>
-                                <option value="Checked-in">Đã Check-in</option>
-                                <option
-                                    value="In-progress"
-                                    disabled={!canStartAppointment(statusTarget)}
-                                >
-                                    Đang thực hiện {!canStartAppointment(statusTarget) ? "(chỉ vào ngày hẹn)" : ""}
-                                </option>
-                                <option value="Completed">Đã hoàn thành</option>
-                                <option value="No-show">Không đến (No-show)</option>
-                                <option value="Cancelled">Đã hủy</option>
-                            </Form.Select>
-                        </Col>
-                        <Col md={3}>
-                            <Form.Control
-                                type="date"
-                                value={dateFilter}
-                                onChange={(e) => setDateFilter(e.target.value)}
-                            />
-                        </Col>
-                    </Row>
-                </Card.Body>
-            </Card>
+export default function ReceptionistBookingDesk({ user }) {
+  const canAct = (user?.role || "Receptionist") === "Receptionist";
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const [tab, setTab] = useState(params.get("tab") || "arrivals");
+  const [date, setDate] = useState(today());
+  const [board, setBoard] = useState(null);
+  const [affected, setAffected] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [modal, setModal] = useState(params.get("appointmentId") ? { id: Number(params.get("appointmentId")), mode: "checkin" } : null);
+  const [busy, setBusy] = useState(null);
 
-            {/* Bảng danh sách lịch hẹn */}
-            <Card className="shadow-sm border-0">
-                <Card.Body className="p-0">
-                    {loading ? (
-                        <div className="text-center py-5">
-                            <Spinner animation="border" variant="danger" />
-                        </div>
-                    ) : (
-                        <Table hover responsive className="align-middle mb-0 manager-list-table receptionist-coordination-table">
-                            <thead className="table-dark">
-                                <tr>
-                                    <th>Ngày & giờ</th>
-                                    <th>Khách hàng</th>
-                                    <th>Dịch vụ</th>
-                                    <th>Phân công</th>
-                                    <th>Trạng thái</th>
-                                    <th>Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredAppointments.length > 0 ? (
-                                    filteredAppointments.map((a) => (
-                                        <tr key={a.appointmentId}>
-                                            <td>
-                                                <div className="fw-semibold text-nowrap">{a.appointmentDate}</div>
-                                                <small className="text-muted text-nowrap d-block">
-                                                    {a.startTime?.slice(0, 5)} – {a.endTime?.slice(0, 5)}
-                                                </small>
-                                                <div className="small text-muted">Mã #{a.appointmentId}</div>
-                                            </td>
-                                            <td>
-                                                <div className="fw-bold">{a.customerName}</div>
-                                                <small className="text-muted">{a.customerPhone || ""}</small>
-                                            </td>
-                                            <td>{a.serviceName}</td>
-                                            <td>
-                                                <div className="fw-semibold">{a.staffName || "Chưa phân công KTV"}</div>
-                                                <small className="text-muted">
-                                                    {a.roomName
-                                                        ? `${a.roomName}${a.bedNumber ? ` · Giường ${a.bedNumber}` : ""}`
-                                                        : "Chưa xếp phòng / giường"}
-                                                </small>
-                                            </td>
-                                            <td>
-                                                <button
-                                                    type="button"
-                                                    className="receptionist-coordination-status-trigger"
-                                                    title="Bấm để cập nhật trạng thái"
-                                                    aria-label="Cập nhật trạng thái lịch hẹn"
-                                                    onClick={() => openStatusModal(a)}
-                                                >
-                                                    {getStatusBadge(a.status)}
-                                                </button>
-                                            </td>
-                                            <td>
-                                                <div className="receptionist-coordination-actions">
-                                                    {a.status === "Pending" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="link"
-                                                            className="manager-list-action manager-list-action--view"
-                                                            title="Xác nhận lịch hẹn"
-                                                            onClick={() =>
-                                                                handleQuickStatusUpdate(a.appointmentId, "Confirmed")
-                                                            }
-                                                        >
-                                                            <i className="bi bi-check2-circle"></i>
-                                                            Xác nhận
-                                                        </Button>
-                                                    )}
-                                                    {a.status === "Confirmed" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="link"
-                                                            className="manager-list-action manager-list-action--view"
-                                                            title="Check-in khách đến"
-                                                            onClick={() =>
-                                                                handleQuickStatusUpdate(
-                                                                    a.appointmentId,
-                                                                    "Checked-in"
-                                                                )
-                                                            }
-                                                        >
-                                                            <i className="bi bi-person-check-fill"></i>
-                                                            Check-in
-                                                        </Button>
-                                                    )}
-                                                    {a.status !== "Cancelled" && a.status !== "No-show" && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="link"
-                                                            className="manager-list-action manager-list-action--edit"
-                                                            onClick={() => openCoordinateModal(a.appointmentId)}
-                                                        >
-                                                            <i className="bi bi-sliders"></i> Điều phối
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="6" className="text-center py-4 text-muted">
-                                            Không có lịch hẹn nào phù hợp.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </Table>
-                    )}
-                </Card.Body>
-            </Card>
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [b, a] = await Promise.all([api(`/api/booking/coordination?date=${date}`), api("/api/booking/affected")]);
+      setBoard(b);
+      setAffected(a || []);
+      setError("");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [date]);
+  useEffect(() => { load(); }, [load]);
 
-            {/* MODAL 1: CHECK-IN & CẬP NHẬT TRẠNG THÁI */}
-            <Modal
-                show={showStatusModal}
-                onHide={() => setShowStatusModal(false)}
-                centered
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title className="fw-bold">
-                        Cập nhật trạng thái Lịch hẹn #{statusTarget?.appointmentId}
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    {statusTarget && (
-                        <>
-                            <p className="mb-2">
-                                <strong>Khách hàng:</strong> {statusTarget.customerName}
-                            </p>
-                            <p className="mb-3">
-                                <strong>Dịch vụ:</strong> {statusTarget.serviceName}
-                            </p>
-                            <Form.Group className="mb-3">
-                                <Form.Label className="fw-bold">Trạng thái mới *</Form.Label>
-                                <Form.Select
-                                    value={newStatus}
-                                    onChange={(e) => setNewStatus(e.target.value)}
-                                >
-                                    <option value="Confirmed">Đã xác nhận (Confirmed)</option>
-                                    <option value="Checked-in">Khách đã đến (Checked-in)</option>
-                                    <option value="In-progress">Đang thực hiện (In-progress)</option>
-                                    <option value="Completed">Hoàn thành (Completed)</option>
-                                    <option value="No-show">Khách không đến (No-show)</option>
-                                    <option value="Cancelled">Hủy lịch (Cancelled)</option>
-                                </Form.Select>
-                            </Form.Group>
-                            {!canStartAppointment(statusTarget) && (
-                                <Alert variant="info" className="mb-3">
-                                    Chỉ được bắt đầu thực hiện dịch vụ vào đúng ngày hẹn. Nếu khách cần đổi ngày, hãy điều phối lại lịch trước.
-                                </Alert>
-                            )}
-                            <Form.Group>
-                                <Form.Label className="fw-bold">Ghi chú Lễ tân</Form.Label>
-                                <Form.Control
-                                    as="textarea"
-                                    rows={3}
-                                    value={statusNotes}
-                                    onChange={(e) => setStatusNotes(e.target.value)}
-                                    placeholder="Nhập ghi chú khi check-in hoặc lý do vắng mặt..."
-                                />
-                            </Form.Group>
-                        </>
-                    )}
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowStatusModal(false)}>
-                        Đóng
-                    </Button>
-                    <Button
-                        variant="danger"
-                        disabled={savingStatus}
-                        onClick={() =>
-                            handleQuickStatusUpdate(
-                                statusTarget.appointmentId,
-                                newStatus,
-                                statusNotes
-                            )
-                        }
-                    >
-                        {savingStatus ? "Đang lưu..." : "Lưu trạng thái"}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+  const quick = async (id, path, message) => {
+    setBusy(id);
+    try {
+      await put(`/api/appointments/${id}/${path}`, {});
+      setNotice(message);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
-            {/* MODAL 2: COORDINATE SERVICE (ĐIỀU PHỐI KTV, PHÒNG, GIƯỜNG, THIẾT BỊ) */}
-            <Modal
-                show={showCoordModal}
-                onHide={() => setShowCoordModal(false)}
-                size="lg"
-                centered
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title className="fw-bold">
-                        <i className="bi bi-diagram-3-fill me-2"></i>
-                        Điều phối Dịch vụ - Lịch hẹn #{coordData?.appointment?.appointmentId}
-                    </Modal.Title>
-                </Modal.Header>
-                <Form onSubmit={handleSaveCoordination}>
-                    <Modal.Body>
-                        {coordError && (
-                            <Alert variant="danger" className="mb-3" role="alert">
-                                {coordError}
-                            </Alert>
+  const closeModal = () => {
+    setModal(null);
+    if (params.get("appointmentId")) setParams({}, { replace: true });
+  };
+  const affectedIds = [...new Set(affected.map((r) => r.appointmentId))];
+  const isToday = date === today();
+
+  return (
+    <Container fluid className="mt-4 px-4">
+      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+          <h2 className="manager-page-title fw-bold mb-1">{canAct ? "Check-in & điều phối" : "Điều phối nhân viên"}</h2>
+          <p className="text-muted mb-0">Đón khách, phân công kỹ thuật viên – giường và xử lý lịch bị ảnh hưởng.</p>
+        </div>
+        <div className="d-flex gap-2 align-items-center">
+          <Form.Control type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 180 }} />
+          <Button variant="outline-secondary" onClick={load}><i className="bi bi-arrow-clockwise" /> Làm mới</Button>
+          {canAct && <Button onClick={() => navigate("/appointments/create")}><i className="bi bi-calendar-plus" /> Tạo lịch</Button>}
+        </div>
+      </div>
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+
+      <Nav variant="tabs" activeKey={tab} onSelect={(k) => setTab(k)} className="mb-3">
+        <Nav.Item><Nav.Link eventKey="arrivals">Đón khách ({board?.arrivals?.length || 0})</Nav.Link></Nav.Item>
+        <Nav.Item><Nav.Link eventKey="board">Bảng điều phối KTV</Nav.Link></Nav.Item>
+        <Nav.Item><Nav.Link eventKey="affected">Lịch bị ảnh hưởng {affectedIds.length > 0 && <Badge bg="danger">{affectedIds.length}</Badge>}</Nav.Link></Nav.Item>
+      </Nav>
+
+      {loading && !board ? (
+        <div className="text-center py-5"><Spinner animation="border" variant="danger" /></div>
+      ) : tab === "arrivals" ? (
+        <Card className="shadow-sm border-0">
+          <Card.Body className="p-0">
+            <Table hover responsive className="align-middle mb-0 manager-list-table">
+              <thead className="table-dark"><tr><th>Giờ</th><th>Khách hàng</th><th>Dịch vụ</th><th>Trạng thái</th><th className="text-center">Thao tác</th></tr></thead>
+              <tbody>
+                {(board?.arrivals || []).map((a) => (
+                  <tr key={a.appointmentId}>
+                    <td className="fw-bold">{time5(a.startTime)}–{time5(a.endTime)}</td>
+                    <td>{a.customerName}<small className="d-block text-muted">{a.customerPhone}</small></td>
+                    <td>{a.serviceNames}</td>
+                    <td>
+                      <AppointmentStatusBadge status={a.status} />
+                      {a.timingNote && <small className={`d-block mt-1 ${/Quá hạn|Trễ/.test(a.timingNote) ? "text-danger fw-semibold" : "text-muted"}`}>{a.timingNote}</small>}
+                    </td>
+                    <td className="text-center">
+                      <div className="manager-list-actions">
+                        {canAct && a.status === "Pending" && a.canConfirm !== false && (
+                          <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" disabled={busy === a.appointmentId}
+                            onClick={() => quick(a.appointmentId, "confirm", `Đã xác nhận lịch #${a.appointmentId}.`)}>
+                            <i className="bi bi-check2-circle" /> Xác nhận
+                          </Button>
                         )}
-                        {coordLoading ? (
-                            <div className="text-center py-4">
-                                <Spinner animation="border" variant="danger" />
-                                <p className="mt-2 text-muted">
-                                    Đang kiểm tra tài nguyên & gợi ý kỹ thuật viên...
-                                </p>
-                            </div>
-                        ) : coordData ? (
-                            <>
-                                <Card className="bg-light border-0 mb-3">
-                                    <Card.Body className="py-2 px-3">
-                                        <Row>
-                                            <Col md={6}>
-                                                <div>
-                                                    <strong>Khách hàng:</strong>{" "}
-                                                    {coordData.appointment.customerName}
-                                                </div>
-                                                <div>
-                                                    <strong>Dịch vụ:</strong>{" "}
-                                                    {coordData.appointment.serviceName}
-                                                </div>
-                                            </Col>
-                                            <Col md={6}>
-                                                <div>
-                                                    <strong>Ngày hẹn:</strong>{" "}
-                                                    {coordData.appointment.appointmentDate}
-                                                </div>
-                                                <div>
-                                                    <strong>Thời gian:</strong>{" "}
-                                                    {coordData.appointment.startTime} -{" "}
-                                                    {coordData.appointment.endTime}
-                                                </div>
-                                            </Col>
-                                        </Row>
-                                    </Card.Body>
-                                </Card>
-
-                                <Row className="g-3">
-                                    {/* Chọn Kỹ thuật viên (Có gợi ý tự động) */}
-                                    <Col md={12}>
-                                        <Form.Group>
-                                            <Form.Label className="fw-bold">
-                                                1. Phân công Kỹ thuật viên (Hệ thống tự động gợi ý KTV rảnh & đúng chuyên môn)
-                                            </Form.Label>
-                                            <Form.Select
-                                                value={selectedTechId}
-                                                onChange={(e) => setSelectedTechId(e.target.value)}
-                                                required
-                                            >
-                                                <option value="">-- Chọn Kỹ thuật viên --</option>
-                                                {coordData.technicians?.map((t) => (
-                                                    <option
-                                                        key={t.staffId}
-                                                        value={t.staffId}
-                                                        disabled={!t.isFree}
-                                                    >
-                                                        {t.fullName}{" "}
-                                                        {t.isSuggested
-                                                            ? "★ [Gợi ý tốt nhất - Đúng chuyên môn & Đang rảnh]"
-                                                            : t.isFree
-                                                                ? "[Đang rảnh]"
-                                                                : "[Đang bận ca khác]"}
-                                                    </option>
-                                                ))}
-                                            </Form.Select>
-                                        </Form.Group>
-                                    </Col>
-
-                                    {/* Chọn Phòng */}
-                                    <Col md={6}>
-                                        <Form.Group>
-                                            <Form.Label className="fw-bold">2. Chọn Phòng dịch vụ</Form.Label>
-                                            <Form.Select
-                                                value={selectedRoomId}
-                                                onChange={(e) => {
-                                                    setSelectedRoomId(e.target.value);
-                                                    setSelectedBedId("");
-                                                }}
-                                            >
-                                                <option value="">-- Chọn phòng --</option>
-                                                {coordData.roomsWithBeds?.map((r) => (
-                                                    <option
-                                                        key={r.roomId}
-                                                        value={r.roomId}
-                                                        disabled={r.status === "Maintenance"}
-                                                    >
-                                                        {r.roomName} ({r.roomType}) - {r.status}
-                                                    </option>
-                                                ))}
-                                            </Form.Select>
-                                        </Form.Group>
-                                    </Col>
-
-                                    {/* Chọn Giường thuộc Phòng */}
-                                    <Col md={6}>
-                                        <Form.Group>
-                                            <Form.Label className="fw-bold">3. Chọn Giường</Form.Label>
-                                            <Form.Select
-                                                value={selectedBedId}
-                                                onChange={(e) => setSelectedBedId(e.target.value)}
-                                                disabled={!selectedRoomId}
-                                            >
-                                                <option value="">-- Chọn giường --</option>
-                                                {availableBedsForSelectedRoom.map((b) => (
-                                                    <option
-                                                        key={b.bedId}
-                                                        value={b.bedId}
-                                                        disabled={b.status === "Maintenance"}
-                                                    >
-                                                        Giường {b.bedNumber} ({b.status})
-                                                    </option>
-                                                ))}
-                                            </Form.Select>
-                                        </Form.Group>
-                                    </Col>
-
-                                    {/* Chọn Thiết bị đi kèm */}
-                                    <Col md={12}>
-                                        <Form.Label className="fw-bold">
-                                            4. Phân bổ Thiết bị sử dụng
-                                        </Form.Label>
-                                        <Row className="g-2">
-                                            {coordData.equipments?.map((eq) => (
-                                                <Col md={6} key={eq.equipmentId}>
-                                                    <Form.Check
-                                                        type="checkbox"
-                                                        id={`eq-${eq.equipmentId}`}
-                                                        disabled={eq.status === "Maintenance"}
-                                                        checked={selectedEquipmentIds.includes(eq.equipmentId)}
-                                                        onChange={() => handleToggleEquipment(eq.equipmentId)}
-                                                        label={`${eq.equipmentName} (${eq.status})`}
-                                                    />
-                                                </Col>
-                                            ))}
-                                        </Row>
-                                    </Col>
-                                </Row>
-                            </>
-                        ) : null}
-                    </Modal.Body>
-                    <Modal.Footer>
-                        <Button variant="secondary" onClick={() => setShowCoordModal(false)}>
-                            Hủy
+                        {canAct && a.status === "Confirmed" && isToday && a.canCheckIn !== false && (
+                          <Button variant="link" size="sm" className="manager-list-action manager-list-action--view" onClick={() => setModal({ id: a.appointmentId, mode: "checkin" })}>
+                            <i className="bi bi-door-open" /> Check-in
+                          </Button>
+                        )}
+                        {canAct && a.status === "Confirmed" && a.canNoShow === true && (
+                          <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" disabled={busy === a.appointmentId}
+                            onClick={() => quick(a.appointmentId, "no-show", `Đã đánh dấu lịch #${a.appointmentId} không đến.`)}>
+                            <i className="bi bi-person-x" /> Không đến
+                          </Button>
+                        )}
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--view" onClick={() => navigate(`/appointments/${a.appointmentId}`)}>
+                          <i className="bi bi-eye" /> Xem
                         </Button>
-                        <Button type="submit" variant="danger" disabled={savingCoord}>
-                            {savingCoord ? "Đang lưu..." : "Xác nhận Điều phối"}
-                        </Button>
-                    </Modal.Footer>
-                </Form>
-            </Modal>
-        </Container>
-    );
-};
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!board?.arrivals?.length && <tr><td colSpan={5} className="text-center text-muted py-4">Không có lịch hẹn cần đón trong ngày {viDate(date)}.</td></tr>}
+              </tbody>
+            </Table>
+          </Card.Body>
+        </Card>
+      ) : tab === "board" ? (
+        <>
+          <p className="text-muted">Chênh lệch tour giữa các KTV trong ngày: <strong>{board?.tourGap ?? 0}</strong> tour. KTV có ít tour nhất được ưu tiên ở lượt tiếp theo.</p>
+          <Card className="shadow-sm border-0">
+            <Card.Body className="p-0">
+              <Table responsive className="align-middle mb-0 manager-list-table">
+                <thead className="table-dark"><tr><th>Kỹ thuật viên</th><th>Ca</th><th>Tour đã tính</th><th>Tour thực làm</th><th>Tour được yêu cầu</th><th>Dịch vụ trong ngày</th></tr></thead>
+                <tbody>
+                  {(board?.technicians || []).map((t) => {
+                    const mine = (board.lines || []).filter((l) => l.technicianId === t.staffId);
+                    return (
+                      <tr key={t.staffId}>
+                        <td className="fw-bold">{t.fullName}{t.onLeave ? <Badge bg="warning" text="dark" className="ms-1">Nghỉ phép</Badge> : null}</td>
+                        <td>{t.shiftType ? label(t.shiftType) : <span className="text-muted">Không có ca</span>}</td>
+                        <td>{Number(t.countedTours || 0)}</td>
+                        <td>{Number(t.actualTours || 0)}</td>
+                        <td>{Number(t.requestedTours || 0)}</td>
+                        <td>
+                          {mine.length ? mine.map((l) => (
+                            <Badge key={l.appointmentServiceId} bg={l.status === "Done" ? "success" : l.status === "InProgress" ? "primary" : "secondary"} className="me-1 mb-1">
+                              {time5(l.startTime)} {l.serviceName} · {l.customerName}
+                            </Badge>
+                          )) : <span className="text-muted">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
+        </>
+      ) : (
+        <Card className="shadow-sm border-0">
+          <Card.Body className="p-0">
+            <Table hover responsive className="align-middle mb-0 manager-list-table">
+              <thead className="table-dark"><tr><th>Lịch</th><th>Ngày giờ</th><th>Khách hàng</th><th>Dịch vụ</th><th>Phân công hiện tại</th><th>Lý do</th><th /></tr></thead>
+              <tbody>
+                {affected.map((r) => (
+                  <tr key={r.appointmentServiceId}>
+                    <td className="fw-bold">#{r.appointmentId}</td>
+                    <td>{viDate(r.appointmentDate)}<small className="d-block text-muted">{time5(r.lineStart)}–{time5(r.lineEnd)}</small></td>
+                    <td>{r.customerName}<small className="d-block text-muted">{r.customerPhone}</small></td>
+                    <td>{r.serviceName}</td>
+                    <td>{r.technicianName || "—"}{r.roomName ? ` · ${r.roomName} ${r.bedNumber}` : ""}</td>
+                    <td><Badge bg="danger">{r.reason}</Badge></td>
+                    <td>{canAct ? <Button size="sm" onClick={() => setModal({ id: r.appointmentId, mode: "coordinate" })}>Điều phối</Button> : <small className="text-muted">Lễ tân điều phối</small>}</td>
+                  </tr>
+                ))}
+                {!affected.length && <tr><td colSpan={7} className="text-center text-muted py-4">Không có lịch hẹn nào bị ảnh hưởng bởi nghỉ phép hoặc bảo trì.</td></tr>}
+              </tbody>
+            </Table>
+          </Card.Body>
+        </Card>
+      )}
 
-export default ReceptionistBookingDesk;
+      <AssignmentModal
+        appointmentId={modal?.id}
+        mode={modal?.mode}
+        onClose={closeModal}
+        onDone={(message) => { closeModal(); setNotice(message); load(); }}
+      />
+    </Container>
+  );
+}

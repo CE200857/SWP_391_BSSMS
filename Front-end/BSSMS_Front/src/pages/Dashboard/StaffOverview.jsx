@@ -4,7 +4,6 @@ import { api, today } from "../../services/api";
 import { appointmentStatusLabel } from "../../utils/appointmentStatus";
 import { setAppointmentStatus } from "../../utils/appointmentActions";
 
-
 export default function StaffOverview({ role }) {
   const technician = role === "Technician";
   const [data, setData] = useState({ items: [], loading: true, error: "" });
@@ -41,7 +40,6 @@ export default function StaffOverview({ role }) {
   const rows = data.items
     .filter((item) => String(item.appointmentDate).slice(0, 10) === day)
     .sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
-  // Lịch đang chờ xác nhận của những ngày SAU hôm nay (bảng "hôm nay" ở trên không hiện các lịch này).
   const upcomingPending = technician
     ? []
     : data.items
@@ -89,6 +87,11 @@ export default function StaffOverview({ role }) {
               : "Đón khách, sắp xếp lịch hẹn và theo dõi hoạt động tại quầy."}
           </p>
         </div>
+        <div className="d-flex gap-2">
+        <Link className="btn btn-primary" to={technician ? "/treatment-status" : "/receptionist/coordination"}>
+          <i className={`bi ${technician ? "bi-play-circle" : "bi-door-open"}`} aria-hidden="true" />{" "}
+          {technician ? "Trạng thái dịch vụ" : "Check-in & điều phối"}
+        </Link>
         <button
           className="btn btn-outline-primary"
           disabled={data.loading}
@@ -99,6 +102,7 @@ export default function StaffOverview({ role }) {
         >
           <i className="bi bi-arrow-clockwise" aria-hidden="true" /> Làm mới
         </button>
+        </div>
       </div>
       {data.error && (
         <div className="alert alert-danger" role="alert">
@@ -167,7 +171,7 @@ export default function StaffOverview({ role }) {
                       {String(a.endTime || "").slice(0, 5)}
                     </td>
                     <td>{a.customerName}</td>
-                    <td>{a.serviceName}</td>
+                    <td>{a.serviceNames}<small className="d-block text-muted">{a.technicianNames || ""}</small></td>
                     <td>
                       <span className="staff-status">
                         {appointmentStatusLabel(a.status)}
@@ -239,7 +243,7 @@ export default function StaffOverview({ role }) {
                       {String(a.endTime || "").slice(0, 5)}
                     </td>
                     <td>{a.customerName}</td>
-                    <td>{a.serviceName}</td>
+                    <td>{a.serviceNames}<small className="d-block text-muted">{a.technicianNames || ""}</small></td>
                     <td>
                       <button
                         type="button"

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { today } from "../../../../services/api";
 import { useNavigate } from "react-router-dom";
 import { Container, Card, Form, Button, Alert, Modal } from "react-bootstrap";
 import axios from "axios";
@@ -12,8 +13,19 @@ const CreateStaff = () => {
     email: "",
     phone: "",
     role: "Receptionist",
-    salary: "",
+    hireDate: today(),
+    serviceIds: [],
   });
+  const [services, setServices] = useState([]);
+  useEffect(() => {
+    axios.get("/api/service", { withCredentials: true })
+      .then((r) => setServices((r.data || []).filter((s) => s.status === "Active")))
+      .catch(() => setServices([]));
+  }, []);
+  const toggleService = (id) => setFormData((f) => ({
+    ...f,
+    serviceIds: f.serviceIds.includes(id) ? f.serviceIds.filter((x) => x !== id) : [...f.serviceIds, id],
+  }));
 
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -59,10 +71,8 @@ const CreateStaff = () => {
       return;
     }
 
-    const salaryValue = parseFloat(formData.salary);
-    if (isNaN(salaryValue) || salaryValue < 0) {
-      setError("Mức lương không hợp lệ (Phải là số lớn hơn hoặc bằng 0)!");
-      setIsLoading(false);
+    if (formData.role === "Technician" && formData.serviceIds.length === 0) {
+      setError("Kỹ thuật viên cần có ít nhất một kỹ năng dịch vụ!");
       return;
     }
 
@@ -84,7 +94,8 @@ const CreateStaff = () => {
           role: formData.role,
           username: generatedUsername,
           password: "123456",
-          salary: salaryValue,
+          hireDate: formData.hireDate || null,
+          serviceIds: formData.role === "Technician" ? formData.serviceIds : [],
         },
         { withCredentials: true },
       );
@@ -186,18 +197,34 @@ const CreateStaff = () => {
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Mức lương (VNĐ) <span className="text-danger">*</span></Form.Label>
+                  <Form.Label>Ngày vào làm</Form.Label>
                   <Form.Control
-                    type="number"
-                    name="salary"
-                    value={formData.salary}
+                    type="date"
+                    name="hireDate"
+                    value={formData.hireDate}
                     onChange={handleChange}
-                    placeholder="Nhập mức lương"
-                    required
-                    min="0"
                   />
                 </Form.Group>
               </Col>
+              {formData.role === "Technician" && (
+                <Col md={12}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Kỹ năng dịch vụ <span className="text-danger">*</span></Form.Label>
+                    <div className="d-flex flex-wrap gap-3 border rounded p-2">
+                      {services.map((s) => (
+                        <Form.Check
+                          key={s.serviceId}
+                          id={`skill-${s.serviceId}`}
+                          label={s.serviceName}
+                          checked={formData.serviceIds.includes(s.serviceId)}
+                          onChange={() => toggleService(s.serviceId)}
+                        />
+                      ))}
+                    </div>
+                    <Form.Text>Kỹ thuật viên chỉ được giao những dịch vụ đã chọn ở đây.</Form.Text>
+                  </Form.Group>
+                </Col>
+              )}
             </Row>
 
             <div className="staff-form-footer">
