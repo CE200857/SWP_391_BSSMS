@@ -138,7 +138,6 @@
   }
 }
 
-/* Hai bảng xếp dọc, chiếm hết chiều ngang; tên phòng, giường không bị bẻ chữ. */
 .room-bed-table th,
 .room-bed-table td {
   white-space: nowrap;

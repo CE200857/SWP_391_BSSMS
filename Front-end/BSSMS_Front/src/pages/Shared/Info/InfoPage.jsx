@@ -1,7 +1,6 @@
 import { SITE } from "../../../siteConfig";
 import "./InfoPage.css";
 
-// Khung chung cho các trang thông tin: tiêu đề, đoạn mở đầu, các mục và thông tin liên hệ.
 export default function InfoPage({ title, lead, children }) {
   return (
     <main className="info-page">

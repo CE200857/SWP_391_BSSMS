@@ -31,10 +31,11 @@ public class DBContext {
         String dbURL = "jdbc:sqlserver://localhost:1433;"
                 + "databaseName=BeautySalonDB;"
                 + "encrypt=true;"
-                + "trustServerCertificate=true;";
+                + "trustServerCertificate=true;"
+                + "sendTimeAsDatetime=false;";
 
         String username = "sa";
-        String password = "123456";
+        String password = "Mytam@260723";
 
         dbURL = setting("bssms.db.url", "BSSMS_DB_URL", dbURL);
         username = setting("bssms.db.user", "BSSMS_DB_USER", username);

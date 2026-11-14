@@ -1,720 +1,177 @@
-import { useState, useEffect } from "react";
-import {
-  Container,
-  Card,
-  Table,
-  Button,
-  Form,
-  InputGroup,
-  Modal,
-  Alert,
-  Badge,
-  Row,
-  Col,
-} from "react-bootstrap";
-import axios from "axios";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Badge, Button, Card, Col, Container, Form, Modal, Row, Table } from "react-bootstrap";
+import { api, post, money, viDate, today } from "../../../../services/api";
 import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
-import { StatusToggleButton, StatusChangeModal } from "../../../../components/StatusToggle";
 
-const VoucherList = () => {
-  const [vouchers, setVouchers] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [refresh, setRefresh] = useState(0);
+const statusMeta = {
+  Active: { bg: "success", text: "Đang áp dụng" },
+  Inactive: { bg: "secondary", text: "Ngừng áp dụng" },
+  Expired: { bg: "dark", text: "Hết hạn" },
+  UsedUp: { bg: "warning", text: "Hết lượt" },
+};
+const emptyForm = {
+  voucherId: 0, voucherCode: "", voucherName: "", discountType: "Percent", discountValue: "",
+  minOrderAmount: 0, maxDiscount: "", maxUses: 100, startDate: "", endDate: "",
+};
+const value = (v) => (v.discountType === "Percent" ? `${Number(v.discountValue)}%` : money(v.discountValue));
 
-  const storedUser = localStorage.getItem("user");
-  const user = storedUser ? JSON.parse(storedUser) : null;
-  const canManage = user?.role === "Manager" || user?.role === "Receptionist";
-  const canIssueBirthdayBenefits = user?.role === "Manager";
-
-  const [showModal, setShowModal] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
-  const [isIssuingBenefits, setIsIssuingBenefits] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedVoucher, setSelectedVoucher] = useState(null);
-  const [statusTarget, setStatusTarget] = useState(null); // voucher đang chờ xác nhận đổi trạng thái
-  const [statusBusy, setStatusBusy] = useState(false);
-  const [detailVoucher, setDetailVoucher] = useState(null);
-  const [formData, setFormData] = useState({
-    voucherId: 0,
-    customerId: "",
-    voucherCode: "",
-    voucherName: "",
-    discountType: "Percentage",
-    discountValue: "",
-    startDate: "",
-    endDate: "",
-    status: "Active",
-  });
-  const [message, setMessage] = useState("");
+export default function VoucherList() {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const isManager = user?.role === "Manager";
+  const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [form, setForm] = useState(null);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const voucherRes = await axios.get("/api/vouchers", {
-          withCredentials: true,
-        });
-        setVouchers(voucherRes.data);
-
-        // Endpoint lấy khách hàng cần cho dropdown (chỉ Manager & Receptionist)
-        try {
-          const customerRes = await axios.get("/api/customers", {
-            withCredentials: true,
-          });
-          setCustomers(customerRes.data);
-        } catch (err) {
-          console.warn("Không tải được danh sách khách hàng (có thể do phân quyền):", err);
-        }
-      } catch (error) {
-        console.error("Lỗi khi tải dữ liệu voucher:", error);
-      }
-    };
-    fetchData();
-  }, [refresh]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleOpenAdd = () => {
-    setIsEdit(false);
-    setFormData({
-      voucherId: 0,
-      customerId: "",
-      voucherCode: generateVoucherCode(),
-      voucherName: "",
-      discountType: "Percentage",
-      discountValue: "",
-      startDate: new Date().toISOString().split("T")[0],
-      endDate: "",
-      status: "Active",
-    });
-    setError("");
-    setMessage("");
-    setShowModal(true);
-  };
-
-  const handleOpenEdit = (voucher) => {
-    setIsEdit(true);
-    setFormData({
-      voucherId: voucher.voucherId,
-      customerId: voucher.customerId || "",
-      voucherCode: voucher.voucherCode,
-      voucherName: voucher.voucherName || "",
-      discountType: voucher.discountType || "Percentage",
-      discountValue: voucher.discountValue || "",
-      startDate: voucher.startDate ? voucher.startDate.split("T")[0] : "",
-      endDate: voucher.endDate ? voucher.endDate.split("T")[0] : "",
-      status: voucher.status || "Active",
-    });
-    setError("");
-    setMessage("");
-    setShowModal(true);
-  };
-
-  const generateVoucherCode = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let code = "VCH-";
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setMessage("");
-
-    // Validation
-    if (!formData.voucherCode.trim()) {
-      setError("Mã voucher không được để trống!");
-      return;
-    }
-
-    if (!formData.discountValue || parseFloat(formData.discountValue) <= 0) {
-      setError("Giá trị giảm giá phải lớn hơn 0!");
-      return;
-    }
-
-    if (formData.discountType === "Percentage" && parseFloat(formData.discountValue) > 100) {
-      setError("Phần trăm giảm giá không được vượt quá 100%!");
-      return;
-    }
-
-    if (!formData.startDate || !formData.endDate) {
-      setError("Vui lòng chọn ngày bắt đầu và ngày kết thúc!");
-      return;
-    }
-
-    if (new Date(formData.endDate) < new Date(formData.startDate)) {
-      setError("Ngày kết thúc phải sau ngày bắt đầu!");
-      return;
-    }
-
+  const load = useCallback(async () => {
     try {
-      if (isEdit) {
-        // Backend dùng POST với action="update" (không có PUT)
-        await axios.post(
-          "/api/vouchers",
-          { ...formData, action: "update" },
-          { withCredentials: true }
-        );
-        setMessage("Cập nhật voucher thành công!");
-      } else {
-        // Tạo mới - bỏ status field vì backend mặc định 'Active'
-        const createData = { ...formData };
-        delete createData.status;
-        await axios.post("/api/vouchers", createData, {
-          withCredentials: true,
-        });
-        setMessage("Tạo voucher mới thành công!");
-      }
-      setShowModal(false);
-      setRefresh((prev) => prev + 1);
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Có lỗi xảy ra khi lưu voucher!"
-      );
+      setRows(await api("/api/vouchers"));
+    } catch (e) {
+      setError(e.message);
     }
-  };
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  // Bấm vào trạng thái -> hộp thoại xác nhận -> đổi trạng thái hoạt động / ngừng hoạt động của voucher.
-  const confirmStatusChange = async () => {
-    if (!statusTarget || statusBusy) return;
-    const next = statusTarget.status === "Active" ? "Inactive" : "Active";
-    setStatusBusy(true);
-    setError("");
-    setMessage("");
-    try {
-      await axios.post(
-        "/api/vouchers",
-        { action: "setStatus", voucherId: statusTarget.voucherId, status: next },
-        { withCredentials: true },
-      );
-      setMessage(next === "Active" ? "Đã kích hoạt lại voucher." : "Đã chuyển voucher sang ngừng hoạt động.");
-      setRefresh((prev) => prev + 1);
-      setStatusTarget(null);
-    } catch (err) {
-      setStatusTarget(null);
-      setError(err.response?.data?.message || "Không đổi được trạng thái voucher.");
-    } finally {
-      setStatusBusy(false);
-    }
-  };
-
-  const handleDeleteClick = (voucher) => {
-    setSelectedVoucher(voucher);
-    setShowDeleteModal(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!selectedVoucher) return;
-
-    try {
-      await axios.delete(`/api/vouchers?id=${selectedVoucher.voucherId}`, {
-        withCredentials: true,
-      });
-      setRefresh((prev) => prev + 1);
-      setShowDeleteModal(false);
-      setSelectedVoucher(null);
-    } catch (err) {
-      alert(err.response?.data?.message || "Không thể xóa voucher này!");
-    }
-  };
-
-  const handleIssueBirthdayBenefits = async () => {
-    if (isIssuingBenefits) return;
-    setIsIssuingBenefits(true);
-    setError("");
-    setMessage("");
-    try {
-      await axios.post(
-        "/api/operations/policy",
-        { action: "issueBenefits" },
-        { withCredentials: true },
-      );
-      setMessage(
-        "Đã cấp ưu đãi tháng hiện tại cho khách đủ điều kiện. Không cấp trùng.",
-      );
-      setRefresh((previous) => previous + 1);
-    } catch (requestError) {
-      console.error("Lỗi cấp ưu đãi sinh nhật:", requestError);
-      setError(
-        requestError.response?.data?.message ||
-          "Không thể cấp ưu đãi tháng này. Vui lòng thử lại.",
-      );
-    } finally {
-      setIsIssuingBenefits(false);
-    }
-  };
-
-  const getCustomerName = (customerId) => {
-    if (!customerId) return "Tất cả khách hàng";
-    const customer = customers.find((c) => c.customerId === customerId);
-    return customer ? customer.fullName : `Khách hàng #${customerId}`;
-  };
-
-  const { filteredRows: filteredVouchers, toolbar } = useManagerSearchFilter(
-    vouchers,
+  const { filteredRows, toolbar } = useManagerSearchFilter(
+    rows,
     [
-      { key: "voucherCode", label: "Mã voucher", filterable: false },
-      { key: "voucherName", label: "Tên voucher", filterable: false },
-      {
-        key: "customerId",
-        label: "Khách hàng",
-        getValue: (voucher) => getCustomerName(voucher.customerId),
-      },
-      {
-        key: "status",
-        label: "Trạng thái",
-        formatValue: (value) => ({
-          Active: "Đang hoạt động",
-          Used: "Đã sử dụng",
-          Expired: "Đã hết hạn",
-        }[value] || value),
-      },
-      { key: "startDate", label: "Thời gian áp dụng", type: "date" },
+      { key: "voucherCode", label: "Mã", filterable: false },
+      { key: "voucherName", label: "Tên", filterable: false },
+      { key: "discountType", label: "Loại giảm", formatValue: (v) => (v === "Percent" ? "Phần trăm" : "Số tiền") },
+      { key: "status", label: "Trạng thái", formatValue: (v) => statusMeta[v]?.text || v },
+      { key: "endDate", label: "Ngày kết thúc", type: "date" },
     ],
-    "Tìm theo mã, tên voucher hoặc khách hàng...",
+    "Tìm theo mã hoặc tên voucher...",
   );
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "Active":
-        return <Badge bg="success">Đang hoạt động</Badge>;
-      case "Used":
-        return <Badge bg="warning" text="dark">Đã sử dụng</Badge>;
-      case "Expired":
-        return <Badge bg="danger">Đã hết hạn</Badge>;
-      case "Inactive":
-        return <Badge bg="secondary">Ngừng hoạt động</Badge>;
-      default:
-        return <Badge bg="secondary">{status}</Badge>;
+  const open = (v) => {
+    setFormError("");
+    setForm(v ? {
+      ...emptyForm, ...v, maxDiscount: v.maxDiscount ?? "",
+      startDate: String(v.startDate).slice(0, 10), endDate: String(v.endDate).slice(0, 10),
+    } : emptyForm);
+  };
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setFormError("");
+    try {
+      const body = {
+        action: form.voucherId ? "update" : "create", voucherId: form.voucherId || undefined,
+        voucherCode: form.voucherCode.trim().toUpperCase(), voucherName: form.voucherName.trim(), discountType: form.discountType,
+        discountValue: Number(form.discountValue), minOrderAmount: Number(form.minOrderAmount || 0),
+        maxDiscount: form.discountType === "Percent" && form.maxDiscount !== "" ? Number(form.maxDiscount) : null,
+        maxUses: Number(form.maxUses), startDate: form.startDate, endDate: form.endDate,
+      };
+      const r = await post("/api/vouchers", body);
+      setNotice(r.message);
+      setForm(null);
+      load();
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("vi-VN");
+  const setStatus = async (v, status) => {
+    try {
+      const r = await post("/api/vouchers", { action: "setStatus", voucherId: v.voucherId, status });
+      setNotice(r.message);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
     <Container fluid className="mt-4 px-4">
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="manager-page-title fw-bold mb-1">Voucher &amp; ưu đãi sinh nhật</h2>
-          {canIssueBirthdayBenefits && (
-            <p className="text-muted mb-0">
-              Quản lý voucher và cấp ưu đãi tháng sinh nhật cho khách đủ điều kiện.
-            </p>
-          )}
+          <h2 className="manager-page-title fw-bold mb-1">Quản lý voucher</h2>
+          <p className="text-muted mb-0">Voucher dùng chung theo mã, giới hạn số lượt và thời hạn. Áp dụng sau ưu đãi hạng thành viên.</p>
         </div>
-        <div className="d-flex flex-wrap gap-2">
-          {canIssueBirthdayBenefits && (
-            <Button
-              variant="outline-danger"
-              onClick={handleIssueBirthdayBenefits}
-              disabled={isIssuingBenefits}
-            >
-              {isIssuingBenefits ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />
-                  Đang cấp ưu đãi...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-gift me-2" aria-hidden="true" />
-                  Cấp ưu đãi tháng này
-                </>
-              )}
-            </Button>
-          )}
-          {canManage && (
-            <Button
-              variant="danger"
-              className="fw-bold"
-              onClick={handleOpenAdd}
-              style={{ backgroundColor: "#a61e4d", border: "none" }}
-            >
-              <i className="bi bi-ticket-perforated me-1"></i> Tạo Voucher mới
-            </Button>
-          )}
-        </div>
+        {isManager && <Button className="fw-bold" onClick={() => open(null)}><i className="bi bi-plus-lg me-1" /> Tạo voucher</Button>}
       </div>
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
 
-      {message && (
-        <Alert variant="success" onClose={() => setMessage("")} dismissible>
-          <i className="bi bi-check-circle-fill me-2"></i>
-          {message}
-        </Alert>
-      )}
-
-      <Card className="shadow-sm border-0 mb-4">
-        <Card.Body>
-          <div className="manager-list-toolbar">{toolbar}</div>
-        </Card.Body>
-      </Card>
-
+      <Card className="shadow-sm border-0 mb-4"><Card.Body><div className="manager-list-toolbar">{toolbar}</div></Card.Body></Card>
       <Card className="shadow-sm border-0">
         <Card.Body className="p-0">
           <Table hover responsive className="align-middle mb-0 manager-list-table">
             <thead className="table-dark">
-              <tr>
-                <th>Mã Voucher</th>
-                <th>Khách hàng</th>
-                <th>Ưu đãi</th>
-                <th>Trạng thái</th>
-                <th className="text-center">Hành động</th>
-              </tr>
+              <tr><th>Mã</th><th>Tên</th><th>Giảm</th><th>Điều kiện</th><th>Đã dùng</th><th>Thời hạn</th><th>Trạng thái</th>{isManager && <th className="text-center">Hành động</th>}</tr>
             </thead>
             <tbody>
-              {filteredVouchers.length > 0 ? (
-                filteredVouchers.map((v) => (
-                  <tr key={v.voucherId}>
-                    <td>
-                      <Badge bg-primary className="font-monospace">
-                        {v.voucherCode}
-                      </Badge>
-                    </td>
-                    <td>{getCustomerName(v.customerId)}</td>
-                    <td className="text-danger fw-bold">
-                      {v.discountType === "Percentage"
-                        ? `${v.discountValue}%`
-                        : `${Number(v.discountValue).toLocaleString("vi-VN")} VNĐ`}
-                      <div className="small text-muted fw-normal">
-                        {v.discountType === "Percentage" ? "Phần trăm" : "Số tiền cố định"}
+              {filteredRows.map((v) => (
+                <tr key={v.voucherId}>
+                  <td className="fw-bold text-primary">{v.voucherCode}</td>
+                  <td>{v.voucherName}</td>
+                  <td>{value(v)}{v.maxDiscount ? <small className="d-block text-muted">Tối đa {money(v.maxDiscount)}</small> : null}</td>
+                  <td>{Number(v.minOrderAmount) > 0 ? `Đơn từ ${money(v.minOrderAmount)}` : "Mọi đơn"}</td>
+                  <td>{v.usedCount}/{v.maxUses}</td>
+                  <td>{viDate(v.startDate)} – {viDate(v.endDate)}</td>
+                  <td><Badge bg={statusMeta[v.status]?.bg || "secondary"}>{statusMeta[v.status]?.text || v.status}</Badge></td>
+                  {isManager && (
+                    <td className="text-center">
+                      <div className="manager-list-actions">
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => open(v)}><i className="bi bi-pencil-square" /> Sửa</Button>
+                        {v.rawStatus === "Active" ? (
+                          <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => setStatus(v, "Inactive")}><i className="bi bi-slash-circle" /> Ngừng</Button>
+                        ) : (
+                          <Button variant="link" size="sm" className="manager-list-action manager-list-action--view" onClick={() => setStatus(v, "Active")}><i className="bi bi-arrow-counterclockwise" /> Áp dụng lại</Button>
+                        )}
                       </div>
                     </td>
-                    <td>
-                      {user?.role === "Manager" && (v.status === "Active" || v.status === "Inactive") ? (
-                        <StatusToggleButton active={v.status === "Active"} onClick={() => setStatusTarget(v)} />
-                      ) : (
-                        getStatusBadge(v.status)
-                      )}
-                    </td>
-                    <td className="text-center">
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="manager-list-action manager-list-action--view"
-                        onClick={() => setDetailVoucher(v)}
-                      >
-                        <i className="bi bi-eye-fill" aria-hidden="true" />
-                        Xem
-                      </Button>
-                      {canManage && (
-                        <>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="manager-list-action manager-list-action--edit"
-                          onClick={() => handleOpenEdit(v)}
-                          disabled={v.status === "Used"}
-                        >
-                          <i className="bi bi-pencil-square"></i> Sửa
-                        </Button>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="manager-list-action manager-list-action--delete"
-                          onClick={() => handleDeleteClick(v)}
-                        >
-                          <i className="bi bi-trash"></i> Xóa
-                        </Button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="text-center py-4 text-muted"
-                  >
-                    Chưa có voucher nào.
-                  </td>
+                  )}
                 </tr>
-              )}
+              ))}
+              {!filteredRows.length && <tr><td colSpan={8} className="text-center text-muted py-4">Chưa có voucher.</td></tr>}
             </tbody>
           </Table>
         </Card.Body>
       </Card>
 
-      <Modal
-        show={!!detailVoucher}
-        onHide={() => setDetailVoucher(null)}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Chi tiết voucher</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <dl className="row mb-0">
-            <dt className="col-sm-5">Mã voucher</dt>
-            <dd className="col-sm-7">{detailVoucher?.voucherCode || "—"}</dd>
-            <dt className="col-sm-5">Tên voucher</dt>
-            <dd className="col-sm-7">{detailVoucher?.voucherName || "—"}</dd>
-            <dt className="col-sm-5">Khách hàng</dt>
-            <dd className="col-sm-7">
-              {detailVoucher ? getCustomerName(detailVoucher.customerId) : "—"}
-            </dd>
-            <dt className="col-sm-5">Giá trị giảm</dt>
-            <dd className="col-sm-7">
-              {detailVoucher?.discountType === "Percentage"
-                ? `${detailVoucher.discountValue}%`
-                : detailVoucher
-                  ? `${Number(detailVoucher.discountValue).toLocaleString("vi-VN")} VNĐ`
-                  : "—"}
-            </dd>
-            <dt className="col-sm-5">Thời hạn</dt>
-            <dd className="col-sm-7">
-              {detailVoucher
-                ? `${formatDate(detailVoucher.startDate)} – ${formatDate(detailVoucher.endDate)}`
-                : "—"}
-            </dd>
-            <dt className="col-sm-5">Trạng thái</dt>
-            <dd className="col-sm-7">{detailVoucher?.status || "—"}</dd>
-          </dl>
-        </Modal.Body>
+      <Modal show={!!form} onHide={() => !saving && setForm(null)} centered size="lg" backdrop="static">
+        <Modal.Header closeButton className="bg-light"><Modal.Title className="fw-bold">{form?.voucherId ? "Cập nhật voucher" : "Tạo voucher"}</Modal.Title></Modal.Header>
+        {form && (
+          <Form onSubmit={save}>
+            <Modal.Body>
+              {formError && <Alert variant="danger">{formError}</Alert>}
+              {form.usedCount > 0 && <Alert variant="info">Voucher đã được dùng {form.usedCount} lượt nên không đổi được mã.</Alert>}
+              <Row className="g-3">
+                <Col md={4}><Form.Label className="fw-bold">Mã voucher*</Form.Label>
+                  <Form.Control value={form.voucherCode} onChange={set("voucherCode")} pattern="[A-Za-z0-9_\-]{3,50}" disabled={form.usedCount > 0} required /></Col>
+                <Col md={8}><Form.Label className="fw-bold">Tên voucher*</Form.Label>
+                  <Form.Control value={form.voucherName} onChange={set("voucherName")} maxLength={100} required /></Col>
+                <Col md={4}><Form.Label className="fw-bold">Loại giảm*</Form.Label>
+                  <Form.Select value={form.discountType} onChange={set("discountType")}><option value="Percent">Phần trăm (%)</option><option value="Amount">Số tiền (VNĐ)</option></Form.Select></Col>
+                <Col md={4}><Form.Label className="fw-bold">Giá trị giảm*</Form.Label>
+                  <Form.Control type="number" min="1" max={form.discountType === "Percent" ? 100 : undefined} value={form.discountValue} onChange={set("discountValue")} required /></Col>
+                <Col md={4}><Form.Label className="fw-bold">Giảm tối đa (VNĐ)</Form.Label>
+                  <Form.Control type="number" min="1000" step="1000" value={form.maxDiscount} onChange={set("maxDiscount")} disabled={form.discountType !== "Percent"} /></Col>
+                <Col md={4}><Form.Label className="fw-bold">Đơn tối thiểu (VNĐ)</Form.Label>
+                  <Form.Control type="number" min="0" step="1000" value={form.minOrderAmount} onChange={set("minOrderAmount")} /></Col>
+                <Col md={4}><Form.Label className="fw-bold">Số lượt sử dụng*</Form.Label>
+                  <Form.Control type="number" min={Math.max(1, form.usedCount || 0)} value={form.maxUses} onChange={set("maxUses")} required /></Col>
+                <Col md={4} />
+                <Col md={4}><Form.Label className="fw-bold">Ngày bắt đầu*</Form.Label>
+                  <Form.Control type="date" value={form.startDate} onChange={set("startDate")} required /></Col>
+                <Col md={4}><Form.Label className="fw-bold">Ngày kết thúc*</Form.Label>
+                  <Form.Control type="date" min={form.voucherId ? form.startDate : [form.startDate, today()].filter(Boolean).sort().pop()} value={form.endDate} onChange={set("endDate")} required /></Col>
+              </Row>
+            </Modal.Body>
+            <Modal.Footer className="bg-light border-0">
+              <Button variant="secondary" onClick={() => setForm(null)} disabled={saving}>Hủy</Button>
+              <Button type="submit" disabled={saving}>{form.voucherId ? "Lưu thay đổi" : "Tạo voucher"}</Button>
+            </Modal.Footer>
+          </Form>
+        )}
       </Modal>
-
-      {/* Modal Thêm / Sửa Voucher */}
-      <Modal
-        show={showModal}
-        onHide={() => setShowModal(false)}
-        centered
-        backdrop="static"
-        size="lg"
-      >
-        <Modal.Header closeButton className="bg-light">
-          <Modal.Title className="fw-bold">
-            <i className="bi bi-ticket-perforated me-2"></i>
-            {isEdit ? "Cập nhật Voucher" : "Tạo Voucher mới"}
-          </Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Body>
-            {error && (
-              <Alert variant="danger">
-                <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                {error}
-              </Alert>
-            )}
-
-            <Row className="mb-3">
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="fw-bold">
-                    Mã Voucher <span className="text-danger">*</span>
-                  </Form.Label>
-                  <InputGroup>
-                    <Form.Control
-                      type="text"
-                      name="voucherCode"
-                      value={formData.voucherCode}
-                      onChange={handleChange}
-                      required
-                    />
-                    {!isEdit && (
-                      <Button
-                        variant="outline-secondary"
-                        onClick={() =>
-                          setFormData({
-                            ...formData,
-                            voucherCode: generateVoucherCode(),
-                          })
-                        }
-                      >
-                        <i className="bi bi-arrow-clockwise"></i>
-                      </Button>
-                    )}
-                  </InputGroup>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="fw-bold">Tên Voucher</Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="voucherName"
-                    value={formData.voucherName}
-                    onChange={handleChange}
-                    placeholder="VD: Giảm giá 20% dịch vụ"
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row className="mb-3">
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="fw-bold">
-                    Khách hàng <span className="text-danger">*</span>
-                  </Form.Label>
-                  <Form.Select
-                    name="customerId"
-                    value={formData.customerId}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">-- Chọn khách hàng --</option>
-                    <option value="">Tất cả khách hàng</option>
-                    {customers.map((c) => (
-                      <option key={c.customerId} value={c.customerId}>
-                        {c.fullName} - {c.phone}
-                      </option>
-                    ))}
-                  </Form.Select>
-                  <Form.Text className="text-muted">
-                    Để trống để áp dụng cho tất cả khách hàng
-                  </Form.Text>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="fw-bold">Trạng thái</Form.Label>
-                  <Form.Select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                  >
-                    <option value="Active">Đang hoạt động</option>
-                    <option value="Used">Đã sử dụng</option>
-                    <option value="Expired">Đã hết hạn</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row className="mb-3">
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="fw-bold">
-                    Loại giảm giá <span className="text-danger">*</span>
-                  </Form.Label>
-                  <Form.Select
-                    name="discountType"
-                    value={formData.discountType}
-                    onChange={handleChange}
-                  >
-                    <option value="Percentage">Phần trăm (%)</option>
-                    <option value="Fixed">Số tiền cố định (VNĐ)</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="fw-bold">
-                    Giá trị giảm{" "}
-                    {formData.discountType === "Percentage" ? "(%)" : "(VNĐ)"}{" "}
-                    <span className="text-danger">*</span>
-                  </Form.Label>
-                  <Form.Control
-                    type="number"
-                    name="discountValue"
-                    value={formData.discountValue}
-                    onChange={handleChange}
-                    min="0"
-                    max={formData.discountType === "Percentage" ? "100" : ""}
-                    required
-                    placeholder={
-                      formData.discountType === "Percentage"
-                        ? "VD: 20"
-                        : "VD: 50000"
-                    }
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row className="mb-3">
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="fw-bold">
-                    Ngày bắt đầu <span className="text-danger">*</span>
-                  </Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleChange}
-                    required
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="fw-bold">
-                    Ngày kết thúc <span className="text-danger">*</span>
-                  </Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="endDate"
-                    value={formData.endDate}
-                    onChange={handleChange}
-                    required
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-          </Modal.Body>
-          <Modal.Footer className="bg-light border-0">
-            <Button
-              variant="secondary"
-              onClick={() => setShowModal(false)}
-            >
-              Hủy
-            </Button>
-            <Button
-              variant="danger"
-              type="submit"
-              style={{ backgroundColor: "#a61e4d", border: "none" }}
-            >
-              <i className="bi bi-check-lg me-1"></i>
-              {isEdit ? "Lưu thay đổi" : "Tạo mới"}
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
-
-      {/* Modal Xác nhận xóa */}
-      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="text-danger fw-bold">
-            <i className="bi bi-exclamation-triangle-fill me-2"></i>
-            Xác nhận xóa voucher
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          Bạn có chắc chắn muốn xóa voucher{" "}
-          <span className="fw-bold text-primary">{selectedVoucher?.voucherCode}</span>{" "}
-          không? Hành động này không thể hoàn tác.
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-            Hủy bỏ
-          </Button>
-          <Button variant="danger" onClick={confirmDelete}>
-            <i className="bi bi-trash me-1"></i>Xóa
-          </Button>
-        </Modal.Footer>
-      </Modal>
-      <StatusChangeModal
-        show={Boolean(statusTarget)}
-        entity="voucher"
-        name={statusTarget?.voucherCode}
-        nextActive={statusTarget?.status !== "Active"}
-        busy={statusBusy}
-        onCancel={() => setStatusTarget(null)}
-        onConfirm={confirmStatusChange}
-      />
     </Container>
   );
-};
-
-export default VoucherList;
+}

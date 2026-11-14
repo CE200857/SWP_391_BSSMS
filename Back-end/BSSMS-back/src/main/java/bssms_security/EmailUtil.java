@@ -23,7 +23,6 @@ public class EmailUtil {
 
     public static boolean sendOTP(String toEmail, String otpCode, String subjectTitle) {
 
-        // Chế độ thử (BSSMS_MAIL_MODE=log): không gửi email, in mã vào cửa sổ Output của Tomcat. Chỉ dùng khi phát triển hoặc trình bày.
         if ("log".equalsIgnoreCase(bssms_common.AppConfig.get("BSSMS_MAIL_MODE"))) {
             System.out.println("[MAIL log] Gui toi " + toEmail + " | " + subjectTitle + " | MA XAC THUC = " + otpCode);
             return true;

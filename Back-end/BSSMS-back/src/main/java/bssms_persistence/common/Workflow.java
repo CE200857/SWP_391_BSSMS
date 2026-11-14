@@ -1,18 +1,25 @@
 package bssms_persistence.common;
 import java.sql.*;
 import java.util.*;
-/** Shared JDBC adapter. All business mutations remain in database procedures. */
 public final class Workflow {
     private final Connection conn;
     public final int actor;
     public Workflow(Connection conn,int actor) { this.conn=conn; this.actor=actor; }
     public static int id(Object value) { return ((Number)value).intValue(); }
+    private static void bind(PreparedStatement ps, Object[] args) throws SQLException {
+        for (int i=0; i<args.length; i++) {
+            Object v = args[i];
+            if (v instanceof java.sql.Time) ps.setString(i+1, v.toString());
+            else if (v instanceof java.time.LocalTime) ps.setString(i+1, java.sql.Time.valueOf((java.time.LocalTime) v).toString());
+            else ps.setObject(i+1, v);
+        }
+    }
     @FunctionalInterface
     public interface RowMapper<T> { T map(ResultSet rs) throws SQLException; }
     public <T> List<T> query(RowMapper<T> mapper, String sql, Object... args) throws SQLException {
         if (conn == null) throw new SQLException("Database unavailable");
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            for (int i=0; i<args.length; i++) ps.setObject(i+1, args[i]);
+            bind(ps, args);
             try (ResultSet rs = ps.executeQuery()) { return rows(rs, mapper); }
         }
     }
@@ -36,47 +43,39 @@ public final class Workflow {
     }
     public int update(String sql,Object... args) throws SQLException {
         try(PreparedStatement ps=conn.prepareStatement(sql)) {
-            for(int i=0;i<args.length;i++) ps.setObject(i+1,args[i]);
+            bind(ps, args);
             return ps.executeUpdate();
         }
     }
-    public List<Map<String,Object>> call(String procedure,Object... args) throws SQLException {
-        return call(Workflow::dynamicRow, procedure, args);
-    }
-    public <T> List<T> call(RowMapper<T> mapper, String procedure,Object... args) throws SQLException {
-        if(!procedure.matches("usp_[A-Za-z]+")) throw new IllegalArgumentException("Invalid procedure");
-        String marks=String.join(",",Collections.nCopies(args.length,"?"));
-        try(CallableStatement ps=conn.prepareCall("{call dbo."+procedure+"("+marks+")}")) {
-            for(int i=0;i<args.length;i++) ps.setObject(i+1,args[i]);
-            List<T> result=new ArrayList<>();
-            boolean hasRows=ps.execute();
-            while(true) {
-                if(hasRows) { try(ResultSet rs=ps.getResultSet()) { result.addAll(rows(rs, mapper)); } }
-                else if(ps.getUpdateCount()==-1) break;
-                hasRows=ps.getMoreResults();
-            }
-            return result;
-        } catch(SQLException e) {
-            for(SQLException x=e;x!=null;x=x.getNextException()) {
-                if(x.getErrorCode()>=51000 && x.getErrorCode()<52000)
-                    throw new WorkflowException(x.getErrorCode()==51002?403:x.getErrorCode()==51003?404:409,x.getMessage());
-            }
-            throw e;
-        }
-    }
     public void roles(String... allowed) throws SQLException {
-        String role=one(rs -> rs.getString("role"), "SELECT role FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE account_id=? AND status='Active'",actor);
+        String role=one(rs -> rs.getString("role"), "SELECT role FROM " + SchemaSql.ACCOUNTS + " Account WHERE account_id=? AND status='Active'",actor);
         if(!Arrays.asList(allowed).contains(role)) throw new WorkflowException(403,"Role not permitted.");
     }
     public void customerAccess(int customer) throws SQLException {
-        if(query("SELECT c.customer_id FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c WHERE c.customer_id=? AND EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " ac WHERE ac.account_id=? AND ac.status='Active' AND (ac.role IN ('Receptionist','Manager') OR (ac.role='Customer' AND ac.account_id=c.account_id) OR (ac.role='Technician' AND EXISTS(SELECT 1 FROM Appointment a JOIN AppointmentStaff ast ON ast.appointment_id=a.appointment_id JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON st.staff_id=ast.staff_id WHERE a.customer_id=c.customer_id AND st.account_id=ac.account_id))))",customer,actor).isEmpty()) throw new WorkflowException(404,"Customer not found.");
+        if(query("SELECT c.customer_id FROM " + SchemaSql.CUSTOMERS + " c WHERE c.customer_id=? AND EXISTS(SELECT 1 FROM " + SchemaSql.ACCOUNTS + " ac WHERE ac.account_id=? AND ac.status='Active' AND (ac.role IN ('Receptionist','Manager') OR (ac.role='Customer' AND ac.customer_id=c.customer_id) OR (ac.role='Technician' AND EXISTS(SELECT 1 FROM Appointment a JOIN AppointmentService l ON l.appointment_id=a.appointment_id WHERE a.customer_id=c.customer_id AND l.technician_id=ac.staff_id))))",customer,actor).isEmpty()) throw new WorkflowException(404,"Customer not found.");
     }
     public void appointmentAccess(int id) throws SQLException {
         if(query("SELECT a.appointment_id FROM Appointment a WHERE a.appointment_id=? AND "+appointmentScope(),id,actor).isEmpty())
             throw new WorkflowException(404,"Appointment not found.");
     }
     public static String appointmentScope() {
-        return "EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " ac WHERE ac.account_id=? AND ac.status='Active' AND (ac.role IN ('Manager','Receptionist') OR (ac.role='Customer' AND EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c WHERE c.customer_id=a.customer_id AND c.account_id=ac.account_id)) OR (ac.role='Technician' AND EXISTS(SELECT 1 FROM AppointmentStaff ast JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON st.staff_id=ast.staff_id WHERE ast.appointment_id=a.appointment_id AND st.account_id=ac.account_id))))";
+        return "EXISTS(SELECT 1 FROM " + SchemaSql.ACCOUNTS + " ac WHERE ac.account_id=? AND ac.status='Active' AND (ac.role IN ('Manager','Receptionist') OR (ac.role='Customer' AND ac.customer_id=a.customer_id) OR (ac.role='Technician' AND EXISTS(SELECT 1 FROM AppointmentService l WHERE l.appointment_id=a.appointment_id AND l.technician_id=ac.staff_id))))";
+    }
+    public int staffId() { return bssms_common.LoginIdentity.staffId(actor); }
+    public int customerId() { return bssms_common.LoginIdentity.customerId(actor); }
+    public String role() throws SQLException {
+        return one(rs -> rs.getString("role"), "SELECT role FROM " + SchemaSql.ACCOUNTS + " Account WHERE account_id=? AND status='Active'",actor);
+    }
+    public void history(int appointment,String oldStatus,String newStatus,String reason) throws SQLException {
+        update("INSERT INTO AppointmentStatusHistory(appointment_id,old_status,new_status,changed_at,reason) VALUES(?,?,?,SYSDATETIME(),?)",appointment,oldStatus,newStatus,reason);
+    }
+    public int insert(String sql,Object... args) throws SQLException {
+        try(PreparedStatement ps=conn.prepareStatement(sql,Statement.RETURN_GENERATED_KEYS)) {
+            bind(ps, args);
+            ps.executeUpdate();
+            try(ResultSet keys=ps.getGeneratedKeys()) { if(keys.next()) return keys.getInt(1); }
+        }
+        throw new SQLException("No generated key");
     }
     public interface Work<T> { T run() throws SQLException; }
     public <T> T transaction(Work<T> work) throws SQLException {
@@ -85,8 +84,6 @@ public final class Workflow {
         conn.setAutoCommit(false);
         try {
             try(Statement lock=conn.createStatement()) {
-                // JDBC manual-commit mode may not have started a server transaction yet.
-                // A transaction-owned application lock requires an active transaction.
                 lock.execute("IF @@TRANCOUNT=0 BEGIN TRANSACTION; "
                     + "DECLARE @r int; EXEC @r=sys.sp_getapplock "
                     + "@Resource='BSSMS_WORKFLOW',@LockMode='Exclusive',"
@@ -100,7 +97,6 @@ public final class Workflow {
         catch(SQLException|RuntimeException e) { try {conn.rollback();} catch(SQLException x){e.addSuppressed(x);} throw e; }
         finally {conn.setAutoCommit(auto);}
     }
-    /** Compatibility for report/invoice modules that still have dynamic projections. */
     private static Map<String,Object> dynamicRow(ResultSet rs) throws SQLException {
         Map<String,Object> row = new LinkedHashMap<>();
         ResultSetMetaData md = rs.getMetaData();

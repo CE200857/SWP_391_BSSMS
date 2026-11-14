@@ -20,6 +20,8 @@ export const staffNavigation = {
           ["/appointments", "Danh sách lịch hẹn"],
           ["/slots", "Tra cứu lịch trống"],
           ["/receptionist/coordination", "Check-in & điều phối"],
+          ["/treatment-status", "Trạng thái dịch vụ"],
+          ["/room-bed-board", "Trạng thái phòng & giường"],
         ],
       ],
       [
@@ -28,6 +30,7 @@ export const staffNavigation = {
         "people",
         [
           ["/customers", "Danh sách khách hàng"],
+          ["/my-treatment-profile", "Hồ sơ & liệu trình khách"],
           ["/membership-benefits", "Quyền lợi thành viên"],
           ["/vouchers", "Voucher"],
           ["/feedback", "Đánh giá khách hàng"],
@@ -41,19 +44,23 @@ export const staffNavigation = {
           ["/services", "Danh sách dịch vụ"],
           ["/treatment-packages", "Gói liệu trình"],
           ["/service-history", "Lịch sử dịch vụ"],
-          ["/my-treatment-profile", "Quản lý liệu trình & trạng thái"],
         ],
       ],
       [
         "finance",
-        "Bán hàng & thanh toán",
+        "Thu ngân",
         "receipt",
         [
-          ["/invoices", "Hóa đơn & thanh toán"],
-          ["/invoices/create", "Tạo hóa đơn"],
-          ["/products", "Bán lẻ sản phẩm"],
+          ["/invoices/create", "Thu tiền lịch hẹn"],
           ["/sell-treatment-package", "Bán gói liệu trình"],
+          ["/invoices", "Hóa đơn"],
         ],
+      ],
+      [
+        "schedule",
+        "Lịch làm việc",
+        "clock-history",
+        [["/my-schedule", "Ca làm & nghỉ phép"]],
       ],
     ],
   },
@@ -67,9 +74,10 @@ export const staffNavigation = {
         "Lịch hẹn & điều trị",
         "clipboard-pulse",
         [
-          ["/appointments", "Lịch hẹn được giao"],
+          ["/treatment-status", "Dịch vụ được giao"],
           ["/record-treatment-outcome", "Ghi nhận kết quả"],
-          ["/my-treatment-profile", "Quản lý liệu trình & trạng thái"],
+          ["/appointments", "Lịch hẹn được giao"],
+          ["/my-treatment-profile", "Hồ sơ khách hàng"],
           ["/service-history", "Lịch sử dịch vụ"],
         ],
       ],
@@ -77,7 +85,7 @@ export const staffNavigation = {
         "resources",
         "Phòng & giường",
         "building",
-        [["/update-room-bed-status", "Trạng thái phòng & giường"]],
+        [["/room-bed-board", "Trạng thái phòng & giường"]],
       ],
       [
         "catalog",
@@ -89,10 +97,10 @@ export const staffNavigation = {
         ],
       ],
       [
-        "commission",
-        "Hoa hồng cá nhân",
-        "cash-coin",
-        [["/technician/commission", "Theo dõi hoa hồng"]],
+        "schedule",
+        "Lịch làm việc",
+        "clock-history",
+        [["/my-schedule", "Ca làm & nghỉ phép"]],
       ],
     ],
   },
@@ -102,8 +110,10 @@ export function staffSection(role, pathname) {
   if (role === "Manager") return managerSection(pathname);
   const path = pathname === "/receptionist/create-walkin"
     ? "/customers"
-    : pathname === "/treatment-status"
-    ? "/my-treatment-profile"
+    : pathname === "/update-room-bed-status"
+    ? "/room-bed-board"
+    : pathname === "/appointments/create"
+    ? "/appointments"
     : pathname.startsWith("/treatment-profile/")
     ? "/my-treatment-profile"
     : pathname;

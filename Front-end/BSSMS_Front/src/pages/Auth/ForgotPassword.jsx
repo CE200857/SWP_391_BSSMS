@@ -171,7 +171,7 @@ const ForgotPassword = () => {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    setIsEmailVerified(false); // Nếu sửa email thì phải gửi mã lại
+                    setIsEmailVerified(false);
                   }}
                   required
                 />
@@ -201,7 +201,7 @@ const ForgotPassword = () => {
                 onChange={(e) => setVerificationCode(e.target.value)}
                 maxLength={6}
                 required
-                disabled={!isEmailVerified} // KHÓA ĐẾN KHI EMAIL ĐƯỢC XÁC NHẬN TỒN TẠI VÀ BẤM GỬI
+                disabled={!isEmailVerified}
                 style={{
                   backgroundColor: !isEmailVerified ? "#e9ecef" : "white",
                 }}

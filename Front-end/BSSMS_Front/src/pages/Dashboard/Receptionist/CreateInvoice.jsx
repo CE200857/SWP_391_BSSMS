@@ -1,314 +1,196 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Alert, Button, Card, Form, Spinner, Table } from "react-bootstrap";
-import { api, post, money, today } from "../../../services/api";
+import { Alert, Badge, Button, Card, Col, Container, Form, ListGroup, Row, Spinner, Table } from "react-bootstrap";
+import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
+import { api, post, money, viDate, time5 } from "../../../services/api";
 
-export default function CreateInvoice({ packageOnly = false }) {
+function SellPackage() {
   const navigate = useNavigate();
-  const [data, setData] = useState(null),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState(packageOnly ? "package" : "appointment");
-  const [form, setForm] = useState({
-    customerId: "",
-    appointmentId: "",
-    treatmentPackageId: "",
-    voucherId: "",
-    useBirthday: false,
-    quantities: {},
-  });
-  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const [customers, setCustomers] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [search, setSearch] = useState("");
+  const [customer, setCustomer] = useState(null);
+  const [packageId, setPackageId] = useState("");
+  const [voucherCode, setVoucherCode] = useState("");
+  const [method, setMethod] = useState("Cash");
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
-    let active = true;
-    Promise.all(
-      [
-        "/api/invoices/eligible-appointments",
-        "/api/invoices/products",
-        "/api/customers",
-        "/api/treatment-packages",
-        "/api/vouchers",
-      ].map((url) => api(url)),
-    )
-      .then(([appointments, products, customers, packages, vouchers]) => {
-        if (active)
-          setData({ appointments, products, customers, packages, vouchers });
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      });
-    return () => {
-      active = false;
-    };
+    api("/api/customers").then((r) => setCustomers((r || []).filter((c) => c.status === "Active"))).catch((e) => setError(e.message));
+    api("/api/treatment-packages?activeOnly=true").then(setPackages).catch((e) => setError(e.message));
   }, []);
-  const update = (patch) => {
-    setForm((f) => ({ ...f, ...patch }));
-    setRequestKey(crypto.randomUUID());
-  };
-  const appointment = data?.appointments.find(
-    (a) => Number(a.appointmentId) === Number(form.appointmentId),
-  );
-  const customerId =
-    mode === "appointment" ? appointment?.customerId : Number(form.customerId);
-  const pack = data?.packages.find(
-    (p) => Number(p.treatmentPackageId) === Number(form.treatmentPackageId),
-  );
-  const products = (data?.products || []).filter(
-    (p) => Number(form.quantities[p.productId]) > 0,
-  );
-  const subtotal =
-    (mode === "appointment"
-      ? Number(appointment?.servicePrice || 0)
-      : mode === "package"
-        ? Number(pack?.price || 0)
-        : 0) +
-    products.reduce(
-      (s, p) => s + Number(p.unitPrice) * Number(form.quantities[p.productId]),
-      0,
-    );
-  // Nút chỉ bật khi đủ thông tin; phần còn thiếu được liệt kê ngay dưới nút.
-  const missing = [];
-  if (mode === "appointment") {
-    if (!form.appointmentId) missing.push("lịch hẹn đã hoàn thành");
-  } else {
-    if (!form.customerId) missing.push("khách hàng");
-    if (mode === "package" && !form.treatmentPackageId) missing.push("gói liệu trình");
-    if (mode === "retail" && !products.length) missing.push("ít nhất một sản phẩm (nhập số lượng mua)");
-  }
-  async function submit(e) {
-    e.preventDefault();
-    if (busy) return;
-    setBusy(true);
+  const matches = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? customers.filter((c) => `${c.fullName} ${c.phone}`.toLowerCase().includes(q)).slice(0, 8) : [];
+  }, [customers, search]);
+  const pkg = packages.find((p) => String(p.treatmentPackageId) === String(packageId));
+  const tierPercent = Number(customer?.membership?.discountPercent || 0);
+
+  const sell = async () => {
+    setSaving(true);
     setError("");
     try {
-      const result = await post("/api/invoices", {
-        customerId,
-        appointmentId:
-          mode === "appointment" ? Number(form.appointmentId) : null,
-        treatmentPackageId:
-          mode === "package" ? Number(form.treatmentPackageId) : null,
-        voucherId: form.voucherId ? Number(form.voucherId) : null,
-        useBirthday: form.useBirthday,
-        productItems: products.map((p) => ({
-          productId: p.productId,
-          quantity: Number(form.quantities[p.productId]),
-        })),
-        requestKey,
+      const r = await post("/api/customer-packages/sell", {
+        customerId: customer.customerId, treatmentPackageId: Number(packageId), voucherCode: voucherCode.trim() || null, paymentMethod: method,
       });
-      navigate("/invoices", { state: { createdInvoiceId: result.invoiceId } });
+      if (method === "VNPay") {
+        const pay = await post("/api/payments/vnpay/create", { invoiceId: r.invoiceId });
+        window.location.assign(pay.paymentUrl);
+        return;
+      }
+      setResult(r);
     } catch (e) {
       setError(e.message);
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
-  }
+  };
+
   return (
-    <section>
-      <div className="ui-page-heading">
+    <Container fluid className="mt-4 px-4">
+      <h2 className="manager-page-title fw-bold mb-1">Bán gói liệu trình</h2>
+      <p className="text-muted mb-4">Gói được kích hoạt ngay khi thanh toán thành công; hạn dùng tính từ ngày mua.</p>
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {result && (
+        <Alert variant="success">
+          Đã bán gói cho {customer?.fullName}. Hóa đơn #{result.invoiceId} · {money(result.totalAmount)}
+          {result.customerPackage && <> · {result.customerPackage.totalSessions} buổi, hạn đến {viDate(result.customerPackage.expiryDate)}</>}
+          <div className="mt-2 d-flex gap-2">
+            <Button size="sm" onClick={() => navigate(`/invoices?invoice=${result.invoiceId}`)}>Xem hóa đơn</Button>
+            <Button size="sm" variant="outline-success" onClick={() => { setResult(null); setPackageId(""); setVoucherCode(""); }}>Bán gói khác</Button>
+          </div>
+        </Alert>
+      )}
+      <Row className="g-4">
+        <Col lg={7}>
+          <Card className="shadow-sm border-0 mb-4">
+            <Card.Header className="bg-white fw-bold">1. Khách hàng</Card.Header>
+            <Card.Body>
+              {customer ? (
+                <div className="d-flex justify-content-between align-items-center">
+                  <span><strong>{customer.fullName}</strong> · {customer.phone} {customer.membership && <Badge bg="info">{customer.membership.tierName}</Badge>}</span>
+                  <Button variant="link" onClick={() => setCustomer(null)}>Đổi</Button>
+                </div>
+              ) : (
+                <>
+                  <Form.Control placeholder="Tìm theo tên hoặc số điện thoại..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <ListGroup className="mt-2">
+                    {matches.map((c) => <ListGroup.Item action key={c.customerId} onClick={() => setCustomer(c)}>{c.fullName} · {c.phone}</ListGroup.Item>)}
+                  </ListGroup>
+                </>
+              )}
+            </Card.Body>
+          </Card>
+          <Card className="shadow-sm border-0">
+            <Card.Header className="bg-white fw-bold">2. Gói liệu trình</Card.Header>
+            <Card.Body>
+              <Form.Select value={packageId} onChange={(e) => setPackageId(e.target.value)}>
+                <option value="">-- Chọn gói --</option>
+                {packages.map((p) => <option key={p.treatmentPackageId} value={p.treatmentPackageId}>{p.packageName} · {p.numberOfSessions} buổi · {money(p.price)}</option>)}
+              </Form.Select>
+              {pkg && (
+                <p className="text-muted small mt-2 mb-0">
+                  Dịch vụ áp dụng: {(pkg.services || []).map((s) => s.serviceName).join(", ")} · Hạn dùng {pkg.validityDays} ngày
+                </p>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col lg={5}>
+          <Card className="shadow-sm border-0">
+            <Card.Header className="bg-white fw-bold">3. Thanh toán</Card.Header>
+            <Card.Body>
+              <p className="mb-1">Giá gói: <strong>{pkg ? money(pkg.price) : "—"}</strong></p>
+              {tierPercent > 0 && <p className="mb-1 text-muted small">Giảm theo hạng {customer.membership.tierName}: {tierPercent}% (trừ khi lập hóa đơn)</p>}
+              <Form.Group className="my-3">
+                <Form.Label>Mã voucher</Form.Label>
+                <Form.Control value={voucherCode} onChange={(e) => setVoucherCode(e.target.value.toUpperCase())} />
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Hình thức thanh toán</Form.Label>
+                <Form.Select value={method} onChange={(e) => setMethod(e.target.value)}>
+                  <option value="Cash">Tiền mặt</option>
+                  <option value="BankTransfer">Chuyển khoản</option>
+                  <option value="VNPay">VNPay</option>
+                </Form.Select>
+              </Form.Group>
+              <Button className="w-100 fw-bold" disabled={saving || !customer || !packageId || !!result} onClick={sell}>
+                {saving ? <Spinner size="sm" /> : "Thanh toán & kích hoạt gói"}
+              </Button>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </Container>
+  );
+}
+
+function Cashier() {
+  const navigate = useNavigate();
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRows(await api("/api/invoices/unpaid-appointments"));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <Container fluid className="mt-4 px-4">
+      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-          <h1>{packageOnly ? "Bán gói liệu trình" : "Tạo hóa đơn"}</h1>
-          <p>
-            Lập hóa đơn, kiểm tra ưu đãi thực tế rồi thu tiền trong trang hóa
-            đơn.
-          </p>
+          <h2 className="manager-page-title fw-bold mb-1">Thu ngân</h2>
+          <p className="text-muted mb-0">Các lịch hẹn còn hóa đơn chưa thanh toán. Mở hóa đơn để áp voucher và thu tiền.</p>
+        </div>
+        <div className="d-flex gap-2">
+          <Button variant="outline-secondary" onClick={load}><i className="bi bi-arrow-clockwise" /> Làm mới</Button>
+          <Button onClick={() => navigate("/sell-treatment-package")}><i className="bi bi-box-seam" /> Bán gói liệu trình</Button>
         </div>
       </div>
       {error && <Alert variant="danger">{error}</Alert>}
-      {!data ? (
-        <Spinner animation="border" />
-      ) : (
-        <Form onSubmit={submit}>
-          <fieldset disabled={busy}>
-            <Card className="mb-3">
-              <Card.Body>
-                {!packageOnly && (
-                  <Form.Group className="mb-3">
-                    <Form.Label>Loại hóa đơn</Form.Label>
-                    <Form.Select
-                      value={mode}
-                      onChange={(e) => {
-                        setMode(e.target.value);
-                        update({ voucherId: "", useBirthday: false });
-                      }}
-                    >
-                      <option value="appointment">Dịch vụ đã hoàn thành</option>
-                      <option value="retail">Bán sản phẩm</option>
-                      <option value="package">Bán gói liệu trình</option>
-                    </Form.Select>
-                  </Form.Group>
-                )}
-                {mode === "appointment" ? (
-                  <Form.Group className="mb-3">
-                    <Form.Label>Lịch hẹn đã hoàn thành</Form.Label>
-                    <Form.Select
-                      required
-                      value={form.appointmentId}
-                      onChange={(e) =>
-                        update({ appointmentId: e.target.value, voucherId: "" })
-                      }
-                    >
-                      <option value="">Chọn lịch hẹn</option>
-                      {data.appointments.map((a) => (
-                        <option key={a.appointmentId} value={a.appointmentId}>
-                          #{a.appointmentId} · {a.customerName} ·{" "}
-                          {a.serviceName} · {a.appointmentDate}
-                        </option>
-                      ))}
-                    </Form.Select>
-                    {data.appointments.length === 0 && (
-                      <Form.Text className="text-danger">
-                        Chưa có lịch hẹn nào hoàn thành cần lập hóa đơn.
-                      </Form.Text>
+      <Card className="shadow-sm border-0">
+        <Card.Body className="p-0">
+          <Table hover responsive className="align-middle mb-0 manager-list-table">
+            <thead className="table-dark"><tr><th>Hóa đơn</th><th>Lịch hẹn</th><th>Khách hàng</th><th>Dịch vụ</th><th>Trạng thái lịch</th><th>Phải thu</th><th /></tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={7} className="text-center py-4"><Spinner animation="border" size="sm" /></td></tr> : rows.map((r) => (
+                <tr key={r.invoiceId}>
+                  <td className="fw-bold">#{r.invoiceId}</td>
+                  <td>#{r.appointmentId}<small className="d-block text-muted">{viDate(r.appointmentDate)} {time5(r.startTime)}</small></td>
+                  <td>{r.customerName}<small className="d-block text-muted">{r.customerPhone}</small></td>
+                  <td>{r.serviceNames}</td>
+                  <td><AppointmentStatusBadge status={r.appointmentStatus} /></td>
+                  <td className="fw-bold text-danger">{money(r.totalAmount)}</td>
+                  <td>
+                    {r.canCollect === false ? (
+                      <span className="d-inline-block" title={r.collectNote || ""}>
+                        <Button size="sm" variant="outline-secondary" disabled>Chưa đến lúc thu</Button>
+                        <small className="d-block text-muted mt-1">Thu khi khách đã check-in</small>
+                      </span>
+                    ) : (
+                      <Button size="sm" onClick={() => navigate(`/invoices?invoice=${r.invoiceId}`)}>Thu tiền</Button>
                     )}
-                  </Form.Group>
-                ) : (
-                  <Form.Group className="mb-3">
-                    <Form.Label>Khách hàng</Form.Label>
-                    <Form.Select
-                      required
-                      value={form.customerId}
-                      onChange={(e) =>
-                        update({ customerId: e.target.value, voucherId: "" })
-                      }
-                    >
-                      <option value="">Chọn khách hàng</option>
-                      {data.customers
-                        .filter((c) => !c.status || c.status === "Active")
-                        .map((c) => (
-                          <option key={c.customerId} value={c.customerId}>
-                            {c.fullName} · {c.phone}
-                          </option>
-                        ))}
-                    </Form.Select>
-                  </Form.Group>
-                )}
-                {mode === "package" && (
-                  <Form.Group className="mb-3">
-                    <Form.Label>Gói liệu trình</Form.Label>
-                    <Form.Select
-                      required
-                      value={form.treatmentPackageId}
-                      onChange={(e) =>
-                        update({ treatmentPackageId: e.target.value })
-                      }
-                    >
-                      <option value="">Chọn gói</option>
-                      {data.packages
-                        .filter((p) => p.status === "Active")
-                        .map((p) => (
-                          <option
-                            key={p.treatmentPackageId}
-                            value={p.treatmentPackageId}
-                          >
-                            {p.packageName} · {money(p.price)} ·{" "}
-                            {p.numberOfSessions} buổi
-                          </option>
-                        ))}
-                    </Form.Select>
-                    <Form.Text>
-                      Chỉ đặt lịch sử dụng gói sau khi hóa đơn đã thanh toán đủ.
-                    </Form.Text>
-                  </Form.Group>
-                )}
-                <Form.Group className="mb-3">
-                  <Form.Label>Voucher</Form.Label>
-                  <Form.Select
-                    value={form.voucherId}
-                    onChange={(e) => update({ voucherId: e.target.value })}
-                  >
-                    <option value="">Không sử dụng</option>
-                    {data.vouchers
-                      .filter(
-                        (v) =>
-                          v.status === "Active" &&
-                          (!v.customerId ||
-                            Number(v.customerId) === customerId) &&
-                          String(v.endDate).slice(0, 10) >= today(),
-                      )
-                      .map((v) => (
-                        <option key={v.voucherId} value={v.voucherId}>
-                          {v.voucherCode} ·{" "}
-                          {v.discountType === "Percentage"
-                            ? `${v.discountValue}%`
-                            : money(v.discountValue)}
-                        </option>
-                      ))}
-                  </Form.Select>
-                </Form.Group>
-                <Form.Check
-                  label="Áp dụng ưu đãi sinh nhật 10% (một lần trong năm, đúng tháng sinh nhật)"
-                  checked={form.useBirthday}
-                  onChange={(e) => update({ useBirthday: e.target.checked })}
-                />
-              </Card.Body>
-            </Card>
-            <Card className="mb-3">
-              <Card.Body>
-                <h2>Sản phẩm bán kèm</h2>
-                <div className="table-responsive">
-                  <Table>
-                    <thead>
-                      <tr>
-                        <th>Sản phẩm</th>
-                        <th>Đơn giá</th>
-                        <th>Tồn kho</th>
-                        <th>Số lượng mua</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.products.map((p) => (
-                        <tr key={p.productId}>
-                          <td>{p.productName}</td>
-                          <td>{money(p.unitPrice)}</td>
-                          <td>{p.stockQuantity}</td>
-                          <td>
-                            <Form.Control
-                              aria-label={`Số lượng ${p.productName}`}
-                              type="number"
-                              min="0"
-                              max={Math.floor(p.stockQuantity)}
-                              step="1"
-                              value={form.quantities[p.productId] || ""}
-                              onChange={(e) =>
-                                update({
-                                  quantities: {
-                                    ...form.quantities,
-                                    [p.productId]: e.target.value,
-                                  },
-                                })
-                              }
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </div>
-              </Card.Body>
-            </Card>
-            <Alert variant="info">
-              Tạm tính trước ưu đãi: <strong>{money(subtotal)}</strong>. Hệ
-              thống tính VIP, sinh nhật và voucher theo điều kiện tại thời điểm
-              lập hóa đơn. Kiểm tra số tiền cuối cùng trước khi thu.
-            </Alert>
-            <div className="d-flex gap-2">
-              <Button variant="secondary" onClick={() => navigate("/invoices")}>
-                Quay lại
-              </Button>
-              <Button
-                type="submit"
-                disabled={busy || !customerId || missing.length > 0}
-              >
-                {busy ? "Đang tạo…" : "Tạo hóa đơn"}
-              </Button>
-            </div>
-            {missing.length > 0 && (
-              <p className="text-muted small mt-2 mb-0">
-                Để tạo hóa đơn, hãy chọn: {missing.join(", ")}.
-              </p>
-            )}
-          </fieldset>
-        </Form>
-      )}
-    </section>
+                  </td>
+                </tr>
+              ))}
+              {!loading && !rows.length && <tr><td colSpan={7} className="text-center text-muted py-4">Không có hóa đơn nào chờ thu.</td></tr>}
+            </tbody>
+          </Table>
+        </Card.Body>
+      </Card>
+    </Container>
   );
+}
+
+export default function CreateInvoice({ packageOnly = false }) {
+  return packageOnly ? <SellPackage /> : <Cashier />;
 }

@@ -13,10 +13,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** 4.6: before/after treatment photos. Files live on disk; the database keeps only the storage key. */
 public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
     public static final int MAX_BYTES = 3 * 1024 * 1024;
-    public static final int MAX_PHOTOS_PER_APPOINTMENT = 20;
+    public static final int MAX_PHOTOS_PER_APPOINTMENT = 10;
 
     public static final class Stored {
         public final Path path;
@@ -26,7 +25,6 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
 
     @Override public void close() throws SQLException { if (conn != null) conn.close(); }
 
-    /** Directory is configurable with -Dbssms.photo.dir or BSSMS_PHOTO_DIR; default is ~/bssms-photos. */
     public static Path root() {
         String dir = System.getProperty("bssms.photo.dir");
         if (dir == null || dir.isBlank()) dir = System.getenv("BSSMS_PHOTO_DIR");
@@ -55,21 +53,28 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
         }
     }
 
-    public List<Map<String, Object>> list(int appointmentId) throws SQLException {
+    private int appointmentOf(int lineId) throws SQLException {
+        int appointmentId = ((Number) workflow().one("SELECT appointment_id FROM AppointmentService WHERE appointment_service_id=?", lineId).get("appointmentId")).intValue();
         workflow().appointmentAccess(appointmentId);
-        return workflow().query(
-                "SELECT photo_id,photo_type,created_at FROM TreatmentPhoto WHERE appointment_id=? ORDER BY photo_id",
-                appointmentId);
+        return appointmentId;
     }
 
-    public List<Map<String, Object>> add(int appointmentId, String photoType, String contentType, String base64) throws Exception {
+    public List<Map<String, Object>> list(int lineId) throws SQLException {
+        appointmentOf(lineId);
+        return workflow().query(
+                "SELECT photo_id,appointment_service_id,photo_type,created_at FROM TreatmentPhoto WHERE appointment_service_id=? ORDER BY photo_id",
+                lineId);
+    }
+
+    public List<Map<String, Object>> add(int lineId, String photoType, String contentType, String base64) throws Exception {
         workflow().roles("Technician");
-        workflow().appointmentAccess(appointmentId);
+        appointmentOf(lineId);
+        if (workflow().query("SELECT appointment_service_id FROM AppointmentService WHERE appointment_service_id=? AND technician_id=?", lineId, workflow().staffId()).isEmpty())
+            throw new WorkflowException(403, "Dòng dịch vụ này không được giao cho bạn.");
         if (!"Before".equals(photoType) && !"After".equals(photoType))
             throw new IllegalArgumentException("Loại ảnh phải là Before hoặc After.");
         String ext = extensionFor(contentType);
         if (base64 == null || base64.isBlank()) throw new IllegalArgumentException("Thiếu dữ liệu ảnh.");
-        // Reject oversized payloads before decoding (4 base64 chars carry 3 bytes).
         if (base64.length() > (long) MAX_BYTES * 4 / 3 + 16) throw new IllegalArgumentException("Ảnh tối đa 3 MB.");
         byte[] bytes;
         try { bytes = Base64.getDecoder().decode(base64.replaceAll("\\s", "")); }
@@ -77,10 +82,10 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
         if (bytes.length == 0 || bytes.length > MAX_BYTES) throw new IllegalArgumentException("Ảnh tối đa 3 MB.");
         if (!magicMatches(ext, bytes)) throw new IllegalArgumentException("Nội dung tệp không phải ảnh " + ext.toUpperCase() + " hợp lệ.");
 
-        String status = String.valueOf(workflow().one("SELECT status FROM Appointment WHERE appointment_id=?", appointmentId).get("status"));
+        String status = String.valueOf(workflow().one("SELECT a.status FROM Appointment a JOIN AppointmentService l ON l.appointment_id=a.appointment_id WHERE l.appointment_service_id=?", lineId).get("status"));
         if (!Arrays.asList("Checked-in", "In-progress", "Completed").contains(status))
             throw new IllegalStateException("Chỉ được tải ảnh sau khi khách đã check-in.");
-        Number count = (Number) workflow().one("SELECT COUNT(*) AS total FROM TreatmentPhoto WHERE appointment_id=?", appointmentId).get("total");
+        Number count = (Number) workflow().one("SELECT COUNT(*) AS total FROM TreatmentPhoto WHERE appointment_service_id=?", lineId).get("total");
         if (count.intValue() >= MAX_PHOTOS_PER_APPOINTMENT)
             throw new IllegalStateException("Mỗi lịch hẹn tối đa " + MAX_PHOTOS_PER_APPOINTMENT + " ảnh.");
 
@@ -89,20 +94,19 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
         Files.createDirectories(root());
         Files.write(target, bytes);
         try {
-            workflow().update("INSERT TreatmentPhoto(appointment_id,photo_type,storage_key) VALUES(?,?,?)", appointmentId, photoType, key);
+            workflow().update("INSERT TreatmentPhoto(appointment_service_id,photo_type,storage_key,created_at) VALUES(?,?,?,SYSDATETIME())", lineId, photoType, key);
         } catch (SQLException | RuntimeException e) {
             try { Files.deleteIfExists(target); } catch (IOException ignored) { }
             throw e;
         }
-        return list(appointmentId);
+        return list(lineId);
     }
 
-    /** Technician xóa một ảnh trước/sau của lịch hẹn mình được phân công; trả về danh sách ảnh còn lại. */
     public List<Map<String, Object>> delete(int photoId) throws Exception {
         workflow().roles("Technician");
-        Map<String, Object> row = workflow().one("SELECT appointment_id,storage_key FROM TreatmentPhoto WHERE photo_id=?", photoId);
-        int appointmentId = ((Number) row.get("appointmentId")).intValue();
-        workflow().appointmentAccess(appointmentId);
+        Map<String, Object> row = workflow().one("SELECT appointment_service_id,storage_key FROM TreatmentPhoto WHERE photo_id=?", photoId);
+        int lineId = ((Number) row.get("appointmentServiceId")).intValue();
+        int appointmentId = appointmentOf(lineId);
         String status = String.valueOf(workflow().one("SELECT status FROM Appointment WHERE appointment_id=?", appointmentId).get("status"));
         if (!Arrays.asList("Checked-in", "In-progress", "Completed").contains(status))
             throw new IllegalStateException("Không xóa được ảnh ở trạng thái lịch hẹn hiện tại.");
@@ -112,15 +116,13 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
             Path path = root().resolve(String.valueOf(row.get("storageKey"))).normalize();
             if (path.startsWith(root())) Files.deleteIfExists(path);
         } catch (IOException ignored) {
-            // ảnh đã xóa khỏi cơ sở dữ liệu; tệp còn sót lại không ảnh hưởng nghiệp vụ
         }
-        return list(appointmentId);
+        return list(lineId);
     }
 
-    /** Resolves a stored photo after checking that the caller may see its appointment. */
     public Stored file(int photoId) throws SQLException {
-        Map<String, Object> row = workflow().one("SELECT appointment_id,storage_key FROM TreatmentPhoto WHERE photo_id=?", photoId);
-        workflow().appointmentAccess(((Number) row.get("appointmentId")).intValue());
+        Map<String, Object> row = workflow().one("SELECT appointment_service_id,storage_key FROM TreatmentPhoto WHERE photo_id=?", photoId);
+        appointmentOf(((Number) row.get("appointmentServiceId")).intValue());
         String key = String.valueOf(row.get("storageKey"));
         Path path = root().resolve(key).normalize();
         if (!path.startsWith(root()) || !Files.isRegularFile(path)) throw new WorkflowException(404, "Không tìm thấy tệp ảnh.");

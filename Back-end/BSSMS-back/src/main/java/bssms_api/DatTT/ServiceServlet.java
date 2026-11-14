@@ -14,6 +14,8 @@ public class ServiceServlet extends BaseApiServlet {
             try (ServiceDAO dao = new ServiceDAO()) {
                 ServiceController controller = new ServiceController(dao);
                 Integer id = optionalId(request, "id");
+                Integer technicians = optionalId(request, "technicians");
+                if (technicians != null) return controller.technicians(technicians);
                 return id == null ? controller.getAllServices() : controller.getServiceById(id);
             }
         });
@@ -39,8 +41,7 @@ public class ServiceServlet extends BaseApiServlet {
         handle(request, response, 200, () -> {
             try (ServiceDAO dao = new ServiceDAO()) {
                 ServiceController controller = new ServiceController(dao);
-                controller.deleteService(id(request, "id"));
-                return null;
+                return controller.deleteService(id(request, "id"));
             }
         });
     }

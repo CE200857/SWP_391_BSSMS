@@ -5,7 +5,6 @@ import java.security.MessageDigest;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.*;
-/** VNPay PAY 2.1.0: sorted URL-encoded fields, HMAC-SHA512. */
 public final class VnPay {
     private VnPay() {}
     public static String required(String key) {

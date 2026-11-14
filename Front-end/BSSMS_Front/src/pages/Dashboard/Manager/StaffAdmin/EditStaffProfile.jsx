@@ -22,7 +22,6 @@ const EditStaffProfile = () => {
     email: "",
     role: "",
     hireDate: "",
-    salary: "",
     username: "",
     status: "",
     password: "",
@@ -35,6 +34,19 @@ const EditStaffProfile = () => {
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [services, setServices] = useState([]);
+  const [skillIds, setSkillIds] = useState([]);
+
+  useEffect(() => {
+    if (formData.role !== "Technician" || !formData.staffId) return;
+    Promise.all([
+      axios.get("/api/service", { withCredentials: true }),
+      axios.get(`/api/staff?skillsOf=${formData.staffId}`, { withCredentials: true }),
+    ]).then(([srv, skills]) => {
+      setServices((srv.data || []).filter((s) => s.status === "Active"));
+      setSkillIds((skills.data || []).map((s) => s.serviceId));
+    }).catch(() => setServices([]));
+  }, [formData.role, formData.staffId]);
 
   useEffect(() => {
     const fetchStaffData = async () => {
@@ -52,7 +64,6 @@ const EditStaffProfile = () => {
             email: data.email || "",
             role: data.role || "",
             hireDate: data.hireDate ? data.hireDate.substring(0, 10) : "",
-            salary: data.salary || "",
             username: data.username || "",
             status: data.status || "Active",
             password: "",
@@ -108,12 +119,6 @@ const EditStaffProfile = () => {
       return;
     }
 
-    const salaryValue = parseFloat(formData.salary);
-    if (isNaN(salaryValue) || salaryValue < 0) {
-      setError("Mức lương không hợp lệ (Phải là số lớn hơn hoặc bằng 0)!");
-      return;
-    }
-
     setShowSaveModal(true);
   };
 
@@ -138,6 +143,9 @@ const EditStaffProfile = () => {
       );
 
       if (response.status === 200) {
+        if (formData.role === "Technician") {
+          await axios.post("/api/staff", { action: "save-skills", staffId: formData.staffId, serviceIds: skillIds }, { withCredentials: true });
+        }
         setMessage("Lưu thông tin nhân viên thành công!");
         setTimeout(() => navigate("/staffs"), 2000);
       }
@@ -230,10 +238,8 @@ const EditStaffProfile = () => {
                     <Col md={6}>
                       <Form.Group className="mb-3">
                         <Form.Label>Chức vụ <span className="text-danger">*</span></Form.Label>
-                        <Form.Select name="role" value={formData.role} onChange={handleChange} required>
-                          <option value="Receptionist">Lễ tân (Receptionist)</option>
-                          <option value="Technician">Kỹ thuật viên (Technician)</option>
-                        </Form.Select>
+                        <Form.Control value={roleLabels[formData.role] || formData.role} disabled />
+                        <Form.Text>Đổi chức vụ tại danh sách nhân viên (phân quyền).</Form.Text>
                       </Form.Group>
                     </Col>
                     <Col md={6}>
@@ -242,12 +248,20 @@ const EditStaffProfile = () => {
                         <Form.Control type="date" name="hireDate" value={formData.hireDate} onChange={handleChange} />
                       </Form.Group>
                     </Col>
-                    <Col md={6}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Mức lương (VNĐ) <span className="text-danger">*</span></Form.Label>
-                        <Form.Control type="number" name="salary" value={formData.salary} onChange={handleChange} required min="0" />
-                      </Form.Group>
-                    </Col>
+                    {formData.role === "Technician" && (
+                      <Col md={12}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>Kỹ năng dịch vụ</Form.Label>
+                          <div className="d-flex flex-wrap gap-3 border rounded p-2">
+                            {services.map((s) => (
+                              <Form.Check key={s.serviceId} id={`edit-skill-${s.serviceId}`} label={s.serviceName}
+                                checked={skillIds.includes(s.serviceId)}
+                                onChange={() => setSkillIds((ids) => ids.includes(s.serviceId) ? ids.filter((x) => x !== s.serviceId) : [...ids, s.serviceId])} />
+                            ))}
+                          </div>
+                        </Form.Group>
+                      </Col>
+                    )}
                     <Col md={6}>
                       <Form.Group className="mb-3">
                         <Form.Label>Mật khẩu mới</Form.Label>

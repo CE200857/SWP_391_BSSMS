@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import bssms_account.*;
 import java.util.List;
 
-
 public class StaffDAO extends DBContext implements AutoCloseable {
 
     private void requireConnection() {
@@ -17,7 +16,6 @@ public class StaffDAO extends DBContext implements AutoCloseable {
     }
     @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
-    // View Staff Account
     public List<Staff> getAllStaffDetails() {
         requireConnection();
 
@@ -25,7 +23,7 @@ public class StaffDAO extends DBContext implements AutoCloseable {
 
         String query = "SELECT s.staff_id, s.account_id, "
                 + "a.username, s.full_name, a.phone, "
-                + "a.email, s.position, s.salary, "
+                + "a.email, s.position, "
                 + "s.hire_date, a.status "
                 + "FROM " + bssms_persistence.common.SchemaSql.STAFF + " s "
                 + "JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a ON s.account_id = a.account_id";
@@ -47,7 +45,6 @@ public class StaffDAO extends DBContext implements AutoCloseable {
                     value.setPhone(rs.getString("phone"));
                     value.setEmail(rs.getString("email"));
                     value.setPosition(rs.getString("position"));
-                    value.setSalary(rs.getBigDecimal("salary"));
                     value.setHireDate(rs.getString("hire_date"));
                     value.setStatus(rs.getString("status"));
 
@@ -61,34 +58,78 @@ public class StaffDAO extends DBContext implements AutoCloseable {
 
         return list;
     }
-    // Deactivate Staff Account
-    public boolean deactivateStaff(int staffId) {
-        requireConnection();
-        try {
-            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Staff SET status='Inactive' WHERE staff_id=?", staffId) == 1;
-        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
+    private void requireNoFutureLines(bssms_persistence.common.Workflow w, int staffId, String message) throws java.sql.SQLException {
+        if (!w.query("SELECT TOP 1 l.appointment_service_id FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id "
+                + "WHERE l.technician_id=? AND a.appointment_date>=CAST(GETDATE() AS date) AND a.status IN ('Pending','Confirmed','Checked-in','In-progress') AND l.status<>'Done'", staffId).isEmpty())
+            throw new bssms_persistence.common.WorkflowException(409, message);
+    }
+    private void requireNotLastManager(bssms_persistence.common.Workflow w, int staffId) throws java.sql.SQLException {
+        if (!w.query("SELECT staff_id FROM Staff WHERE staff_id=? AND role='Manager'", staffId).isEmpty()
+                && ((Number) w.one("SELECT COUNT(*) AS n FROM Staff WHERE role='Manager' AND status='Active' AND staff_id<>?", staffId).get("n")).intValue() == 0)
+            throw new bssms_persistence.common.WorkflowException(409, "Phải còn ít nhất một quản lý đang hoạt động.");
     }
 
-    // Change Staff Status
+    public boolean deactivateStaff(int staffId) {
+        return updateStaffStatus(bssms_common.LoginIdentity.staff(staffId), "Inactive");
+    }
+
     public boolean updateStaffStatus(int accountId, String newStatus) {
         requireConnection();
         try {
-            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Staff SET status=? WHERE staff_id=?", newStatus,bssms_common.LoginIdentity.staffId(accountId)) == 1;
+            bssms_persistence.common.Workflow w = new bssms_persistence.common.Workflow(conn,0);
+            int staffId = bssms_common.LoginIdentity.staffId(accountId);
+            return w.transaction(() -> {
+                if (!"Active".equals(newStatus)) {
+                    requireNotLastManager(w, staffId);
+                    requireNoFutureLines(w, staffId, "Kỹ thuật viên còn lịch hẹn sắp tới. Hãy điều phối lại các lịch này trước (UC-11.9).");
+                    w.update("DELETE FROM StaffShift WHERE staff_id=? AND shift_date>CAST(GETDATE() AS date)", staffId);
+                }
+                return w.update("UPDATE Staff SET status=? WHERE staff_id=?", newStatus, staffId) == 1;
+            });
         } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
-    //Delete Staff Account
     public boolean deleteStaff(int staffId) {
         return deactivateStaff(staffId);
     }
     
     public boolean assignRole(int accountId, String newRole) {
         requireConnection();
+        if (!java.util.Arrays.asList("Manager","Receptionist","Technician").contains(newRole)) throw new IllegalArgumentException("Vai trò không hợp lệ.");
         try {
-            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Staff SET role=? WHERE staff_id=?", newRole,bssms_common.LoginIdentity.staffId(accountId)) == 1;
+            bssms_persistence.common.Workflow w = new bssms_persistence.common.Workflow(conn,0);
+            int staffId = bssms_common.LoginIdentity.staffId(accountId);
+            return w.transaction(() -> {
+                if (!"Manager".equals(newRole)) requireNotLastManager(w, staffId);
+                if (!"Technician".equals(newRole)) {
+                    requireNoFutureLines(w, staffId, "Kỹ thuật viên còn lịch hẹn sắp tới, cần phân công lại trước khi đổi vai trò.");
+                    w.update("DELETE FROM StaffService WHERE staff_id=?", staffId);
+                }
+                return w.update("UPDATE Staff SET role=? WHERE staff_id=?", newRole, staffId) == 1;
+            });
         } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
-    
+
+    public java.util.List<java.util.Map<String,Object>> getSkills(int staffId) {
+        requireConnection();
+        try {
+            return new bssms_persistence.common.Workflow(conn,0).query("SELECT s.service_id,s.service_name FROM StaffService ss JOIN Service s ON s.service_id=ss.service_id WHERE ss.staff_id=? ORDER BY s.service_name", staffId);
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
+    }
+    public void saveSkills(int staffId, java.util.List<Integer> serviceIds) {
+        requireConnection();
+        try {
+            bssms_persistence.common.Workflow w = new bssms_persistence.common.Workflow(conn,0);
+            w.transaction(() -> {
+                if (w.query("SELECT staff_id FROM Staff WHERE staff_id=? AND role='Technician'", staffId).isEmpty())
+                    throw new IllegalArgumentException("Chỉ gán kỹ năng cho kỹ thuật viên.");
+                w.update("DELETE FROM StaffService WHERE staff_id=?", staffId);
+                for (Integer id : serviceIds) w.update("INSERT INTO StaffService(staff_id,service_id) VALUES(?,?)", staffId, id);
+                return null;
+            });
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
+    }
+
     private String getUniqueUsername(String baseUsername) {
         String username = baseUsername;
         int counter = 1;
@@ -113,14 +154,20 @@ public class StaffDAO extends DBContext implements AutoCloseable {
         return username;
     }
     
-    public String createStaff(String baseUsername, String password, String email, String phone, String fullName, String role, double salary) {
+    public String createStaff(String baseUsername, String password, String email, String phone, String fullName, String role, String hireDate, java.util.List<Integer> serviceIds) {
         requireConnection();
         try {
             String username=getUniqueUsername(baseUsername);
-            int rows=new bssms_persistence.common.Workflow(conn,0).update(
-                "INSERT Staff(username,password,email,phone,full_name,role,salary,hire_date) VALUES(?,?,?,?,?,?,?,CAST(GETDATE() AS date))",
-                username,bssms_security.PasswordUtil.hashMD5(password),email,phone,fullName,role,salary);
-            return rows==1?username:null;
+            bssms_persistence.common.Workflow w=new bssms_persistence.common.Workflow(conn,0);
+            int staffId=w.transaction(() -> {
+                int id=w.insert(
+                    "INSERT Staff(username,password,email,phone,full_name,role,hire_date,status,created_at,otp_attempts) VALUES(?,?,?,?,?,?,COALESCE(?,CAST(GETDATE() AS date)),'Active',GETDATE(),0)",
+                    username,bssms_security.PasswordUtil.hashMD5(password),email,phone,fullName,role,(hireDate==null || hireDate.isBlank())?null:java.sql.Date.valueOf(hireDate));
+                if ("Technician".equals(role) && serviceIds!=null)
+                    for (Integer service : serviceIds) w.update("INSERT INTO StaffService(staff_id,service_id) VALUES(?,?)", id, service);
+                return id;
+            });
+            return staffId>0?username:null;
         } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
     
@@ -129,7 +176,7 @@ public class StaffDAO extends DBContext implements AutoCloseable {
         Staff value = new Staff();
         
         String query = "SELECT s.staff_id, s.account_id, a.username, s.full_name, "
-                     + "a.email, a.phone, a.status, a.role, s.salary, s.hire_date "
+                     + "a.email, a.phone, a.status, a.role, s.hire_date "
                      + "FROM " + bssms_persistence.common.SchemaSql.STAFF + " s "
                      + "JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a ON s.account_id = a.account_id "
                      + "WHERE s.staff_id = ?";
@@ -149,7 +196,6 @@ public class StaffDAO extends DBContext implements AutoCloseable {
                     value.setPhone(rs.getString("phone"));
                     value.setStatus(rs.getString("status"));
                     value.setRole(rs.getString("role"));
-                    value.setSalary(rs.getBigDecimal("salary"));
                     
                     java.sql.Date hireDate = rs.getDate("hire_date");
                     value.setHireDate(hireDate != null ? hireDate.toString() : "");
@@ -212,10 +258,10 @@ public class StaffDAO extends DBContext implements AutoCloseable {
         return null;
     }
     
-    public boolean updateStaff(int accountId, String fullName, String phone, String email, String role, String hireDate, double salary, String username, String hashedPassword) {
+    public boolean updateStaff(int accountId, String fullName, String phone, String email, String role, String hireDate, String username, String hashedPassword) {
         requireConnection();
         try {
-            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Staff SET full_name=?,phone=?,email=?,role=?,hire_date=?,salary=?,username=?,password=COALESCE(?,password) WHERE staff_id=?", fullName,phone,email,role,(hireDate==null || hireDate.isBlank())?null:java.sql.Date.valueOf(hireDate),salary,username,(hashedPassword==null || hashedPassword.isEmpty())?null:hashedPassword,bssms_common.LoginIdentity.staffId(accountId)) == 1;
+            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Staff SET full_name=?,phone=?,email=?,hire_date=?,username=?,password=COALESCE(?,password) WHERE staff_id=?", fullName,phone,email,(hireDate==null || hireDate.isBlank())?null:java.sql.Date.valueOf(hireDate),username,(hashedPassword==null || hashedPassword.isEmpty())?null:hashedPassword,bssms_common.LoginIdentity.staffId(accountId)) == 1;
         } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 }

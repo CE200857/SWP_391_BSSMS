@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { Container, Card, Form, Button, Row, Col, Alert } from "react-bootstrap";
 
-// Đánh giá là của DỊCH VỤ: khách chọn một dịch vụ đã hoàn thành (trong một lần đến) chưa được đánh giá.
 const lineKey = (appointmentId, serviceId) => `${appointmentId}:${serviceId}`;
 
 const formatDateTime = (dateStr, timeStr) => {
@@ -17,15 +16,15 @@ const formatDateTime = (dateStr, timeStr) => {
 };
 
 const FeedbackForm = () => {
-  const { id } = useParams(); // Nếu có id -> Update, ngược lại -> Create
+  const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState({ rating: 5, comment: "" });
-  const [options, setOptions] = useState([]); // các dịch vụ đã hoàn thành chưa được đánh giá
+  const [options, setOptions] = useState([]);
   const [services, setServices] = useState([]);
-  const [selected, setSelected] = useState(""); // "appointmentId:serviceId"
-  const [editTarget, setEditTarget] = useState(null); // đánh giá đang sửa
+  const [selected, setSelected] = useState("");
+  const [editTarget, setEditTarget] = useState(null);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -37,7 +36,6 @@ const FeedbackForm = () => {
   });
   const customerId = user ? (user.customerId ?? user.accountId) : null;
 
-  // Tên dịch vụ (dùng khi sửa đánh giá)
   useEffect(() => {
     fetch("/api/service")
       .then((res) => (res.ok ? res.json() : []))
@@ -47,7 +45,6 @@ const FeedbackForm = () => {
       .catch((err) => console.error("Lỗi tải dịch vụ:", err));
   }, []);
 
-  // Tạo mới: lấy các dịch vụ đã hoàn thành mà chưa đánh giá
   useEffect(() => {
     if (!user || isEdit) return;
     let cancelled = false;
@@ -57,7 +54,13 @@ const FeedbackForm = () => {
         if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
-          if (!cancelled) setOptions(Array.isArray(data) ? data : []);
+          if (!cancelled) {
+            const list = Array.isArray(data) ? data : [];
+            setOptions(list);
+            const wanted = new URLSearchParams(window.location.search).get("appointmentServiceId");
+            const match = list.find((o) => String(o.appointmentServiceId) === wanted);
+            if (match) setSelected(lineKey(match.appointmentId, match.serviceId));
+          }
         }
       } catch (err) {
         if (!cancelled) console.error("Lỗi tải dữ liệu:", err);
@@ -68,7 +71,6 @@ const FeedbackForm = () => {
     };
   }, [user, customerId, isEdit]);
 
-  // Sửa: lấy đánh giá hiện tại
   useEffect(() => {
     if (!isEdit) return;
     const fetchFeedback = async () => {
@@ -120,7 +122,7 @@ const FeedbackForm = () => {
         setError("Vui lòng chọn dịch vụ cần đánh giá!");
         return;
       }
-      target = { appointmentId: option.appointmentId, serviceId: option.serviceId };
+      target = { appointmentId: option.appointmentId, serviceId: option.serviceId, appointmentServiceId: option.appointmentServiceId };
     }
 
     if (!formData.comment.trim()) {
@@ -135,6 +137,7 @@ const FeedbackForm = () => {
         comment: formData.comment,
         appointmentId: target.appointmentId,
         serviceId: target.serviceId,
+        appointmentServiceId: target.appointmentServiceId || 0,
         customerId,
       };
       const response = await fetch(isEdit ? `/api/feedback?id=${id}` : "/api/feedback", {
@@ -162,7 +165,6 @@ const FeedbackForm = () => {
     }
   };
 
-  // Chỉ khách hàng mới được đánh giá
   if (user && user.role !== "Customer") {
     return (
       <Container className="mt-4 px-4">

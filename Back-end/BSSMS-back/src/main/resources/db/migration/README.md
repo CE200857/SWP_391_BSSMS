@@ -1,7 +1,11 @@
-# Database migration
+# Cơ sở dữ liệu BSSMS (25 bảng)
 
-Run each migration script once against the BSSMS SQL Server database before deploying code that depends on it. Apply the supplier-price schema from `05_Rang_Buoc_Gia_Nha_Cung_Cap.sql` before the package migration.
+Chạy lần lượt trên SQL Server (database `BeautySalonDB`) trước khi triển khai back-end:
 
-`V002__product_purchase_packages.sql` keeps stock and service consumption in the product's base unit, while recording purchase-order quantities in packages. It sets the current milliliter consumables to 940 ml per massage-oil bottle and 970 ml per shampoo bottle, with a reorder threshold of 10 bottles each. Existing stock quantities are preserved in milliliters; existing purchase-order lines retain a conversion factor of 1.
+1. `01_Create_Tables.sql` – tạo 25 bảng.
+2. `02_Insert_Data.sql` – dữ liệu mẫu (mật khẩu mọi tài khoản mẫu: 123456).
+3. `03_Constraints.sql` – khóa chính, khóa ngoại, UNIQUE, CHECK, DEFAULT (BR-01 … BR-20).
 
-For package-based products, supplier prices used by purchase orders must be the agreed price per package. Review those supplier prices before creating new orders.
+Back-end không dùng stored procedure; mọi nghiệp vụ nằm trong `bssms_persistence.common.BookingWorkflow`,
+`BillingWorkflow` và các DAO. Công việc nền (`BackgroundJobWorker`) tự hủy lịch online chưa được xác nhận,
+hết hạn liên kết VNPay sau 15 phút và hết hạn gói liệu trình; tắt bằng `BSSMS_JOBS_ENABLED=false`.

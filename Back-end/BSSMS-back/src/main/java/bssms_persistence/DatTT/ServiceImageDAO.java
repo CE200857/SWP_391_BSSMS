@@ -13,7 +13,6 @@ import java.sql.SQLException;
 import java.util.Base64;
 import java.util.UUID;
 
-/** Ảnh đại diện của dịch vụ: lưu tệp trong thư mục ảnh của hệ thống (thư mục con "services"), tên tệp lưu ở Service.image_key. */
 public class ServiceImageDAO extends DBContext implements AutoCloseable {
     public static final int MAX_BYTES = 3 * 1024 * 1024;
 
@@ -40,12 +39,10 @@ public class ServiceImageDAO extends DBContext implements AutoCloseable {
         return k.endsWith(".png") ? "image/png" : k.endsWith(".webp") ? "image/webp" : "image/jpeg";
     }
 
-    /** Xóa mọi tệp ảnh của một dịch vụ (dùng khi xóa dịch vụ hoặc thay ảnh). */
     public static void deleteFiles(int serviceId) {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir(), "service-" + serviceId + "-*")) {
             for (Path p : stream) Files.deleteIfExists(p);
         } catch (IOException ignored) {
-            // thư mục chưa tồn tại hoặc không xóa được: không ảnh hưởng nghiệp vụ
         }
     }
 
@@ -56,7 +53,6 @@ public class ServiceImageDAO extends DBContext implements AutoCloseable {
         }
     }
 
-    /** Lưu (thay) ảnh dịch vụ; trả về tên tệp đã lưu. */
     public String save(int serviceId, String contentType, String base64) throws Exception {
         if (conn == null) throw new SQLException("Database connection unavailable");
         requireService(serviceId);
@@ -92,7 +88,6 @@ public class ServiceImageDAO extends DBContext implements AutoCloseable {
         deleteFiles(serviceId);
     }
 
-    /** Đường dẫn tệp ảnh hiện tại của dịch vụ, hoặc null nếu chưa có ảnh. */
     public Path file(int serviceId) throws SQLException {
         if (conn == null) throw new SQLException("Database connection unavailable");
         try (PreparedStatement ps = conn.prepareStatement("SELECT image_key FROM Service WHERE service_id=?")) {

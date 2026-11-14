@@ -9,8 +9,7 @@ import jakarta.servlet.http.*;
 import java.io.IOException;
 
 @WebServlet(name = "BookingManagementServlet", urlPatterns = {
-    "/api/booking/slots", "/api/booking/my-packages", "/api/booking/online",
-    "/api/booking/coordination", "/api/booking/checkin", "/api/booking/coordinate"
+    "/api/booking/slots", "/api/booking/online", "/api/booking/checkin"
 })
 public class BookingManagementServlet extends BaseApiServlet {
     @Override protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -19,12 +18,8 @@ public class BookingManagementServlet extends BaseApiServlet {
                 BookingManagementController controller = new BookingManagementController(dao);
                 switch (request.getServletPath()) {
                     case "/api/booking/slots":
-                        return controller.checkSlots(id(request, "serviceId"), request.getParameter("date"),
-                                optionalId(request, "technicianId"));
-                    case "/api/booking/my-packages":
-                        return controller.myPackages(user(request));
-                    case "/api/booking/coordination":
-                        return controller.coordination(user(request), optionalId(request, "appointmentId"));
+                        return controller.checkSlots(user(request), request.getParameter("serviceIds"), request.getParameter("serviceId"),
+                                request.getParameter("date"), optionalId(request, "technicianId"), optionalId(request, "appointmentId"));
                     default: return unsupported();
                 }
             }
@@ -45,8 +40,6 @@ public class BookingManagementServlet extends BaseApiServlet {
                 switch (request.getServletPath()) {
                     case "/api/booking/checkin":
                         return controller.checkIn(user(request), body(request, BookingRequest.class));
-                    case "/api/booking/coordinate":
-                        return controller.coordinate(user(request), body(request, BookingRequest.class));
                     default: return unsupported();
                 }
             }

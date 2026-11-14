@@ -67,13 +67,6 @@ const StaffDetail = () => {
     );
   }
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(amount || 0);
-  };
-
   const role = staff.role || staff.position;
   const hireDate = staff.hireDate
     ? staff.hireDate.substring(0, 10).split("-").reverse().join("/")
@@ -137,8 +130,8 @@ const StaffDetail = () => {
               <strong>{hireDate}</strong>
             </div>
             <div className="staff-detail-item">
-              <span>Mức lương</span>
-              <strong className="staff-salary">{formatCurrency(staff.salary)}</strong>
+              <span>Trạng thái</span>
+              <strong>{staff.status === "Active" ? "Đang làm việc" : staff.status === "Locked" ? "Bị khóa" : "Ngừng làm việc"}</strong>
             </div>
           </div>
 

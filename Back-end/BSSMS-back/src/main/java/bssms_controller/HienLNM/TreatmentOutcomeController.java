@@ -1,113 +1,29 @@
 package bssms_controller.HienLNM;
 
 import bssms_controller.common.*;
-import bssms_persistence.common.DataAccessException;
-
 import bssms_persistence.HienLNM.TreatmentOutcomeDAO;
-import com.google.gson.Gson;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.HashMap;
-import java.util.Map;
-/**
- * @author HienLNM
- */
+import com.google.gson.*;
 
 public class TreatmentOutcomeController extends ControllerSupport {
-
-    private TreatmentOutcomeDAO dao = use(new TreatmentOutcomeDAO());
     private final Gson gson = new Gson();
 
-    public void get(ActionRequest req, ActionResult resp) throws IOException {
-        bind(req);
-
-        PrintWriter out = resp.writer();
-
-        String pathInfo = req.pathInfo();
-        if (pathInfo == null || pathInfo.equals("/")) {
-            resp.status(400);
-            out.print("{\"message\":\"Thieu appointment ID\"}");
-            out.flush();
-            return;
-        }
-
-        try {
-            int appointmentId = Integer.parseInt(pathInfo.substring(1));
-            out.print(gson.toJson(dao.outcome(appointmentId)));
-        } catch (NumberFormatException e) {
-            resp.status(400);
-            out.print("{\"message\":\"Appointment ID khong hop le\"}");
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-            InputValidation.rethrowIfInvalid(e);
-            resp.status(500);
-            out.print(gson.toJson(java.util.Map.of("message", "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu.")));
-        }
-        out.flush();
+    private int id(ActionRequest req) {
+        String path = req.pathInfo();
+        if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã dòng dịch vụ.");
+        return Integer.parseInt(path.substring(1));
     }
 
-    public void put(ActionRequest req, ActionResult resp) throws IOException {
+    public void get(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
+        resp.writer().print(gson.toJson(use(new TreatmentOutcomeDAO()).outcome(id(req))));
+    }
 
-        PrintWriter out = resp.writer();
-
-        String pathInfo = req.pathInfo();
-        if (pathInfo == null || pathInfo.equals("/")) {
-            resp.status(400);
-            out.print("{\"message\":\"Thieu appointment ID\"}");
-            out.flush();
-            return;
-        }
-
-        try {
-            int appointmentId = Integer.parseInt(pathInfo.substring(1));
-
-            BufferedReader reader = req.bodyReader();
-            Map<String, String> data = gson.fromJson(reader, Map.class);
-            if (data == null) throw new IllegalArgumentException("Thiếu dữ liệu điều trị.");
-            String notes = data.get("notes");
-            String status = data.get("status");
-
-            // Sửa kết quả của lịch đã hoàn thành: {"action":"update","notes":...,"skinReaction":...}
-            if ("update".equals(data.get("action"))) {
-                dao.updateOutcome(appointmentId, notes, data.get("skinReaction"));
-                resp.status(200);
-                out.print("{\"message\":\"Cap nhat ket qua dieu tri thanh cong\",\"appointmentId\":" + appointmentId + "}");
-                out.flush();
-                return;
-            }
-
-            if ("Completed".equals(status) && (notes == null || notes.trim().isEmpty())) {
-                resp.status(400);
-                out.print("{\"message\":\"Ket qua dieu tri (notes) khong duoc de trong\"}");
-                out.flush();
-                return;
-            }
-            if (status == null || status.trim().isEmpty()) {
-                resp.status(400);
-                out.print("{\"message\":\"Trang thai appointment khong duoc de trong\"}");
-                out.flush();
-                return;
-            }
-
-            boolean success = dao.recordOutcome(appointmentId, notes, status, data.get("skinReaction"));
-            if (success) {
-                resp.status(200);
-                out.print("{\"message\":\"Ghi nhan ket qua dieu tri thanh cong\",\"appointmentId\":" + appointmentId + "}");
-            } else {
-                resp.status(404);
-                out.print("{\"message\":\"Khong tim thay appointment de ghi nhan ket qua\"}");
-            }
-        } catch (NumberFormatException e) {
-            resp.status(400);
-            out.print("{\"message\":\"Appointment ID khong hop le\"}");
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-            InputValidation.rethrowIfInvalid(e);
-            resp.status(500);
-            out.print(gson.toJson(java.util.Map.of("message", "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu.")));
-        }
-        out.flush();
+    public void put(ActionRequest req, ActionResult resp) throws Exception {
+        bind(req);
+        JsonObject data = JsonParser.parseReader(req.bodyReader()).getAsJsonObject();
+        String notes = data.has("notes") && !data.get("notes").isJsonNull() ? data.get("notes").getAsString() : null;
+        String skin = data.has("skinReaction") && !data.get("skinReaction").isJsonNull() ? data.get("skinReaction").getAsString() : null;
+        use(new TreatmentOutcomeDAO()).recordOutcome(id(req), notes, skin);
+        resp.writer().print("{\"message\":\"Đã lưu kết quả điều trị.\"}");
     }
 }

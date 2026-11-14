@@ -25,9 +25,10 @@ const AppointmentList = ({ user, setUser }) => {
         [
             { key: "appointmentId", label: "Mã lịch hẹn", filterable: false },
             { key: "customerName", label: "Khách hàng" },
-            { key: "staffName", label: "Nhân viên" },
-            { key: "serviceName", label: "Dịch vụ" },
-            { key: "roomName", label: "Phòng" },
+            { key: "customerPhone", label: "Số điện thoại", filterable: false },
+            { key: "technicianNames", label: "Kỹ thuật viên" },
+            { key: "serviceNames", label: "Dịch vụ", filterable: false },
+            { key: "invoiceStatus", label: "Hóa đơn" },
             { key: "status", label: "Trạng thái" },
             { key: "appointmentDate", label: "Ngày hẹn", type: "date" },
         ],
@@ -99,9 +100,8 @@ const AppointmentList = ({ user, setUser }) => {
         const query = searchTerm.trim().toLowerCase();
         const matchesSearch = !query ||
             appointment.customerName?.toLowerCase().includes(query) ||
-            appointment.staffName?.toLowerCase().includes(query) ||
-            appointment.serviceName?.toLowerCase().includes(query) ||
-            appointment.roomName?.toLowerCase().includes(query);
+            appointment.technicianNames?.toLowerCase().includes(query) ||
+            appointment.serviceNames?.toLowerCase().includes(query);
         const matchesStatus = statusFilter === "all" || appointment.status === statusFilter;
         const dateValue = String(appointment.appointmentDate || "").slice(0, 10);
         const date = new Date(`${dateValue}T00:00:00`);
@@ -111,9 +111,9 @@ const AppointmentList = ({ user, setUser }) => {
             (timeFilter === "past" && isPast);
         return matchesSearch && matchesStatus && matchesTime;
     });
-    const filteredAppointments = user?.role === "Customer"
+    const filteredAppointments = [...(user?.role === "Customer"
         ? filteredCustomerAppointments
-        : managerFilteredAppointments;
+        : managerFilteredAppointments)].sort((a, b) => Number(b.appointmentId) - Number(a.appointmentId));
 
     const formatAppointmentDate = (value) => {
         const dateValue = String(value || "").slice(0, 10);
@@ -123,7 +123,6 @@ const AppointmentList = ({ user, setUser }) => {
             : new Intl.DateTimeFormat("vi-VN").format(date);
     };
 
-    // Lễ tân duyệt (xác nhận) lịch đang chờ ngay trên danh sách.
     const approve = async (appointmentId) => {
         setApprovingId(appointmentId);
         try {
@@ -136,8 +135,20 @@ const AppointmentList = ({ user, setUser }) => {
         }
     };
 
-    const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
+    const markNoShow = async (appointmentId) => {
+        if (!window.confirm(`Đánh dấu lịch #${appointmentId} là khách không đến? Hóa đơn chưa thanh toán sẽ bị hủy.`)) return;
+        setApprovingId(appointmentId);
+        try {
+            await setAppointmentStatus(appointmentId, "No-show");
+            setAttempt((value) => value + 1);
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setApprovingId(null);
+        }
+    };
 
+    const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
 
     if (user?.role === "Customer") {
         const completedCount = appointments.filter(appointment => appointment.status === "Completed").length;
@@ -228,11 +239,11 @@ const AppointmentList = ({ user, setUser }) => {
                                             <span>Mã lịch hẹn: {appointment.appointmentId}</span>
                                             {getStatusBadge(appointment.status)}
                                         </div>
-                                        <h3>{appointment.serviceName}</h3>
+                                        <h3>{appointment.serviceNames}</h3>
                                         <div className="customer-appointment-meta">
-                                            <span><i className="bi bi-clock" aria-hidden="true" /><small>Giờ hẹn</small>{appointment.startTime}–{appointment.endTime}</span>
-                                            <span><i className="bi bi-person" aria-hidden="true" /><small>Nhân viên</small>{appointment.staffName || "Đang cập nhật"}</span>
-                                            <span><i className="bi bi-door-open" aria-hidden="true" /><small>Phòng</small>{appointment.roomName || "Đang cập nhật"}</span>
+                                            <span><i className="bi bi-clock" aria-hidden="true" /><small>Giờ hẹn</small>{String(appointment.startTime || "").slice(0, 5)}–{String(appointment.endTime || "").slice(0, 5)}</span>
+                                            <span><i className="bi bi-person" aria-hidden="true" /><small>Kỹ thuật viên</small>{appointment.technicianNames || "Phân công khi check-in"}</span>
+                                            <span><i className="bi bi-receipt" aria-hidden="true" /><small>Thanh toán</small>{appointment.invoiceStatus === "Paid" ? "Đã thanh toán" : appointment.paymentChoice === "Online" ? "VNPay" : "Tại quầy"}</span>
                                         </div>
                                         <div className="customer-appointment-card-bottom">
                                             <span>Ngày hẹn: {formatAppointmentDate(appointment.appointmentDate)}</span>
@@ -260,12 +271,10 @@ const AppointmentList = ({ user, setUser }) => {
                 Danh sách lịch hẹn
             </h2>
 
-            {/* KHU VỰC TÌM KIẾM & NÚT TẠO LỊCH HẸN NẰM NGANG NHAU */}
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <div className="manager-list-toolbar">{toolbar}</div>
 
-                {/* CHỈ HIỂN THỊ NÚT NÀY CHO LỄ TÂN VÀ QUẢN LÝ */}
-                {isManagerOrReceptionist && (
+                {user?.role === "Receptionist" && (
                     <Button
                         className="fw-bold text-white shadow-sm px-4 py-2"
                         style={{ backgroundColor: "#800020", border: "none" }}
@@ -279,7 +288,6 @@ const AppointmentList = ({ user, setUser }) => {
             {errorPanel}
             {loading && <p role="status">Đang tải lịch hẹn...</p>}
 
-            {/* BẢNG DANH SÁCH LỊCH HẸN (GIAO DIỆN MỚI CÓ MÀU ĐỎ ĐÔ) */}
             <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
                 <div className="card-body p-0">
                     <div className="table-responsive">
@@ -304,12 +312,18 @@ const AppointmentList = ({ user, setUser }) => {
                                                 <div className="fw-semibold">{formatAppointmentDate(a.appointmentDate)}</div>
                                                 <small className="text-muted">{String(a.startTime || "").slice(0, 5)}–{String(a.endTime || "").slice(0, 5)}</small>
                                             </td>
-                                            <td className="fw-bold text-dark">{a.customerName}</td>
-                                            <td>{a.serviceName}</td>
-                                            <td>{getStatusBadge(a.status)}</td>
+                                            <td className="fw-bold text-dark">{a.customerName}<small className="d-block text-muted fw-normal">{a.customerPhone}</small></td>
+                                            <td>
+                                                <div>{a.serviceNames}</div>
+                                                <small className="text-muted">{a.technicianNames || "Chưa phân công KTV"}</small>
+                                            </td>
+                                            <td>
+                                                {getStatusBadge(a.status)}
+                                                {a.timingNote && <small className={`d-block mt-1 ${/Quá hạn|Trễ/.test(a.timingNote) ? "text-danger fw-semibold" : "text-muted"}`}>{a.timingNote}</small>}
+                                            </td>
                                             <td className="text-center pe-3">
                                                 <div className="manager-list-actions">
-                                                {user?.role === "Receptionist" && a.status === "Pending" && (
+                                                {user?.role === "Receptionist" && a.status === "Pending" && a.canConfirm !== false && (
                                                     <Button
                                                         variant="link"
                                                         size="sm"
@@ -318,6 +332,27 @@ const AppointmentList = ({ user, setUser }) => {
                                                         onClick={() => approve(a.appointmentId)}
                                                     >
                                                         <i className="bi bi-check2-circle me-1"></i> Duyệt
+                                                    </Button>
+                                                )}
+                                                {user?.role === "Receptionist" && a.canCheckIn === true && (
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        className="manager-list-action manager-list-action--edit"
+                                                        onClick={() => navigate(`/receptionist/coordination?appointmentId=${a.appointmentId}`)}
+                                                    >
+                                                        <i className="bi bi-door-open me-1"></i> Check-in
+                                                    </Button>
+                                                )}
+                                                {user?.role === "Receptionist" && a.canNoShow === true && (
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        className="manager-list-action manager-list-action--delete"
+                                                        disabled={approvingId === a.appointmentId}
+                                                        onClick={() => markNoShow(a.appointmentId)}
+                                                    >
+                                                        <i className="bi bi-person-x me-1"></i> Không đến
                                                     </Button>
                                                 )}
                                                 <Button

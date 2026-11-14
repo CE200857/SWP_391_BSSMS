@@ -12,36 +12,29 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
-/**
- * Feedback liên quan đến Appointment cụ thể.
- * Mỗi Appointment chỉ có 1 Feedback, rating 1-5.
- */
 
 public class FeedbackController extends ControllerSupport {
 
     private FeedbackDAO feedbackDAO = use(new FeedbackDAO());
     private final Gson gson = new Gson();
 
-    public void get(ActionRequest req, ActionResult resp) throws IOException {
+    public void get(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
 
         PrintWriter out = resp.writer();
 
         String pathInfo = req.pathInfo();
 
-        // GET /api/feedback/service-ratings (public): average rating per service
         if ("/service-ratings".equals(pathInfo)) {
             out.print(gson.toJson(feedbackDAO.getServiceRatings()));
             out.flush();
             return;
         }
 
-        // GET /api/feedback?id=N is the same as GET /api/feedback/N
         if ((pathInfo == null || pathInfo.equals("/") || pathInfo.isEmpty()) && req.parameter("id") != null && !req.parameter("id").isBlank()) {
             pathInfo = "/" + req.parameter("id").trim();
         }
 
-        // GET /api/feedback/moderation (Manager): all reviews including hidden ones
         if ("/moderation".equals(pathInfo)) {
             try {
                 out.print(gson.toJson(feedbackDAO.getAllForModeration()));
@@ -52,7 +45,6 @@ public class FeedbackController extends ControllerSupport {
             return;
         }
 
-        // GET /api/feedback/appointments/{customerId}
         if (pathInfo != null && pathInfo.startsWith("/appointments/")) {
             String customerIdStr = pathInfo.substring("/appointments/".length());
             try {
@@ -67,7 +59,6 @@ public class FeedbackController extends ControllerSupport {
             return;
         }
 
-        // GET /api/feedback/customer/{customerId}
         if (pathInfo != null && pathInfo.startsWith("/customer/")) {
             String customerIdStr = pathInfo.substring("/customer/".length());
             try {
@@ -82,7 +73,6 @@ public class FeedbackController extends ControllerSupport {
             return;
         }
 
-        // GET /api/feedback/{id}
         if (pathInfo != null && !pathInfo.equals("/")) {
             try {
                 int id = Integer.parseInt(pathInfo.substring(1));
@@ -101,7 +91,6 @@ public class FeedbackController extends ControllerSupport {
             return;
         }
 
-        // GET /api/feedback?customerId=N : only that customer's reviews (a Customer account can only ask for its own; the DAO enforces it)
         String customerParam = req.parameter("customerId");
         if (customerParam != null && !customerParam.isBlank()) {
             try {
@@ -114,7 +103,6 @@ public class FeedbackController extends ControllerSupport {
             return;
         }
 
-        // GET /api/feedback (mặc định), có thể lọc ?serviceId=N
         Integer serviceFilter = null;
         String serviceParam = req.parameter("serviceId");
         if (serviceParam != null && !serviceParam.isBlank()) {
@@ -126,7 +114,7 @@ public class FeedbackController extends ControllerSupport {
         out.flush();
     }
 
-    public void post(ActionRequest req, ActionResult resp) throws IOException {
+    public void post(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
 
         PrintWriter out = resp.writer();
@@ -141,7 +129,6 @@ public class FeedbackController extends ControllerSupport {
             return;
         }
 
-        // Validate bắt buộc
         if (newFeedback.getCustomerId() <= 0) {
             resp.status(400);
             out.print("{\"message\":\"customerId la bat buoc\"}");
@@ -169,7 +156,7 @@ public class FeedbackController extends ControllerSupport {
 
         try {
             feedbackDAO.addFeedback(newFeedback);
-            resp.status(201); // 201
+            resp.status(201);
             out.print("{\"message\":\"Tao feedback thanh cong\",\"status\":201}");
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
@@ -181,7 +168,7 @@ public class FeedbackController extends ControllerSupport {
         out.flush();
     }
 
-    public void put(ActionRequest req, ActionResult resp) throws IOException {
+    public void put(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
         if(req.pathInfo()!=null && req.pathInfo().matches("/\\d+/moderate")) {
             com.google.gson.JsonObject body=com.google.gson.JsonParser.parseReader(req.bodyReader()).getAsJsonObject();
@@ -190,7 +177,6 @@ public class FeedbackController extends ControllerSupport {
                 resp.status(changed?200:404);resp.writer().print("{\"success\":"+changed+"}");return;
             }catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
         }
-
 
         PrintWriter out = resp.writer();
 
@@ -212,7 +198,7 @@ public class FeedbackController extends ControllerSupport {
             if(feedbackDAO.updateFeedback(updatedFeedback)==0) {
                 resp.error(404,"Không tìm thấy đánh giá."); return;
             }
-            resp.status(200); // 200
+            resp.status(200);
             out.print("{\"message\":\"Cap nhat feedback thanh cong\",\"status\":200}");
         } catch (NumberFormatException e) {
             resp.status(400);
@@ -227,7 +213,7 @@ public class FeedbackController extends ControllerSupport {
         out.flush();
     }
 
-    public void delete(ActionRequest req, ActionResult resp) throws IOException {
+    public void delete(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
 
         PrintWriter out = resp.writer();
@@ -263,7 +249,6 @@ public class FeedbackController extends ControllerSupport {
         out.flush();
     }
 
-    /** The id may come as /api/feedback/{id} or as ?id={id} (the frontend uses the query form). */
     private static String idPath(ActionRequest req) {
         String path = req.pathInfo();
         if (path != null && !path.equals("/") && !path.isEmpty()) return path;

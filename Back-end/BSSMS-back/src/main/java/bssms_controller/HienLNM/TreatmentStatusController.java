@@ -1,70 +1,38 @@
 package bssms_controller.HienLNM;
 
 import bssms_controller.common.*;
-import bssms_persistence.common.DataAccessException;
-
 import bssms_persistence.HienLNM.TreatmentStatusDAO;
 import com.google.gson.Gson;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.List;
 import java.util.Map;
-/**
- * @author HienLNM
- */
 
 public class TreatmentStatusController extends ControllerSupport {
-
-    private TreatmentStatusDAO dao = use(new TreatmentStatusDAO());
     private final Gson gson = new Gson();
 
-    public void get(ActionRequest req, ActionResult resp) throws IOException {
+    private static String blank(String v) { return v == null || v.isBlank() ? null : v.trim(); }
+
+    public void get(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
-
-        PrintWriter out = resp.writer();
-
-        String pathInfo = req.pathInfo();
-
-        // /api/treatment-status/{id}
-        if (pathInfo != null && !pathInfo.equals("/")) {
-            try {
-                int appointmentId = Integer.parseInt(pathInfo.substring(1));
-                Map<String, Object> result = dao.getTreatmentStatusById(appointmentId);
-                if (result != null) {
-                    out.print(gson.toJson(result));
-                } else {
-                    resp.status(404);
-                    out.print("{\"message\":\"Khong tim thay treatment status voi id = " + appointmentId + "\"}");
-                }
-            } catch (NumberFormatException e) {
-                resp.status(400);
-                out.print("{\"message\":\"Appointment ID khong hop le\"}");
-            }
-            out.flush();
+        TreatmentStatusDAO dao = use(new TreatmentStatusDAO());
+        String path = req.pathInfo();
+        if (path != null && !path.equals("/")) {
+            Map<String, Object> result = dao.getTreatmentStatusById(Integer.parseInt(path.substring(1)));
+            if (result == null) { resp.error(404, "Không tìm thấy dòng dịch vụ."); return; }
+            resp.writer().print(gson.toJson(result));
             return;
         }
+        String customer = blank(req.parameter("customerId"));
+        resp.writer().print(gson.toJson(dao.getTreatmentStatusList(customer == null ? null : Integer.valueOf(customer),
+                blank(req.parameter("status")), blank(req.parameter("fromDate")), blank(req.parameter("toDate")))));
+    }
 
-        // Filter params
-        String customerIdParam = req.parameter("customerId");
-        String status = req.parameter("status");
-        String fromDate = req.parameter("fromDate");
-        String toDate = req.parameter("toDate");
-
-        Integer customerId = null;
-        if (customerIdParam != null && !customerIdParam.isEmpty()) {
-            try {
-                customerId = Integer.parseInt(customerIdParam);
-            } catch (NumberFormatException e) {
-                resp.status(400);
-                out.print("{\"message\":\"customerId khong hop le\"}");
-                out.flush();
-                return;
-            }
-        }
-
-        List<Map<String, Object>> list = dao.getTreatmentStatusList(customerId, status, fromDate, toDate);
-        out.print(gson.toJson(list));
-        out.flush();
+    public void put(ActionRequest req, ActionResult resp) throws Exception {
+        bind(req);
+        String[] parts = req.pathInfo() == null ? new String[0] : req.pathInfo().split("/");
+        if (parts.length < 3) { resp.error(404, "Không tìm thấy thao tác."); return; }
+        int id = Integer.parseInt(parts[1]);
+        TreatmentStatusDAO dao = use(new TreatmentStatusDAO());
+        if ("start".equals(parts[2])) { dao.start(id); resp.writer().print("{\"message\":\"Đã bắt đầu dịch vụ.\"}"); }
+        else if ("done".equals(parts[2])) resp.writer().print(gson.toJson(dao.done(id)));
+        else resp.error(404, "Không tìm thấy thao tác.");
     }
 }
-

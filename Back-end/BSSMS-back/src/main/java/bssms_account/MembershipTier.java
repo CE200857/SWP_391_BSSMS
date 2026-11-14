@@ -1,6 +1,5 @@
 package bssms_account;
 
-/** Typed data exchanged by DAO and controller; nullable fields represent absent SQL values. */
 public class MembershipTier implements java.io.Serializable {
     private static final long serialVersionUID = 1L;
     private Integer membershipTierId;

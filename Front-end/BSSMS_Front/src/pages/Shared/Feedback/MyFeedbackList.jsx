@@ -29,9 +29,7 @@ const MyFeedbackList = () => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Load feedback của user hiện tại
   useEffect(() => {
-    // Không có user thì không fetch gì cả
     if (!user) {
       return;
     }
@@ -69,7 +67,6 @@ const MyFeedbackList = () => {
     };
   }, [user]);
 
-  // Đánh giá là của dịch vụ: tên dịch vụ và ngày sử dụng lấy thẳng từ đánh giá
   const getServiceLabel = (fb) => fb.serviceName || `Dịch vụ #${fb.serviceId}`;
   const getVisitDate = (fb) => formatDateTime(fb.appointmentDate, fb.startTime);
 
@@ -92,7 +89,6 @@ const MyFeedbackList = () => {
         { method: "DELETE" }
       );
       if (response.ok) {
-        // Reload danh sách
         try {
           const res = await fetch(
             `/api/feedback?customerId=${user.customerId ?? user.accountId}`

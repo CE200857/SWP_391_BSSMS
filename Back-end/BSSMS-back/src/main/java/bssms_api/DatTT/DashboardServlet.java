@@ -20,7 +20,7 @@ public class DashboardServlet extends BaseApiServlet {
                 throw new ControllerException(401, "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
             try (ReportDAO dao = new ReportDAO()) {
                 dao.setActorAccountId(accountId);
-                return new DashboardController(dao).getDashboardMetrics();
+                return new DashboardController(dao).getDashboardMetrics(request.getParameter("fromDate"), request.getParameter("toDate"));
             }
         });
     }

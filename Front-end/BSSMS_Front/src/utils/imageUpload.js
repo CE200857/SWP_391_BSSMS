@@ -1,4 +1,3 @@
-// 4.6: shrink a photo in the browser and return base64 JPEG data for /api/treatment-photos.
 export const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function blobToBase64(blob) {

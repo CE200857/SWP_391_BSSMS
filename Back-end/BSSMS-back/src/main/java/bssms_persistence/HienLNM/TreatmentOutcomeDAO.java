@@ -1,104 +1,32 @@
 package bssms_persistence.HienLNM;
 
 import bssms_persistence.DBContext;
-import bssms_persistence.common.DataAccessException;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import bssms_persistence.common.*;
+import java.sql.SQLException;
+import java.util.*;
 
-/**
- * @author HienLNM
- */
 public class TreatmentOutcomeDAO extends DBContext implements AutoCloseable {
+    @Override public void close() throws SQLException { if (conn != null) conn.close(); }
 
-    private void requireConnection() {
-        if (conn == null) throw new DataAccessException("Database connection unavailable");
-    }
-    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
-
-    /**
-     * Kiểm tra appointment có tồn tại hay không.
-     */
-    public boolean appointmentExists(int appointmentId) {
-        requireConnection();
-        if (conn == null) {
-            System.out.println("Database connection is null in TreatmentOutcomeDAO.appointmentExists()");
-            return false;
-        }
-        String sql = "SELECT COUNT(*) FROM Appointment WHERE appointment_id = ?";
-        try {
-            PreparedStatement ps = conn.prepareStatement(sql);
-            ps.setInt(1, appointmentId);
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                int count = rs.getInt(1);
-                rs.close();
-                ps.close();
-                return count > 0;
-            }
-            rs.close();
-            ps.close();
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+    public Map<String, Object> outcome(int lineId) throws SQLException {
+        Workflow w = workflow();
+        Map<String, Object> l = new LinkedHashMap<>(w.one("SELECT l.appointment_service_id,l.appointment_id,l.status,l.result_notes AS notes,l.skin_reaction,l.done_at,s.service_name,c.full_name AS customer_name "
+                + "FROM AppointmentService l JOIN Service s ON s.service_id=l.service_id JOIN Appointment a ON a.appointment_id=l.appointment_id JOIN Customer c ON c.customer_id=a.customer_id WHERE l.appointment_service_id=?", lineId));
+        w.appointmentAccess(Workflow.id(l.get("appointmentId")));
+        l.put("photos", w.query("SELECT photo_id,photo_type,created_at FROM TreatmentPhoto WHERE appointment_service_id=? ORDER BY photo_id", lineId));
+        return l;
     }
 
-    /**
-     * Ghi nhận kết quả điều trị: cập nhật notes + status của Appointment.
-     *
-     * @param appointmentId
-     * @param notes Kết quả điều trị (lưu vào Appointment.notes)
-     * @param status Trạng thái mới của appointment, ví dụ 'Completed'
-     * @return true nếu cập nhật thành công
-     */
-    public boolean recordOutcome(int appointmentId, String notes, String status) throws Exception {
-        return recordOutcome(appointmentId, notes, status, null);
-    }
-
-    public boolean recordOutcome(int appointmentId, String notes, String status, String skinReaction) throws Exception {
-        workflow().roles("Technician");
-        workflow().appointmentAccess(appointmentId);
-        if (!"In-progress".equals(status) && !"Completed".equals(status))
-            throw new IllegalArgumentException("Chỉ được bắt đầu hoặc hoàn thành điều trị.");
-        if ("Completed".equals(status) && (notes==null || notes.trim().isEmpty()))
-            throw new IllegalArgumentException("Vui lòng nhập kết quả điều trị.");
-        if (notes!=null && notes.length()>500) throw new IllegalArgumentException("Kết quả tối đa 500 ký tự.");
-        if (skinReaction != null && skinReaction.length() > 1000) throw new IllegalArgumentException("Phản ứng da tối đa 1000 ký tự.");
-        workflow().call("usp_ChangeAppointmentStatus",requireActorAccountId(),appointmentId,status,null,notes,skinReaction);
-        return true;
-    }
-
-    /** Sửa kết quả điều trị đã ghi (chỉ kỹ thuật viên được phân công, chỉ lịch đã hoàn thành). */
-    public boolean updateOutcome(int appointmentId, String notes, String skinReaction) throws Exception {
-        workflow().roles("Technician");
-        workflow().appointmentAccess(appointmentId);
-        if (notes == null || notes.trim().isEmpty()) throw new IllegalArgumentException("Vui lòng nhập kết quả điều trị.");
-        if (notes.length() > 500) throw new IllegalArgumentException("Kết quả tối đa 500 ký tự.");
-        if (skinReaction != null && skinReaction.length() > 1000) throw new IllegalArgumentException("Phản ứng da tối đa 1000 ký tự.");
-        String reaction = skinReaction == null || skinReaction.trim().isEmpty() ? null : skinReaction.trim();
-        int changed = workflow().update(
-            "UPDATE Appointment SET result_notes=?,skin_reaction=?,treatment_updated_at=SYSDATETIME() WHERE appointment_id=? AND status='Completed'",
-            notes.trim(), reaction, appointmentId);
-        if (changed != 1) throw new IllegalStateException("Chỉ sửa được kết quả của lịch hẹn đã hoàn thành.");
-        return true;
-    }
-
-    public java.util.Map<String,Object> outcome(int appointmentId) throws java.sql.SQLException {
-        workflow().appointmentAccess(appointmentId);
-        java.util.Map<String,Object> result=workflow().one(
-            "SELECT appointment_id,status,result_notes AS notes,skin_reaction FROM Appointment WHERE appointment_id=?",appointmentId);
-        result.put("photos",workflow().query("SELECT photo_id,photo_type,storage_key FROM TreatmentPhoto WHERE appointment_id=? ORDER BY photo_id",appointmentId));
-        return result;
-    }
-
-    /**
-     * Lấy kết quả điều trị (notes + status) của 1 appointment.
-     */
-    public String getOutcomeByAppointmentId(int appointmentId) {
-        try {
-            workflow().appointmentAccess(appointmentId);
-            java.util.Map<String,Object> row=workflow().one("SELECT a.status,tr.result_notes FROM Appointment a LEFT JOIN " + bssms_persistence.common.SchemaSql.TREATMENTS + " tr ON tr.appointment_id=a.appointment_id WHERE a.appointment_id=?",appointmentId);
-            return java.util.Objects.toString(row.get("resultNotes"),"")+"|||"+row.get("status");
-        } catch(java.sql.SQLException e) {throw new DataAccessException(e);}
+    public boolean recordOutcome(int lineId, String notes, String skinReaction) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Technician");
+        if (notes == null || notes.isBlank()) throw new IllegalArgumentException("Vui lòng nhập kết quả điều trị.");
+        if (notes.length() > 4000 || (skinReaction != null && skinReaction.length() > 1000)) throw new IllegalArgumentException("Nội dung quá dài.");
+        Map<String, Object> l = w.one("SELECT status,technician_id,result_notes,done_at FROM AppointmentService WHERE appointment_service_id=?", lineId);
+        if (l.get("technicianId") == null || Workflow.id(l.get("technicianId")) != w.staffId()) throw new WorkflowException(403, "Dòng dịch vụ này không được giao cho bạn.");
+        if (!"Done".equals(l.get("status"))) throw new WorkflowException(409, "Chỉ ghi nhận kết quả sau khi hoàn thành dịch vụ.");
+        if (l.get("resultNotes") != null && w.query("SELECT appointment_service_id FROM AppointmentService WHERE appointment_service_id=? AND CAST(done_at AS date)=CAST(SYSDATETIME() AS date)", lineId).isEmpty())
+            throw new WorkflowException(409, "Chỉ được sửa kết quả trong ngày thực hiện.");
+        return w.update("UPDATE AppointmentService SET result_notes=?,skin_reaction=? WHERE appointment_service_id=?", notes.trim(), skinReaction == null || skinReaction.isBlank() ? null : skinReaction.trim(), lineId) == 1;
     }
 }

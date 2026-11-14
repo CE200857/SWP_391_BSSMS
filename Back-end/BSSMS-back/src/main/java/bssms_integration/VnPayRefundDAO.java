@@ -12,7 +12,6 @@ import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-/** Send once, then query: a timeout must never trigger another refund request. */
 public class VnPayRefundDAO extends DBContext implements AutoCloseable {
  public void close()throws SQLException {if(conn!=null)conn.close();}
  private static String joined(Map<String,String> p,String fields){List<String> parts=new ArrayList<>();for(String f:fields.split(","))parts.add(p.getOrDefault("vnp_"+f,""));return String.join("|",parts);}
@@ -25,7 +24,7 @@ public class VnPayRefundDAO extends DBContext implements AutoCloseable {
    if(r.get("providerRequestId")==null){String id=UUID.randomUUID().toString().replace("-","");w.update("UPDATE Refund SET provider_request_id=? WHERE refund_id=?",id,refundId);r.put("providerRequestId",id);r.put("send",true);}
    return r;
   });
-  if("Success".equals(row.get("status")))return Map.of("status","Success","message","Giao dịch đã hoàn tiền.");
+  if("Completed".equals(row.get("status")))return Map.of("status","Success","message","Giao dịch đã hoàn tiền.");
   if(!"Pending".equals(row.get("status")))throw new WorkflowException(409,"Giao dịch không chờ hoàn tiền.");
   boolean send=Boolean.TRUE.equals(row.get("send"));
   Map<String,String> p=new LinkedHashMap<>();
@@ -48,7 +47,7 @@ public class VnPayRefundDAO extends DBContext implements AutoCloseable {
    String note="code="+result.get("vnp_ResponseCode")+", status="+result.get("vnp_TransactionStatus")+", type="+result.get("vnp_TransactionType");
    return w.transaction(()->{
     w.update("UPDATE Refund SET provider_response=? WHERE refund_id=?",note,refundId);
-    if(success){w.update("UPDATE Refund SET provider_verified=1 WHERE refund_id=?",refundId);w.call("usp_CompleteRefund",requireActorAccountId(),refundId);}
+    if(success)w.update("UPDATE Refund SET status='Completed',completed_at=SYSDATETIME() WHERE refund_id=? AND status='Pending'",refundId);
     return Map.of("status",success?"Success":"Pending","message",success?"VNPay xác nhận hoàn tiền thành công.":"Chưa xác nhận hoàn tiền: "+note+". Đối soát lại sau; không gửi yêu cầu hoàn lần hai.");
    });
   } catch(SQLException e){throw e;}

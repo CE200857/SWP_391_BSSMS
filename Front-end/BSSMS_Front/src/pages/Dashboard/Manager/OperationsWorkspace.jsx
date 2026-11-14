@@ -1,927 +1,436 @@
-import { useEffect, useState } from "react";
-import {
-  Alert,
-  Button,
-  Card,
-  Form,
-  Spinner,
-  Table,
-  Modal,
-} from "react-bootstrap";
-import { api, post, today } from "../../../services/api";
-import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
-import IntegrationPanel from "./IntegrationPanel";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Badge, Button, Card, Col, Container, Form, Modal, Nav, Row, Spinner, Table } from "react-bootstrap";
+import { api, post, today, addDays, viDate, time5, label } from "../../../services/api";
 
-const titles = {
-  scheduling: "Ca làm việc & kỹ năng",
-  "catalog-rules": "Định mức vật tư & thiết bị",
-  stock: "Tồn kho & lịch sử biến động",
-  policy: "Chính sách & chốt hoa hồng",
+const SHIFT_TYPES = ["Morning", "Afternoon", "FullDay"];
+const WEEKDAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
+const leaveBg = { Pending: "warning", Approved: "success", Rejected: "danger", Cancelled: "secondary" };
+const mondayOf = (iso) => {
+  const d = new Date(iso + "T00:00:00Z");
+  const offset = (d.getUTCDay() + 6) % 7;
+  return addDays(iso, -offset);
 };
-const initialForm = (kind) =>
-  kind === "scheduling"
-    ? { action: "shift", date: today(), start: "08:30", end: "18:30" }
-    : kind === "catalog-rules"
-      ? { action: "material", quantity: 1 }
-      : {};
-const Select = ({ label, value, onChange, rows = [], id, name, ...props }) => (
-  <Form.Group>
-    <Form.Label>{label}</Form.Label>
-    <Form.Select
-      required
-      value={value || ""}
-      onChange={(e) => onChange(Number(e.target.value))}
-      {...props}
-    >
-      <option value="">Chọn {label.toLowerCase()}</option>
-      {rows.map((r) => (
-        <option key={r[id]} value={r[id]}>
-          {r[name]}
-        </option>
-      ))}
-    </Form.Select>
-  </Form.Group>
-);
+const shiftShort = { Morning: "Sáng", Afternoon: "Chiều", FullDay: "Cả ngày" };
 
-export default function OperationsWorkspace({ kind }) {
-  const [date, setDate] = useState(today);
-  const [data, setData] = useState({});
-  const [form, setForm] = useState(() => initialForm(kind));
-  const [loading, setLoading] = useState(true),
-    [busy, setBusy] = useState(false);
-  const [error, setError] = useState(""),
-    [success, setSuccess] = useState("");
-  const [confirm, setConfirm] = useState(null);
-  const [editing, setEditing] = useState(null); // ca làm / ngày nghỉ đang sửa
-  const shiftsFilter = useManagerSearchFilter(data.shifts || [], [
-    { key: "fullName", label: "Nhân viên", filterable: false },
-    { key: "startTime", label: "Giờ bắt đầu", filterable: false },
-    { key: "endTime", label: "Giờ kết thúc", filterable: false },
-  ], "Tìm ca làm theo nhân viên...");
-  const leavesFilter = useManagerSearchFilter(data.leaves || [], [
-    { key: "fullName", label: "Nhân viên", filterable: false },
-    { key: "reason", label: "Lý do", filterable: false },
-    { key: "startDate", label: "Thời gian nghỉ", type: "date" },
-  ], "Tìm ngày nghỉ theo nhân viên hoặc lý do...");
-  const skillsFilter = useManagerSearchFilter(data.skills || [], [
-    { key: "fullName", label: "Kỹ thuật viên", filterable: false },
-    { key: "serviceName", label: "Dịch vụ", filterable: false },
-  ], "Tìm theo kỹ thuật viên hoặc dịch vụ...");
-  const materialsFilter = useManagerSearchFilter(data.materials || [], [
-    { key: "serviceName", label: "Dịch vụ", filterable: false },
-    { key: "productName", label: "Vật tư", filterable: false },
-  ], "Tìm theo dịch vụ hoặc vật tư...");
-  const requirementsFilter = useManagerSearchFilter(data.requirements || [], [
-    { key: "serviceName", label: "Dịch vụ", filterable: false },
-    { key: "equipmentName", label: "Thiết bị", filterable: false },
-  ], "Tìm theo dịch vụ hoặc thiết bị...");
-  const productsFilter = useManagerSearchFilter(data.products || [], [
-    { key: "productName", label: "Sản phẩm", filterable: false },
-    { key: "productType", label: "Loại sản phẩm" },
-    {
-      key: "stockState",
-      label: "Tình trạng tồn kho",
-      getValue: (product) => Number(product.stockQuantity) < Number(product.reorderLevel) ? "Low" : "Available",
-      formatValue: (value) => value === "Low" ? "Dưới mức tồn tối thiểu" : "Đủ tồn kho",
-    },
-  ], "Tìm theo tên sản phẩm...");
-  const movementsFilter = useManagerSearchFilter(data.movements || [], [
-    { key: "productName", label: "Sản phẩm", filterable: false },
-    { key: "movementType", label: "Loại biến động" },
-    { key: "reason", label: "Lý do", filterable: false },
-    { key: "createdAt", label: "Thời gian", type: "date" },
-  ], "Tìm theo sản phẩm hoặc lý do...");
-  const periodsFilter = useManagerSearchFilter(data.periods || [], [
-    { key: "periodMonth", label: "Tháng", filterable: false },
-    { key: "status", label: "Trạng thái" },
-    { key: "closedAt", label: "Ngày chốt", type: "date" },
-  ], "Tìm theo tháng...");
-  const notificationsFilter = useManagerSearchFilter(data.notifications || [], [
-    { key: "fullName", label: "Khách hàng", filterable: false },
-    { key: "templateCode", label: "Mẫu tin", filterable: false },
-    { key: "status", label: "Trạng thái" },
-    { key: "providerMessageId", label: "Mã từ nhà cung cấp", filterable: false },
-    { key: "lastError", label: "Lỗi", filterable: false },
-  ], "Tìm theo khách hàng, mẫu tin hoặc trạng thái...");
-  const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
-  async function load() {
+function useOperations(kind, date) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await api(`/api/operations/${kind}?date=${date}`);
-      setData(result);
-      if (kind === "policy") setForm({ ...result.policy, action: "save" });
+      setData(await api(`/api/operations/${kind}${date ? `?date=${date}` : ""}`));
+      setError("");
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }
-  useEffect(() => {
-    let active = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the view while synchronizing external data for this selection.
-    setLoading(true);
-    setError("");
-    setSuccess("");
-    setData({});
-    setForm(initialForm(kind));
-    api(`/api/operations/${kind}?date=${date}`)
-      .then((result) => {
-        if (active) {
-          setData(result);
-          if (kind === "policy") setForm({ ...result.policy, action: "save" });
-        }
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
   }, [kind, date]);
-  async function save(payload) {
-    if (busy) return;
+  useEffect(() => { load(); }, [load]);
+  return { data, error, loading, load, setError };
+}
+
+function WeekPicker({ week, setWeek }) {
+  return (
+    <div className="d-flex gap-2 align-items-center">
+      <Button variant="outline-secondary" onClick={() => setWeek(addDays(week, -7))}><i className="bi bi-chevron-left" /></Button>
+      <strong>{viDate(week)} – {viDate(addDays(week, 6))}</strong>
+      <Button variant="outline-secondary" onClick={() => setWeek(addDays(week, 7))}><i className="bi bi-chevron-right" /></Button>
+      <Button variant="link" onClick={() => setWeek(mondayOf(today()))}>Tuần này</Button>
+    </div>
+  );
+}
+
+function Scheduling() {
+  const [week, setWeek] = useState(mondayOf(today()));
+  const [tab, setTab] = useState("shifts");
+  const { data, error, loading, load, setError } = useOperations("scheduling", week);
+  const [notice, setNotice] = useState("");
+  const [create, setCreate] = useState(null);
+  const [edit, setEdit] = useState(null);
+  const [skills, setSkills] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(week, i)), [week]);
+
+  const write = async (body, after) => {
     setBusy(true);
-    setError("");
-    setSuccess("");
     try {
-      const result = await post(
-        kind === "stock" ? "/api/purchase-orders" : `/api/operations/${kind}`,
-        payload,
-      );
-      setConfirm(null);
-      setSuccess(result?.message || "Đã cập nhật thành công.");
+      const r = await post("/api/operations/scheduling", body);
+      setNotice(r.message);
+      after?.();
       await load();
-      return true;
     } catch (e) {
       setError(e.message);
-      return false;
     } finally {
       setBusy(false);
     }
-  }
-  async function saveEdit(e) {
-    e.preventDefault();
-    if (!editing) return;
-    const payload =
-      editing.type === "shift"
-        ? { action: "updateShift", id: editing.id, date: editing.date, start: editing.start, end: editing.end }
-        : { action: "updateLeave", id: editing.id, start: editing.start, end: editing.end, reason: editing.reason || "" };
-    if (await save(payload)) setEditing(null);
-  }
-  function submit(e) {
-    e.preventDefault();
-    if (kind === "policy") {
-      setConfirm(form);
-      return;
-    }
-    save(form);
-  }
-  const remove = (payload) => setConfirm(payload);
-  const field = (label, key, type = "text", props = {}) => (
-    <Form.Group>
-      <Form.Label>{label}</Form.Label>
-      <Form.Control
-        required
-        type={type}
-        value={form[key] ?? ""}
-        onChange={(e) =>
-          update(
-            key,
-            type === "number" ? Number(e.target.value) : e.target.value,
-          )
-        }
-        {...props}
-      />
-    </Form.Group>
-  );
-  const table = (headers, rows, toolbar) => (
-    <>
-      {toolbar && <div className="manager-list-toolbar mb-3">{toolbar}</div>}
-      <div className="table-responsive">
-        <Table hover className="manager-list-table">
-          <thead>
-            <tr>
-              {headers.map((h) => (
-                <th key={h}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>{rows}</tbody>
-        </Table>
-      </div>
-      {!rows.length && <p className="ui-empty">Chưa có dữ liệu.</p>}
-    </>
-  );
+  };
+  const shiftOf = (staffId, day) => (data?.shifts || []).find((s) => s.staffId === staffId && String(s.shiftDate).slice(0, 10) === day);
+  const onLeave = (staffId, day) => (data?.leaves || []).some((l) => l.staffId === staffId && String(l.startDate).slice(0, 10) <= day && String(l.endDate).slice(0, 10) >= day);
+  const skillIds = (staffId) => (data?.skills || []).filter((s) => s.staffId === staffId).map((s) => s.serviceId);
+  const technicians = (data?.staff || []).filter((s) => s.role === "Technician");
+
   return (
-    <section>
-      <div className="ui-page-heading">
-        <div>
-          <h1>{titles[kind]}</h1>
-          <p>Quản lý dữ liệu vận hành và theo dõi thay đổi của salon.</p>
-        </div>
-        <Button
-          variant="outline-primary"
-          onClick={load}
-          disabled={loading || busy}
-        >
-          Làm mới
-        </Button>
+    <>
+      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <Nav variant="tabs" activeKey={tab} onSelect={setTab}>
+          <Nav.Item><Nav.Link eventKey="shifts">Ca làm theo tuần</Nav.Link></Nav.Item>
+          <Nav.Item><Nav.Link eventKey="skills">Kỹ năng kỹ thuật viên</Nav.Link></Nav.Item>
+        </Nav>
+        {tab === "shifts" && (
+          <div className="d-flex gap-2 flex-wrap">
+            <WeekPicker week={week} setWeek={setWeek} />
+            <Button variant="outline-primary" disabled={busy} onClick={() => write({ action: "copyWeek", fromDate: week, toDate: addDays(week, 7) })}>
+              <i className="bi bi-files" /> Sao chép sang tuần sau
+            </Button>
+            <Button onClick={() => setCreate({ staffIds: [], dates: [], shiftType: "FullDay" })}><i className="bi bi-plus-lg" /> Phân ca</Button>
+          </div>
+        )}
       </div>
-      {error && (
-        <Alert variant="danger" role="alert">
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert variant="success" role="status">
-          {success}
-        </Alert>
-      )}
-      {kind === "policy" && <IntegrationPanel />}
-      {loading ? (
-        <div className="ui-empty">
-          <Spinner animation="border" />
-          <p>Đang tải dữ liệu…</p>
-        </div>
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+      {loading && !data ? <div className="text-center py-5"><Spinner animation="border" variant="danger" /></div> : tab === "shifts" ? (
+        <Card className="shadow-sm border-0">
+          <Card.Body className="p-0">
+            <Table bordered responsive className="align-middle mb-0 manager-list-table text-center">
+              <thead className="table-dark">
+                <tr><th className="text-start">Nhân viên</th>{days.map((d, i) => <th key={d}>{WEEKDAYS[i]}<small className="d-block fw-normal">{viDate(d).slice(0, 5)}</small></th>)}</tr>
+              </thead>
+              <tbody>
+                {(data?.staff || []).map((s) => (
+                  <tr key={s.staffId}>
+                    <td className="text-start fw-semibold">{s.fullName}<small className="d-block text-muted fw-normal">{s.role === "Technician" ? "Kỹ thuật viên" : "Lễ tân"}</small></td>
+                    {days.map((d) => {
+                      const shift = shiftOf(s.staffId, d);
+                      const past = d < today();
+                      if (past) return <td key={d} className="text-muted">{shift ? <Badge bg="light" text="dark">{shiftShort[shift.shiftType]}</Badge> : "—"}</td>;
+                      if (onLeave(s.staffId, d)) return <td key={d}><Badge bg="warning" text="dark">Nghỉ phép</Badge></td>;
+                      return (
+                        <td key={d}>
+                          {shift ? (
+                            <Button size="sm" variant={shift.shiftType === "FullDay" ? "primary" : "outline-primary"} onClick={() => setEdit({ ...shift, shiftType: shift.shiftType })}>
+                              {shiftShort[shift.shiftType]}
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="link" className="text-muted" onClick={() => setCreate({ staffIds: [s.staffId], dates: [d], shiftType: "FullDay" })}>+</Button>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Card.Body>
+        </Card>
       ) : (
-        <>
-          {kind === "scheduling" && (
-            <>
-              <div className="ui-toolbar">
-                <Form.Group>
-                  <Form.Label>Ngày xem lịch</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                  />
-                </Form.Group>
-              </div>
-              <Card className="mb-4">
-                <Card.Body>
-                  <Form onSubmit={submit}>
-                    <fieldset disabled={busy}>
-                      <div className="ui-form-grid">
-                        <Form.Group>
-                          <Form.Label>Thao tác</Form.Label>
-                          <Form.Select
-                            value={form.action}
-                            onChange={(e) =>
-                              setForm(
-                                e.target.value === "monthShifts"
-                                  ? {
-                                      action: "monthShifts",
-                                      month: today().slice(0, 7),
-                                      weekdays: [1, 2, 3, 4, 5, 6, 7],
-                                      start: "08:30",
-                                      end: "18:30",
-                                      staffId: 0,
-                                    }
-                                  : e.target.value === "leave"
-                                    ? {
-                                        action: "leave",
-                                        start: today(),
-                                        end: today(),
-                                      }
-                                    : e.target.value === "skill"
-                                      ? { action: "skill" }
-                                      : initialForm(kind),
-                              )
-                            }
-                          >
-                            <option value="shift">Thêm ca làm</option>
-                            <option value="monthShifts">Lên lịch cả tháng</option>
-                            <option value="leave">Đăng ký ngày nghỉ</option>
-                            <option value="skill">Gán kỹ năng dịch vụ</option>
-                          </Form.Select>
-                        </Form.Group>
-                        {form.action === "monthShifts" ? (
-                          <Form.Group>
-                            <Form.Label>Nhân viên</Form.Label>
-                            <Form.Select
-                              value={form.staffId || 0}
-                              onChange={(e) => update("staffId", Number(e.target.value))}
-                            >
-                              <option value={0}>Tất cả nhân viên (kỹ thuật viên, lễ tân)</option>
-                              {(data.staff || []).map((s) => (
-                                <option key={s.staffId} value={s.staffId}>
-                                  {s.fullName}
-                                </option>
-                              ))}
-                            </Form.Select>
-                          </Form.Group>
-                        ) : (
-                          <Select
-                            label="Nhân viên"
-                            value={form.staffId}
-                            onChange={(v) => update("staffId", v)}
-                            rows={(data.staff || []).filter(
-                              (s) =>
-                                form.action !== "skill" ||
-                                s.role === "Technician",
-                            )}
-                            id="staffId"
-                            name="fullName"
-                          />
-                        )}
-                        {form.action === "shift" && (
-                          <>
-                            {field("Ngày làm việc", "date", "date")}
-                            {field("Bắt đầu", "start", "time")}
-                            {field("Kết thúc", "end", "time")}
-                          </>
-                        )}
-                        {form.action === "monthShifts" && (
-                          <>
-                            {field("Tháng", "month", "month")}
-                            {field("Bắt đầu", "start", "time")}
-                            {field("Kết thúc", "end", "time")}
-                            <Form.Group>
-                              <Form.Label>Làm việc các ngày</Form.Label>
-                              <div className="d-flex flex-wrap gap-3">
-                                {[[1, "T2"], [2, "T3"], [3, "T4"], [4, "T5"], [5, "T6"], [6, "T7"], [7, "CN"]].map(([n, label]) => (
-                                  <Form.Check
-                                    key={n}
-                                    inline
-                                    type="checkbox"
-                                    id={`weekday-${n}`}
-                                    label={label}
-                                    checked={(form.weekdays || []).includes(n)}
-                                    onChange={(e) =>
-                                      update(
-                                        "weekdays",
-                                        e.target.checked
-                                          ? [...(form.weekdays || []), n].sort()
-                                          : (form.weekdays || []).filter((x) => x !== n),
-                                      )
-                                    }
-                                  />
-                                ))}
-                              </div>
-                              <Form.Text>
-                                Ngày đã qua, ngày đã có ca hoặc đang nghỉ sẽ được bỏ qua.
-                              </Form.Text>
-                            </Form.Group>
-                          </>
-                        )}
-                        {form.action === "leave" && (
-                          <>
-                            {field("Từ ngày", "start", "date")}
-                            {field("Đến ngày", "end", "date")}
-                            {field("Lý do", "reason", "text", {
-                              maxLength: 500,
-                            })}
-                          </>
-                        )}
-                        {form.action === "skill" && (
-                          <Select
-                            label="Dịch vụ"
-                            value={form.serviceId}
-                            onChange={(v) => update("serviceId", v)}
-                            rows={data.services}
-                            id="serviceId"
-                            name="serviceName"
-                          />
-                        )}
-                      </div>
-                      <Button type="submit" className="mt-3">
-                        {busy ? "Đang lưu…" : "Lưu"}
-                      </Button>
-                    </fieldset>
-                  </Form>
-                </Card.Body>
-              </Card>
-              <h2>Ca làm ngày {date}</h2>
-              {table(
-                ["Nhân viên", "Bắt đầu", "Kết thúc", "Thao tác"],
-                shiftsFilter.filteredRows.map((r) => (
-                  <tr key={r.staffShiftId}>
-                    <td>{r.fullName}</td>
-                    <td>{r.startTime}</td>
-                    <td>{r.endTime}</td>
-                    <td>
-                      <Button
-                        size="sm"
-                        variant="link"
-                        className="manager-list-action manager-list-action--edit"
-                        onClick={() =>
-                          setEditing({
-                            type: "shift",
-                            id: r.staffShiftId,
-                            name: r.fullName,
-                            date: String(r.shiftDate || date).slice(0, 10),
-                            start: String(r.startTime).slice(0, 5),
-                            end: String(r.endTime).slice(0, 5),
-                          })
-                        }
-                      >
-                        <i className="bi bi-pencil-square" aria-hidden="true" />
-                        Sửa
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="link"
-                        className="manager-list-action manager-list-action--delete"
-                        onClick={() =>
-                          remove({ action: "deleteShift", id: r.staffShiftId })
-                        }
-                      >
-                        <i className="bi bi-trash" aria-hidden="true" />
-                        Xóa ca
-                      </Button>
-                    </td>
+        <Card className="shadow-sm border-0">
+          <Card.Body className="p-0">
+            <Table hover responsive className="align-middle mb-0 manager-list-table">
+              <thead className="table-dark"><tr><th>Kỹ thuật viên</th><th>Dịch vụ thực hiện được</th><th /></tr></thead>
+              <tbody>
+                {technicians.map((t) => (
+                  <tr key={t.staffId}>
+                    <td className="fw-semibold">{t.fullName}</td>
+                    <td>{(data?.skills || []).filter((x) => x.staffId === t.staffId).map((x) => <Badge key={x.serviceId} bg="info" className="me-1 mb-1">{x.serviceName}</Badge>)}</td>
+                    <td><Button size="sm" variant="outline-primary" onClick={() => setSkills({ staffId: t.staffId, fullName: t.fullName, serviceIds: skillIds(t.staffId) })}>Cập nhật</Button></td>
                   </tr>
-                )),
-                shiftsFilter.toolbar,
-              )}
-              <h2>Ngày nghỉ</h2>
-              {table(
-                ["Nhân viên", "Từ ngày", "Đến ngày", "Lý do", "Thao tác"],
-                leavesFilter.filteredRows.map((r) => (
-                  <tr key={r.leaveId}>
-                    <td>{r.fullName}</td>
-                    <td>{r.startDate}</td>
-                    <td>{r.endDate}</td>
-                    <td>{r.reason}</td>
-                    <td>
-                      <Button
-                        size="sm"
-                        variant="link"
-                        className="manager-list-action manager-list-action--edit"
-                        onClick={() =>
-                          setEditing({
-                            type: "leave",
-                            id: r.leaveId,
-                            name: r.fullName,
-                            start: String(r.startDate).slice(0, 10),
-                            end: String(r.endDate).slice(0, 10),
-                            reason: r.reason || "",
-                          })
-                        }
-                      >
-                        <i className="bi bi-pencil-square" aria-hidden="true" />
-                        Sửa
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="link"
-                        className="manager-list-action manager-list-action--delete"
-                        onClick={() =>
-                          remove({ action: "deleteLeave", id: r.leaveId })
-                        }
-                      >
-                        <i className="bi bi-trash" aria-hidden="true" />
-                        Xóa
-                      </Button>
-                    </td>
-                  </tr>
-                )),
-                leavesFilter.toolbar,
-              )}
-              <h2>Kỹ năng đã gán</h2>
-              {table(
-                ["Kỹ thuật viên", "Dịch vụ", "Thao tác"],
-                skillsFilter.filteredRows.map((r) => (
-                  <tr key={`${r.staffId}-${r.serviceId}`}>
-                    <td>{r.fullName}</td>
-                    <td>{r.serviceName}</td>
-                    <td>
-                      <Button
-                        size="sm"
-                        variant="link"
-                        className="manager-list-action manager-list-action--delete"
-                        onClick={() =>
-                          remove({
-                            action: "deleteSkill",
-                            staffId: r.staffId,
-                            serviceId: r.serviceId,
-                          })
-                        }
-                      >
-                        <i className="bi bi-trash" aria-hidden="true" />
-                        Bỏ gán
-                      </Button>
-                    </td>
-                  </tr>
-                )),
-                skillsFilter.toolbar,
-              )}
-            </>
-          )}
-          {kind === "catalog-rules" && (
-            <>
-              <Card className="mb-4">
-                <Card.Body>
-                  <Form onSubmit={submit}>
-                    <fieldset disabled={busy}>
-                      <div className="ui-form-grid">
-                        <Select
-                          label="Dịch vụ"
-                          value={form.serviceId}
-                          onChange={(v) => update("serviceId", v)}
-                          rows={data.services}
-                          id="serviceId"
-                          name="serviceName"
-                        />
-                        <Form.Group>
-                          <Form.Label>Loại định mức</Form.Label>
-                          <Form.Select
-                            value={form.action}
-                            onChange={(e) => update("action", e.target.value)}
-                          >
-                            <option value="material">Vật tư tiêu hao</option>
-                            <option value="equipment">Thiết bị bắt buộc</option>
-                          </Form.Select>
-                        </Form.Group>
-                        {form.action === "material" ? (
-                          <>
-                            <Select
-                              label="Vật tư"
-                              value={form.productId}
-                              onChange={(v) => update("productId", v)}
-                              rows={data.products}
-                              id="productId"
-                              name="productName"
-                            />
-                            {field("Số lượng mỗi buổi", "quantity", "number", {
-                              min: 0.001,
-                              step: 0.001,
-                            })}
-                          </>
-                        ) : (
-                          <Select
-                            label="Thiết bị"
-                            value={form.equipmentId}
-                            onChange={(v) => update("equipmentId", v)}
-                            rows={data.equipment}
-                            id="equipmentId"
-                            name="equipmentName"
-                          />
-                        )}
-                      </div>
-                      <Button type="submit" className="mt-3">
-                        Lưu định mức
-                      </Button>
-                    </fieldset>
-                  </Form>
-                </Card.Body>
-              </Card>
-              <h2>Vật tư tiêu hao</h2>
-              {table(
-                ["Dịch vụ", "Vật tư", "Định mức", "Thao tác"],
-                materialsFilter.filteredRows.map((r) => (
-                  <tr key={`${r.serviceId}-${r.productId}`}>
-                    <td>{r.serviceName}</td>
-                    <td>{r.productName}</td>
-                    <td>
-                      {r.quantity} {r.unit}
-                    </td>
-                    <td>
-                      <Button
-                        size="sm"
-                        variant="link"
-                        className="manager-list-action manager-list-action--delete"
-                        onClick={() =>
-                          remove({
-                            action: "deleteMaterial",
-                            serviceId: r.serviceId,
-                            productId: r.productId,
-                          })
-                        }
-                      >
-                        <i className="bi bi-trash" aria-hidden="true" />
-                        Xóa
-                      </Button>
-                    </td>
-                  </tr>
-                )),
-                materialsFilter.toolbar,
-              )}
-              <h2>Thiết bị bắt buộc</h2>
-              {table(
-                ["Dịch vụ", "Thiết bị", "Thao tác"],
-                requirementsFilter.filteredRows.map((r) => (
-                  <tr key={`${r.serviceId}-${r.equipmentId}`}>
-                    <td>{r.serviceName}</td>
-                    <td>{r.equipmentName}</td>
-                    <td>
-                      <Button
-                        size="sm"
-                        variant="link"
-                        className="manager-list-action manager-list-action--delete"
-                        onClick={() =>
-                          remove({
-                            action: "deleteEquipment",
-                            serviceId: r.serviceId,
-                            equipmentId: r.equipmentId,
-                          })
-                        }
-                      >
-                        <i className="bi bi-trash" aria-hidden="true" />
-                        Xóa
-                      </Button>
-                    </td>
-                  </tr>
-                )),
-                requirementsFilter.toolbar,
-              )}
-            </>
-          )}
-          {kind === "stock" && (
-            <>
-              {(data.products || []).some(
-                (p) => p.stockQuantity < p.reorderLevel,
-              ) && (
-                <Alert variant="warning">
-                  Có sản phẩm dưới mức tồn tối thiểu. Kiểm tra và lập đơn nhập
-                  hàng.
-                </Alert>
-              )}
-              <Card className="mb-4">
-                <Card.Body>
-                  <Form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      setConfirm({ ...form, action: "adjustStock" });
-                    }}
-                  >
-                    <fieldset disabled={busy}>
-                      <div className="ui-form-grid">
-                        <Select
-                          label="Sản phẩm"
-                          value={form.productId}
-                          onChange={(v) => update("productId", v)}
-                          rows={data.products}
-                          id="productId"
-                          name="productName"
-                        />
-                        {field(
-                          "Số lượng thay đổi (+ nhập / − giảm)",
-                          "quantityChange",
-                          "number",
-                          { step: 0.001 },
-                        )}
-                        {field("Lý do điều chỉnh", "reason", "text", {
-                          maxLength: 500,
-                        })}
-                      </div>
-                      <Button type="submit" className="mt-3">
-                        Điều chỉnh tồn kho
-                      </Button>
-                    </fieldset>
-                  </Form>
-                </Card.Body>
-              </Card>
-              {table(
-                ["Sản phẩm", "Loại", "Tồn kho", "Mức tối thiểu"],
-                productsFilter.filteredRows.map((r) => (
-                  <tr key={r.productId}>
-                    <td>{r.productName}</td>
-                    <td>{r.productType}</td>
-                    <td
-                      className={
-                        r.stockQuantity < r.reorderLevel
-                          ? "text-danger fw-bold"
-                          : ""
-                      }
-                    >
-                      {r.stockQuantity} {r.unit}
-                    </td>
-                    <td>{r.reorderLevel}</td>
-                  </tr>
-                )),
-                productsFilter.toolbar,
-              )}
-              <h2>300 biến động gần nhất</h2>
-              {table(
-                ["Thời gian", "Sản phẩm", "Loại", "Thay đổi", "Lý do"],
-                movementsFilter.filteredRows.map((r) => (
-                  <tr key={r.movementId}>
-                    <td>{r.createdAt}</td>
-                    <td>{r.productName}</td>
-                    <td>{r.movementType}</td>
-                    <td>{r.quantityChange}</td>
-                    <td>{r.reason}</td>
-                  </tr>
-                )),
-                movementsFilter.toolbar,
-              )}
-            </>
-          )}
-          {kind === "policy" && (
-            <>
-              <Card className="mb-4">
-                <Card.Body>
-                  <Form onSubmit={submit}>
-                    <fieldset disabled={busy}>
-                      <div className="ui-form-grid">
-                        {field(
-                          "Số lịch hoàn thành để lên VIP",
-                          "vipCompletedThreshold",
-                          "number",
-                          { min: 1, step: 1 },
-                        )}
-                        {field(
-                          "Giảm giá VIP (%)",
-                          "vipDiscountPercent",
-                          "number",
-                          { min: 0, max: 100, step: 0.01 },
-                        )}
-                        {field(
-                          "Hoa hồng dịch vụ (%)",
-                          "commissionPercent",
-                          "number",
-                          { min: 0, max: 100, step: 0.01 },
-                        )}
-                      </div>
-                      <p className="text-muted mt-3">
-                        Ưu đãi áp dụng lần lượt: VIP → sinh nhật → voucher. Thay
-                        đổi chỉ áp dụng cho nghiệp vụ mới.
-                      </p>
-                      <Button type="submit">Lưu chính sách</Button>
-                    </fieldset>
-                  </Form>
-                </Card.Body>
-              </Card>
-              <div className="ui-toolbar">
-                <Button
-                  disabled={busy}
-                  onClick={() => setConfirm({ action: "issueBenefits" })}
-                >
-                  Cấp voucher tháng hiện tại
-                </Button>
-                <Form.Group>
-                  <Form.Label>Tháng hoa hồng cần chốt</Form.Label>
-                  <Form.Control
-                    type="month"
-                    value={form.closeMonth || ""}
-                    onChange={(e) => update("closeMonth", e.target.value)}
-                  />
-                </Form.Group>
-                <Button
-                  disabled={busy || !form.closeMonth}
-                  onClick={() =>
-                    setConfirm({
-                      action: "closeMonth",
-                      month: form.closeMonth + "-01",
-                    })
-                  }
-                >
-                  Chốt tháng
-                </Button>
-              </div>
-              {table(
-                ["Tháng", "Trạng thái", "Chốt lúc"],
-                periodsFilter.filteredRows.map((r) => (
-                  <tr key={r.periodId}>
-                    <td>{r.periodMonth}</td>
-                    <td>{r.status}</td>
-                    <td>{r.closedAt || "—"}</td>
-                  </tr>
-                )),
-                periodsFilter.toolbar,
-              )}
-              <h2>Thông báo Zalo gần nhất</h2>
-              <p className="text-muted">
-                Sending có thể đã được nhà cung cấp tiếp nhận. Kiểm tra mã BSSMS
-                + ID trước khi gửi lại để tránh trùng tin.
-              </p>
-              {table(
-                [
-                  "ID",
-                  "Khách hàng",
-                  "Mẫu",
-                  "Trạng thái",
-                  "Kết quả",
-                  "Thao tác",
-                ],
-                notificationsFilter.filteredRows.map((r) => (
-                  <tr key={r.notificationId}>
-                    <td>{r.notificationId}</td>
-                    <td>{r.fullName}</td>
-                    <td>{r.templateCode}</td>
-                    <td>{r.status}</td>
-                    <td>{r.providerMessageId || r.lastError || "—"}</td>
-                    <td>
-                      {["Failed", "Sending"].includes(r.status) && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="manager-list-action manager-list-action--view"
-                          onClick={() =>
-                            setConfirm({
-                              action: "retryNotification",
-                              id: r.notificationId,
-                              confirmedProviderCheck: true,
-                            })
-                          }
-                        >
-                          <i className="bi bi-arrow-repeat" aria-hidden="true" />
-                          Đã đối soát, gửi lại
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                )),
-                notificationsFilter.toolbar,
-              )}
-            </>
-          )}
-        </>
+                ))}
+              </tbody>
+            </Table>
+          </Card.Body>
+        </Card>
       )}
-      <Modal show={!!confirm} onHide={() => !busy && setConfirm(null)} centered>
-        <Modal.Header closeButton={!busy}>
-          <Modal.Title>Xác nhận thay đổi</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {kind === "stock"
-            ? `Điều chỉnh ${confirm?.quantityChange || 0} đơn vị. `
-            : ""}
-          Bạn muốn thực hiện thao tác này?
-          {error && (
-            <Alert variant="danger" className="mt-3">
-              {error}
-            </Alert>
-          )}
-        </Modal.Body>
+
+      <Modal show={!!create} onHide={() => setCreate(null)} centered size="lg">
+        <Modal.Header closeButton><Modal.Title>Phân ca làm</Modal.Title></Modal.Header>
+        {create && (
+          <Modal.Body>
+            <Form.Label className="fw-bold">Loại ca</Form.Label>
+            <div className="d-flex gap-3 mb-3">
+              {SHIFT_TYPES.map((t) => <Form.Check key={t} type="radio" id={`st-${t}`} label={label(t)} checked={create.shiftType === t} onChange={() => setCreate({ ...create, shiftType: t })} />)}
+            </div>
+            <Row>
+              <Col md={6}>
+                <Form.Label className="fw-bold">Nhân viên</Form.Label>
+                {(data?.staff || []).map((s) => (
+                  <Form.Check key={s.staffId} id={`cs-${s.staffId}`} label={s.fullName} checked={create.staffIds.includes(s.staffId)}
+                    onChange={() => setCreate({ ...create, staffIds: create.staffIds.includes(s.staffId) ? create.staffIds.filter((x) => x !== s.staffId) : [...create.staffIds, s.staffId] })} />
+                ))}
+              </Col>
+              <Col md={6}>
+                <Form.Label className="fw-bold">Ngày trong tuần</Form.Label>
+                {days.map((d, i) => (
+                  <Form.Check key={d} id={`cd-${d}`} label={`${WEEKDAYS[i]} ${viDate(d)}${d < today() ? " (đã qua)" : ""}`} disabled={d < today()} checked={create.dates.includes(d)}
+                    onChange={() => setCreate({ ...create, dates: create.dates.includes(d) ? create.dates.filter((x) => x !== d) : [...create.dates, d] })} />
+                ))}
+              </Col>
+            </Row>
+            <small className="text-muted">Ngày đã có ca hoặc đang nghỉ phép sẽ được bỏ qua. Mỗi nhân viên tối đa 1 ca/ngày.</small>
+          </Modal.Body>
+        )}
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            disabled={busy}
-            onClick={() => setConfirm(null)}
-          >
-            Quay lại
-          </Button>
-          <Button disabled={busy} onClick={() => save(confirm)}>
-            {busy ? "Đang xử lý…" : "Xác nhận"}
-          </Button>
+          <Button variant="secondary" onClick={() => setCreate(null)}>Hủy</Button>
+          <Button disabled={busy || !create?.staffIds.length || !create?.dates.length} onClick={() => write({ action: "createShifts", ...create }, () => setCreate(null))}>Tạo ca</Button>
         </Modal.Footer>
       </Modal>
-      <Modal
-        show={Boolean(editing)}
-        onHide={() => {
-          if (!busy) setEditing(null);
-        }}
-        centered
-      >
-        <Modal.Header closeButton={!busy}>
-          <Modal.Title>
-            {editing?.type === "leave" ? "Sửa ngày nghỉ" : "Sửa ca làm"}
-            {editing?.name ? ` · ${editing.name}` : ""}
-          </Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={saveEdit}>
-          <fieldset disabled={busy}>
-            <Modal.Body>
-              {error && <Alert variant="danger">{error}</Alert>}
-              {editing?.type === "shift" ? (
-                <>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Ngày làm việc</Form.Label>
-                    <Form.Control required type="date" value={editing.date} onChange={(e) => setEditing({ ...editing, date: e.target.value })} />
-                  </Form.Group>
-                  <div className="d-flex gap-3">
-                    <Form.Group className="flex-fill">
-                      <Form.Label>Bắt đầu</Form.Label>
-                      <Form.Control required type="time" value={editing.start} onChange={(e) => setEditing({ ...editing, start: e.target.value })} />
-                    </Form.Group>
-                    <Form.Group className="flex-fill">
-                      <Form.Label>Kết thúc</Form.Label>
-                      <Form.Control required type="time" value={editing.end} onChange={(e) => setEditing({ ...editing, end: e.target.value })} />
-                    </Form.Group>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="d-flex gap-3 mb-3">
-                    <Form.Group className="flex-fill">
-                      <Form.Label>Từ ngày</Form.Label>
-                      <Form.Control required type="date" value={editing?.start || ""} onChange={(e) => setEditing({ ...editing, start: e.target.value })} />
-                    </Form.Group>
-                    <Form.Group className="flex-fill">
-                      <Form.Label>Đến ngày</Form.Label>
-                      <Form.Control required type="date" value={editing?.end || ""} onChange={(e) => setEditing({ ...editing, end: e.target.value })} />
-                    </Form.Group>
-                  </div>
-                  <Form.Group>
-                    <Form.Label>Lý do</Form.Label>
-                    <Form.Control type="text" maxLength={500} value={editing?.reason || ""} onChange={(e) => setEditing({ ...editing, reason: e.target.value })} />
-                  </Form.Group>
-                </>
-              )}
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="secondary" onClick={() => setEditing(null)}>
-                Hủy
-              </Button>
-              <Button type="submit">{busy ? "Đang lưu…" : "Lưu thay đổi"}</Button>
-            </Modal.Footer>
-          </fieldset>
-        </Form>
+
+      <Modal show={!!edit} onHide={() => setEdit(null)} centered>
+        <Modal.Header closeButton><Modal.Title>Ca làm · {edit?.fullName} · {viDate(edit?.shiftDate)}</Modal.Title></Modal.Header>
+        {edit && (
+          <Modal.Body>
+            {SHIFT_TYPES.map((t) => <Form.Check key={t} type="radio" id={`et-${t}`} label={label(t)} checked={edit.shiftType === t} onChange={() => setEdit({ ...edit, shiftType: t })} />)}
+            <small className="text-muted d-block mt-2">Nếu có dịch vụ đã giao nằm ngoài ca mới, lịch sẽ xuất hiện trong mục "Lịch bị ảnh hưởng" để lễ tân điều phối.</small>
+          </Modal.Body>
+        )}
+        <Modal.Footer>
+          <Button variant="outline-danger" disabled={busy} onClick={() => write({ action: "deleteShift", id: edit.staffShiftId }, () => setEdit(null))}>Xóa ca</Button>
+          <Button disabled={busy} onClick={() => write({ action: "updateShift", id: edit.staffShiftId, shiftType: edit.shiftType }, () => setEdit(null))}>Lưu</Button>
+        </Modal.Footer>
       </Modal>
-    </section>
+
+      <Modal show={!!skills} onHide={() => setSkills(null)} centered>
+        <Modal.Header closeButton><Modal.Title>Kỹ năng · {skills?.fullName}</Modal.Title></Modal.Header>
+        {skills && (
+          <Modal.Body style={{ maxHeight: 400, overflowY: "auto" }}>
+            {(data?.services || []).map((s) => (
+              <Form.Check key={s.serviceId} id={`sk-${s.serviceId}`} label={s.serviceName} checked={skills.serviceIds.includes(s.serviceId)}
+                onChange={() => setSkills({ ...skills, serviceIds: skills.serviceIds.includes(s.serviceId) ? skills.serviceIds.filter((x) => x !== s.serviceId) : [...skills.serviceIds, s.serviceId] })} />
+            ))}
+          </Modal.Body>
+        )}
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setSkills(null)}>Hủy</Button>
+          <Button disabled={busy} onClick={() => write({ action: "saveSkills", staffId: skills.staffId, serviceIds: skills.serviceIds }, () => setSkills(null))}>Lưu kỹ năng</Button>
+        </Modal.Footer>
+      </Modal>
+    </>
+  );
+}
+
+function LeaveApprovals() {
+  const { data, error, loading, load, setError } = useOperations("leaves");
+  const [notice, setNotice] = useState("");
+  const [detail, setDetail] = useState(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const openDetail = async (leave) => {
+    setNote("");
+    setDetail({ leave, appointments: null });
+    try {
+      const appointments = await api(`/api/operations/leave-appointments?date=${leave.leaveId}`);
+      setDetail({ leave, appointments });
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+  const decide = async (decision) => {
+    setBusy(true);
+    try {
+      const r = await post("/api/operations/leaves", { action: "decide", id: detail.leave.leaveId, decision, note: note.trim() || null });
+      setNotice(r.message);
+      setDetail(null);
+      load();
+    } catch (e) {
+      setError(e.message);
+      setDetail(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+      <Card className="shadow-sm border-0">
+        <Card.Body className="p-0">
+          <Table hover responsive className="align-middle mb-0 manager-list-table">
+            <thead className="table-dark"><tr><th>Nhân viên</th><th>Thời gian nghỉ</th><th>Lý do</th><th>Lịch đã giao</th><th>Trạng thái</th><th /></tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={6} className="text-center py-4"><Spinner size="sm" animation="border" /></td></tr> : (data || []).map((l) => (
+                <tr key={l.leaveId}>
+                  <td className="fw-semibold">{l.fullName}</td>
+                  <td>{viDate(l.startDate)} – {viDate(l.endDate)}<small className="d-block text-muted">Gửi {String(l.requestedAt).slice(0, 10)}</small></td>
+                  <td>{l.reason || "—"}</td>
+                  <td>{Number(l.affectedAppointments) > 0 ? <Badge bg="danger">{l.affectedAppointments} lịch</Badge> : "0"}</td>
+                  <td><Badge bg={leaveBg[l.status]}>{label(l.status)}</Badge>{l.decisionNote && <small className="d-block text-muted">{l.decisionNote}</small>}</td>
+                  <td>{l.status === "Pending" && <Button size="sm" onClick={() => openDetail(l)}>Xem & duyệt</Button>}</td>
+                </tr>
+              ))}
+              {!loading && !(data || []).length && <tr><td colSpan={6} className="text-center text-muted py-4">Chưa có đơn xin nghỉ.</td></tr>}
+            </tbody>
+          </Table>
+        </Card.Body>
+      </Card>
+
+      <Modal show={!!detail} onHide={() => !busy && setDetail(null)} centered size="lg">
+        <Modal.Header closeButton><Modal.Title>Đơn nghỉ · {detail?.leave.fullName}</Modal.Title></Modal.Header>
+        {detail && (
+          <Modal.Body>
+            <p>{viDate(detail.leave.startDate)} – {viDate(detail.leave.endDate)} · {detail.leave.reason || "Không ghi lý do"}</p>
+            <h6 className="fw-bold">Lịch hẹn đã giao trong thời gian nghỉ</h6>
+            {!detail.appointments ? <Spinner size="sm" animation="border" /> : detail.appointments.length ? (
+              <ul>
+                {detail.appointments.map((a, i) => <li key={i}>#{a.appointmentId} · {viDate(a.appointmentDate)} {time5(a.startTime)} · {a.customerName} · {a.serviceName}</li>)}
+              </ul>
+            ) : <p className="text-muted">Không có lịch hẹn nào.</p>}
+            <Alert variant="info" className="small">Đơn chỉ được duyệt khi mọi lịch trên đều có KTV thay thế. Sau khi duyệt, ca làm trong thời gian nghỉ bị xóa và lễ tân điều phối lại các lịch.</Alert>
+            <Form.Group>
+              <Form.Label>Ghi chú quyết định</Form.Label>
+              <Form.Control value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+            </Form.Group>
+          </Modal.Body>
+        )}
+        <Modal.Footer>
+          <Button variant="outline-danger" disabled={busy} onClick={() => decide("Rejected")}>Từ chối</Button>
+          {detail?.leave && String(detail.leave.endDate).slice(0, 10) < today()
+            ? <small className="text-muted me-auto">Đơn đã qua ngày nghỉ, chỉ có thể từ chối.</small>
+            : <Button variant="success" disabled={busy} onClick={() => decide("Approved")}>Duyệt</Button>}
+        </Modal.Footer>
+      </Modal>
+    </>
+  );
+}
+
+function TourReport() {
+  const [date, setDate] = useState(today());
+  const { data, error, loading } = useOperations("tour-report", date);
+  return (
+    <>
+      <div className="d-flex gap-3 align-items-center mb-3">
+        <Form.Control type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 180 }} />
+        <span>Chênh lệch tour (đã tính) giữa KTV: <strong>{data?.gap?.gap ?? 0}</strong></span>
+      </div>
+      {error && <Alert variant="danger">{error}</Alert>}
+      <Card className="shadow-sm border-0">
+        <Card.Body className="p-0">
+          <Table hover responsive className="align-middle mb-0 manager-list-table">
+            <thead className="table-dark"><tr><th>Kỹ thuật viên</th><th>Tour bù đầu ngày</th><th>Tour đã tính</th><th>Tour thực làm</th><th>Tour được yêu cầu</th><th>Lần giao gần nhất</th></tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={6} className="text-center py-4"><Spinner size="sm" animation="border" /></td></tr> : (data?.rows || []).map((r) => (
+                <tr key={r.staffId}>
+                  <td className="fw-semibold">{r.fullName}</td>
+                  <td>{Number(r.startOffsetTours)}</td>
+                  <td>{Number(r.countedTours)}</td>
+                  <td>{Number(r.actualTours)}</td>
+                  <td>{Number(r.requestedTours)}</td>
+                  <td>{r.lastAssignedAt ? String(r.lastAssignedAt).slice(11, 16) : "—"}</td>
+                </tr>
+              ))}
+              {!loading && !(data?.rows || []).length && <tr><td colSpan={6} className="text-center text-muted py-4">Chưa có dữ liệu tour trong ngày.</td></tr>}
+            </tbody>
+          </Table>
+        </Card.Body>
+      </Card>
+      <small className="text-muted d-block mt-2">Tour đã tính dùng để xoay vòng giao khách (KTV vào ca muộn được bù bằng tour thấp nhất hiện tại); tour được yêu cầu không làm thay đổi lượt.</small>
+    </>
+  );
+}
+
+function MySchedule() {
+  const [week, setWeek] = useState(mondayOf(today()));
+  const { data, error, loading, load, setError } = useOperations("my-schedule", week);
+  const [notice, setNotice] = useState("");
+  const [form, setForm] = useState({ startDate: addDays(today(), 1), endDate: addDays(today(), 1), reason: "" });
+  const [busy, setBusy] = useState(false);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
+
+  const send = async (body) => {
+    setBusy(true);
+    try {
+      const r = await post("/api/operations/leaves", body);
+      setNotice(r.message);
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+      <div className="mb-3"><WeekPicker week={week} setWeek={setWeek} /></div>
+      <Row className="g-2 mb-4">
+        {days.map((d, i) => {
+          const shift = (data?.shifts || []).find((s) => String(s.shiftDate).slice(0, 10) === d);
+          return (
+            <Col key={d} xs={6} md>
+              <Card className={`shadow-sm border-0 h-100 ${d === today() ? "border border-primary" : ""}`}>
+                <Card.Body className="text-center">
+                  <small className="text-muted">{WEEKDAYS[i]} · {viDate(d).slice(0, 5)}</small>
+                  <div className="fw-bold mt-1">{shift ? shiftShort[shift.shiftType] : "Nghỉ"}</div>
+                  {shift && <small>{time5(shift.startTime)}–{time5(shift.endTime)}</small>}
+                </Card.Body>
+              </Card>
+            </Col>
+          );
+        })}
+      </Row>
+      {loading && <Spinner size="sm" animation="border" />}
+      <Row className="g-4">
+        <Col lg={5}>
+          <Card className="shadow-sm border-0">
+            <Card.Header className="bg-white fw-bold">Xin nghỉ phép</Card.Header>
+            <Card.Body>
+              <Row className="g-2">
+                <Col><Form.Label>Từ ngày</Form.Label><Form.Control type="date" min={today()} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></Col>
+                <Col><Form.Label>Đến ngày</Form.Label><Form.Control type="date" min={form.startDate} value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></Col>
+              </Row>
+              <Form.Label className="mt-2">Lý do</Form.Label>
+              <Form.Control as="textarea" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+              <Button className="mt-3 w-100" disabled={busy} onClick={() => send({ action: "request", ...form, reason: form.reason.trim() || null })}>Gửi đơn</Button>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col lg={7}>
+          <Card className="shadow-sm border-0">
+            <Card.Header className="bg-white fw-bold">Đơn nghỉ của tôi</Card.Header>
+            <Card.Body className="p-0">
+              <Table responsive className="align-middle mb-0 manager-list-table">
+                <thead className="table-light"><tr><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th><th /></tr></thead>
+                <tbody>
+                  {(data?.leaves || []).map((l) => (
+                    <tr key={l.leaveId}>
+                      <td>{viDate(l.startDate)} – {viDate(l.endDate)}</td>
+                      <td>{l.reason || "—"}{l.decisionNote && <small className="d-block text-muted">Quản lý: {l.decisionNote}</small>}</td>
+                      <td><Badge bg={leaveBg[l.status]}>{label(l.status)}</Badge></td>
+                      <td>{l.status === "Pending" && <Button size="sm" variant="link" className="text-danger" disabled={busy} onClick={() => send({ action: "cancel", id: l.leaveId })}>Hủy</Button>}</td>
+                    </tr>
+                  ))}
+                  {!(data?.leaves || []).length && <tr><td colSpan={4} className="text-center text-muted py-3">Chưa có đơn.</td></tr>}
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </>
+  );
+}
+
+const TITLES = {
+  scheduling: ["Ca làm & kỹ năng", "Phân ca theo tuần và cập nhật dịch vụ mỗi kỹ thuật viên thực hiện được."],
+  leaves: ["Duyệt nghỉ phép", "Xem các lịch hẹn bị ảnh hưởng trước khi duyệt đơn nghỉ."],
+  "tour-report": ["Báo cáo tour", "Số tour của từng kỹ thuật viên trong ngày theo quy tắc xoay vòng."],
+  "my-schedule": ["Lịch làm việc của tôi", "Xem ca làm trong tuần và gửi đơn xin nghỉ phép."],
+};
+
+export default function OperationsWorkspace({ kind = "scheduling" }) {
+  const [title, subtitle] = TITLES[kind] || TITLES.scheduling;
+  return (
+    <Container fluid className="mt-4 px-4">
+      <h2 className="manager-page-title fw-bold mb-1">{title}</h2>
+      <p className="text-muted mb-4">{subtitle}</p>
+      {kind === "scheduling" && <Scheduling />}
+      {kind === "leaves" && <LeaveApprovals />}
+      {kind === "tour-report" && <TourReport />}
+      {kind === "my-schedule" && <MySchedule />}
+    </Container>
   );
 }

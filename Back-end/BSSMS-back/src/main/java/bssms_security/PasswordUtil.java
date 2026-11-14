@@ -2,10 +2,6 @@ package bssms_security;
 
 import java.security.MessageDigest;
 
-/**
- * 
- * @author Nguyen Tien Dat - CE200858
- */
 public class PasswordUtil {
     
     public static String hashMD5(String pass) {

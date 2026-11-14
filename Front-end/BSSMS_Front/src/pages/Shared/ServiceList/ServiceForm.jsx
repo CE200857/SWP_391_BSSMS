@@ -10,8 +10,20 @@ const initialFormData = {
   description: "",
   price: "",
   duration: "",
+  category: "",
+  requiredRoomType: "Facial",
+  tourCount: "",
+  technicianIds: [],
   status: "Active",
 };
+
+const ROOM_TYPES = [
+  ["Facial", "Phòng chăm sóc da mặt"],
+  ["Massage", "Phòng massage"],
+  ["HairWash", "Phòng gội đầu dưỡng sinh"],
+  ["Body", "Phòng chăm sóc body"],
+];
+const proposedTours = (duration) => Math.max(1, Math.ceil(Number(duration || 0) / 60));
 
 const statusLabels = {
   Active: "Đang hoạt động",
@@ -33,7 +45,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [imageUrl, setImageUrl] = useState("");
-  const [imageUpload, setImageUpload] = useState(null); // ảnh mới đã thu nhỏ, chờ lưu
+  const [imageUpload, setImageUpload] = useState(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [imageError, setImageError] = useState("");
   const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -59,6 +71,10 @@ const ServiceForm = ({ isReadOnly = false }) => {
           description: service.description || "",
           price: service.price ?? "",
           duration: service.duration ?? "",
+          category: service.category || "",
+          requiredRoomType: service.requiredRoomType || "Facial",
+          tourCount: service.tourCount ?? "",
+          technicianIds: [],
           status: service.status || "Active",
         });
       })
@@ -81,6 +97,27 @@ const ServiceForm = ({ isReadOnly = false }) => {
       cancelled = true;
     };
   }, [id, loadAttempt]);
+
+  const [technicians, setTechnicians] = useState([]);
+  useEffect(() => {
+    if (!isManager) return;
+    axios
+      .get(`/api/service?technicians=${id || 0}`)
+      .then((response) => {
+        const rows = Array.isArray(response.data) ? response.data : [];
+        setTechnicians(rows);
+        setFormData((current) => ({ ...current, technicianIds: rows.filter((t) => Number(t.qualified) === 1).map((t) => t.staffId) }));
+      })
+      .catch(() => setTechnicians([]));
+  }, [id, isManager, loadAttempt]);
+
+  const toggleTechnician = (staffId) =>
+    setFormData((current) => ({
+      ...current,
+      technicianIds: current.technicianIds.includes(staffId)
+        ? current.technicianIds.filter((x) => x !== staffId)
+        : [...current.technicianIds, staffId],
+    }));
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -114,6 +151,8 @@ const ServiceForm = ({ isReadOnly = false }) => {
       description: formData.description.trim(),
       price: Number(formData.price),
       duration: Number(formData.duration),
+      category: formData.category.trim() || null,
+      tourCount: formData.tourCount === "" ? proposedTours(formData.duration) : Number(formData.tourCount),
     };
 
     try {
@@ -125,7 +164,6 @@ const ServiceForm = ({ isReadOnly = false }) => {
         serviceId = response.data?.serviceId;
       }
 
-      // Ảnh dịch vụ: tải ảnh mới lên hoặc xóa ảnh hiện tại (dịch vụ đã được lưu trước)
       let imageNotice = "";
       try {
         if (serviceId && imageUpload) {
@@ -209,9 +247,11 @@ const ServiceForm = ({ isReadOnly = false }) => {
                   onLoad={(event) =>
                     event.currentTarget.classList.add("is-loaded")
                   }
-                  onError={(event) =>
-                    event.currentTarget.classList.add("is-loaded")
-                  }
+                  onError={(event) => {
+                    const img = event.currentTarget;
+                    if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = servicePhoto; return; }
+                    img.classList.add("is-loaded");
+                  }}
                 />
                 <div>
                   <span>SEOUL CENTER · SALON &amp; SPA</span>
@@ -342,6 +382,14 @@ const ServiceForm = ({ isReadOnly = false }) => {
               </span>
               <strong>{formData.duration || 0} phút</strong>
             </div>
+            <div>
+              <span><i className="bi bi-door-open" aria-hidden="true" /> Loại phòng</span>
+              <strong>{(ROOM_TYPES.find(([value]) => value === formData.requiredRoomType) || [, formData.requiredRoomType])[1]}</strong>
+            </div>
+            <div>
+              <span><i className="bi bi-arrow-repeat" aria-hidden="true" /> Số tour</span>
+              <strong>{formData.tourCount || proposedTours(formData.duration)} tour</strong>
+            </div>
           </div>
           <div className="service-admin-actions">
             <Link to="/services" className="btn btn-outline-secondary">
@@ -444,14 +492,51 @@ const ServiceForm = ({ isReadOnly = false }) => {
                       name="duration"
                       value={formData.duration}
                       onChange={handleChange}
-                      min="1"
-                      step="1"
-                      placeholder="Ví dụ: 60"
+                      min="15"
+                      max="600"
+                      step="15"
+                      placeholder="Bội số của 15, ví dụ: 60"
                       required
                       disabled={saving}
                     />
                     <span>phút</span>
                   </div>
+                </div>
+
+                <div className="service-admin-field">
+                  <label htmlFor="requiredRoomType">Loại phòng yêu cầu *</label>
+                  <select id="requiredRoomType" className="form-select" name="requiredRoomType" value={formData.requiredRoomType} onChange={handleChange} disabled={saving}>
+                    {ROOM_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+                  </select>
+                </div>
+
+                <div className="service-admin-field">
+                  <label htmlFor="tourCount">Số tour</label>
+                  <div className="service-admin-input-with-suffix">
+                    <input id="tourCount" className="form-control" type="number" name="tourCount" value={formData.tourCount}
+                      onChange={handleChange} min="1" max="10" step="1" placeholder={`Đề xuất: ${proposedTours(formData.duration)}`} disabled={saving} />
+                    <span>tour</span>
+                  </div>
+                  <small>Mặc định 30–60 phút = 1 tour, 90–120 phút = 2 tour (BR-01). Bỏ trống để dùng giá trị đề xuất.</small>
+                </div>
+
+                <div className="service-admin-field">
+                  <label htmlFor="category">Nhóm dịch vụ</label>
+                  <input id="category" className="form-control" name="category" value={formData.category} onChange={handleChange} maxLength={50} placeholder="Ví dụ: Chăm sóc da" disabled={saving} />
+                </div>
+
+                <div className="service-admin-field service-admin-field--wide">
+                  <label>Kỹ thuật viên thực hiện được</label>
+                  <div className="d-flex flex-wrap gap-3 border rounded p-2">
+                    {technicians.length ? technicians.map((t) => (
+                      <div className="form-check" key={t.staffId}>
+                        <input className="form-check-input" type="checkbox" id={`tech-${t.staffId}`} checked={formData.technicianIds.includes(t.staffId)}
+                          onChange={() => toggleTechnician(t.staffId)} disabled={saving} />
+                        <label className="form-check-label" htmlFor={`tech-${t.staffId}`}>{t.fullName}</label>
+                      </div>
+                    )) : <small className="text-muted">Chưa có kỹ thuật viên đang làm việc.</small>}
+                  </div>
+                  <small>Chỉ kỹ thuật viên được chọn mới được xếp làm dịch vụ này.</small>
                 </div>
 
                 <div className="service-admin-field service-admin-field--wide">
@@ -460,6 +545,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
                     <img
                       src={imageUpload ? `data:${imageUpload.contentType};base64,${imageUpload.data}` : imageUrl}
                       alt="Ảnh dịch vụ"
+                      onError={(event) => { if (!imageUpload) event.currentTarget.style.display = "none"; }}
                       style={{ display: "block", width: 280, maxWidth: "100%", height: 170, objectFit: "cover", borderRadius: 12, marginBottom: 10 }}
                     />
                   )}

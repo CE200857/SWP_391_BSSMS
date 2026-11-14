@@ -14,7 +14,6 @@ import {
 import { api } from "../../../services/api";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 
-// 9.3: Manager hides / restores reviews that violate the rules.
 export default function FeedbackModeration({ managerCompact = false }) {
   const [items, setItems] = useState([]);
   const [publicStats, setPublicStats] = useState({

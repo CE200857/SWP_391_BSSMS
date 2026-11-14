@@ -2,258 +2,120 @@ package bssms_persistence.HienLNM;
 
 import bssms_feedback.Feedback;
 import bssms_persistence.DBContext;
-import bssms_persistence.common.DataAccessException;
-import bssms_persistence.common.SchemaSql;
-import bssms_persistence.common.WorkflowException;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import bssms_persistence.common.*;
+import java.sql.SQLException;
+import java.util.*;
 
-/**
- * Đánh giá theo DỊCH VỤ: mỗi dịch vụ đã hoàn thành trong mỗi lần đến (lịch hẹn) được khách đánh giá một lần.
- * Dữ liệu nằm ở bảng ServiceFeedback (xem 13_Feedback_Per_Service.sql).
- *
- * @author HienLNM
- */
 public class FeedbackDAO extends DBContext implements AutoCloseable {
+    @Override public void close() throws SQLException { if (conn != null) conn.close(); }
 
-    private static final String NOW_VN = "CONVERT(datetime2,SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time')";
+    private static final String BASE = "SELECT f.feedback_id,f.customer_id,c.full_name AS customer_name,l.appointment_id,f.appointment_service_id,l.service_id,s.service_name,"
+            + "f.rating,f.comment,f.created_at,f.updated_at,f.is_hidden,f.moderation_reason,a.appointment_date "
+            + "FROM ServiceFeedback f JOIN AppointmentService l ON l.appointment_service_id=f.appointment_service_id JOIN Appointment a ON a.appointment_id=l.appointment_id "
+            + "JOIN Service s ON s.service_id=l.service_id JOIN Customer c ON c.customer_id=f.customer_id ";
 
-    private void requireConnection() {
-        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    static String shortName(Object name) {
+        String[] parts = String.valueOf(name).trim().split("\\s+");
+        if (parts.length <= 1) return parts[0];
+        StringBuilder b = new StringBuilder(parts[0]);
+        for (int i = 1; i < parts.length; i++) b.append(' ').append(parts[i].charAt(0)).append('.');
+        return b.toString();
     }
 
-    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
-
-    // ------------------------------------------------------------------ Manager (9.3)
-
-    public boolean moderate(int id, boolean hidden, String reason) throws java.sql.SQLException {
-        workflow().roles("Manager");
-        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Moderation reason required.");
-        return workflow().update("UPDATE ServiceFeedback SET is_hidden=?,moderation_reason=?,updated_at=" + NOW_VN + " WHERE feedback_id=?",
-                hidden, reason.trim(), id) > 0;
+    public boolean moderate(int id, boolean hidden, String reason) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Manager");
+        if (hidden && (reason == null || reason.isBlank())) throw new IllegalArgumentException("Vui lòng nhập lý do ẩn đánh giá.");
+        return w.update("UPDATE ServiceFeedback SET is_hidden=?,moderation_reason=?,moderated_by_staff_id=? WHERE feedback_id=?",
+                hidden, hidden ? reason.trim() : null, hidden ? w.staffId() : null, id) > 0;
     }
 
-    /** Manager view of every review, including hidden ones. */
-    public List<Map<String, Object>> getAllForModeration() throws java.sql.SQLException {
-        workflow().roles("Manager");
-        return workflow().query(
-            "SELECT f.feedback_id,f.customer_id,c.full_name AS customer_name,f.appointment_id,f.service_id,s.service_name,"
-          + "a.appointment_date,f.rating,f.comment,f.created_at,f.is_hidden,f.moderation_reason "
-          + "FROM " + SchemaSql.FEEDBACK + " f "
-          + "JOIN " + SchemaSql.CUSTOMERS + " c ON f.customer_id=c.customer_id "
-          + "JOIN Appointment a ON f.appointment_id=a.appointment_id "
-          + "JOIN Service s ON s.service_id=f.service_id ORDER BY f.created_at DESC");
+    public List<Map<String, Object>> getAllForModeration() throws SQLException {
+        workflow().roles("Manager", "Receptionist");
+        return workflow().query(BASE + "ORDER BY f.created_at DESC");
     }
 
-    // ------------------------------------------------------------------ Customer: what can be reviewed
-
-    /** Các dịch vụ đã hoàn thành của khách mà chưa được đánh giá (mỗi dòng = một dịch vụ trong một lần đến). */
-    public List<Map<String, Object>> getAvailableAppointmentsForFeedback(int customerId) {
-        try { workflow().customerAccess(customerId); } catch (java.sql.SQLException ex) { throw new DataAccessException(ex); }
-        requireConnection();
-        List<Map<String, Object>> list = new ArrayList<>();
-        String sql = "SELECT a.appointment_id,a.customer_id,c.full_name AS customer_name,l.service_id,s.service_name,l.line_no,"
-                   + "a.appointment_date,a.start_time,a.end_time,a.status "
-                   + "FROM Appointment a "
-                   + "JOIN " + SchemaSql.CUSTOMERS + " c ON a.customer_id=c.customer_id "
-                   + "JOIN dbo.vw_AppointmentLine l ON l.appointment_id=a.appointment_id "
-                   + "JOIN Service s ON s.service_id=l.service_id "
-                   + "WHERE a.customer_id=? AND a.status='Completed' "
-                   + "AND NOT EXISTS(SELECT 1 FROM ServiceFeedback f WHERE f.appointment_id=a.appointment_id AND f.service_id=l.service_id) "
-                   + "ORDER BY a.appointment_date DESC,a.start_time DESC,l.line_no";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, customerId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("appointmentId", rs.getInt("appointment_id"));
-                    map.put("customerId", rs.getInt("customer_id"));
-                    map.put("customerName", rs.getString("customer_name"));
-                    map.put("serviceId", rs.getInt("service_id"));
-                    map.put("serviceName", rs.getString("service_name"));
-                    map.put("lineNo", rs.getInt("line_no"));
-                    map.put("appointmentDate", rs.getDate("appointment_date"));
-                    map.put("startTime", rs.getTime("start_time"));
-                    map.put("endTime", rs.getTime("end_time"));
-                    map.put("status", rs.getString("status"));
-                    list.add(map);
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return list;
+    public List<Map<String, Object>> getAvailableAppointmentsForFeedback(int customerId) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Customer");
+        return w.query("SELECT a.appointment_id,a.appointment_date,l.appointment_service_id,l.service_id,s.service_name,l.line_no,l.done_at "
+                + "FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id JOIN Service s ON s.service_id=l.service_id "
+                + "WHERE a.customer_id=? AND l.status='Done' AND NOT EXISTS(SELECT 1 FROM ServiceFeedback f WHERE f.appointment_service_id=l.appointment_service_id) "
+                + "ORDER BY l.done_at DESC", w.customerId());
     }
 
-    // ------------------------------------------------------------------ Public lists
+    public List<Map<String, Object>> getAllFeedbackDetails(Integer serviceId) throws SQLException {
+        Workflow w = new Workflow(conn, 0);
+        List<Map<String, Object>> rows = w.query("SELECT f.feedback_id,l.service_id,s.service_name,f.rating,f.comment,f.created_at,c.full_name AS customer_name "
+                + "FROM ServiceFeedback f JOIN AppointmentService l ON l.appointment_service_id=f.appointment_service_id JOIN Service s ON s.service_id=l.service_id JOIN Customer c ON c.customer_id=f.customer_id "
+                + "WHERE f.is_hidden=0 AND (? IS NULL OR l.service_id=?) ORDER BY f.created_at DESC", serviceId, serviceId);
+        for (Map<String, Object> r : rows) r.put("customerName", shortName(r.get("customerName")));
+        return rows;
+    }
+    public List<Map<String, Object>> getAllFeedbackDetails() throws SQLException { return getAllFeedbackDetails(null); }
 
-    /** Đánh giá công khai (không bị ẩn). Có serviceId thì chỉ lấy đánh giá của dịch vụ đó. */
-    public List<Map<String, Object>> getAllFeedbackDetails(Integer serviceId) {
-        requireConnection();
-        List<Map<String, Object>> list = new ArrayList<>();
-        String sql = "SELECT f.feedback_id,f.customer_id,c.full_name AS customer_name,f.service_id,s.service_name,"
-                   + "f.rating,f.comment,f.created_at "
-                   + "FROM " + SchemaSql.FEEDBACK + " f "
-                   + "JOIN " + SchemaSql.CUSTOMERS + " c ON f.customer_id=c.customer_id "
-                   + "JOIN Service s ON s.service_id=f.service_id "
-                   + "WHERE f.is_hidden=0 " + (serviceId != null ? "AND f.service_id=? " : "")
-                   + "ORDER BY f.created_at DESC";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            if (serviceId != null) ps.setInt(1, serviceId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("feedbackId", rs.getInt("feedback_id"));
-                    map.put("customerId", rs.getInt("customer_id"));
-                    map.put("customerName", rs.getString("customer_name"));
-                    map.put("serviceId", rs.getInt("service_id"));
-                    map.put("serviceName", rs.getString("service_name"));
-                    map.put("rating", rs.getInt("rating"));
-                    map.put("comment", rs.getString("comment"));
-                    map.put("createdAt", rs.getTimestamp("created_at"));
-                    list.add(map);
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return list;
+    public List<Map<String, Object>> getServiceRatings() throws SQLException {
+        return new Workflow(conn, 0).query("SELECT l.service_id,COUNT(*) AS review_count,CAST(AVG(CAST(f.rating AS decimal(5,2))) AS decimal(3,1)) AS avg_rating "
+                + "FROM ServiceFeedback f JOIN AppointmentService l ON l.appointment_service_id=f.appointment_service_id WHERE f.is_hidden=0 GROUP BY l.service_id");
     }
 
-    public List<Map<String, Object>> getAllFeedbackDetails() { return getAllFeedbackDetails(null); }
-
-    /** Điểm trung bình và số đánh giá của từng dịch vụ (công khai). */
-    public List<Map<String, Object>> getServiceRatings() {
-        requireConnection();
-        List<Map<String, Object>> list = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement("SELECT service_id,review_count,avg_rating FROM dbo.vw_ServiceRating");
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Map<String, Object> map = new HashMap<>();
-                map.put("serviceId", rs.getInt("service_id"));
-                map.put("reviewCount", rs.getInt("review_count"));
-                map.put("avgRating", rs.getBigDecimal("avg_rating"));
-                list.add(map);
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return list;
+    public List<Map<String, Object>> getFeedbackByCustomerId(int customerId) throws SQLException {
+        Workflow w = workflow();
+        if ("Customer".equals(w.role())) customerId = w.customerId(); else w.roles("Manager", "Receptionist");
+        List<Map<String, Object>> rows = w.query(BASE + "WHERE f.customer_id=? ORDER BY f.created_at DESC", customerId);
+        for (Map<String, Object> r : rows)
+            r.put("editable", !w.query("SELECT feedback_id FROM ServiceFeedback WHERE feedback_id=? AND created_at>=DATEADD(day,-7,SYSDATETIME()) AND is_hidden=0", r.get("feedbackId")).isEmpty());
+        return rows;
     }
 
-    /** Đánh giá của một khách (khách chỉ xem được của chính mình). */
-    public List<Map<String, Object>> getFeedbackByCustomerId(int customerId) {
-        try { workflow().customerAccess(customerId); } catch (java.sql.SQLException ex) { throw new DataAccessException(ex); }
-        requireConnection();
-        List<Map<String, Object>> list = new ArrayList<>();
-        String sql = "SELECT f.feedback_id,f.customer_id,c.full_name AS customer_name,f.appointment_id,f.service_id,s.service_name,"
-                   + "a.appointment_date,a.start_time,f.rating,f.comment,f.created_at "
-                   + "FROM " + SchemaSql.FEEDBACK + " f "
-                   + "JOIN " + SchemaSql.CUSTOMERS + " c ON f.customer_id=c.customer_id "
-                   + "JOIN Appointment a ON f.appointment_id=a.appointment_id "
-                   + "JOIN Service s ON s.service_id=f.service_id "
-                   + "WHERE f.customer_id=? AND f.is_hidden=0 ORDER BY f.created_at DESC";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, customerId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("feedbackId", rs.getInt("feedback_id"));
-                    map.put("customerId", rs.getInt("customer_id"));
-                    map.put("customerName", rs.getString("customer_name"));
-                    map.put("appointmentId", rs.getInt("appointment_id"));
-                    map.put("serviceId", rs.getInt("service_id"));
-                    map.put("serviceName", rs.getString("service_name"));
-                    map.put("appointmentDate", rs.getDate("appointment_date"));
-                    map.put("startTime", rs.getTime("start_time"));
-                    map.put("rating", rs.getInt("rating"));
-                    map.put("comment", rs.getString("comment"));
-                    map.put("createdAt", rs.getTimestamp("created_at"));
-                    list.add(map);
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return list;
+    public Map<String, Object> getFeedbackDetails(int id) throws SQLException {
+        Workflow w = workflow();
+        Map<String, Object> r = w.one(BASE + "WHERE f.feedback_id=?", id);
+        if ("Customer".equals(w.role()) && Workflow.id(r.get("customerId")) != w.customerId()) throw new WorkflowException(404, "Không tìm thấy đánh giá.");
+        return r;
     }
 
-    // ------------------------------------------------------------------ Single reads
-
-    private Feedback readOne(String where, int value) {
-        requireConnection();
-        String sql = "SELECT TOP(1) * FROM " + SchemaSql.FEEDBACK + " Feedback WHERE " + where + " AND is_hidden=0 ORDER BY feedback_id";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, value);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return new Feedback(rs.getInt("feedback_id"), rs.getInt("customer_id"), rs.getInt("appointment_id"),
-                            rs.getInt("service_id"), rs.getInt("rating"), rs.getString("comment"), rs.getTimestamp("created_at"));
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return null;
+    public Feedback getFeedbackById(int id) throws SQLException {
+        Map<String, Object> r = getFeedbackDetails(id);
+        Feedback f = new Feedback(Workflow.id(r.get("feedbackId")), Workflow.id(r.get("customerId")), Workflow.id(r.get("appointmentId")),
+                Workflow.id(r.get("serviceId")), Workflow.id(r.get("rating")), (String) r.get("comment"), null);
+        f.setAppointmentServiceId(Workflow.id(r.get("appointmentServiceId")));
+        return f;
     }
 
-    public Feedback getFeedbackById(int id) { return readOne("feedback_id = ?", id); }
-
-    public Feedback getFeedbackByAppointmentId(int appointmentId) { return readOne("appointment_id = ?", appointmentId); }
-
-    // ------------------------------------------------------------------ Customer writes
-
-    /**
-     * Tạo đánh giá cho một dịch vụ đã hoàn thành trong một lần đến.
-     * Điều kiện: lịch hẹn của chính khách, đã Completed, dịch vụ nằm trong lịch hẹn, chưa được đánh giá, 1 đến 5 sao.
-     */
     public int addFeedback(Feedback fb) throws Exception {
-        workflow().roles("Customer");
-        workflow().customerAccess(fb.getCustomerId());
-        workflow().appointmentAccess(fb.getAppointmentId());
-        if (fb.getRating() < 1 || fb.getRating() > 5) throw new IllegalArgumentException("Rating must be 1-5");
-        if (fb.getServiceId() <= 0) throw new IllegalArgumentException("Service is required.");
-        String comment = fb.getComment() == null ? null : fb.getComment().trim();
-        if (comment != null && comment.length() > 1000) throw new IllegalArgumentException("Comment is too long.");
-        int changed = workflow().update(
-            "INSERT dbo.ServiceFeedback(customer_id,service_id,appointment_id,rating,comment) "
-          + "SELECT a.customer_id,l.service_id,a.appointment_id,?,? FROM Appointment a "
-          + "JOIN dbo.vw_AppointmentLine l ON l.appointment_id=a.appointment_id "
-          + "WHERE a.appointment_id=? AND a.customer_id=? AND a.status='Completed' AND l.service_id=? "
-          + "AND NOT EXISTS(SELECT 1 FROM dbo.ServiceFeedback f WHERE f.appointment_id=a.appointment_id AND f.service_id=l.service_id)",
-            fb.getRating(), comment, fb.getAppointmentId(), fb.getCustomerId(), fb.getServiceId());
-        if (changed != 1) throw new WorkflowException(409, "Chỉ đánh giá được dịch vụ đã hoàn thành, và mỗi dịch vụ trong mỗi lần đến chỉ đánh giá một lần.");
+        Workflow w = workflow();
+        w.roles("Customer");
+        int customer = w.customerId();
+        if (fb.getRating() < 1 || fb.getRating() > 5) throw new IllegalArgumentException("Vui lòng chọn từ 1 đến 5 sao.");
+        String comment = fb.getComment() == null || fb.getComment().isBlank() ? null : fb.getComment().trim();
+        if (comment != null && comment.length() > 1000) throw new IllegalArgumentException("Nhận xét tối đa 1000 ký tự.");
+        int line = fb.getAppointmentServiceId();
+        if (line <= 0) line = w.query("SELECT TOP 1 appointment_service_id FROM AppointmentService WHERE appointment_id=? AND service_id=? ORDER BY line_no", fb.getAppointmentId(), fb.getServiceId())
+                .stream().map(r -> Workflow.id(r.get("appointmentServiceId"))).findFirst().orElse(0);
+        int changed = w.update("INSERT INTO ServiceFeedback(customer_id,appointment_service_id,rating,comment,created_at,is_hidden) "
+                + "SELECT a.customer_id,l.appointment_service_id,?,?,SYSDATETIME(),0 FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id "
+                + "WHERE l.appointment_service_id=? AND a.customer_id=? AND l.status='Done' AND NOT EXISTS(SELECT 1 FROM ServiceFeedback f WHERE f.appointment_service_id=l.appointment_service_id)",
+                fb.getRating(), comment, line, customer);
+        if (changed != 1) throw new WorkflowException(409, "Chỉ đánh giá được dịch vụ đã hoàn thành của bạn, mỗi dịch vụ một lần.");
         return changed;
     }
 
-    /** Sửa điểm và nội dung (không đổi khách, lịch hẹn hay dịch vụ). */
     public int updateFeedback(Feedback fb) throws Exception {
-        Map<String, Object> existing = workflow().one("SELECT customer_id,appointment_id,service_id FROM " + SchemaSql.FEEDBACK + " Feedback WHERE feedback_id=?", fb.getFeedbackId());
-        int owner = ((Number) existing.get("customerId")).intValue();
-        workflow().roles("Customer");
-        workflow().customerAccess(owner);
-        if (owner != fb.getCustomerId() || ((Number) existing.get("appointmentId")).intValue() != fb.getAppointmentId()
-                || (fb.getServiceId() > 0 && ((Number) existing.get("serviceId")).intValue() != fb.getServiceId()))
-            throw new IllegalArgumentException("Feedback owner, appointment and service cannot be changed.");
-        if (fb.getRating() < 1 || fb.getRating() > 5) throw new IllegalArgumentException("Rating must be 1-5");
-        String comment = fb.getComment() == null ? null : fb.getComment().trim();
-        if (comment != null && comment.length() > 1000) throw new IllegalArgumentException("Comment is too long.");
-        return workflow().update("UPDATE ServiceFeedback SET rating=?,comment=?,updated_at=" + NOW_VN + " WHERE feedback_id=? AND is_hidden=0",
-                fb.getRating(), comment, fb.getFeedbackId());
+        Workflow w = workflow();
+        w.roles("Customer");
+        if (fb.getRating() < 1 || fb.getRating() > 5) throw new IllegalArgumentException("Vui lòng chọn từ 1 đến 5 sao.");
+        String comment = fb.getComment() == null || fb.getComment().isBlank() ? null : fb.getComment().trim();
+        if (comment != null && comment.length() > 1000) throw new IllegalArgumentException("Nhận xét tối đa 1000 ký tự.");
+        int changed = w.update("UPDATE ServiceFeedback SET rating=?,comment=?,updated_at=SYSDATETIME() WHERE feedback_id=? AND customer_id=? AND is_hidden=0 AND created_at>=DATEADD(day,-7,SYSDATETIME())",
+                fb.getRating(), comment, fb.getFeedbackId(), w.customerId());
+        if (changed != 1) throw new WorkflowException(409, "Chỉ sửa được đánh giá của bạn trong vòng 7 ngày.");
+        return changed;
     }
 
-    public boolean deleteFeedback(int id) {
-        try {
-            workflow().roles("Customer");
-            Map<String, Object> existing = workflow().one("SELECT customer_id FROM " + SchemaSql.FEEDBACK + " Feedback WHERE feedback_id=?", id);
-            workflow().customerAccess(((Number) existing.get("customerId")).intValue());
-            return workflow().update("DELETE FROM ServiceFeedback WHERE feedback_id=? AND is_hidden=0", id) > 0;
-        } catch (java.sql.SQLException ex) {
-            throw new DataAccessException(ex);
-        }
+    public boolean deleteFeedback(int id) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Customer");
+        return w.update("DELETE FROM ServiceFeedback WHERE feedback_id=? AND customer_id=?", id, w.customerId()) > 0;
     }
 }

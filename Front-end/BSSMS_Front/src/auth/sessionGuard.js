@@ -1,5 +1,3 @@
-// Khi máy chủ báo 401 (phiên đăng nhập đã mất, ví dụ sau khi khởi động lại Tomcat hoặc hết hạn)
-// mà giao diện vẫn nghĩ là đang đăng nhập: đăng xuất ở trình duyệt và chuyển về trang đăng nhập.
 const GUEST_ENDPOINTS = ["/api/login", "/api/logout", "/api/register", "/api/forgot-password"];
 const FLAG = "bssms.sessionExpired";
 let redirecting = false;
@@ -21,7 +19,7 @@ function storedRole() {
 function onUnauthorized(url) {
   const target = String(url || "");
   if (!target.includes("/api/") || GUEST_ENDPOINTS.some((endpoint) => target.includes(endpoint))) return;
-  if (redirecting || !localStorage.getItem("user")) return; // chưa đăng nhập thì 401 là bình thường
+  if (redirecting || !localStorage.getItem("user")) return;
   const destination = loginPathFor(storedRole());
   localStorage.removeItem("user");
   if (window.location.pathname === destination) return;
@@ -29,7 +27,6 @@ function onUnauthorized(url) {
   try {
     sessionStorage.setItem(FLAG, "1");
   } catch {
-    // trình duyệt chặn sessionStorage: vẫn chuyển trang, chỉ không hiện thông báo
   }
   window.location.replace(destination);
 }

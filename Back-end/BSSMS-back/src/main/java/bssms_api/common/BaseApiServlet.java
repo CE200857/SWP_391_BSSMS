@@ -16,7 +16,6 @@ import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.Map;
 
-/** Shared transport helpers only; no SQL or application rules. */
 public abstract class BaseApiServlet extends HttpServlet {
     private final Gson gson = new Gson();
     @FunctionalInterface
@@ -59,8 +58,8 @@ public abstract class BaseApiServlet extends HttpServlet {
             int code = e.getErrorCode();
             error(response, code == 547 || code == 2601 || code == 2627 ? 409 : 500,
                     code == 547 || code == 2601 || code == 2627
-                    ? "Operation conflicts with existing data or database constraints."
-                    : "Unable to access data. Please try again."); return;
+                    ? "Dữ liệu vi phạm ràng buộc của cơ sở dữ liệu (mã lỗi SQL " + code + ")."
+                    : "Lỗi truy cập cơ sở dữ liệu (mã lỗi SQL " + code + "). Xem log máy chủ để biết chi tiết."); return;
         } catch (Exception e) {
             log("DatTT operation failed", e);
             error(response, 500, "Unable to process request. Please try again."); return;

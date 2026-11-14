@@ -1,254 +1,242 @@
-import { useState, useEffect } from "react";
-import {
-    Container,
-    Card,
-    Table,
-    Badge,
-    Form,
-    InputGroup,
-    Spinner,
-    Alert,
-} from "react-bootstrap";
-import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Badge, Button, Card, Container, Form, Modal, Spinner, Table } from "react-bootstrap";
+import { api, post, put, del, today, time5, viDate, label } from "../../../services/api";
+import { imageFileToUpload } from "../../../utils/imageUpload";
 
-const TreatmentStatus = () => {
-    const [appointments, setAppointments] = useState([]);
-    const [customerPackages, setCustomerPackages] = useState([]);
-    const [services, setServices] = useState([]);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
-    const [typeFilter, setTypeFilter] = useState("appointment"); // 'appointment' or 'package'
-    const [isLoading, setIsLoading] = useState(true);
-    const [loadError, setLoadError] = useState("");
+const lineBadge = { Waiting: "secondary", InProgress: "primary", Done: "success" };
 
+function OutcomeModal({ line, canEdit, onClose, onSaved }) {
+  const [data, setData] = useState(null);
+  const [notes, setNotes] = useState("");
+  const [skinReaction, setSkinReaction] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
-            setLoadError("");
-            try {
-                const [apptRes, packageRes, serviceRes] = await Promise.all([
-                    fetch("/api/appointments"),
-                    fetch("/api/customer-packages"),
-                    fetch("/api/service"),
-                ]);
-
-                if (!apptRes.ok || !packageRes.ok) throw new Error("Không tải được lịch hẹn hoặc gói liệu trình.");
-                const apptData = await apptRes.json();
-                const packageData = packageRes.ok ? await packageRes.json() : [];
-                const serviceData = serviceRes.ok ? await serviceRes.json() : [];
-
-                setAppointments(Array.isArray(apptData) ? apptData : []);
-                setCustomerPackages(Array.isArray(packageData) ? packageData : []);
-                setServices(Array.isArray(serviceData) ? serviceData : []);
-            } catch (err) {
-                console.error("Lỗi tải dữ liệu:", err);
-                setLoadError("Không thể tải dữ liệu. Vui lòng thử lại.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchData();
-    }, []);
-
-    const getServiceName = (serviceId) => {
-        const service = services.find((s) => s.serviceId === serviceId);
-        return service ? service.serviceName : `Dịch vụ #${serviceId}`;
-    };
-
-    const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
-
-    const getPackageStatusBadge = (status) => {
-        const statusMap = {
-            "Active": { bg: "success", text: "Đang hoạt động" },
-            "Expired": { bg: "danger", text: "Đã hết hạn" },
-            "Completed": { bg: "info", text: "Đã sử dụng hết" },
-        };
-        const style = statusMap[status] || { bg: "dark", text: status };
-        return <Badge bg={style.bg}>{style.text}</Badge>;
-    };
-
-    const filteredAppointments = appointments.filter((a) => {
-        const search = searchTerm.trim().toLowerCase();
-        const matchesSearch =
-            !search ||
-            a.customerName?.toLowerCase().includes(search) ||
-            a.serviceName?.toLowerCase().includes(search) ||
-            String(a.appointmentId).includes(search);
-        const matchesStatus = statusFilter === "all" || a.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
-
-    const filteredPackages = customerPackages.filter((pkg) => {
-        const search = searchTerm.trim().toLowerCase();
-        const matchesSearch =
-            !search ||
-            pkg.customerName?.toLowerCase().includes(search) ||
-            pkg.packageName?.toLowerCase().includes(search) ||
-            String(pkg.customerPackageId).includes(search);
-        return matchesSearch;
-    });
-
-    const formatDate = (dateStr) => {
-        if (!dateStr) return "—";
-        try {
-            return new Date(dateStr).toLocaleDateString("vi-VN");
-        } catch {
-            return dateStr;
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <Container className="text-center mt-5">
-                <Spinner animation="border" variant="danger" />
-                <p className="mt-3 text-muted">Đang tải dữ liệu...</p>
-            </Container>
-        );
+  const load = useCallback(async () => {
+    if (!line) return;
+    try {
+      const r = await api(`/api/treatment-outcomes/${line.appointmentServiceId}`);
+      setData(r);
+      setNotes(r.notes || "");
+      setSkinReaction(r.skinReaction || "");
+    } catch (e) {
+      setError(e.message);
     }
+  }, [line]);
+  useEffect(() => { setData(null); setError(""); load(); }, [load]);
 
-    return (
-        <Container fluid className="mt-4 px-4">
-            <h2 className="manager-page-title fw-bold mb-4">Xem trạng thái điều trị</h2>
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await put(`/api/treatment-outcomes/${line.appointmentServiceId}`, { notes, skinReaction });
+      onSaved("Đã lưu kết quả điều trị.");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const upload = async (photoType, file) => {
+    if (!file) return;
+    setError("");
+    try {
+      const image = await imageFileToUpload(file);
+      await post(`/api/treatment-photos/${line.appointmentServiceId}`, { photoType, ...image });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+  const removePhoto = async (photoId) => {
+    try {
+      await del(`/api/treatment-photos/${photoId}`);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
-            {/* Bộ lọc */}
-            <Card className="shadow-sm border-0 mb-4" style={{ borderRadius: "12px" }}>
-                <Card.Body>
-                    <div className="d-flex flex-wrap gap-3 align-items-center">
-                        <InputGroup style={{ maxWidth: "320px" }}>
-                            <InputGroup.Text>
-                                <i className="bi bi-search"></i>
-                            </InputGroup.Text>
-                            <Form.Control
-                                placeholder="Tìm theo tên khách hàng, dịch vụ..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </InputGroup>
+  return (
+    <Modal show={!!line} onHide={() => !saving && onClose()} size="lg" centered>
+      <Modal.Header closeButton={!saving}>
+        <Modal.Title>Kết quả điều trị · {line?.serviceName}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {error && <Alert variant="danger">{error}</Alert>}
+        {!data && !error && <div className="text-center py-4"><Spinner animation="border" variant="danger" /></div>}
+        {data && (
+          <>
+            <p className="text-muted">Khách hàng: <strong>{data.customerName}</strong> · Lịch #{data.appointmentId}</p>
+            <Form.Group className="mb-3">
+              <Form.Label>Kết quả điều trị *</Form.Label>
+              <Form.Control as="textarea" rows={4} maxLength={4000} value={notes} disabled={!canEdit} onChange={(e) => setNotes(e.target.value)} />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Phản ứng da</Form.Label>
+              <Form.Control as="textarea" rows={2} maxLength={1000} value={skinReaction} disabled={!canEdit} onChange={(e) => setSkinReaction(e.target.value)} />
+              <Form.Text>Kết quả chỉ được sửa trong ngày thực hiện dịch vụ.</Form.Text>
+            </Form.Group>
+            <h6 className="fw-bold">Ảnh trước / sau ({(data.photos || []).length}/10)</h6>
+            <div className="d-flex flex-wrap gap-3 mb-2">
+              {(data.photos || []).map((p) => (
+                <figure key={p.photoId} className="text-center mb-0">
+                  <img src={`/api/treatment-photos/file/${p.photoId}`} alt={p.photoType} style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8 }} />
+                  <figcaption className="small">
+                    {p.photoType === "Before" ? "Trước" : "Sau"}
+                    {canEdit && <Button variant="link" size="sm" className="text-danger p-0 ms-2" onClick={() => removePhoto(p.photoId)}>Xóa</Button>}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+            {canEdit && (
+              <div className="d-flex gap-3 flex-wrap">
+                <Form.Group><Form.Label className="small">Thêm ảnh trước</Form.Label>
+                  <Form.Control type="file" size="sm" accept="image/jpeg,image/png,image/webp" onChange={(e) => { upload("Before", e.target.files[0]); e.target.value = ""; }} /></Form.Group>
+                <Form.Group><Form.Label className="small">Thêm ảnh sau</Form.Label>
+                  <Form.Control type="file" size="sm" accept="image/jpeg,image/png,image/webp" onChange={(e) => { upload("After", e.target.files[0]); e.target.value = ""; }} /></Form.Group>
+              </div>
+            )}
+          </>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline-secondary" onClick={onClose} disabled={saving}>Đóng</Button>
+        {canEdit && <Button onClick={save} disabled={saving || !notes.trim()}>{saving ? "Đang lưu..." : "Lưu kết quả"}</Button>}
+      </Modal.Footer>
+    </Modal>
+  );
+}
 
-                        <Form.Select
-                            style={{ maxWidth: "200px" }}
-                            value={typeFilter}
-                            onChange={(e) => setTypeFilter(e.target.value)}
-                        >
-                            <option value="appointment">Lịch hẹn điều trị</option>
-                            <option value="package">Gói liệu trình</option>
-                        </Form.Select>
+export default function TreatmentStatus({ outcomeOnly = false }) {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const isTechnician = user?.role === "Technician";
+  const [date, setDate] = useState(today());
+  const [status, setStatus] = useState(outcomeOnly ? "Done" : "");
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(null);
+  const [outcome, setOutcome] = useState(null);
 
-                        {typeFilter === "appointment" && (
-                            <Form.Select
-                                style={{ maxWidth: "180px" }}
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                            >
-                                <option value="all">Tất cả trạng thái</option>
-                                <option value="Pending">Chờ xác nhận</option>
-                                <option value="Confirmed">Đã xác nhận</option>
-<option value="Checked-in">Đã check-in</option>
-                                <option value="In-progress">Đang thực hiện</option>
-                                <option value="Completed">Hoàn thành</option>
-                                <option value="Cancelled">Đã hủy</option>
-                                <option value="No-show">Không đến</option>
-                            </Form.Select>
-                        )}
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (date) { params.set("fromDate", date); params.set("toDate", date); }
+      if (status) params.set("status", status);
+      setRows(await api(`/api/treatment-status?${params}`));
+      setError("");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [date, status]);
+  useEffect(() => { load(); }, [load]);
+
+  const act = async (line, action) => {
+    setBusy(line.appointmentServiceId);
+    setError("");
+    try {
+      const r = await put(`/api/treatment-status/${line.appointmentServiceId}/${action}`, {});
+      setNotice(action === "start" ? `Đã bắt đầu ${line.serviceName}.` : r?.appointmentCompleted
+        ? `Đã hoàn thành ${line.serviceName}. Lịch hẹn #${line.appointmentId} đã hoàn tất.`
+        : `Đã hoàn thành ${line.serviceName}.`);
+      await load();
+      if (action === "done") setOutcome(line);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Container fluid className="mt-4 px-4">
+      <h2 className="manager-page-title fw-bold mb-1">{outcomeOnly ? "Ghi nhận kết quả điều trị" : "Trạng thái dịch vụ"}</h2>
+      <p className="text-muted mb-4">
+        {isTechnician
+          ? "Bắt đầu và hoàn thành từng dịch vụ được giao theo đúng thứ tự. Hoàn thành dịch vụ dùng gói sẽ trừ 1 buổi."
+          : "Theo dõi tiến độ thực hiện từng dịch vụ trong ngày."}
+      </p>
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+
+      <Card className="shadow-sm border-0 mb-4">
+        <Card.Body className="d-flex flex-wrap gap-3 align-items-center">
+          <Form.Control type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 180 }} />
+          <Form.Select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 200 }}>
+            <option value="">Tất cả trạng thái</option>
+            <option value="Waiting">Chờ thực hiện</option>
+            <option value="InProgress">Đang làm</option>
+            <option value="Done">Hoàn thành</option>
+          </Form.Select>
+          <Button variant="outline-secondary" onClick={load}><i className="bi bi-arrow-clockwise" /> Làm mới</Button>
+        </Card.Body>
+      </Card>
+
+      <Card className="shadow-sm border-0">
+        <Card.Body className="p-0">
+          <Table hover responsive className="align-middle mb-0 manager-list-table">
+            <thead className="table-dark">
+              <tr><th>Giờ</th><th>Khách hàng</th><th>Dịch vụ</th><th>Phòng / giường</th>{!isTechnician && <th>KTV</th>}<th>Trạng thái</th><th className="text-center">Thao tác</th></tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={7} className="text-center py-4"><Spinner animation="border" size="sm" /> Đang tải...</td></tr>
+              ) : rows.length ? rows.map((l) => (
+                <tr key={l.appointmentServiceId}>
+                  <td className="fw-bold">{time5(l.startTime)}–{time5(l.endTime)}<small className="d-block text-muted">{viDate(l.appointmentDate)}</small></td>
+                  <td>
+                    {l.customerName}
+                    {(l.allergies || l.skinCondition) && (
+                      <small className="d-block text-danger"><i className="bi bi-exclamation-triangle" /> {[l.skinCondition, l.allergies && `Dị ứng: ${l.allergies}`].filter(Boolean).join(" · ")}</small>
+                    )}
+                  </td>
+                  <td>{l.serviceName}{l.customerPackageId ? <Badge bg="success" className="ms-1">Gói</Badge> : null}<small className="d-block text-muted">Lịch #{l.appointmentId} · dịch vụ {l.lineNo}</small></td>
+                  <td>{l.roomName ? `${l.roomName} · ${l.bedNumber}` : "—"}</td>
+                  {!isTechnician && <td>{l.technicianName || "—"}</td>}
+                  <td><Badge bg={lineBadge[l.status]}>{label(l.status)}</Badge></td>
+                  <td className="text-center">
+                    <div className="manager-list-actions">
+                      {isTechnician && l.status === "Waiting" && (l.canStart === false ? (
+                        <small className="text-muted d-inline-block text-start" style={{ maxWidth: 220 }}>
+                          <i className="bi bi-hourglass-split me-1" />{l.startNote}
+                        </small>
+                      ) : (
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" disabled={busy === l.appointmentServiceId} onClick={() => act(l, "start")}>
+                          <i className="bi bi-play-circle" /> Bắt đầu
+                        </Button>
+                      ))}
+                      {isTechnician && l.status === "InProgress" && (
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" disabled={busy === l.appointmentServiceId} onClick={() => act(l, "done")}>
+                          <i className="bi bi-check2-circle" /> Hoàn thành
+                        </Button>
+                      )}
+                      {l.status === "Done" && (
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--view" onClick={() => setOutcome(l)}>
+                          <i className="bi bi-journal-medical" /> {isTechnician ? "Kết quả" : "Xem kết quả"}
+                        </Button>
+                      )}
                     </div>
-                </Card.Body>
-            </Card>
+                  </td>
+                </tr>
+              )) : (
+                <tr><td colSpan={7} className="text-center text-muted py-4">Không có dịch vụ nào trong ngày đã chọn.</td></tr>
+              )}
+            </tbody>
+          </Table>
+        </Card.Body>
+      </Card>
 
-            {loadError && <Alert variant="danger">{loadError}</Alert>}
-
-            {/* Bảng lịch hẹn điều trị */}
-            {typeFilter === "appointment" && (
-                <Card className="shadow-sm border-0" style={{ borderRadius: "12px" }}>
-                    <Card.Body className="p-0">
-                        <Table striped bordered hover responsive className="align-middle mb-0">
-                            <thead className="table-dark">
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Ngày</th>
-                                    <th>Thời gian</th>
-                                    <th>Khách hàng</th>
-                                    <th>Dịch vụ</th>
-                                    <th>Nhân viên</th>
-                                    <th>Phòng</th>
-                                    <th>Trạng thái</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredAppointments.length > 0 ? (
-                                    filteredAppointments.map((a) => (
-                                        <tr key={a.appointmentId}>
-                                            <td>{a.appointmentId}</td>
-                                            <td>{formatDate(a.appointmentDate)}</td>
-                                            <td>{a.startTime} - {a.endTime || "—"}</td>
-                                            <td>{a.customerName || "—"}</td>
-                                            <td>{a.serviceName || getServiceName(a.serviceId)}</td>
-                                            <td>{a.staffName || "—"}</td>
-                                            <td>{a.roomName || "—"}</td>
-                                            <td>{getStatusBadge(a.status)}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="8" className="text-center text-muted py-4">
-                                            Không tìm thấy lịch hẹn nào.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </Table>
-                    </Card.Body>
-                </Card>
-            )}
-
-            {/* Bảng gói liệu trình */}
-            {typeFilter === "package" && (
-                <Card className="shadow-sm border-0" style={{ borderRadius: "12px" }}>
-                    <Card.Body className="p-0">
-                        <Table striped bordered hover responsive className="align-middle mb-0">
-                            <thead className="table-dark">
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Khách hàng</th>
-                                    <th>Gói liệu trình</th>
-                                    <th>Ngày mua</th>
-                                    <th>Buổi còn lại</th>
-                                    <th>Ngày hết hạn</th>
-                                    <th>Trạng thái</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredPackages.length > 0 ? (
-                                    filteredPackages.map((pkg) => (
-                                        <tr key={pkg.customerPackageId}>
-                                            <td>{pkg.customerPackageId}</td>
-                                            <td>{pkg.customerName || "—"}</td>
-                                            <td>{pkg.packageName || pkg.treatmentPackageName || "—"}</td>
-                                            <td>{formatDate(pkg.purchaseDate)}</td>
-                                            <td>
-                                                <Badge bg="primary">
-                                                    {pkg.remainingSessions || 0} / {pkg.numberOfSessions || 0}
-                                                </Badge>
-                                            </td>
-                                            <td>{formatDate(pkg.expiryDate)}</td>
-                                            <td>{getPackageStatusBadge(pkg.status)}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="7" className="text-center text-muted py-4">
-                                            Không tìm thấy gói liệu trình nào.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </Table>
-                    </Card.Body>
-                </Card>
-            )}
-        </Container>
-    );
-};
-
-export default TreatmentStatus;
+      <OutcomeModal
+        line={outcome}
+        canEdit={isTechnician}
+        onClose={() => setOutcome(null)}
+        onSaved={(m) => { setOutcome(null); setNotice(m); load(); }}
+      />
+    </Container>
+  );
+}

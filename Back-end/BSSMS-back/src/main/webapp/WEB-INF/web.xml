@@ -4,7 +4,6 @@
    xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
    version="6.0">
 
-    <!-- Ép CorsFilter chạy TRƯỚC AuthenticationFilter/AuthorizationFilter -->
     <filter-mapping>
         <filter-name>CorsFilter</filter-name>
         <url-pattern>/*</url-pattern>

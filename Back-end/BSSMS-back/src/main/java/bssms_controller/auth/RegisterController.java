@@ -37,10 +37,20 @@ public class RegisterController extends ControllerSupport {
                     return;
                 }
 
+                String fullName = jsonObject.has("fullName") && !jsonObject.get("fullName").isJsonNull() ? jsonObject.get("fullName").getAsString().trim() : null;
+                String phone = jsonObject.has("phone") && !jsonObject.get("phone").isJsonNull() ? jsonObject.get("phone").getAsString().trim() : null;
+                String dateOfBirth = jsonObject.has("dateOfBirth") && !jsonObject.get("dateOfBirth").isJsonNull() ? jsonObject.get("dateOfBirth").getAsString().trim() : null;
+                String gender = jsonObject.has("gender") && !jsonObject.get("gender").isJsonNull() ? jsonObject.get("gender").getAsString().trim() : null;
+                String address = jsonObject.has("address") && !jsonObject.get("address").isJsonNull() ? jsonObject.get("address").getAsString().trim() : null;
+                if (gender != null && !gender.isEmpty() && !java.util.Arrays.asList("Male", "Female", "Other").contains(gender)) { response.error(400, "Giới tính không hợp lệ!"); return; }
+                if (address == null || address.isBlank()) { response.error(400, "Vui lòng chọn tỉnh/thành phố!"); return; }
+                if (address.length() > 255) { response.error(400, "Địa chỉ tối đa 255 ký tự!"); return; }
+                if (fullName == null || fullName.isEmpty()) { response.error(400, "Vui lòng nhập họ tên!"); return; }
+                if (phone == null || !phone.matches("^0\\d{9,10}$")) { response.error(400, "Số điện thoại không hợp lệ (10-11 số, bắt đầu bằng 0)!"); return; }
                 String duplicateField = dao.checkDuplicate(
                         (username != null && !username.isEmpty()) ? username : null,
                         email,
-                        null,
+                        phone,
                         null
                 );
                 if (duplicateField != null) {
@@ -51,7 +61,7 @@ public class RegisterController extends ControllerSupport {
                 }
 
                 String otp = EmailUtil.generateOTP();
-                boolean isSaved = dao.saveRegistrationCode(email, otp);
+                boolean isSaved = dao.saveRegistrationCode(email, otp, fullName, phone, dateOfBirth, gender, address);
                 if (!isSaved) {
                     response.status(500);
                     out.print("{\"message\": \"Không thể lưu mã OTP. Vui lòng thử lại!\"}");

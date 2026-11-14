@@ -1,6 +1,5 @@
 package bssms_account;
 
-/** Typed data exchanged by DAO and controller; nullable fields represent absent SQL values. */
 public class Staff implements java.io.Serializable {
     private static final long serialVersionUID = 1L;
     private Integer staffId;
@@ -11,7 +10,6 @@ public class Staff implements java.io.Serializable {
     private String email;
     private String position;
     private String role;
-    private java.math.BigDecimal salary;
     private String hireDate;
     private String status;
     private Boolean hasSkill;
@@ -41,9 +39,6 @@ public class Staff implements java.io.Serializable {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
-
-    public java.math.BigDecimal getSalary() { return salary; }
-    public void setSalary(java.math.BigDecimal salary) { this.salary = salary; }
 
     public String getHireDate() { return hireDate; }
     public void setHireDate(String hireDate) { this.hireDate = hireDate; }

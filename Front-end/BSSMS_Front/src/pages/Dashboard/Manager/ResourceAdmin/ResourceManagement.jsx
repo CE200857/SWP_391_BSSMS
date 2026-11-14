@@ -1,462 +1,204 @@
-import { useState, useEffect } from "react";
-import { Container, Card, Table, Button, Form, Modal, Badge, Alert, Tabs, Tab } from "react-bootstrap";
-import axios from "axios";
-import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Badge, Button, Card, Col, Container, Form, Modal, Nav, Row, Table } from "react-bootstrap";
+import { api, post, put, del, viDate, time5, label } from "../../../../services/api";
 
-const ResourceManagement = ({ user: routeUser }) => {
-  const [activeTab, setActiveTab] = useState("rooms");
-  const [refresh, setRefresh] = useState(0);
-  const [errorMsg, setErrorMsg] = useState("");
+const ROOM_TYPES = ["Facial", "Massage", "HairWash", "Body"];
 
-  // Dữ liệu cho 3 danh mục
+export default function ResourceManagement() {
+  const [tab, setTab] = useState("rooms");
   const [rooms, setRooms] = useState([]);
   const [beds, setBeds] = useState([]);
-  const [equipments, setEquipments] = useState([]);
-  const roomFilters = useManagerSearchFilter(
-    rooms,
-    [
-      { key: "roomName", label: "Phòng", filterable: false },
-      { key: "roomType", label: "Loại phòng" },
-      { key: "status", label: "Trạng thái" },
-    ],
-    "Tìm theo tên phòng...",
-  );
-  const bedFilters = useManagerSearchFilter(
-    beds,
-    [
-      { key: "bedNumber", label: "Mã giường", filterable: false },
-      {
-        key: "roomId",
-        label: "Phòng",
-        getValue: (bed) => rooms.find((room) => room.roomId === bed.roomId)?.roomName || `Phòng #${bed.roomId}`,
-      },
-      { key: "status", label: "Trạng thái" },
-    ],
-    "Tìm theo mã giường hoặc phòng...",
-  );
-  const equipmentFilters = useManagerSearchFilter(
-    equipments,
-    [
-      { key: "equipmentName", label: "Thiết bị", filterable: false },
-      {
-        key: "roomName",
-        label: "Phòng",
-        formatValue: (value) => value || "Chưa phân phòng",
-      },
-      { key: "description", label: "Mô tả", filterable: false },
-      { key: "status", label: "Trạng thái" },
-    ],
-    "Tìm theo tên thiết bị hoặc mô tả...",
-  );
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [roomForm, setRoomForm] = useState(null);
+  const [bedForm, setBedForm] = useState(null);
+  const [formError, setFormError] = useState("");
+  const [affected, setAffected] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  // Quản lý Modal chung
-  const [showModal, setShowModal] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
-
-  // Quản lý Modal Xóa (Mới thêm)
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState(null);
-  
-  // Dữ liệu Form linh hoạt
-  const [formData, setFormData] = useState({});
-
-  const user = routeUser || JSON.parse(localStorage.getItem("user") || "null");
-  const isManager = user?.role === "Manager";
-
-  // Lấy dữ liệu khi đổi tab hoặc refresh
-  useEffect(() => {
-    if (!isManager) return;
-
-    // Khai báo hàm fetch ngay bên trong useEffect
-    const loadData = async () => {
-      try {
-        if (activeTab === "rooms") {
-          const response = await axios.get("/api/rooms", { withCredentials: true });
-          setRooms(response.data);
-        } else if (activeTab === "beds") {
-          const response = await axios.get("/api/beds", { withCredentials: true });
-          setBeds(response.data);
-        } else if (activeTab === "equipments") {
-          const [equipmentResponse, roomResponse] = await Promise.all([
-            axios.get("/api/equipment", { withCredentials: true }),
-            axios.get("/api/rooms", { withCredentials: true }),
-          ]);
-          setEquipments(equipmentResponse.data);
-          setRooms(roomResponse.data);
-        }
-      } catch (err) {
-        console.error(`Lỗi tải dữ liệu tab ${activeTab}:`, err);
-      }
-    };
-
-    // Gọi hàm thực thi
-    loadData();
-  }, [refresh, activeTab, isManager]);
-
-  // --- XỬ LÝ FORM ---
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleOpenAdd = () => {
-    setIsEdit(false);
-    setErrorMsg("");
-    if (activeTab === "rooms") {
-      setFormData({ roomId: 0, roomName: "", roomType: "Treatment", status: "Active" });
-    } else if (activeTab === "beds") {
-      setFormData({ bedId: 0, roomId: rooms.length > 0 ? rooms[0].roomId : "", bedNumber: "", status: "Active" });
-    } else if (activeTab === "equipments") {
-      setFormData({ equipmentId: 0, equipmentName: "", description: "", roomId: null, status: "Active" });
-    }
-    setShowModal(true);
-  };
-
-  const handleOpenEdit = (item) => {
-    setIsEdit(true);
-    setErrorMsg("");
-    setFormData(item);
-    setShowModal(true);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMsg("");
-    
-    // Xác định API endpoint theo Tab hiện tại
-    let endpoint = "";
-    if (activeTab === "rooms") endpoint = "/api/rooms";
-    else if (activeTab === "beds") endpoint = "/api/beds";
-    else if (activeTab === "equipments") endpoint = "/api/equipment";
-
+  const load = useCallback(async () => {
     try {
-      if (isEdit) {
-        await axios.put(endpoint, formData, { withCredentials: true });
-      } else {
-        await axios.post(endpoint, formData, { withCredentials: true });
-      }
-      setShowModal(false);
-      setRefresh((prev) => prev + 1);
-    } catch (error) {
-      setErrorMsg(error.response?.data?.message || `Có lỗi xảy ra khi lưu ${activeTab}!`);
+      const [r, b] = await Promise.all([api("/api/rooms"), api("/api/beds")]);
+      setRooms(r);
+      setBeds(b);
+    } catch (e) {
+      setError(e.message);
     }
-  };
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  // --- XỬ LÝ XÓA (Đã được làm mới) ---
-  const handleDelete = (id) => {
-    setItemToDelete(id);
-    setShowDeleteModal(true);
-  };
-
-  const executeDelete = async () => {
-    let endpoint = "";
-    if (activeTab === "rooms") endpoint = `/api/rooms?id=${itemToDelete}`;
-    else if (activeTab === "beds") endpoint = `/api/beds?id=${itemToDelete}`;
-    else if (activeTab === "equipments") endpoint = `/api/equipment?id=${itemToDelete}`;
-
+  const save = async (kind, form, setForm) => {
+    setSaving(true);
+    setFormError("");
     try {
-      await axios.delete(endpoint, { withCredentials: true });
-      setRefresh((prev) => prev + 1);
-      setShowDeleteModal(false);
-      setItemToDelete(null);
-    } catch (error) {
-      alert(error.response?.data?.message || "Không thể xóa do tài nguyên này đang được sử dụng!");
-      setShowDeleteModal(false);
+      const url = kind === "room" ? "/api/rooms" : "/api/beds";
+      const id = kind === "room" ? form.roomId : form.bedId;
+      const r = id ? await put(url, form) : await post(url, form);
+      setNotice(r.message);
+      setForm(null);
+      if (r.affectedAppointments?.length) setAffected(r.affectedAppointments);
+      load();
+    } catch (e) {
+      setFormError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
-
-  if (!isManager) {
-    return (
-      <Container className="mt-4 px-4">
-        <Alert variant="danger">Trang này chỉ dành cho cấp Quản lý (Manager).</Alert>
-      </Container>
-    );
-  }
+  const remove = async (kind, item) => {
+    const name = kind === "room" ? `phòng ${item.roomName}` : `giường ${item.bedNumber} (${item.roomName})`;
+    if (!window.confirm(`Xóa ${name}?`)) return;
+    try {
+      const r = await del(`${kind === "room" ? "/api/rooms" : "/api/beds"}?id=${kind === "room" ? item.roomId : item.bedId}`);
+      setNotice(r.message);
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+  const showAffected = async (room) => {
+    try {
+      setAffected(await api(`/api/rooms?affectedOf=${room.roomId}`));
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
   return (
     <Container fluid className="mt-4 px-4">
-      <div className="ui-page-heading">
-        <h1 className="manager-page-title">Danh mục tài nguyên</h1>
-        <Button variant="danger" className="fw-bold" style={{ backgroundColor: "#800020" }} onClick={handleOpenAdd}>
-          <i className="bi bi-plus-lg me-1"></i> Thêm mới
+      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+          <h2 className="manager-page-title fw-bold mb-1">Phòng & giường</h2>
+          <p className="text-muted mb-0">Quản lý phòng theo loại dịch vụ và giường trong phòng.</p>
+        </div>
+        <Button className="fw-bold" onClick={() => { setFormError(""); tab === "rooms" ? setRoomForm({ roomId: 0, roomName: "", roomType: "Facial", status: "Active" }) : setBedForm({ bedId: 0, roomId: rooms[0]?.roomId || "", bedNumber: "", status: "Active" }); }}>
+          <i className="bi bi-plus-lg" /> {tab === "rooms" ? "Thêm phòng" : "Thêm giường"}
         </Button>
       </div>
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
 
-      <Card className="shadow-sm border-0 mb-4 rounded-3">
-        <Card.Body>
-          <div className="manager-list-toolbar">
-            {activeTab === "rooms" ? roomFilters.toolbar : activeTab === "beds" ? bedFilters.toolbar : equipmentFilters.toolbar}
-          </div>
+      <Nav variant="tabs" activeKey={tab} onSelect={setTab} className="mb-3">
+        <Nav.Item><Nav.Link eventKey="rooms">Phòng ({rooms.length})</Nav.Link></Nav.Item>
+        <Nav.Item><Nav.Link eventKey="beds">Giường ({beds.length})</Nav.Link></Nav.Item>
+      </Nav>
+
+      <Card className="shadow-sm border-0">
+        <Card.Body className="p-0">
+          {tab === "rooms" ? (
+            <Table hover responsive className="align-middle mb-0 manager-list-table">
+              <thead className="table-dark"><tr><th>Phòng</th><th>Loại phòng</th><th>Giường (hoạt động/tổng)</th><th>Trạng thái</th><th className="text-center">Hành động</th></tr></thead>
+              <tbody>
+                {rooms.map((r) => (
+                  <tr key={r.roomId}>
+                    <td className="fw-bold">{r.roomName}</td>
+                    <td>{label(r.roomType)}</td>
+                    <td>{r.activeBedCount}/{r.bedCount}</td>
+                    <td><Badge bg={r.status === "Active" ? "success" : "secondary"}>{label(r.status)}</Badge></td>
+                    <td className="text-center">
+                      <div className="manager-list-actions">
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => { setFormError(""); setRoomForm({ ...r }); }}><i className="bi bi-pencil-square" /> Sửa</Button>
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--view" onClick={() => showAffected(r)}><i className="bi bi-calendar-event" /> Lịch sắp tới</Button>
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => remove("room", r)}><i className="bi bi-trash" /> Xóa</Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!rooms.length && <tr><td colSpan={5} className="text-center text-muted py-4">Chưa có phòng.</td></tr>}
+              </tbody>
+            </Table>
+          ) : (
+            <Table hover responsive className="align-middle mb-0 manager-list-table">
+              <thead className="table-dark"><tr><th>Giường</th><th>Phòng</th><th>Loại phòng</th><th>Trạng thái</th><th>Sử dụng</th><th className="text-center">Hành động</th></tr></thead>
+              <tbody>
+                {beds.map((b) => (
+                  <tr key={b.bedId}>
+                    <td className="fw-bold">{b.bedNumber}</td>
+                    <td>{b.roomName}</td>
+                    <td>{label(b.roomType)}</td>
+                    <td><Badge bg={b.status === "Active" ? "success" : "secondary"}>{label(b.status)}</Badge></td>
+                    <td>{label(b.useState)}</td>
+                    <td className="text-center">
+                      <div className="manager-list-actions">
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => { setFormError(""); setBedForm({ bedId: b.bedId, roomId: b.roomId, bedNumber: b.bedNumber, status: b.status }); }}><i className="bi bi-pencil-square" /> Sửa</Button>
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => remove("bed", b)}><i className="bi bi-trash" /> Xóa</Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!beds.length && <tr><td colSpan={6} className="text-center text-muted py-4">Chưa có giường.</td></tr>}
+              </tbody>
+            </Table>
+          )}
         </Card.Body>
       </Card>
 
-      {/* TABS CHUYỂN ĐỔI */}
-      <Tabs
-        activeKey={activeTab}
-        onSelect={(k) => k && setActiveTab(k)}
-        className="mb-3"
-      >
-        <Tab eventKey="rooms" title="Phòng (Room)">
-          <RoomTable 
-            rooms={roomFilters.filteredRows}
-            onEdit={handleOpenEdit} 
-            onDelete={handleDelete} 
-          />
-        </Tab>
-        <Tab eventKey="beds" title="Giường (Bed)">
-          <BedTable 
-            beds={bedFilters.filteredRows}
-            rooms={rooms} 
-            onEdit={handleOpenEdit} 
-            onDelete={handleDelete} 
-          />
-        </Tab>
-        <Tab eventKey="equipments" title="Thiết bị (Equipment)">
-          <EquipmentTable 
-            equipments={equipmentFilters.filteredRows}
-            rooms={rooms}
-            onEdit={handleOpenEdit} 
-            onDelete={handleDelete} 
-          />
-        </Tab>
-      </Tabs>
-
-      {/* MODAL THÊM / SỬA */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} centered backdrop="static">
-        <Modal.Header closeButton className="bg-light">
-          <Modal.Title className="fw-bold text-danger">
-            {isEdit ? "Cập nhật " : "Thêm "} 
-            {activeTab === 'rooms' ? 'Phòng' : activeTab === 'beds' ? 'Giường' : 'Thiết bị'}
-          </Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Body>
-            {errorMsg && <Alert variant="danger">{errorMsg}</Alert>}
-            
-            {/* Form cho Phòng */}
-            {activeTab === "rooms" && (
-              <>
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-bold">Tên phòng *</Form.Label>
-                  <Form.Control type="text" name="roomName" value={formData.roomName || ""} onChange={handleChange} required />
-                </Form.Group>
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-bold">Loại phòng</Form.Label>
-                  <Form.Select name="roomType" value={formData.roomType || ""} onChange={handleChange}>
-                    <option value="Treatment">Điều trị (Treatment)</option>
-                    <option value="Relaxation">Thư giãn (Relaxation)</option>
-                    <option value="Hair Wash">Gội đầu (Hair Wash)</option>
-                    <option value="Massage">Massage</option>
-                    <option value="Cosmetic">Phun xăm (Cosmetic)</option>
-                    <option value="High-tech">Công nghệ cao (High-tech)</option>
-                  </Form.Select>
-                </Form.Group>
-              </>
-            )}
-
-            {/* Form cho Giường */}
-            {activeTab === "beds" && (
-              <>
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-bold">Thuộc Phòng *</Form.Label>
-                  <Form.Select name="roomId" value={formData.roomId || ""} onChange={handleChange} required>
-                    {rooms.map(r => (
-                      <option key={r.roomId} value={r.roomId}>{r.roomName}</option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-bold">Mã / Số Giường *</Form.Label>
-                  <Form.Control type="text" name="bedNumber" value={formData.bedNumber || ""} onChange={handleChange} required />
-                </Form.Group>
-              </>
-            )}
-
-            {/* Form cho Thiết bị */}
-            {activeTab === "equipments" && (
-              <>
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-bold">Tên thiết bị *</Form.Label>
-                  <Form.Control type="text" name="equipmentName" value={formData.equipmentName || ""} onChange={handleChange} required />
-                </Form.Group>
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-bold">Mô tả</Form.Label>
-                  <Form.Control as="textarea" rows={3} name="description" value={formData.description || ""} onChange={handleChange} />
-                </Form.Group>
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-bold">Phòng được bố trí</Form.Label>
-                  <Form.Select
-                    name="roomId"
-                    value={formData.roomId || ""}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      roomId: e.target.value ? Number(e.target.value) : null,
-                    })}
-                  >
-                    <option value="">Chưa phân phòng / thiết bị dùng chung</option>
-                    {rooms.map((room) => (
-                      <option key={room.roomId} value={room.roomId}>{room.roomName}</option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </>
-            )}
-
-            {/* Trạng thái dùng chung */}
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Trạng thái</Form.Label>
-              <Form.Select name="status" value={formData.status || "Active"} onChange={handleChange}>
-                <option value="Active">Đang hoạt động</option>
-                
-                
-                <option value="Maintenance">Bảo trì</option>
-              </Form.Select>
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer className="bg-light border-0">
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Hủy</Button>
-            <Button variant="danger" type="submit" style={{ backgroundColor: "#800020" }}>
-              {isEdit ? "Lưu thay đổi" : "Tạo mới"}
-            </Button>
-          </Modal.Footer>
-        </Form>
+      <Modal show={!!roomForm} onHide={() => !saving && setRoomForm(null)} centered>
+        <Modal.Header closeButton><Modal.Title>{roomForm?.roomId ? "Cập nhật phòng" : "Thêm phòng"}</Modal.Title></Modal.Header>
+        {roomForm && (
+          <Form onSubmit={(e) => { e.preventDefault(); save("room", roomForm, setRoomForm); }}>
+            <Modal.Body>
+              {formError && <Alert variant="danger">{formError}</Alert>}
+              <Form.Group className="mb-3"><Form.Label className="fw-bold">Tên phòng*</Form.Label>
+                <Form.Control value={roomForm.roomName} maxLength={100} onChange={(e) => setRoomForm({ ...roomForm, roomName: e.target.value })} required /></Form.Group>
+              <Row>
+                <Col><Form.Label className="fw-bold">Loại phòng*</Form.Label>
+                  <Form.Select value={roomForm.roomType} onChange={(e) => setRoomForm({ ...roomForm, roomType: e.target.value })}>
+                    {ROOM_TYPES.map((t) => <option key={t} value={t}>{label(t)}</option>)}
+                  </Form.Select></Col>
+                <Col><Form.Label className="fw-bold">Trạng thái</Form.Label>
+                  <Form.Select value={roomForm.status} onChange={(e) => setRoomForm({ ...roomForm, status: e.target.value })}>
+                    <option value="Active">Hoạt động</option><option value="Maintenance">Bảo trì</option>
+                  </Form.Select></Col>
+              </Row>
+              <small className="text-muted d-block mt-2">Chuyển phòng sang bảo trì sẽ chuyển các giường đang trống sang bảo trì.</small>
+            </Modal.Body>
+            <Modal.Footer><Button variant="secondary" onClick={() => setRoomForm(null)}>Hủy</Button><Button type="submit" disabled={saving}>Lưu</Button></Modal.Footer>
+          </Form>
+        )}
       </Modal>
 
-      {/* MODAL XÁC NHẬN XÓA (Giao diện đẹp mới thêm) */}
-      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-        <Modal.Header closeButton className="bg-danger text-white border-0">
-          <Modal.Title className="fw-bold fs-5">
-            <i className="bi bi-exclamation-triangle-fill me-2"></i>Xác nhận xóa
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="text-center py-4">
-          <h5 className="mb-3">Bạn có chắc chắn muốn xóa tài nguyên này?</h5>
-          <p className="text-muted mb-0">Hành động này không thể hoàn tác. Nếu tài nguyên đang được sử dụng, hệ thống sẽ chặn thao tác này.</p>
+      <Modal show={!!bedForm} onHide={() => !saving && setBedForm(null)} centered>
+        <Modal.Header closeButton><Modal.Title>{bedForm?.bedId ? "Cập nhật giường" : "Thêm giường"}</Modal.Title></Modal.Header>
+        {bedForm && (
+          <Form onSubmit={(e) => { e.preventDefault(); save("bed", { ...bedForm, roomId: Number(bedForm.roomId) }, setBedForm); }}>
+            <Modal.Body>
+              {formError && <Alert variant="danger">{formError}</Alert>}
+              <Form.Group className="mb-3"><Form.Label className="fw-bold">Phòng*</Form.Label>
+                <Form.Select value={bedForm.roomId} onChange={(e) => setBedForm({ ...bedForm, roomId: e.target.value })} required>
+                  {rooms.map((r) => <option key={r.roomId} value={r.roomId}>{r.roomName} · {label(r.roomType)}</option>)}
+                </Form.Select></Form.Group>
+              <Row>
+                <Col><Form.Label className="fw-bold">Số giường*</Form.Label>
+                  <Form.Control value={bedForm.bedNumber} maxLength={20} onChange={(e) => setBedForm({ ...bedForm, bedNumber: e.target.value })} required /></Col>
+                <Col><Form.Label className="fw-bold">Trạng thái</Form.Label>
+                  <Form.Select value={bedForm.status} onChange={(e) => setBedForm({ ...bedForm, status: e.target.value })}>
+                    <option value="Active">Hoạt động</option><option value="Maintenance">Bảo trì</option>
+                  </Form.Select></Col>
+              </Row>
+            </Modal.Body>
+            <Modal.Footer><Button variant="secondary" onClick={() => setBedForm(null)}>Hủy</Button><Button type="submit" disabled={saving}>Lưu</Button></Modal.Footer>
+          </Form>
+        )}
+      </Modal>
+
+      <Modal show={!!affected} onHide={() => setAffected(null)} centered size="lg">
+        <Modal.Header closeButton><Modal.Title>Lịch hẹn sắp tới dùng phòng/giường</Modal.Title></Modal.Header>
+        <Modal.Body>
+          {affected?.length ? (
+            <>
+              <Table size="sm" responsive>
+                <thead><tr><th>Lịch</th><th>Ngày giờ</th><th>Khách</th><th>Dịch vụ</th><th>Giường</th></tr></thead>
+                <tbody>
+                  {affected.map((a, i) => (
+                    <tr key={i}><td>#{a.appointmentId}</td><td>{viDate(a.appointmentDate)} {time5(a.startTime)}–{time5(a.endTime)}</td><td>{a.customerName} · {a.customerPhone}</td><td>{a.serviceName}</td><td>{a.roomName} · {a.bedNumber}</td></tr>
+                  ))}
+                </tbody>
+              </Table>
+              <Alert variant="warning" className="mb-0">Nếu phòng/giường đang bảo trì, các lịch này xuất hiện trong mục "Lịch bị ảnh hưởng" để lễ tân xếp giường khác.</Alert>
+            </>
+          ) : <p className="text-muted mb-0">Không có lịch hẹn sắp tới.</p>}
         </Modal.Body>
-        <Modal.Footer className="bg-light border-0 justify-content-center">
-          <Button variant="secondary" className="px-4" onClick={() => setShowDeleteModal(false)}>
-            Hủy bỏ
-          </Button>
-          <Button variant="danger" className="px-4" style={{ backgroundColor: "#800020" }} onClick={executeDelete}>
-            Vâng, Xóa nó!
-          </Button>
-        </Modal.Footer>
       </Modal>
-
     </Container>
   );
-};
-
-// --- COMPONENT CON CHO BẢNG PHÒNG ---
-const RoomTable = ({ rooms, onEdit, onDelete }) => {
-  return (
-    <Card className="shadow-sm border-0 rounded-3">
-      <Card.Body className="p-0">
-        <Table hover responsive className="align-middle mb-0 manager-list-table">
-          <thead className="table-dark">
-            <tr>
-              <th>ID</th><th>Tên phòng</th><th>Loại phòng</th><th>Trạng thái</th><th className="text-center">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rooms.length > 0 ? rooms.map((r) => (
-              <tr key={r.roomId}>
-                <td className="fw-bold text-muted">#{r.roomId}</td>
-                <td className="fw-bold">{r.roomName}</td>
-                <td>{r.roomType}</td>
-                <td>
-                  <Badge bg={r.status === "Active" ? "success" : r.status === "Maintenance" ? "warning" : "secondary"}>
-                    {r.status === "Active" ? "Đang hoạt động" : r.status === "Maintenance" ? "Bảo trì" : r.status}
-                  </Badge>
-                </td>
-                <td>
-                  <div className="manager-list-actions">
-                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => onEdit(r)}><i className="bi bi-pencil-square"></i> Sửa</Button>
-                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => onDelete(r.roomId)}><i className="bi bi-trash"></i> Xóa</Button>
-                  </div>
-                </td>
-              </tr>
-            )) : <tr><td colSpan="5" className="text-center text-muted py-4">Chưa có dữ liệu phòng.</td></tr>}
-          </tbody>
-        </Table>
-      </Card.Body>
-    </Card>
-  );
-};
-
-// --- COMPONENT CON CHO BẢNG GIƯỜNG ---
-const BedTable = ({ beds, rooms, onEdit, onDelete }) => {
-  const getRoomName = (roomId) => rooms.find(r => r.roomId === roomId)?.roomName || `Phòng #${roomId}`;
-  return (
-    <Card className="shadow-sm border-0 rounded-3">
-      <Card.Body className="p-0">
-        <Table hover responsive className="align-middle mb-0 manager-list-table">
-          <thead className="table-dark">
-            <tr>
-              <th>ID</th><th>Mã Giường</th><th>Thuộc phòng</th><th>Trạng thái</th><th className="text-center">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {beds.length > 0 ? beds.map((b) => (
-              <tr key={b.bedId}>
-                <td className="fw-bold text-muted">#{b.bedId}</td>
-                <td className="fw-bold">{b.bedNumber}</td>
-                <td>{getRoomName(b.roomId)}</td>
-                <td>
-                  <Badge bg={b.status === "Active" ? "success" : b.status === "Maintenance" ? "warning" : "secondary"}>
-                    {b.status === "Active" ? "Đang hoạt động" : b.status === "Maintenance" ? "Bảo trì" : b.status}
-                  </Badge>
-                </td>
-                <td>
-                  <div className="manager-list-actions">
-                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => onEdit(b)}><i className="bi bi-pencil-square"></i> Sửa</Button>
-                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => onDelete(b.bedId)}><i className="bi bi-trash"></i> Xóa</Button>
-                  </div>
-                </td>
-              </tr>
-            )) : <tr><td colSpan="5" className="text-center text-muted py-4">Chưa có dữ liệu giường.</td></tr>}
-          </tbody>
-        </Table>
-      </Card.Body>
-    </Card>
-  );
-};
-
-// --- COMPONENT CON CHO BẢNG THIẾT BỊ ---
-const EquipmentTable = ({ equipments, rooms, onEdit, onDelete }) => {
-  return (
-    <Card className="shadow-sm border-0 rounded-3">
-      <Card.Body className="p-0">
-        <Table hover responsive className="align-middle mb-0 manager-list-table">
-          <thead className="table-dark">
-            <tr>
-              <th>ID</th><th>Tên thiết bị</th><th>Phòng</th><th>Mô tả</th><th>Trạng thái</th><th className="text-center">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {equipments.length > 0 ? equipments.map((e) => (
-              <tr key={e.equipmentId}>
-                <td className="fw-bold text-muted">#{e.equipmentId}</td>
-                <td className="fw-bold">{e.equipmentName}</td>
-                <td>{e.roomName || rooms.find((room) => Number(room.roomId) === Number(e.roomId))?.roomName || "Chưa phân phòng"}</td>
-                <td>{e.description || "—"}</td>
-                <td>
-                  <Badge bg={e.status === "Active" ? "success" : e.status === "Maintenance" ? "warning" : "secondary"}>
-                    {e.status === "Active" ? "Đang hoạt động" : e.status === "Maintenance" ? "Bảo trì" : e.status}
-                  </Badge>
-                </td>
-                <td>
-                  <div className="manager-list-actions">
-                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => onEdit(e)}><i className="bi bi-pencil-square"></i> Sửa</Button>
-                  <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => onDelete(e.equipmentId)}><i className="bi bi-trash"></i> Xóa</Button>
-                  </div>
-                </td>
-              </tr>
-            )) : <tr><td colSpan="6" className="text-center text-muted py-4">Chưa có dữ liệu thiết bị.</td></tr>}
-          </tbody>
-        </Table>
-      </Card.Body>
-    </Card>
-  );
-};
-
-export default ResourceManagement;
+}

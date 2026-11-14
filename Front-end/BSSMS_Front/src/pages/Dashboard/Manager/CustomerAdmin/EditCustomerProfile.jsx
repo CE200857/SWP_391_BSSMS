@@ -114,7 +114,7 @@ const EditCustomerProfile = ({ user }) => {
   };
 
   const confirmSave = async () => {
-    setShowSaveModal(false); // Đóng modal
+    setShowSaveModal(false);
     setIsLoading(true);
 
     try {

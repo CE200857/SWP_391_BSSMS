@@ -1,223 +1,111 @@
 package bssms_persistence.HienLNM;
 
 import bssms_persistence.DBContext;
-import bssms_persistence.common.DataAccessException;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import bssms_persistence.common.*;
+import java.math.BigDecimal;
+import java.sql.SQLException;
+import java.util.*;
 
 public class VoucherDAO extends DBContext implements AutoCloseable {
+    @Override public void close() throws SQLException { if (conn != null) conn.close(); }
 
-    private void requireConnection() {
-        if (conn == null) throw new DataAccessException("Database connection unavailable");
-    }
-    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
+    private static final String COLUMNS = "v.voucher_id,v.voucher_code,v.voucher_name,v.discount_type,v.discount_value,v.min_order_amount,v.max_discount,v.max_uses,v.used_count,v.start_date,v.end_date,"
+            + "CASE WHEN v.status='Active' AND v.end_date<SYSDATETIME() THEN 'Expired' WHEN v.status='Active' AND v.used_count>=v.max_uses THEN 'UsedUp' ELSE v.status END AS status,"
+            + "v.status AS raw_status,st.full_name AS created_by_name";
 
-    /** 3.7: vouchers and birthday-benefit status of the signed-in customer only. */
-    public Map<String, Object> myBenefits(int customerId) throws java.sql.SQLException {
-        requireConnection();
-        workflow().roles("Customer");
-        String now = "CONVERT(datetime2,SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time')";
-        List<Map<String, Object>> vouchers = workflow().query(
-            "SELECT voucher_id,voucher_code,voucher_name,voucher_kind,discount_type,discount_value,applicable_category,"
-          + "min_order_amount,max_discount,max_uses,used_count,start_date,end_date,"
-          + "CASE WHEN status='Active' AND end_date IS NOT NULL AND end_date<" + now + " THEN 'Expired' ELSE status END AS status "
-          + "FROM Voucher WHERE customer_id=? AND status IN ('Active','Used','Expired') "
-          + "AND (end_date IS NULL OR end_date>=DATEADD(month,-1," + now + ")) "
-          + "ORDER BY CASE WHEN status='Active' AND (end_date IS NULL OR end_date>=" + now + ") THEN 0 ELSE 1 END,end_date DESC",
-            customerId);
-        Map<String, Object> birthday = workflow().one(
-            "SELECT CASE WHEN c.date_of_birth IS NOT NULL AND MONTH(c.date_of_birth)=MONTH(" + now + ") THEN 1 ELSE 0 END AS eligible_month,"
-          + "CASE WHEN EXISTS(SELECT 1 FROM Invoice i WHERE i.customer_id=c.customer_id AND i.birthday_benefit_year=YEAR(" + now + ")) THEN 1 ELSE 0 END AS used_this_year "
-          + "FROM Customer c WHERE c.customer_id=?", customerId);
-        Map<String, Object> result = new HashMap<>();
-        result.put("vouchers", vouchers);
-        result.put("birthdayEligibleThisMonth", ((Number) birthday.get("eligibleMonth")).intValue() == 1);
-        result.put("birthdayBenefitUsedThisYear", ((Number) birthday.get("usedThisYear")).intValue() == 1);
-        return result;
+    public List<Map<String, Object>> getAllVouchers(String search, String status) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Manager", "Receptionist");
+        String like = search == null || search.isBlank() ? null : "%" + search.trim() + "%";
+        return w.query("SELECT " + COLUMNS + " FROM Voucher v LEFT JOIN Staff st ON st.staff_id=v.created_by_staff_id WHERE (? IS NULL OR v.voucher_code LIKE ? OR v.voucher_name LIKE ?) AND (? IS NULL OR v.status=?) ORDER BY v.start_date DESC",
+                like, like, like, status, status);
     }
 
-    // Lấy tất cả voucher
-    public List<Map<String, Object>> getAllVouchers() {
-        requireConnection();
-        List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT v.voucher_id, v.customer_id, v.voucher_code, v.voucher_name, "
-                     + "v.discount_type, v.discount_value, v.start_date, v.end_date, v.status, "
-                     + "c.full_name AS customer_name "
-                     + "FROM Voucher v "
-                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON v.customer_id = c.customer_id "
-                     + "ORDER BY v.start_date DESC";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("voucherId", rs.getInt("voucher_id"));
-                    map.put("customerId", rs.getInt("customer_id"));
-                    map.put("voucherCode", rs.getString("voucher_code"));
-                    map.put("voucherName", rs.getString("voucher_name"));
-                    map.put("discountType", rs.getString("discount_type"));
-                    map.put("discountValue", rs.getDouble("discount_value"));
-                    map.put("startDate", rs.getTimestamp("start_date") != null ? rs.getTimestamp("start_date").toString() : null);
-                    map.put("endDate", rs.getTimestamp("end_date") != null ? rs.getTimestamp("end_date").toString() : null);
-                    map.put("status", rs.getString("status"));
-                    map.put("customerName", rs.getString("customer_name"));
-                    list.add(map);
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
+    public Map<String, Object> getVoucherById(int voucherId) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Manager", "Receptionist");
+        return w.one("SELECT " + COLUMNS + " FROM Voucher v LEFT JOIN Staff st ON st.staff_id=v.created_by_staff_id WHERE v.voucher_id=?", voucherId);
+    }
+
+    public static final class Data {
+        public String voucherCode, voucherName, discountType, startDate, endDate;
+        public BigDecimal discountValue, minOrderAmount, maxDiscount;
+        public Integer maxUses;
+        void validate() {
+            if (voucherCode == null || !voucherCode.trim().matches("[A-Za-z0-9_-]{3,50}")) throw new IllegalArgumentException("Mã voucher 3-50 ký tự chữ, số, - hoặc _.");
+            if (voucherName == null || voucherName.isBlank() || voucherName.length() > 100) throw new IllegalArgumentException("Tên voucher không hợp lệ.");
+            if (!"Percent".equals(discountType) && !"Amount".equals(discountType)) throw new IllegalArgumentException("Loại giảm phải là Percent hoặc Amount.");
+            if (discountValue == null || discountValue.signum() <= 0 || ("Percent".equals(discountType) && discountValue.compareTo(BigDecimal.valueOf(100)) > 0))
+                throw new IllegalArgumentException("Giá trị giảm không hợp lệ.");
+            if (minOrderAmount == null) minOrderAmount = BigDecimal.ZERO;
+            if (minOrderAmount.signum() < 0 || (maxDiscount != null && maxDiscount.signum() <= 0)) throw new IllegalArgumentException("Đơn tối thiểu/giảm tối đa không hợp lệ.");
+            if (maxUses == null || maxUses <= 0) throw new IllegalArgumentException("Số lượt sử dụng phải lớn hơn 0.");
+            if (startDate == null || endDate == null || !at(endDate, true).after(at(startDate, false)))
+                throw new IllegalArgumentException("Ngày kết thúc phải sau ngày bắt đầu.");
+            voucherCode = voucherCode.trim().toUpperCase();
         }
-        return list;
+    }
+    static String norm(String value) {
+        String v = value.trim().replace(' ', 'T');
+        return v.length() == 10 ? v + "T00:00:00" : v.length() == 16 ? v + ":00" : v;
+    }
+    static java.sql.Timestamp at(String value, boolean endOfDay) {
+        String v = value.trim();
+        if (v.length() == 10) v = v + (endOfDay ? "T23:59:59" : "T00:00:00");
+        return java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(norm(v)));
     }
 
-    // Lấy voucher theo ID
-    public Map<String, Object> getVoucherById(int voucherId) {
-        requireConnection();
-        Map<String, Object> map = new HashMap<>();
-        String query = "SELECT v.voucher_id, v.customer_id, v.voucher_code, v.voucher_name, "
-                     + "v.discount_type, v.discount_value, v.start_date, v.end_date, v.status, "
-                     + "c.full_name AS customer_name "
-                     + "FROM Voucher v "
-                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON v.customer_id = c.customer_id "
-                     + "WHERE v.voucher_id = ?";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, voucherId);
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    map.put("voucherId", rs.getInt("voucher_id"));
-                    map.put("customerId", rs.getInt("customer_id"));
-                    map.put("voucherCode", rs.getString("voucher_code"));
-                    map.put("voucherName", rs.getString("voucher_name"));
-                    map.put("discountType", rs.getString("discount_type"));
-                    map.put("discountValue", rs.getDouble("discount_value"));
-                    map.put("startDate", rs.getTimestamp("start_date") != null ? rs.getTimestamp("start_date").toString() : null);
-                    map.put("endDate", rs.getTimestamp("end_date") != null ? rs.getTimestamp("end_date").toString() : null);
-                    map.put("status", rs.getString("status"));
-                    map.put("customerName", rs.getString("customer_name"));
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return map;
+    public int createVoucher(Data d) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Manager");
+        d.validate();
+        if (at(d.endDate, true).toLocalDateTime().isBefore(java.time.LocalDateTime.now(bssms_persistence.common.BookingWorkflow.ZONE)))
+            throw new IllegalArgumentException("Ngày kết thúc đã qua: voucher mới phải còn hạn sử dụng.");
+        if (isVoucherCodeExists(d.voucherCode, null)) throw new WorkflowException(409, "Mã voucher đã tồn tại!");
+        return w.insert("INSERT INTO Voucher(voucher_code,voucher_name,discount_type,discount_value,min_order_amount,max_discount,max_uses,used_count,start_date,end_date,status,created_by_staff_id) VALUES(?,?,?,?,?,?,?,0,?,?,'Active',?)",
+                d.voucherCode, d.voucherName.trim(), d.discountType, d.discountValue, d.minOrderAmount, d.maxDiscount, d.maxUses, at(d.startDate, false), at(d.endDate, true), w.staffId());
     }
 
-    // Tạo voucher mới
-    public boolean createVoucher(Integer customerId, String voucherCode, String voucherName, 
-                                String discountType, double discountValue, String startDate, String endDate) {
-        requireConnection();
-        String query = "INSERT INTO Voucher (customer_id, voucher_code, voucher_name, discount_type, "
-                      + "discount_value, start_date, end_date, status) "
-                      + "VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                if (customerId != null) {
-                    ps.setInt(1, customerId);
-                } else {
-                    ps.setNull(1, java.sql.Types.INTEGER);
-                }
-                ps.setString(2, voucherCode);
-                ps.setString(3, voucherName);
-                ps.setString(4, "Percent".equals(discountType)?"Percentage":discountType);
-                ps.setDouble(5, discountValue);
-                ps.setString(6, startDate);
-                ps.setString(7, endDate);
-                int rowsAffected = ps.executeUpdate();
-                return rowsAffected > 0;
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+    public boolean updateVoucher(int voucherId, Data d) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Manager");
+        d.validate();
+        Map<String, Object> current = w.one("SELECT voucher_code,used_count FROM Voucher WHERE voucher_id=?", voucherId);
+        int used = ((Number) current.get("usedCount")).intValue();
+        if (used > 0 && !d.voucherCode.equals(current.get("voucherCode"))) throw new WorkflowException(409, "Không đổi mã của voucher đã được sử dụng.");
+        if (d.maxUses < used) throw new WorkflowException(409, "Số lượt không được thấp hơn số lượt đã dùng (" + used + ").");
+        if (isVoucherCodeExists(d.voucherCode, voucherId)) throw new WorkflowException(409, "Mã voucher đã tồn tại!");
+        return w.update("UPDATE Voucher SET voucher_code=?,voucher_name=?,discount_type=?,discount_value=?,min_order_amount=?,max_discount=?,max_uses=?,start_date=?,end_date=? WHERE voucher_id=?",
+                d.voucherCode, d.voucherName.trim(), d.discountType, d.discountValue, d.minOrderAmount, d.maxDiscount, d.maxUses, at(d.startDate, false), at(d.endDate, true), voucherId) == 1;
     }
 
-    // Cập nhật voucher
-    public boolean updateVoucher(int voucherId, Integer customerId, String voucherCode, String voucherName, 
-                                String discountType, double discountValue, String startDate, String endDate, String status) {
-        requireConnection();
-        String query = "UPDATE Voucher SET customer_id = ?, voucher_code = ?, voucher_name = ?, "
-                      + "discount_type = ?, discount_value = ?, start_date = ?, end_date = ?, status = ? "
-                      + "WHERE voucher_id = ? AND voucher_kind='Manual' AND used_count=0 AND NOT EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.REDEMPTIONS + " vr WHERE vr.voucher_id=Voucher.voucher_id)";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                if (customerId != null) {
-                    ps.setInt(1, customerId);
-                } else {
-                    ps.setNull(1, java.sql.Types.INTEGER);
-                }
-                ps.setString(2, voucherCode);
-                ps.setString(3, voucherName);
-                ps.setString(4, "Percent".equals(discountType)?"Percentage":discountType);
-                ps.setDouble(5, discountValue);
-                ps.setString(6, startDate);
-                ps.setString(7, endDate);
-                ps.setString(8, status);
-                ps.setInt(9, voucherId);
-                int rowsAffected = ps.executeUpdate();
-                return rowsAffected > 0;
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
-    }
-
-    /** Đổi trạng thái hoạt động / ngừng hoạt động của voucher (mọi loại voucher, trừ voucher đã dùng hoặc hết hạn). */
-    public boolean setVoucherStatus(int voucherId, String status) {
-        requireConnection();
+    public boolean setVoucherStatus(int voucherId, String status) throws SQLException {
+        workflow().roles("Manager");
         if (!"Active".equals(status) && !"Inactive".equals(status)) throw new IllegalArgumentException("Trạng thái phải là Active hoặc Inactive.");
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE Voucher SET status=? WHERE voucher_id=? AND status IN ('Active','Inactive')")) {
-            ps.setString(1, status);
-            ps.setInt(2, voucherId);
-            return ps.executeUpdate() > 0;
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+        return workflow().update("UPDATE Voucher SET status=? WHERE voucher_id=?", status, voucherId) == 1;
+    }
+    public boolean deleteVoucher(int voucherId) throws SQLException { return setVoucherStatus(voucherId, "Inactive"); }
+
+    public boolean isVoucherCodeExists(String voucherCode, Integer excludeVoucherId) throws SQLException {
+        return !workflow().query("SELECT voucher_id FROM Voucher WHERE voucher_code=? AND voucher_id<>?", voucherCode, excludeVoucherId == null ? -1 : excludeVoucherId).isEmpty();
     }
 
-    /** Xóa vĩnh viễn voucher thủ công chưa từng được dùng; voucher đã dùng hoặc tự cấp thì dùng "ngừng hoạt động". */
-    public boolean deleteVoucher(int voucherId) {
-        requireConnection();
-        String query = "DELETE FROM Voucher WHERE voucher_id = ? AND voucher_kind='Manual' AND used_count=0 AND NOT EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.REDEMPTIONS + " vr WHERE vr.voucher_id=Voucher.voucher_id) AND NOT EXISTS(SELECT 1 FROM Invoice i WHERE i.voucher_id=Voucher.voucher_id)";
-        try (PreparedStatement ps = conn.prepareStatement(query)) {
-            ps.setInt(1, voucherId);
-            return ps.executeUpdate() > 0;
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
+    public Map<String, Object> preview(String code, int customerId, BigDecimal subtotal) throws SQLException {
+        Workflow w = workflow();
+        if ("Customer".equals(w.role())) customerId = w.customerId();
+        BillingWorkflow billing = new BillingWorkflow(w);
+        BigDecimal tier = subtotal.multiply(billing.tierPercent(customerId)).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+        BigDecimal limit = subtotal.multiply(new BigDecimal("0.5")).setScale(0, java.math.RoundingMode.HALF_UP);
+        tier = tier.min(limit);
+        BigDecimal voucher = BigDecimal.ZERO;
+        Integer id = null;
+        if (code != null && !code.isBlank()) {
+            id = billing.validateVoucher(code, subtotal.subtract(tier));
+            voucher = billing.voucherDiscount(id, subtotal.subtract(tier)).min(limit.subtract(tier));
         }
-        return false;
-    }
-
-    // Kiểm tra voucher code đã tồn tại
-    public boolean isVoucherCodeExists(String voucherCode, Integer excludeVoucherId) {
-        requireConnection();
-        String query = "SELECT voucher_id FROM Voucher WHERE voucher_code = ?";
-        if (excludeVoucherId != null) {
-            query += " AND voucher_id != ?";
-        }
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setString(1, voucherCode);
-                if (excludeVoucherId != null) {
-                    ps.setInt(2, excludeVoucherId);
-                }
-                ResultSet rs = ps.executeQuery();
-                return rs.next();
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("voucherId", id); r.put("subtotal", subtotal); r.put("tierDiscount", tier); r.put("voucherDiscount", voucher);
+        r.put("totalAmount", subtotal.subtract(tier).subtract(voucher));
+        return r;
     }
 }

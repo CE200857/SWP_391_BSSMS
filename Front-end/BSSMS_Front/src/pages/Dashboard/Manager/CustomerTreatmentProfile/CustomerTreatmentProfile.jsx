@@ -1,915 +1,256 @@
-import { useState, useEffect, useMemo } from "react";
-import {
-  Card,
-  Table,
-  Button,
-  Form,
-  Modal,
-  Alert,
-  Badge,
-  Row,
-  Col,
-  Tabs,
-  Tab,
-} from "react-bootstrap";
-import axios from "axios";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import servicePhoto01 from "../../../../assets/figma/service-card-exact-01.png";
-import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
-import AppointmentStatusBadge from "../../../../components/AppointmentStatusBadge";
+import { Alert, Badge, Button, Card, Col, Container, Form, ListGroup, Modal, ProgressBar, Row, Spinner, Table } from "react-bootstrap";
+import { api, post, money, viDate, time5, label, today } from "../../../../services/api";
 
-const toDateInputValue = (dateValue) => {
-  if (!dateValue) return "";
+const pkgBg = { Active: "success", Completed: "secondary", Expired: "dark", Cancelled: "danger" };
 
-  const dateText = String(dateValue).trim();
-  const isoDateMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(dateText);
-  if (isoDateMatch) {
-    const [, year, month, day] = isoDateMatch;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-  }
+function PackageCards({ packages, onBook }) {
+  if (!packages.length) return <p className="text-muted mb-0">Chưa có gói liệu trình.</p>;
+  return (
+    <Row className="g-3">
+      {packages.map((p) => {
+        const booked = (p.usage || []).filter((u) => u.status !== "Done").length;
+        const available = Math.max(0, Number(p.remainingSessions) - booked);
+        const total = Number(p.totalSessions);
+        return (
+        <Col md={6} key={p.customerPackageId}>
+          <Card className="h-100 border">
+            <Card.Body>
+              <div className="d-flex justify-content-between">
+                <strong>{p.packageName}</strong>
+                <Badge bg={pkgBg[p.status]}>{label(p.status)}</Badge>
+              </div>
+              <ProgressBar className="my-2" style={{ height: 8 }}>
+                <ProgressBar variant="danger" now={((total - Number(p.remainingSessions)) / total) * 100} key="used" />
+                <ProgressBar variant="warning" now={(booked / total) * 100} key="booked" />
+              </ProgressBar>
+              <small className="d-block">
+                Còn <strong>{available}</strong>/{total} buổi có thể đặt
+                {booked > 0 && <> · <strong>{booked}</strong> buổi đã đặt lịch</>}
+                {" · "}Hạn dùng {viDate(p.expiryDate)}
+              </small>
+              <small className="d-block text-muted">
+                Đã dùng {total - Number(p.remainingSessions)} buổi · Mua {viDate(p.purchaseDate)} · {money(p.purchasePrice)}{p.soldBy ? ` · ${p.soldBy}` : ""}
+              </small>
+              {p.usage?.length > 0 && (
+                <ul className="small mt-2 mb-0 ps-3">
+                  {p.usage.map((u) => (
+                    <li key={u.appointmentServiceId}>{viDate(u.appointmentDate)} {time5(u.startTime)} · {u.serviceName} · {label(u.status)}{u.technicianName ? ` · ${u.technicianName}` : ""}</li>
+                  ))}
+                </ul>
+              )}
+              {onBook && p.status === "Active" && available > 0 && String(p.expiryDate).slice(0, 10) >= today() && (
+                <Button size="sm" className="mt-2" onClick={() => onBook(p)}>Đặt lịch dùng gói</Button>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+        );
+      })}
+    </Row>
+  );
+}
 
-  const parsedDate = new Date(dateText);
-  if (Number.isNaN(parsedDate.getTime())) return "";
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-  const day = String(parsedDate.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const CustomerTreatmentProfile = () => {
-  const { customerId } = useParams();
+function CustomerView() {
   const navigate = useNavigate();
-
-  const [packages, setPackages] = useState([]);
-  const [treatmentPackages, setTreatmentPackages] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [customerInfo, setCustomerInfo] = useState(null);
-  const [refresh, setRefresh] = useState(0);
-
-  const storedUser = localStorage.getItem("user");
-  const user = useMemo(() => storedUser ? JSON.parse(storedUser) : null, [storedUser]);
-  const isCustomer = user?.role === "Customer";
-  const canViewAll = user?.role === "Manager" || user?.role === "Technician" || user?.role === "Receptionist";
-  const canEdit = user?.role === "Manager" || user?.role === "Technician";
-
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState(null);
-  const [editFormData, setEditFormData] = useState({
-    customerPackageId: 0,
-    remainingSessions: "",
-    expiryDate: "",
-    status: "Active",
-  });
-  const [message, setMessage] = useState("");
+  const [packages, setPackages] = useState(null);
   const [error, setError] = useState("");
+  useEffect(() => { api("/api/customer-packages").then(setPackages).catch((e) => setError(e.message)); }, []);
+  return (
+    <Container className="mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+          <h2 className="manager-page-title fw-bold mb-1">Liệu trình của tôi</h2>
+          <p className="text-muted mb-0">Số buổi còn lại, hạn dùng và các buổi đã sử dụng.</p>
+        </div>
+        <div className="d-flex gap-2">
+          <Button variant="outline-primary" onClick={() => navigate("/treatment-packages")}>Mua gói mới</Button>
+          <Button onClick={() => navigate("/appointments/online")}>Đặt lịch</Button>
+        </div>
+      </div>
+      {error && <Alert variant="danger">{error}</Alert>}
+      {!packages && !error ? <Spinner animation="border" variant="danger" /> : packages && <PackageCards packages={packages} onBook={(p) => navigate("/appointments/online", { state: { customerPackageId: p.customerPackageId } })} />}
+    </Container>
+  );
+}
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setError("");
-      try {
-        // Lấy danh sách khách hàng (cho Manager/Technician/Receptionist)
-        if (canViewAll) {
-          try {
-            const customerRes = await axios.get("/api/customers", {
-              withCredentials: true,
-            });
-            setCustomers(customerRes.data);
-          } catch (err) {
-            console.warn("Không tải được danh sách khách hàng:", err);
-            setCustomers([]);
-          }
-        }
+function StaffView({ role }) {
+  const { customerId: routeId } = useParams();
+  const navigate = useNavigate();
+  const [customers, setCustomers] = useState([]);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(routeId ? Number(routeId) : null);
+  const [summary, setSummary] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [health, setHealth] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [photos, setPhotos] = useState(null);
+  const canEditHealth = role === "Receptionist" || role === "Manager";
 
-        // Xác định customerId cần load
-        let targetCustomerId = customerId;
-        if (!targetCustomerId && isCustomer) {
-          // Customer xem profile của chính mình
-          targetCustomerId = user.customerId;
-        }
-
-        if (targetCustomerId || canViewAll) {
-          try {
-            const treatmentPackageRes = await axios.get(
-              "/api/treatment-packages",
-              { withCredentials: true },
-            );
-            setTreatmentPackages(
-              Array.isArray(treatmentPackageRes.data)
-                ? treatmentPackageRes.data
-                : [],
-            );
-          } catch (err) {
-            console.warn("Không tải được danh mục gói liệu trình:", err);
-            setTreatmentPackages([]);
-          }
-
-          // Lấy thông tin khách hàng
-          try {
-            if (!targetCustomerId) { setCustomerInfo(null); } else {
-            const infoRes = await axios.get(
-              `/api/customers?id=${targetCustomerId}`,
-              { withCredentials: true }
-            );
-            setCustomerInfo(infoRes.data); }
-          } catch (err) {
-            console.warn("Không tải được thông tin khách hàng:", err);
-            setCustomerInfo(null);
-          }
-
-          // Lấy danh sách gói liệu trình đã mua (CustomerPackageServlet hỗ trợ ?customerId=X)
-          try {
-            const packageRes = await axios.get(
-              `/api/customer-packages${targetCustomerId ? `?customerId=${targetCustomerId}` : ""}`,
-              { withCredentials: true }
-            );
-            const pkgList = Array.isArray(packageRes.data)
-              ? packageRes.data
-              : [];
-            setPackages(pkgList);
-          } catch (err) {
-            console.warn("Không tải được danh sách gói liệu trình:", err);
-            setError("Không tải được danh sách gói liệu trình.");
-            setPackages([]);
-          }
-
-          // Lấy hồ sơ điều trị (TreatmentProfileServlet)
-          try {
-            const profileRes = await axios.get(
-              `/api/treatment-profiles${targetCustomerId ? `?customerId=${targetCustomerId}` : ""}`,
-              { withCredentials: true }
-            );
-            const profileList = Array.isArray(profileRes.data)
-              ? profileRes.data
-              : [];
-            setAppointments(profileList);
-          } catch (err) {
-            console.warn("Không tải được hồ sơ điều trị:", err);
-            setError("Không tải được hồ sơ điều trị. Vui lòng kiểm tra kết nối API.");
-            setAppointments([]);
-          }
-        }
-      } catch (error) {
-        console.error("Lỗi khi tải dữ liệu:", error);
-      }
-    };
-    fetchData();
-  }, [customerId, isCustomer, user, canViewAll, refresh]);
-
-  const handleCustomerSelect = (e) => {
-    const selectedId = e.target.value;
-    if (selectedId) {
-      navigate(`/treatment-profile/${selectedId}`);
-    } else { navigate("/my-treatment-profile"); }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setEditFormData({ ...editFormData, [name]: value });
-  };
-
-  const handleOpenEdit = (pkg) => {
-    setSelectedPackage(pkg);
-    setEditFormData({
-      customerPackageId: pkg.customerPackageId,
-      remainingSessions: pkg.remainingSessions,
-      expiryDate: toDateInputValue(pkg.expiryDate),
-      status: pkg.status,
-    });
-    setError("");
-    setMessage("");
-    setShowEditModal(true);
-  };
-
-  const handleViewDetails = (pkg) => {
-    setSelectedPackage(pkg);
-    setShowDetailModal(true);
-  };
-
-  const getPackageAppointments = (pkg) =>
-    appointments
-      .filter(
-        (appointment) =>
-          String(appointment.customerPackageId) === String(pkg.customerPackageId),
-      )
-      .sort((first, second) => {
-        const firstDate = `${first.appointmentDate || ""}T${first.startTime || ""}`;
-        const secondDate = `${second.appointmentDate || ""}T${second.startTime || ""}`;
-        return secondDate.localeCompare(firstDate);
-      });
-
-  const getPackageUsageStats = (pkg) => {
-    const packageAppointments = getPackageAppointments(pkg);
-    const recordedUsageCount = packageAppointments.filter(
-      (appointment) => appointment.packageUsageId != null,
-    ).length;
-    const catalogPackage = treatmentPackages.find(
-      (item) =>
-        String(item.treatmentPackageId) === String(pkg.treatmentPackageId),
-    );
-    const configuredSessionCount =
-      pkg.numberOfSessions ?? catalogPackage?.numberOfSessions;
-    const hasConfiguredSessionCount =
-      configuredSessionCount != null &&
-      Number.isFinite(Number(configuredSessionCount)) &&
-      Number.isFinite(Number(pkg.remainingSessions));
-    const balanceUsedCount = hasConfiguredSessionCount
-      ? Math.max(0, Number(configuredSessionCount) - Number(pkg.remainingSessions))
-      : null;
-
-    return {
-      appointments: packageAppointments,
-      recordedUsageCount,
-      balanceUsedCount,
-      totalSessionCount: hasConfiguredSessionCount
-        ? Number(configuredSessionCount)
-        : null,
-      missingHistoryCount: hasConfiguredSessionCount
-        ? Math.max(0, balanceUsedCount - recordedUsageCount)
-        : 0,
-      inconsistentCount: hasConfiguredSessionCount
-        ? Math.max(0, recordedUsageCount - balanceUsedCount)
-        : 0,
-    };
-  };
-
-  const handleSubmitEdit = async (e) => {
-    e.preventDefault();
-    setError("");
-
-    if (!editFormData.remainingSessions || parseInt(editFormData.remainingSessions) < 0) {
-      setError("Số buổi còn lại không hợp lệ!");
-      return;
-    }
-
+  useEffect(() => { api("/api/treatment-profiles").then(setCustomers).catch((e) => setError(e.message)); }, []);
+  const load = useCallback(async () => {
+    if (!selected) return;
     try {
-      // Gửi remainingSessions dưới dạng số
-      const payload = {
-        customerPackageId: editFormData.customerPackageId,
-        remainingSessions: parseInt(editFormData.remainingSessions),
-        expiryDate:
-          editFormData.expiryDate || toDateInputValue(selectedPackage?.expiryDate) || null,
-        status: editFormData.status || "Active",
-      };
-      const res = await axios.put("/api/customer-packages", payload, {
-        withCredentials: true,
-      });
-      setMessage(res.data?.message || "Cập nhật hồ sơ liệu trình thành công!");
-      setShowEditModal(false);
-      setRefresh((prev) => prev + 1);
-    } catch (err) {
-      console.error("Update error:", err);
-      console.error("Response:", err.response);
-      const responseData = err.response?.data;
-      const responseMessage =
-        typeof responseData === "string"
-          ? responseData
-          : responseData?.message || responseData?.error;
-      setError(
-        responseMessage ||
-          (err.response?.status
-            ? `Cập nhật thất bại (HTTP ${err.response.status}).`
-            : "Không thể kết nối đến máy chủ.")
-      );
+      const [s, h, p] = await Promise.all([
+        api(`/api/treatment-profiles?customerId=${selected}&action=summary`),
+        api(`/api/treatment-profiles?customerId=${selected}&action=history`),
+        api(`/api/customer-packages/${selected}`).catch(() => []),
+      ]);
+      setSummary(s);
+      setHistory(h);
+      setPackages(p);
+      setError("");
+    } catch (e) {
+      setError(e.message);
+    }
+  }, [selected]);
+  useEffect(() => { setSummary(null); load(); }, [load]);
+
+  const matches = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return customers.filter((c) => !q || `${c.customerName} ${c.phone}`.toLowerCase().includes(q)).slice(0, 50);
+  }, [customers, search]);
+
+  const saveHealth = async () => {
+    setSaving(true);
+    try {
+      const r = await post("/api/treatment-profiles", { action: "update-health", customerId: selected, ...health });
+      setNotice(r.message || "Đã cập nhật hồ sơ sức khỏe.");
+      setHealth(null);
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    return new Date(dateString).toLocaleDateString("vi-VN");
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "Active":
-        return <Badge bg="success">Đang hoạt động</Badge>;
-      case "Completed":
-        return <Badge bg="primary">Hoàn thành</Badge>;
-      case "Expired":
-        return <Badge bg="danger">Đã hết hạn</Badge>;
-      case "Cancelled":
-        return <Badge bg="secondary">Đã hủy</Badge>;
-      default:
-        return <Badge bg="secondary">{status}</Badge>;
+  const openPhotos = async (line) => {
+    setPhotos({ line, list: null });
+    try {
+      setPhotos({ line, list: await api(`/api/treatment-photos/${line.appointmentServiceId}`) });
+    } catch (e) {
+      setError(e.message);
+      setPhotos(null);
     }
   };
-
-  const getAppointmentStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
-
-  const packageFilters = useManagerSearchFilter(
-    packages,
-    [
-      { key: "customerPackageId", label: "Mã gói", filterable: false },
-      { key: "packageName", label: "Gói liệu trình", filterable: false },
-      { key: "serviceName", label: "Dịch vụ" },
-      { key: "status", label: "Trạng thái" },
-      { key: "customerName", label: "Khách hàng", filterable: false },
-      { key: "expiryDate", label: "Ngày hết hạn", type: "date" },
-    ],
-    "Tìm theo tên gói hoặc dịch vụ...",
-  );
-  const appointmentFilters = useManagerSearchFilter(
-    appointments,
-    [
-      { key: "appointmentId", label: "Mã lịch hẹn", filterable: false },
-      { key: "customerName", label: "Khách hàng", filterable: false },
-      { key: "serviceName", label: "Dịch vụ", filterable: false },
-      { key: "packageName", label: "Gói liệu trình", filterable: false },
-      {
-        key: "purchaseType",
-        label: "Hình thức",
-        getValue: (appointment) =>
-          appointment.customerPackageId != null ? "package" : "single",
-        formatValue: (value) => value === "package" ? "Dùng gói" : "Mua lẻ",
-      },
-      {
-        key: "sessionUsage",
-        label: "Trừ buổi",
-        getValue: (appointment) => {
-          if (appointment.customerPackageId == null) return "not-applicable";
-          if (appointment.packageUsageId != null) return "deducted";
-          return appointment.appointmentStatus === "Completed"
-            ? "needs-review"
-            : "not-recorded";
-        },
-        formatValue: (value) => ({
-          deducted: "Đã trừ buổi",
-          "needs-review": "Cần kiểm tra trừ buổi",
-          "not-recorded": "Chưa ghi nhận trừ buổi",
-          "not-applicable": "Không áp dụng",
-        })[value],
-      },
-      {
-        key: "invoiceStatus",
-        label: "Thanh toán",
-        getValue: (appointment) => appointment.invoiceStatus || "no-invoice",
-        formatValue: (value) => ({
-          Paid: "Đã thanh toán",
-          Unpaid: "Chưa thanh toán",
-          "no-invoice": "Chưa có hóa đơn",
-        })[value] || value,
-      },
-      { key: "appointmentDate", label: "Ngày thực hiện", type: "date" },
-    ],
-    "Tìm theo khách hàng, dịch vụ hoặc gói...",
-  );
-  const packageAppointments = appointments.filter(
-    (appointment) => appointment.customerPackageId != null,
-  );
-  const singleAppointments = appointments.length - packageAppointments.length;
-  const recordedPackageUsageCount = appointments.filter(
-    (appointment) => appointment.packageUsageId != null,
-  ).length;
-  const packageUsageReviewCount = appointments.filter(
-    (appointment) =>
-      appointment.customerPackageId != null &&
-      appointment.appointmentStatus === "Completed" &&
-      appointment.packageUsageId == null,
-  ).length;
 
   return (
-    <div className={isCustomer ? "public-service-page customer-treatment-page" : "customer-treatment-staff-page"}>
-      {isCustomer && (
-        <section className="public-service-hero customer-treatment-hero">
-          <div className="public-service-hero-copy">
-            <span className="seoul-eyebrow">HÀNH TRÌNH CHĂM SÓC CỦA BẠN</span>
-            <h1>Hồ sơ liệu trình</h1>
-            <p>
-              Xem các gói liệu trình đã mua, số buổi còn lại và lịch sử chăm sóc
-              của bạn tại Seoul Center.
-            </p>
-            <span className="public-service-hero-note">
-              <i className="bi bi-heart" aria-hidden="true" /> Theo dõi hành trình chăm sóc của bạn
-            </span>
-          </div>
-          <img src={servicePhoto01} alt="Chăm sóc da tại Seoul Center" />
-        </section>
-      )}
-
-      <section className={isCustomer ? "public-service-content customer-treatment-content" : "container-fluid mt-4 px-4"}>
-        {!isCustomer && (
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <div>
-              <h2 className="manager-page-title fw-bold mb-1">
-                Hồ sơ liệu trình
-              </h2>
-              <p className="text-muted mb-0">
-                Xem và quản lý các gói liệu trình đã mua
-              </p>
-            </div>
-          </div>
-        )}
-
-      {message && (
-        <Alert variant="success" onClose={() => setMessage("")} dismissible>
-          <i className="bi bi-check-circle-fill me-2"></i>
-          {message}
-        </Alert>
-      )}
-
-      {/* Chọn khách hàng (cho Manager/Technician/Receptionist) */}
-      {canViewAll && (
-        <Card className="border-0 shadow-sm mb-4">
-          <Card.Body>
-            <Row className="align-items-center">
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="fw-bold">
-                    <i className="bi bi-person-badge me-2"></i>
-                    Chọn khách hàng
-                  </Form.Label>
-                  <Form.Select
-                    value={customerId || ""}
-                    onChange={handleCustomerSelect}
-                  >
-                    <option value="">Tất cả khách hàng</option>
-                    {customers.map((c) => (
-                      <option key={c.customerId} value={c.customerId}>
-                        {c.fullName} - {c.phone || "Không có SĐT"}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              {customerInfo && (
-                <Col md={6}>
-                  <div className="bg-light p-3 rounded">
-                    <strong>Thông tin khách hàng:</strong>
-                    <p className="mb-0">
-                      {customerInfo.fullName} | {customerInfo.phone || "-"} |{" "}
-                      {customerInfo.email || "-"}
-                    </p>
-                  </div>
-                </Col>
-              )}
-            </Row>
-          </Card.Body>
-        </Card>
-      )}
-
-      {/* Thông tin khách hàng hiện tại (cho Customer) */}
-      {isCustomer && customerInfo && (
-        <Card className="border-0 shadow-sm mb-4 customer-treatment-customer-card">
-          <Card.Body>
-            <Row>
-              <Col md={3} className="text-center">
-                <div
-                  className="customer-treatment-avatar rounded-circle d-inline-flex align-items-center justify-content-center text-white"
-                  style={{ width: "80px", height: "80px", fontSize: "2rem" }}
-                >
-                  {customerInfo.fullName?.charAt(0).toUpperCase()}
-                </div>
-              </Col>
-              <Col md={9}>
-                <h4 className="mb-3">{customerInfo.fullName}</h4>
-                <Row>
-                  <Col md={4}>
-                    <p className="mb-1 text-muted small">Số điện thoại</p>
-                    <p className="mb-0 fw-bold">{customerInfo.phone || "-"}</p>
-                  </Col>
-                  <Col md={4}>
-                    <p className="mb-1 text-muted small">Email</p>
-                    <p className="mb-0 fw-bold">{customerInfo.email || "-"}</p>
-                  </Col>
-                  <Col md={4}>
-                    <p className="mb-1 text-muted small">Ngày sinh</p>
-                    <p className="mb-0 fw-bold">{formatDate(customerInfo.dateOfBirth)}</p>
-                  </Col>
-                </Row>
-              </Col>
-            </Row>
-          </Card.Body>
-        </Card>
-      )}
-
-      {/* Tabs cho Packages và Appointments */}
-      <Tabs defaultActiveKey="packages" className={`mb-3${isCustomer ? " customer-treatment-tabs" : ""}`}>
-        <Tab eventKey="packages" title={
-          <span>
-            <i className="bi bi-box2-heart me-2"></i>
-            Gói liệu trình ({packages.length})
-          </span>
-        }>
-          <Card className={`border-0 shadow-sm${isCustomer ? " customer-treatment-search-card" : ""}`}>
+    <Container fluid className="mt-4 px-4">
+      <h2 className="manager-page-title fw-bold mb-1">Hồ sơ & liệu trình khách hàng</h2>
+      <p className="text-muted mb-4">Hồ sơ sức khỏe, lịch sử điều trị và gói liệu trình của khách.</p>
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+      <Row className="g-4">
+        <Col lg={3}>
+          <Card className="shadow-sm border-0">
             <Card.Body>
-              <div className="manager-list-toolbar">{packageFilters.toolbar}</div>
+              <Form.Control placeholder="Tìm khách hàng..." value={search} onChange={(e) => setSearch(e.target.value)} className="mb-2" />
+              <ListGroup variant="flush" style={{ maxHeight: 520, overflowY: "auto" }}>
+                {matches.map((c) => (
+                  <ListGroup.Item action key={c.customerId} active={c.customerId === selected} onClick={() => setSelected(c.customerId)}>
+                    <strong>{c.customerName}</strong>
+                    <small className="d-block">{c.phone}{c.lastVisit ? ` · ghé ${viDate(c.lastVisit)}` : ""}</small>
+                  </ListGroup.Item>
+                ))}
+                {!matches.length && <p className="text-muted small mb-0">Không có khách hàng.</p>}
+              </ListGroup>
             </Card.Body>
           </Card>
+        </Col>
+        <Col lg={9}>
+          {!selected ? <Alert variant="light">Chọn khách hàng để xem hồ sơ.</Alert> : !summary ? <Spinner animation="border" variant="danger" /> : (
+            <>
+              <Card className="shadow-sm border-0 mb-4">
+                <Card.Body>
+                  <div className="d-flex justify-content-between flex-wrap gap-2">
+                    <div>
+                      <h4 className="fw-bold mb-1">{summary.fullName} <Badge bg="info">{summary.tierName}</Badge></h4>
+                      <small className="text-muted">{summary.phone}{summary.email ? ` · ${summary.email}` : ""}{summary.dateOfBirth ? ` · sinh ${viDate(summary.dateOfBirth)}` : ""}</small>
+                    </div>
+                    <div className="d-flex gap-2">
+                      {role === "Receptionist" && <Button variant="outline-primary" size="sm" onClick={() => navigate("/sell-treatment-package")}>Bán gói</Button>}
+                      {canEditHealth && <Button size="sm" onClick={() => setHealth({ skinCondition: summary.skinCondition || "", allergies: summary.allergies || "", notes: summary.notes || "" })}>Cập nhật hồ sơ sức khỏe</Button>}
+                    </div>
+                  </div>
+                  <Row className="mt-3 g-3">
+                    <Col md={4}><small className="text-muted d-block">Tình trạng da</small>{summary.skinCondition || "—"}</Col>
+                    <Col md={4}><small className="text-muted d-block">Dị ứng</small><span className={summary.allergies ? "text-danger fw-semibold" : ""}>{summary.allergies || "Không"}</span></Col>
+                    <Col md={4}><small className="text-muted d-block">Ghi chú</small>{summary.notes || "—"}</Col>
+                  </Row>
+                  <Row className="mt-3 text-center g-2">
+                    {[["Lịch hẹn", summary.totalAppointments], ["Hoàn thành", summary.completedAppointments], ["Sắp tới", summary.upcomingAppointments], ["Gói đang dùng", summary.activePackages], ["Buổi còn lại", summary.totalRemainingSessions], ["Chi tiêu", money(summary.lifetimeSpending)]].map(([t, v]) => (
+                      <Col key={t} xs={4} md={2}><div className="border rounded p-2"><small className="text-muted d-block">{t}</small><strong>{v}</strong></div></Col>
+                    ))}
+                  </Row>
+                </Card.Body>
+              </Card>
 
-          <Card className={`border-0 shadow-sm${isCustomer ? " customer-treatment-data-card" : ""}`}>
-            <Card.Body className="p-0">
-              <Table striped={!isCustomer} bordered={!isCustomer} hover responsive className={`align-middle mb-0${isCustomer ? " customer-treatment-table" : ""}`}>
-                <thead className={isCustomer ? "" : "table-dark"}>
-                  <tr>
-                    <th>ID</th>
-                    <th>Gói liệu trình / Khách hàng</th>
-                    <th>Ngày mua</th>
-                    <th>Buổi còn lại</th>
-                    <th>Ngày hết hạn</th>
-                    <th>Trạng thái</th>
-                    {canEdit && <th className="text-center">Hành động</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {packageFilters.filteredRows.length > 0 ? (
-                    packageFilters.filteredRows.map((p) => (
-                      <tr key={p.customerPackageId}>
-                        <td className="fw-bold">#{p.customerPackageId}</td>
-                        <td>
-                          <strong>{p.packageName || `Gói #${p.treatmentPackageId}`}</strong><small className="d-block">{p.customerName || `Khách hàng #${p.customerId}`}</small>
-                        </td>
-                        <td>{formatDate(p.purchaseDate)}</td>
-                        <td>
-                          <Badge bg={p.remainingSessions > 0 ? "success" : "secondary"}>
-                            {p.remainingSessions}
-                            {p.numberOfSessions ? ` / ${p.numberOfSessions}` : ""} buổi
-                          </Badge>
-                          {(() => {
-                            const usage = getPackageUsageStats(p);
-                            return (
-                              <small className={`d-block mt-1${usage.missingHistoryCount ? " text-warning-emphasis" : " text-muted"}`}>
-                                {usage.balanceUsedCount == null
-                                  ? `${usage.recordedUsageCount} lượt có lịch sử`
-                                  : `${usage.balanceUsedCount} buổi đã trừ`}
-                                {usage.missingHistoryCount > 0 &&
-                                  ` · thiếu ${usage.missingHistoryCount} lịch sử`}
-                              </small>
-                            );
-                          })()}
-                        </td>
-                        <td>{formatDate(p.expiryDate)}</td>
-                        <td>{getStatusBadge(p.status)}</td>
-                        {canEdit && (
-                          <td className="text-center">
-                            <div className="manager-list-actions">
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="manager-list-action manager-list-action--view"
-                              onClick={() => handleViewDetails(p)}
-                            >
-                              <i className="bi bi-eye" aria-hidden="true"></i>
-                              Xem
-                            </Button>
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="manager-list-action manager-list-action--edit"
-                              onClick={() => handleOpenEdit(p)}
-                            >
-                              <i className="bi bi-pencil-square"></i> Sửa
-                            </Button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={canEdit ? "7" : "6"} className="text-center py-4 text-muted">
-                        Chưa có gói liệu trình nào.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </Tab>
+              <Card className="shadow-sm border-0 mb-4">
+                <Card.Header className="bg-white fw-bold">Gói liệu trình</Card.Header>
+                <Card.Body><PackageCards packages={packages} /></Card.Body>
+              </Card>
 
-        <Tab eventKey="appointments" title={
-          <span>
-            <i className="bi bi-calendar-check me-2"></i>
-            Lịch hẹn & thanh toán ({appointments.length})
-          </span>
-        }>
-          <div className="treatment-history-summary" aria-label="Tổng quan lịch hẹn và sử dụng gói">
-            {[
-              ["Mua lẻ", singleAppointments, "bi-receipt", "single"],
-              ["Dùng gói", packageAppointments.length, "bi-box2-heart", "package"],
-              ["Đã ghi nhận trừ buổi", recordedPackageUsageCount, "bi-check2-circle", "used"],
-              ["Cần kiểm tra", packageUsageReviewCount, "bi-exclamation-circle", "review"],
-            ].map(([label, count, icon]) => (
-              <div className={`treatment-history-stat treatment-history-stat--${icon}`} key={label}>
-                <span className="treatment-history-stat-icon">
-                  <i className={`bi ${icon}`} aria-hidden="true" />
-                </span>
-                <span className="treatment-history-stat-copy">
-                  <span>{label}</span>
-                  <strong>{count}</strong>
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="manager-list-toolbar mb-3">{appointmentFilters.toolbar}</div>
-          <Card className={`border-0 shadow-sm${isCustomer ? " customer-treatment-data-card" : ""}`}>
-            <Card.Body className="p-0">
-              <Table striped={!isCustomer} bordered={!isCustomer} hover responsive className={`align-middle mb-0 treatment-history-table${isCustomer ? " customer-treatment-table" : ""}`}>
-                <thead className={isCustomer ? "" : "table-dark"}>
-                  <tr>
-                    <th>Lịch hẹn</th>
-                    {canViewAll && <th>Khách hàng</th>}
-                    <th>Dịch vụ</th>
-                    <th>Hình thức &amp; sử dụng</th>
-                    {canViewAll && <th>Nhân viên</th>}
-                    <th>Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {appointmentFilters.filteredRows.length > 0 ? (
-                    appointmentFilters.filteredRows.map((a) => (
-                      <tr key={a.appointmentId}>
-                        <td>
-                          <strong className="treatment-history-appointment-id">#{a.appointmentId}</strong>
-                          <span className="treatment-history-secondary">
-                            {formatDate(a.appointmentDate)}
-                            {a.startTime ? ` · ${a.startTime.substring(0, 5)}` : ""}
-                          </span>
-                        </td>
-                        {canViewAll && <td>{a.customerName || "-"}</td>}
-                        <td>
-                          <strong>{a.serviceName || "-"}</strong>
-                          {a.rating > 0 && (
-                            <span className="treatment-history-rating" aria-label={`Đánh giá ${a.rating} trên 5 sao`}>
-                              <i className="bi bi-star-fill" aria-hidden="true" />
-                              {a.rating}/5
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          {a.customerPackageId != null ? (
-                            <div className="treatment-history-usage">
-                              <span className="treatment-history-chip treatment-history-chip--package">
-                                <i className="bi bi-box2-heart" aria-hidden="true" />
-                                Dùng gói
-                              </span>
-                              <span className="treatment-history-secondary">
-                                {a.packageName || "Gói liệu trình"}
-                                {` · #${a.customerPackageId}`}
-                              </span>
-                              {a.packageUsageId != null ? (
-                                <span className="treatment-history-usage-detail treatment-history-usage-detail--success">
-                                  <i className="bi bi-check-circle-fill" aria-hidden="true" />
-                                  Đã trừ 1 buổi
-                                  <small>
-                                    Còn {a.remainingSessions ?? 0}
-                                    {a.numberOfSessions != null ? `/${a.numberOfSessions}` : ""} buổi
-                                  </small>
-                                </span>
-                              ) : (
-                                <span className={`treatment-history-usage-detail${a.appointmentStatus === "Completed" ? " treatment-history-usage-detail--warning" : ""}`}>
-                                  <i className={`bi ${a.appointmentStatus === "Completed" ? "bi-exclamation-circle-fill" : "bi-hourglass-split"}`} aria-hidden="true" />
-                                  {a.appointmentStatus === "Completed"
-                                    ? "Cần kiểm tra lượt trừ"
-                                    : "Chưa trừ buổi"}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="treatment-history-usage">
-                              <span className="treatment-history-chip treatment-history-chip--single">
-                                <i className="bi bi-receipt" aria-hidden="true" />
-                                Mua lẻ
-                              </span>
-                              <span className={`treatment-history-usage-detail${a.invoiceStatus === "Paid" ? " treatment-history-usage-detail--success" : a.invoiceStatus === "Unpaid" ? " treatment-history-usage-detail--warning" : ""}`}>
-                                <i className={`bi ${a.invoiceStatus === "Paid" ? "bi-check-circle-fill" : a.invoiceStatus === "Unpaid" ? "bi-clock-fill" : "bi-info-circle"}`} aria-hidden="true" />
-                                {a.invoiceId != null
-                                  ? `HĐ #${a.invoiceId} · ${a.invoiceStatus === "Paid" ? "Đã thanh toán" : a.invoiceStatus === "Unpaid" ? "Chưa thanh toán" : a.invoiceStatus}`
-                                  : a.appointmentStatus === "Completed"
-                                    ? "Chưa lập hóa đơn"
-                                    : "Thanh toán sau dịch vụ"}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-                        {canViewAll && <td>{a.staffName || "-"}</td>}
-                        <td>{getAppointmentStatusBadge(a.appointmentStatus)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={canViewAll ? "6" : "4"} className="text-center py-4 text-muted">
-                        Chưa có lịch hẹn nào.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </Tab>
-      </Tabs>
-      </section>
-
-      {/* Modal Sửa hồ sơ */}
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered backdrop="static">
-        <Modal.Header closeButton className="bg-light">
-          <Modal.Title className="fw-bold">
-            <i className="bi bi-pencil-square me-2"></i>
-            Cập nhật Hồ sơ Liệu trình
-          </Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmitEdit}>
-          <Modal.Body>
-            {error && (
-              <Alert variant="danger">
-                <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                {error}
-              </Alert>
-            )}
-
-            {selectedPackage && (
-              <>
-                <Form.Group className="mb-3">
-                  <Form.Label className="fw-bold">Mã Customer Package</Form.Label>
-                  <Form.Control
-                    value={`#${selectedPackage.customerPackageId} - Treatment Package #${selectedPackage.treatmentPackageId}`}
-                    disabled
-                  />
-                </Form.Group>
-
-                <Row className="mb-3">
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label className="fw-bold">
-                        Số buổi còn lại <span className="text-danger">*</span>
-                      </Form.Label>
-                      <Form.Control
-                        type="number"
-                        name="remainingSessions"
-                        value={editFormData.remainingSessions}
-                        onChange={handleChange}
-                        min="0"
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label className="fw-bold">Trạng thái</Form.Label>
-                      <Form.Select
-                        name="status"
-                        value={editFormData.status}
-                        onChange={handleChange}
-                      >
-                        <option value="Active">Đang hoạt động</option>
-                        <option value="Completed">Hoàn thành</option>
-                        <option value="Expired">Đã hết hạn</option>
-                        <option value="Cancelled">Đã hủy</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Col>
-                </Row>
-
-                <Form.Group>
-                  <Form.Label className="fw-bold">Ngày hết hạn</Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="expiryDate"
-                    value={editFormData.expiryDate}
-                    onChange={handleChange}
-                  />
-                </Form.Group>
-              </>
-            )}
-          </Modal.Body>
-          <Modal.Footer className="bg-light border-0">
-            <Button variant="secondary" onClick={() => setShowEditModal(false)}>
-              Hủy
-            </Button>
-            <Button variant="primary" type="submit">
-              <i className="bi bi-check-lg me-1"></i>
-              Lưu thay đổi
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
-
-      {/* Modal Chi tiết */}
-      <Modal show={showDetailModal} onHide={() => setShowDetailModal(false)} centered size="lg">
-        <Modal.Header closeButton className="bg-light">
-          <Modal.Title className="fw-bold">
-            <i className="bi bi-info-circle me-2"></i>
-            Chi tiết gói liệu trình
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedPackage && (
-          <>
-            {(() => {
-              const usage = getPackageUsageStats(selectedPackage);
-              return (
-                <>
-            <Row className="g-3 mb-4">
-              <Col md={6}>
-                <p className="mb-2"><strong>Gói:</strong> {selectedPackage.packageName}</p>
-                <p className="mb-2"><strong>Mã hồ sơ:</strong> #{selectedPackage.customerPackageId}</p>
-                <p className="mb-2"><strong>Khách hàng:</strong> {selectedPackage.customerName || `#${selectedPackage.customerId}`}</p>
-                <p className="mb-0"><strong>Ngày mua:</strong> {formatDate(selectedPackage.purchaseDate)}</p>
-              </Col>
-              <Col md={6}>
-                <p className="mb-2">
-                  <strong>Số buổi:</strong>{" "}
-                  {usage.totalSessionCount != null && usage.balanceUsedCount != null
-                    ? `${usage.balanceUsedCount} đã trừ / ${usage.totalSessionCount}`
-                    : `${usage.recordedUsageCount} lượt có lịch sử`}
-                </p>
-                <p className="mb-2">
-                  <strong>Còn lại:</strong>{" "}
-                  <Badge bg={selectedPackage.remainingSessions > 0 ? "success" : "secondary"}>
-                    {selectedPackage.remainingSessions} buổi
-                  </Badge>
-                </p>
-                <p className="mb-2"><strong>Ngày hết hạn:</strong> {formatDate(selectedPackage.expiryDate)}</p>
-                <p className="mb-0"><strong>Trạng thái:</strong> {getStatusBadge(selectedPackage.status)}</p>
-              </Col>
-            </Row>
-
-            <section className="treatment-package-session-history">
-              <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
-                <div>
-                  <h3 className="h6 fw-bold mb-1">Lịch sử sử dụng gói</h3>
-                  <p className="small text-muted mb-0">
-                    Các cuộc hẹn được đặt bằng gói này
-                  </p>
-                </div>
-                <Badge bg="light" text="dark">
-                  {usage.recordedUsageCount} lượt ghi nhận
-                </Badge>
-              </div>
-              {usage.missingHistoryCount > 0 && (
-                <Alert variant="warning" className="mb-3">
-                  Số dư cho thấy đã trừ {usage.balanceUsedCount} buổi, nhưng hệ thống chỉ tìm thấy{" "}
-                  {usage.recordedUsageCount} lượt có lịch sử. Còn thiếu {usage.missingHistoryCount} lượt để đối soát.
-                  Không có đủ dữ liệu để xác định ngày hoặc cuộc hẹn của các lượt này.
-                </Alert>
-              )}
-              {usage.inconsistentCount > 0 && (
-                <Alert variant="danger" className="mb-3">
-                  Lịch sử có {usage.recordedUsageCount} lượt trừ buổi nhưng số dư chỉ phản ánh{" "}
-                  {usage.balanceUsedCount} buổi đã trừ. Vui lòng kiểm tra dữ liệu gói.
-                </Alert>
-              )}
-              {usage.appointments.length > 0 ? (
-                <div className="treatment-package-session-list">
-                  {usage.appointments.map((appointment) => (
-                    <article className="treatment-package-session-item" key={appointment.appointmentId}>
-                      <span className={`treatment-package-session-icon${appointment.packageUsageId != null ? " is-used" : ""}`}>
-                        <i
-                          className={`bi ${appointment.packageUsageId != null ? "bi-check-lg" : "bi-calendar-event"}`}
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <div className="treatment-package-session-copy">
-                        <strong>{appointment.serviceName || "Buổi điều trị"}</strong>
-                        <span>
-                          #{appointment.appointmentId} · {formatDate(appointment.appointmentDate)}
-                          {appointment.startTime ? ` · ${appointment.startTime.substring(0, 5)}` : ""}
-                          {appointment.staffName ? ` · ${appointment.staffName}` : ""}
-                        </span>
-                      </div>
-                      <span className={`treatment-package-session-status${appointment.packageUsageId != null ? " is-used" : ""}`}>
-                        {appointment.packageUsageId != null
-                          ? "Đã trừ buổi"
-                          : appointment.appointmentStatus === "Completed"
-                            ? "Cần kiểm tra"
-                            : "Chưa sử dụng"}
-                      </span>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className="treatment-package-session-empty">
-                  {usage.missingHistoryCount > 0
-                    ? `Chưa có lịch hẹn nào được liên kết với gói này; còn ${usage.missingHistoryCount} lượt đã trừ cần đối soát.`
-                    : "Chưa có lịch hẹn nào sử dụng gói này."}
-                </div>
-              )}
-            </section>
-              </>
-            );
-          })()}
-          </>
-        )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDetailModal(false)}>
-            Đóng
-          </Button>
-          {canEdit && selectedPackage && (
-            <Button variant="warning" onClick={() => {
-              setShowDetailModal(false);
-              handleOpenEdit(selectedPackage);
-            }}>
-              <i className="bi bi-pencil-square me-1"></i>
-              Chỉnh sửa
-            </Button>
+              <Card className="shadow-sm border-0">
+                <Card.Header className="bg-white fw-bold">Lịch sử điều trị</Card.Header>
+                <Card.Body className="p-0">
+                  <Table responsive className="align-middle mb-0 manager-list-table">
+                    <thead className="table-light"><tr><th>Ngày</th><th>Dịch vụ</th><th>KTV</th><th>Kết quả</th><th>Phản ứng da</th><th>Ảnh</th></tr></thead>
+                    <tbody>
+                      {history.map((h) => (
+                        <tr key={h.appointmentServiceId}>
+                          <td>{viDate(h.appointmentDate)}<small className="d-block text-muted">{time5(h.startTime)} · #{h.appointmentId}</small></td>
+                          <td>{h.serviceName}</td>
+                          <td>{h.technicianName || "—"}</td>
+                          <td style={{ maxWidth: 280 }}>{h.resultNotes || <span className="text-muted">Chưa ghi</span>}</td>
+                          <td>{h.skinReaction || "—"}</td>
+                          <td>{Number(h.photoCount) > 0 ? <Button size="sm" variant="link" onClick={() => openPhotos(h)}>{h.photoCount} ảnh</Button> : "—"}</td>
+                        </tr>
+                      ))}
+                      {!history.length && <tr><td colSpan={6} className="text-center text-muted py-3">Chưa có dịch vụ hoàn thành.</td></tr>}
+                    </tbody>
+                  </Table>
+                </Card.Body>
+              </Card>
+            </>
           )}
-        </Modal.Footer>
-      </Modal>
-    </div>
-  );
-};
+        </Col>
+      </Row>
 
-export default CustomerTreatmentProfile;
+      <Modal show={!!health} onHide={() => !saving && setHealth(null)} centered>
+        <Modal.Header closeButton><Modal.Title>Hồ sơ sức khỏe</Modal.Title></Modal.Header>
+        {health && (
+          <Modal.Body>
+            {[["skinCondition", "Tình trạng da"], ["allergies", "Dị ứng"], ["notes", "Ghi chú"]].map(([k, t]) => (
+              <Form.Group key={k} className="mb-3">
+                <Form.Label>{t}</Form.Label>
+                <Form.Control as="textarea" rows={2} maxLength={1000} value={health[k]} onChange={(e) => setHealth({ ...health, [k]: e.target.value })} />
+              </Form.Group>
+            ))}
+          </Modal.Body>
+        )}
+        <Modal.Footer><Button variant="secondary" onClick={() => setHealth(null)}>Hủy</Button><Button disabled={saving} onClick={saveHealth}>Lưu</Button></Modal.Footer>
+      </Modal>
+
+      <Modal show={!!photos} onHide={() => setPhotos(null)} centered size="lg">
+        <Modal.Header closeButton><Modal.Title>Ảnh trước/sau · {photos?.line.serviceName}</Modal.Title></Modal.Header>
+        <Modal.Body className="d-flex flex-wrap gap-3">
+          {!photos?.list ? <Spinner animation="border" size="sm" /> : photos.list.map((p) => (
+            <figure key={p.photoId} className="text-center mb-0">
+              <img src={`/api/treatment-photos/file/${p.photoId}`} alt={p.photoType} style={{ width: 200, height: 200, objectFit: "cover", borderRadius: 8 }} />
+              <figcaption className="small">{p.photoType === "Before" ? "Trước" : "Sau"}</figcaption>
+            </figure>
+          ))}
+        </Modal.Body>
+      </Modal>
+    </Container>
+  );
+}
+
+export default function CustomerTreatmentProfile() {
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  return user?.role === "Customer" ? <CustomerView /> : <StaffView role={user?.role} />;
+}

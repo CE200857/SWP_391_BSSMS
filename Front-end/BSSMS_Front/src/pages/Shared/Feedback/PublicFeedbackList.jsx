@@ -28,7 +28,6 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
   const [detailFeedback, setDetailFeedback] = useState(null);
   const isStaffManagementView = managerCompact || user?.role === "Manager";
 
-  // Lấy danh sách services
   useEffect(() => {
     fetch("/api/service")
       .then((res) => (res.ok ? res.json() : []))
@@ -38,7 +37,6 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
       .catch((err) => console.error("Lỗi tải dịch vụ:", err));
   }, []);
 
-  // Lấy tất cả feedback công khai
   useEffect(() => {
     let cancelled = false;
 
@@ -71,13 +69,11 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
     };
   }, []);
 
-  // Đánh giá là của dịch vụ: liên kết tới trang dịch vụ (không liên quan tới lịch hẹn của người khác)
   const serviceLink = (serviceId) =>
     location.pathname.startsWith("/guest")
       ? `/guest/services/${serviceId}`
       : `/services/detail/${serviceId}`;
 
-  // Khi chọn một dịch vụ thì thống kê chỉ tính cho dịch vụ đó
   const serviceScoped = feedbacks.filter(
     (fb) => serviceFilter === "all" || String(fb.serviceId) === serviceFilter,
   );
@@ -203,7 +199,6 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
         <h2 className="fw-bold mb-0">Tổng quan đánh giá</h2>
       </div>
 
-      {/* Thẻ thống kê */}
       <Row className={`feedback-summary-stats mb-3 g-3${managerCompact ? " feedback-summary-stats-compact" : ""}`}>
         <Col md={4}>
           <Card className="shadow-sm border-0 feedback-stat-card" style={{ borderRadius: "12px" }}>
@@ -234,7 +229,6 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
         </Col>
       </Row>
 
-      {/* Bộ lọc */}
       <Card className="shadow-sm border-0 mb-3 feedback-filter-card" style={{ borderRadius: "12px" }}>
         <Card.Body>
           {isStaffManagementView ? (

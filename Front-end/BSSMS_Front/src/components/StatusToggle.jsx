@@ -1,7 +1,6 @@
 import { Button, Modal } from "react-bootstrap";
 import "./StatusToggle.css";
 
-// Huy hiệu trạng thái bấm được (giống danh sách nhân viên): bấm vào sẽ mở hộp thoại xác nhận đổi trạng thái.
 export function StatusToggleButton({ active, onClick, disabled = false }) {
   return (
     <button
@@ -17,7 +16,6 @@ export function StatusToggleButton({ active, onClick, disabled = false }) {
   );
 }
 
-// Hộp thoại "Xác nhận đổi trạng thái" dùng chung. entity: "dịch vụ" | "voucher"...; nextActive: trạng thái sẽ chuyển tới.
 export function StatusChangeModal({ show, entity, name, nextActive, busy = false, onCancel, onConfirm }) {
   return (
     <Modal show={show} onHide={() => !busy && onCancel()} centered>

@@ -1,220 +1,83 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import {
-  Container,
-  Card,
-  Badge,
-  Button,
-  Spinner,
-  Alert,
-  Modal,
-  Form,
-} from "react-bootstrap";
-
+import { Container, Card, Badge, Button, Spinner, Alert, Modal, Form, Table } from "react-bootstrap";
 import BookingPaymentNotice from "../../../components/BookingPaymentNotice";
 import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
-import AppointmentServices from "../../../components/AppointmentServices";
+import { api, post, put, money, time5, viDate, label } from "../../../services/api";
+import { appointmentStatusLabel } from "../../../utils/appointmentStatus";
 
-// Gộp danh sách, bỏ trùng và giữ thứ tự xuất hiện.
-const joinUnique = (list) => [...new Set(list.filter(Boolean))].join(", ");
+const lineBadge = { Waiting: "secondary", InProgress: "primary", Done: "success" };
 
 const AppointmentDetails = ({ user }) => {
   const location = useLocation();
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [appointment, setAppointment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [cancelling, setCancelling] = useState(false);
-  const [cancelError, setCancelError] = useState("");
-
+  const [notice, setNotice] = useState(location.state?.created ? "Đã tạo lịch hẹn." : location.state?.rescheduled ? "Đã đổi lịch hẹn." : "");
+  const [busy, setBusy] = useState("");
   const [showCancel, setShowCancel] = useState(false);
   const [reason, setReason] = useState("");
-  const [cancelSuccess, setCancelSuccess] = useState(false);
+  const payment = new URLSearchParams(location.search).get("payment");
 
-  // Feedback cho appointment này (chỉ load khi status = Completed)
-  const [feedback, setFeedback] = useState(null);
-  const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const [serviceLines, setServiceLines] = useState([]); // các dịch vụ của lịch hẹn (từ AppointmentServices)
-
-  useEffect(() => {
-    const fetchAppointment = async () => {
-      try {
-        const response = await fetch(`/api/appointments/${id}`);
-
-        if (!response.ok) {
-          throw new Error("Không thể lấy thông tin lịch hẹn.");
-        }
-
-        const data = await response.json();
-
-        setAppointment(data);
-      } catch (error) {
-        console.error("Lỗi khi lấy chi tiết lịch hẹn:", error);
-        setError("Không thể tải thông tin lịch hẹn.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAppointment();
-  }, [id]);
-
-  // Khi appointment đã Completed -> gọi API lấy feedback (nếu có)
-  useEffect(() => {
-    if (!appointment || appointment.status !== "Completed") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the view while synchronizing external data for this selection.
-      setFeedback(null);
-      return;
-    }
-
-    let cancelled = false;
-    const loadFeedback = async () => {
-      try {
-        setFeedbackLoading(true);
-        const res = await fetch(
-          `/api/feedback?appointmentId=${appointment.appointmentId}`,
-        );
-        if (cancelled) return;
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            // Lấy feedback mới nhất của appointment này
-            if (!cancelled) setFeedback(data[0]);
-          } else if (!cancelled) {
-            setFeedback(null);
-          }
-        } else if (!cancelled) {
-          setFeedback(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Lỗi tải feedback:", err);
-          setFeedback(null);
-        }
-      } finally {
-        if (!cancelled) setFeedbackLoading(false);
-      }
-    };
-
-    loadFeedback();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [appointment]);
-
-  const getStatusBadge = (status) => <AppointmentStatusBadge status={status} />;
-
-  // Render 5 sao theo rating (filled = vàng, còn lại = xám)
-  const renderStars = (rating) => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <i
-          key={i}
-          className={`bi ${
-            i <= rating ? "bi-star-fill text-warning" : "bi-star text-secondary"
-          }`}
-          style={{ fontSize: "20px", marginRight: "4px" }}
-        />,
-      );
-    }
-    return stars;
-  };
-
-  const formatFeedbackDate = (dateStr) => {
-    if (!dateStr) return "—";
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      return new Date(dateStr).toLocaleString("vi-VN", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const handleCancel = async () => {
-    if (cancelling) return;
-    if (!reason.trim()) {
-      setCancelError("Vui lòng nhập lý do hủy lịch.");
-      return;
-    }
-
-    try {
-      setCancelling(true);
-      setCancelError("");
-
-      const response = await fetch(`/api/appointments/${id}/cancel`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: reason.trim() }),
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.message || "Không thể hủy lịch hẹn. Vui lòng thử lại.");
-      }
-
-      setAppointment((prev) => ({
-        ...prev,
-        status: "Cancelled",
-        cancellationReason: reason.trim(),
-      }));
-      setShowCancel(false);
-      setCancelSuccess(true);
-    } catch (error) {
-      console.error("Lỗi cancel appointment:", error);
-      setCancelError(error.message);
+      setAppointment(await api(`/api/appointments/${id}`));
+      setError("");
+    } catch (e) {
+      setError(e.message);
     } finally {
-      setCancelling(false);
+      setLoading(false);
+    }
+  }, [id]);
+  useEffect(() => { load(); }, [load]);
+
+  const run = async (key, action, message) => {
+    setBusy(key);
+    setError("");
+    try {
+      const result = await action();
+      setNotice(typeof message === "function" ? message(result) : message);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy("");
     }
   };
 
-  if (loading) {
-    return (
-      <Container className="mt-5 text-center">
-        <Spinner animation="border" />
-        <p className="mt-2">Đang tải thông tin lịch hẹn...</p>
-      </Container>
-    );
-  }
+  const cancel = () =>
+    run("cancel", () => put(`/api/appointments/${id}/cancel`, { reason: reason.trim() }), (r) => {
+      setShowCancel(false);
+      return r?.refundRequired
+        ? "Đã hủy lịch hẹn. Hóa đơn đã thanh toán sẽ được quản lý xử lý hoàn tiền."
+        : "Đã hủy lịch hẹn.";
+    });
 
-  if (error) {
-    return (
-      <Container className="mt-4">
-        <Alert variant="danger">{error}</Alert>
+  const payOnline = () =>
+    run("pay", async () => {
+      const r = await post("/api/payments/vnpay/create", { invoiceId: appointment.invoice.invoiceId });
+      window.location.assign(r.paymentUrl);
+    }, "Đang chuyển sang VNPay...");
 
-        <Button variant="secondary" onClick={() => navigate("/appointments")}>
-          Quay lại danh sách
-        </Button>
-      </Container>
-    );
-  }
-
-  if (!appointment) {
+  if (loading && !appointment)
+    return <div className="text-center py-5"><Spinner animation="border" variant="danger" /><p className="text-muted mt-2">Đang tải lịch hẹn...</p></div>;
+  if (!appointment)
     return (
       <Container className="mt-4">
-        <Alert variant="warning">Không tìm thấy lịch hẹn.</Alert>
-
-        <Button variant="secondary" onClick={() => navigate("/appointments")}>
-          Quay lại danh sách
-        </Button>
+        <Alert variant="warning">{error || "Không tìm thấy lịch hẹn."}</Alert>
+        <Button variant="secondary" onClick={() => navigate("/appointments")}>Quay lại danh sách</Button>
       </Container>
     );
-  }
 
-  const canModify =
-    appointment.status === "Pending" ||
-    appointment.status === "Booked" ||
-    appointment.status === "Confirmed";
+  const actions = appointment.actions || [];
+  const lines = appointment.services || [];
+  const invoice = appointment.invoice;
+  const isCustomer = user?.role === "Customer";
+  const canPayOnline = isCustomer && invoice?.status === "Unpaid" && Number(invoice.totalAmount) > 0
+    && appointment.canPayOnline !== false;
 
   return (
     <Container className="mt-4 appointment-detail-page">
@@ -222,34 +85,33 @@ const AppointmentDetails = ({ user }) => {
         <div>
           <div className="appointment-detail-eyebrow">LỊCH HẸN · #{appointment.appointmentId}</div>
           <h1>Chi tiết lịch hẹn</h1>
-          <p>Thông tin dịch vụ và thời gian đặt hẹn</p>
+          <p>{lines.length} dịch vụ · {viDate(appointment.appointmentDate)} · {time5(appointment.startTime)}–{time5(appointment.endTime)}</p>
         </div>
         <Button variant="light" className="appointment-detail-back" onClick={() => navigate("/appointments")}>
-          <i className="bi bi-arrow-left"></i>
-          Quay lại danh sách
+          <i className="bi bi-arrow-left"></i> Quay lại danh sách
         </Button>
       </div>
 
-      {user?.role === "Customer" && (
-        <>
-          {location.state?.bookingCreated && appointment.status === "Pending" && (
-            <Alert variant="success" role="status">
-              Đã gửi yêu cầu đặt lịch #{appointment.appointmentId}. Theo dõi
-              trạng thái bên dưới để biết khi lễ tân xác nhận.
-            </Alert>
-          )}
-          {appointment.status === "Pending" && <BookingPaymentNotice
-            packageBooking={Boolean(appointment.customerPackageId)}
-          />}
-        </>
+      {payment === "success" && <Alert variant="success">Thanh toán VNPay thành công.</Alert>}
+      {payment === "failed" && <Alert variant="warning">Thanh toán VNPay không thành công. Lịch hẹn chuyển sang thanh toán tại quầy.</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+      {!isCustomer && appointment.timingNote && (
+        <Alert variant={/Quá hạn|Trễ/.test(appointment.timingNote) ? "warning" : "light"} className="py-2">
+          <i className="bi bi-clock-history me-1"></i> {appointment.timingNote}
+          {appointment.timingNote === "Quá hạn xác nhận" && " – lịch sẽ tự hủy theo BR-09. Có thể đổi sang giờ khác rồi xác nhận."}
+          {appointment.timingNote === "Trễ quá 15 phút" && " – không check-in được nữa; đánh dấu Không đến hoặc đổi lịch (BR-10)."}
+        </Alert>
       )}
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {isCustomer && appointment.status === "Pending" && <BookingPaymentNotice packageBooking={lines.every((l) => l.customerPackageId)} />}
+
       <Card className="appointment-detail-card">
         <Card.Header className="appointment-detail-card-header">
           <div>
             <span className="appointment-detail-label">MÃ LỊCH HẸN</span>
             <strong>#{appointment.appointmentId}</strong>
           </div>
-          {getStatusBadge(appointment.status)}
+          <AppointmentStatusBadge status={appointment.status} />
         </Card.Header>
 
         <Card.Body className="appointment-detail-card-body">
@@ -257,51 +119,70 @@ const AppointmentDetails = ({ user }) => {
             <div className="appointment-detail-icon"><i className="bi bi-stars"></i></div>
             <div>
               <span className="appointment-detail-label">DỊCH VỤ</span>
-              <h2>{appointment.serviceName}</h2>
+              <h2>{lines.map((l) => l.serviceName).join(" → ")}</h2>
             </div>
           </section>
 
-          <AppointmentServices appointment={appointment} role={user?.role} onLoaded={setServiceLines} />
+          <div className="table-responsive mb-4">
+            <Table className="align-middle mb-0 manager-list-table">
+              <thead className="table-light">
+                <tr>
+                  <th>#</th><th>Dịch vụ</th><th>Giờ</th><th>Kỹ thuật viên</th><th>Phòng / giường</th><th>Thanh toán</th><th>Trạng thái</th>
+                  {isCustomer && appointment.status === "Completed" && <th>Đánh giá</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((l) => (
+                  <tr key={l.appointmentServiceId}>
+                    <td>{l.lineNo}</td>
+                    <td className="fw-semibold">{l.serviceName}<small className="d-block text-muted">{l.duration} phút · {label(l.requiredRoomType)}</small></td>
+                    <td>{time5(l.startTime)}–{time5(l.endTime)}</td>
+                    <td>{l.technicianName || <span className="text-muted">Phân công khi check-in</span>}{l.isRequestedTechnician ? <Badge bg="info" className="ms-1">Khách yêu cầu</Badge> : null}</td>
+                    <td>{l.roomName ? `${l.roomName} · ${l.bedNumber}` : <span className="text-muted">—</span>}</td>
+                    <td>{l.customerPackageId ? <Badge bg="success">Gói {l.packageName}</Badge> : money(l.unitPrice)}</td>
+                    <td><Badge bg={lineBadge[l.status] || "secondary"}>{label(l.status)}</Badge></td>
+                    {isCustomer && appointment.status === "Completed" && (
+                      <td>
+                        {Number(l.feedbackCount) > 0 ? (
+                          <Button size="sm" variant="link" onClick={() => navigate("/my-feedback")}>Xem đánh giá</Button>
+                        ) : (
+                          <Button size="sm" variant="outline-danger" onClick={() => navigate(`/feedback/new?appointmentServiceId=${l.appointmentServiceId}`)}>Đánh giá</Button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
 
           <div className="appointment-detail-grid">
             <section className="appointment-detail-section">
-              <h3><i className="bi bi-calendar2-week"></i> Thời gian</h3>
+              <h3><i className="bi bi-person-vcard"></i> Khách hàng</h3>
               <div className="appointment-detail-fields">
-                <div className="appointment-detail-field">
-                  <span>Ngày hẹn</span>
-                  <strong>{appointment.appointmentDate}</strong>
-                </div>
-                <div className="appointment-detail-field">
-                  <span>Thời gian</span>
-                  <strong>{String(appointment.startTime || "").slice(0, 5)} – {String(appointment.endTime || "").slice(0, 5)}</strong>
-                </div>
+                <div className="appointment-detail-field"><span>Họ tên</span><strong>{appointment.customerName}</strong></div>
+                <div className="appointment-detail-field"><span>Điện thoại</span><strong>{appointment.customerPhone}</strong></div>
+                <div className="appointment-detail-field"><span>Hạng thành viên</span><strong>{appointment.tierName}</strong></div>
+                {!isCustomer && (appointment.allergies || appointment.skinCondition) && (
+                  <div className="appointment-detail-field">
+                    <span>Lưu ý sức khỏe</span>
+                    <strong className="text-danger">{[appointment.skinCondition, appointment.allergies && `Dị ứng: ${appointment.allergies}`].filter(Boolean).join(" · ")}</strong>
+                  </div>
+                )}
               </div>
             </section>
 
             <section className="appointment-detail-section">
-              <h3><i className="bi bi-person-vcard"></i> Thông tin phục vụ</h3>
-              <div className="appointment-detail-fields">
-                <div className="appointment-detail-field">
-                  <span>Khách hàng</span>
-                  <strong>{appointment.customerName || "—"}</strong>
+              <h3><i className="bi bi-receipt"></i> Hóa đơn</h3>
+              {invoice ? (
+                <div className="appointment-detail-fields">
+                  <div className="appointment-detail-field"><span>Mã hóa đơn</span><strong>#{invoice.invoiceId} · {label(invoice.status)}</strong></div>
+                  <div className="appointment-detail-field"><span>Tạm tính</span><strong>{money(invoice.subtotal)}</strong></div>
+                  <div className="appointment-detail-field"><span>Giảm giá</span><strong>{money(invoice.totalDiscount)}</strong></div>
+                  <div className="appointment-detail-field"><span>Phải thanh toán</span><strong className="text-danger">{money(invoice.totalAmount)}</strong></div>
+                  <div className="appointment-detail-field"><span>Hình thức</span><strong>{label(appointment.paymentChoice)}</strong></div>
                 </div>
-                <div className="appointment-detail-field">
-                  <span>Nhân viên</span>
-                  <strong>
-                    {(serviceLines.length > 1
-                      ? joinUnique(serviceLines.flatMap((line) => (line.staff || []).map((s) => s.fullName)))
-                      : appointment.staffName) || "Chưa phân công"}
-                  </strong>
-                </div>
-                <div className="appointment-detail-field">
-                  <span>Phòng</span>
-                  <strong>
-                    {(serviceLines.length > 1
-                      ? joinUnique(serviceLines.map((line) => line.roomName))
-                      : appointment.roomName) || "Chưa phân phòng"}
-                  </strong>
-                </div>
-              </div>
+              ) : <p className="text-muted mb-0">Chưa có hóa đơn.</p>}
             </section>
           </div>
 
@@ -310,132 +191,88 @@ const AppointmentDetails = ({ user }) => {
             <p>{appointment.notes || "Không có ghi chú cho lịch hẹn này."}</p>
           </section>
 
-          {cancelSuccess && <Alert variant="success" className="mt-4 mb-0" role="status">Đã hủy lịch hẹn thành công.</Alert>}
           {appointment.cancellationReason && (
-            <Alert variant="light" className="appointment-detail-cancellation mb-0">
+            <Alert variant="light" className="appointment-detail-cancellation">
               <strong>Lý do hủy:</strong> {appointment.cancellationReason}
             </Alert>
           )}
-          {cancelError && !showCancel && <Alert variant="danger" className="mt-4 mb-0">{cancelError}</Alert>}
 
-          {canModify && (
+          {(actions.length > 0 || canPayOnline) && (
             <div className="appointment-detail-actions">
-                <Button
-                  className="appointment-detail-reschedule"
-                onClick={() => navigate(`/appointments/${appointment.appointmentId}/reschedule`)}
-              >
-                <i aria-hidden="true" className="bi bi-calendar-event"></i>
-                Đổi lịch
-              </Button>
-              <Button
-                variant="outline-danger"
-                onClick={() => { setCancelError(""); setShowCancel(true); }}
-                disabled={cancelling}
-              >
-                {cancelling ? (
-                  <><Spinner size="sm" className="me-2" />Đang hủy...</>
-                ) : (
-                  <><i aria-hidden="true" className="bi bi-x-circle"></i>Hủy lịch</>
-                )}
-              </Button>
+              {actions.includes("confirm") && (
+                <Button disabled={!!busy} onClick={() => run("confirm", () => put(`/api/appointments/${id}/confirm`, {}), "Đã xác nhận lịch hẹn.")}>
+                  <i className="bi bi-check2-circle"></i> Xác nhận lịch
+                </Button>
+              )}
+              {actions.includes("checkin") && (
+                <Button variant="success" onClick={() => navigate(`/receptionist/coordination?appointmentId=${id}`)}>
+                  <i className="bi bi-door-open"></i> Check-in & phân công
+                </Button>
+              )}
+              {actions.includes("serviceStatus") && (
+                <Button variant="success" onClick={() => navigate("/treatment-status")}>
+                  <i className="bi bi-play-circle"></i> Cập nhật trạng thái dịch vụ
+                </Button>
+              )}
+              {canPayOnline && (
+                <Button variant="outline-primary" disabled={!!busy} onClick={payOnline}>
+                  <i className="bi bi-credit-card"></i> Thanh toán VNPay {money(invoice.totalAmount)}
+                </Button>
+              )}
+              {actions.includes("reschedule") && (
+                <Button className="appointment-detail-reschedule" onClick={() => navigate(`/appointments/${id}/reschedule`)}>
+                  <i className="bi bi-calendar-event"></i> Đổi lịch
+                </Button>
+              )}
+              {actions.includes("noShow") && (
+                <Button variant="outline-dark" disabled={!!busy} onClick={() => run("noshow", () => put(`/api/appointments/${id}/no-show`, {}), "Đã đánh dấu khách không đến.")}>
+                  <i className="bi bi-person-x"></i> Khách không đến
+                </Button>
+              )}
+              {actions.includes("cancel") && (
+                <Button variant="outline-danger" disabled={!!busy} onClick={() => { setReason(""); setShowCancel(true); }}>
+                  <i className="bi bi-x-circle"></i> Hủy lịch
+                </Button>
+              )}
             </div>
           )}
         </Card.Body>
       </Card>
 
-      <Modal show={showCancel} onHide={() => { if (!cancelling) setShowCancel(false); }} centered backdrop={cancelling ? "static" : true} keyboard={!cancelling} aria-labelledby="cancel-title">
-        <Modal.Header closeButton={!cancelling}><Modal.Title id="cancel-title">Hủy lịch hẹn #{appointment.appointmentId}</Modal.Title></Modal.Header>
-        <Form onSubmit={event => { event.preventDefault(); handleCancel(); }}>
-          <Modal.Body>
-            <p>Bạn muốn hủy lịch {appointment.serviceName} ngày {appointment.appointmentDate} lúc {String(appointment.startTime || '').slice(0, 5)}?</p>
-            <Form.Group controlId="cancel-reason">
-              <Form.Label>Lý do hủy <span aria-hidden="true">*</span></Form.Label>
-              <Form.Control as="textarea" rows={3} required maxLength={500} value={reason} onChange={e => setReason(e.target.value)} disabled={cancelling} autoFocus />
-            </Form.Group>
-            {cancelError && <Alert variant="danger" className="mt-3 mb-0" role="alert">{cancelError}</Alert>}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="outline-secondary" disabled={cancelling} onClick={() => setShowCancel(false)}>Giữ lịch hẹn</Button>
-            <Button variant="danger" type="submit" disabled={cancelling || !reason.trim()}>{cancelling ? "Đang hủy…" : "Xác nhận hủy"}</Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
-
-      {/* ============== PHẦN ĐÁNH GIÁ - chỉ hiển thị khi Completed ============== */}
-      {appointment.status === "Completed" && (
-        <Card className="appointment-feedback-card">
-          <Card.Header className="appointment-feedback-header">
-            <i className="bi bi-chat-quote-fill me-2 text-danger"></i>
-            Đánh giá từ khách hàng
-            {feedback && (
-              <Badge bg="warning" text="dark" className="ms-2">
-                {feedback.rating} / 5
-              </Badge>
-            )}
-          </Card.Header>
+      {appointment.history?.length > 0 && (
+        <Card className="appointment-detail-card mt-4">
+          <Card.Header className="appointment-detail-card-header"><strong>Lịch sử trạng thái</strong></Card.Header>
           <Card.Body>
-            {feedbackLoading ? (
-              <div className="text-center py-3">
-                <Spinner animation="border" size="sm" />
-                <span className="ms-2 text-muted">Đang tải đánh giá...</span>
-              </div>
-            ) : feedback ? (
-              <div>
-                <div className="d-flex align-items-center mb-3">
-                  <div
-                    className="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center me-3"
-                    style={{
-                      width: "44px",
-                      height: "44px",
-                      fontSize: "18px",
-                      fontWeight: "bold",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {(feedback.customerName || feedback.fullName || "K")
-                      .charAt(0)
-                      .toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="fw-bold">
-                      {feedback.customerName ||
-                        feedback.fullName ||
-                        "Khách hàng"}
-                    </div>
-                    <small className="text-muted">
-                      {formatFeedbackDate(feedback.createdAt)}
-                    </small>
-                  </div>
-                  <div className="ms-auto">{renderStars(feedback.rating)}</div>
-                </div>
-
-                <p
-                  className="mb-0 text-dark"
-                  style={{
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    padding: "12px 16px",
-                    backgroundColor: "#f8f9fa",
-                    borderRadius: "8px",
-                    borderLeft: "4px solid #dc3545",
-                  }}
-                >
-                  {feedback.comment || (
-                    <em className="text-muted">
-                      (Khách hàng không để lại bình luận)
-                    </em>
-                  )}
-                </p>
-              </div>
-            ) : (
-              <Alert variant="secondary" className="mb-0">
-                <i className="bi bi-info-circle me-2"></i>
-                Lịch hẹn này chưa có đánh giá từ khách hàng.
-              </Alert>
-            )}
+            <ul className="list-unstyled mb-0">
+              {appointment.history.map((h, i) => (
+                <li key={i} className="mb-2">
+                  <small className="text-muted">{String(h.changedAt).slice(0, 16).replace("T", " ")}</small>{" · "}
+                  {h.oldStatus ? `${appointmentStatusLabel(h.oldStatus)} → ` : ""}<strong>{appointmentStatusLabel(h.newStatus)}</strong>
+                  {h.reason ? ` · ${h.reason}` : ""}
+                </li>
+              ))}
+            </ul>
           </Card.Body>
         </Card>
       )}
+
+      <Modal show={showCancel} onHide={() => !busy && setShowCancel(false)} centered>
+        <Modal.Header closeButton={!busy}><Modal.Title>Hủy lịch hẹn #{id}</Modal.Title></Modal.Header>
+        <Form onSubmit={(e) => { e.preventDefault(); cancel(); }}>
+          <Modal.Body>
+            <p>Bạn muốn hủy lịch ngày {viDate(appointment.appointmentDate)} lúc {time5(appointment.startTime)}?</p>
+            {invoice?.status === "Paid" && <Alert variant="info">Hóa đơn đã thanh toán sẽ được quản lý duyệt hoàn tiền.</Alert>}
+            <Form.Group>
+              <Form.Label>Lý do hủy *</Form.Label>
+              <Form.Control as="textarea" rows={3} required maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
+            </Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="outline-secondary" disabled={!!busy} onClick={() => setShowCancel(false)}>Giữ lịch hẹn</Button>
+            <Button variant="danger" type="submit" disabled={!!busy || !reason.trim()}>{busy === "cancel" ? "Đang hủy…" : "Xác nhận hủy"}</Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
     </Container>
   );
 };

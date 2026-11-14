@@ -1,4 +1,3 @@
-// MỘT bảng trạng thái lịch hẹn duy nhất: mọi trang dùng chung nhãn và màu này.
 export const APPOINTMENT_STATUS = {
   Pending: { bg: "warning", text: "dark", label: "Chờ xác nhận" },
   Confirmed: { bg: "success", label: "Đã xác nhận" },

@@ -1,352 +1,82 @@
 package bssms_controller.KhanhND;
 
 import bssms_controller.common.*;
-import bssms_persistence.common.DataAccessException;
-
-import java.io.IOException;
-import bssms_booking.Appointment;
-import java.io.PrintWriter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import com.google.gson.JsonObject;
-import java.sql.SQLException;
-import com.google.gson.Gson;
-
 import bssms_persistence.KhanhND.AppointmentDAO;
-public class AppointmentController extends ControllerSupport {
+import bssms_persistence.KhanhLTQ.AppointmentStatusDAO;
+import bssms_persistence.common.BookingWorkflow;
+import com.google.gson.*;
+import java.util.*;
 
+public class AppointmentController extends ControllerSupport {
     private final Gson gson = new Gson();
 
-    public void get(ActionRequest request,
-            ActionResult response)
-            throws IOException {
-        bind(request);
+    private static Integer optionalInt(String value) {
+        return value == null || value.isBlank() ? null : Integer.valueOf(value.trim());
+    }
+    private static String text(JsonObject o, String key) {
+        return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString() : null;
+    }
+    public static List<BookingWorkflow.LineInput> lines(JsonObject o) {
+        if (!o.has("services") || !o.get("services").isJsonArray()) {
+            if (o.has("serviceId")) return Collections.singletonList(new BookingWorkflow.LineInput(o.get("serviceId").getAsInt(),
+                    o.has("customerPackageId") && !o.get("customerPackageId").isJsonNull() ? o.get("customerPackageId").getAsInt() : null));
+            return null;
+        }
+        List<BookingWorkflow.LineInput> result = new ArrayList<>();
+        for (JsonElement e : o.getAsJsonArray("services")) {
+            JsonObject l = e.getAsJsonObject();
+            result.add(new BookingWorkflow.LineInput(l.get("serviceId").getAsInt(),
+                    l.has("customerPackageId") && !l.get("customerPackageId").isJsonNull() ? l.get("customerPackageId").getAsInt() : null));
+        }
+        return result;
+    }
 
+    public void get(ActionRequest request, ActionResult response) throws Exception {
+        bind(request);
         AppointmentDAO dao = use(new AppointmentDAO());
-
-        String pathInfo = request.pathInfo();
-
-        if("/technicians".equals(pathInfo)){response.writer().write(gson.toJson(dao.bookingTechnicians()));return;}
-        // GET /api/appointments
-        if (pathInfo == null || pathInfo.equals("/")) {
-
-            List<Appointment> appointmentList = dao.getAllAppointmentDetails();
-
-            String jsonString = gson.toJson(appointmentList);
-
-            PrintWriter out = response.writer();
-            out.print(jsonString);
-            out.flush();
-
-            return;
-        }
-
-        try {
-
-            int appointmentId = Integer.parseInt(pathInfo.substring(1));
-
-            Appointment appointment = dao.getAppointmentDetails(appointmentId);
-
-            if (appointment != null) {
-
-                String jsonString = gson.toJson(appointment);
-
-                PrintWriter out = response.writer();
-                out.print(jsonString);
-                out.flush();
-
-            } else {
-
-                response.status(404);
-
-                Map<String, String> error = new HashMap<>();
-                error.put("message", "Không tìm thấy lịch hẹn");
-
-                PrintWriter out = response.writer();
-                out.print(gson.toJson(error));
-                out.flush();
-            }
-
-        } catch (NumberFormatException e) {
-
-            response.status(400);
-
-            Map<String, String> error = new HashMap<>();
-            error.put("message", "Appointment ID không hợp lệ");
-
-            PrintWriter out = response.writer();
-            out.print(gson.toJson(error));
-            out.flush();
-        }
+        String path = request.pathInfo();
+        Object data;
+        if ("/technicians".equals(path)) data = dao.bookingTechnicians();
+        else if (path == null || "/".equals(path))
+            data = dao.list(blank(request.parameter("date")), blank(request.parameter("status")), optionalInt(request.parameter("technicianId")));
+        else data = dao.detail(Integer.parseInt(path.substring(1)));
+        response.writer().print(gson.toJson(data));
     }
 
-    public void post(
-            ActionRequest request,
-            ActionResult response)
-            throws IOException {
+    public void post(ActionRequest request, ActionResult response) throws Exception {
         bind(request);
-
-        // Only POST /api/appointments is supported.
-        String pathInfo = request.pathInfo();
-
-        if (pathInfo != null && !pathInfo.equals("/")) {
-            response.status(404);
-            response.writer().write(
-                    "{\"message\":\"Appointment endpoint not found.\"}");
-            return;
-        }
-
-        try {
-            JsonObject data = gson.fromJson(
-                    request.bodyReader(), JsonObject.class);
-
-            // Validate required fields.
-            if (data == null
-                    || !data.has("customerId")
-                    || data.get("customerId").isJsonNull()
-                    || !data.has("serviceId")
-                    || data.get("serviceId").isJsonNull()
-                    || !data.has("appointmentDate")
-                    || data.get("appointmentDate").isJsonNull()
-                    || !data.has("startTime")
-                    || data.get("startTime").isJsonNull()) {
-
-                response.status(
-                        400);
-
-                response.writer().write(
-                        "{\"message\":\"Please provide customer, service, date and start time.\"}");
-                return;
-            }
-
-            int customerId = data.get("customerId").getAsInt();
-            int serviceId = data.get("serviceId").getAsInt();
-
-            String appointmentDate
-                    = data.get("appointmentDate").getAsString();
-
-            String startTime
-                    = data.get("startTime").getAsString();
-
-            Integer technicianId = null;
-
-            if (data.has("technicianId")
-                    && !data.get("technicianId").isJsonNull()
-                    && !data.get("technicianId").getAsString().isBlank()) {
-
-                technicianId = data.get("technicianId").getAsInt();
-
-                if (technicianId <= 0) {
-                    technicianId = null;
-                }
-            }
-
-            Integer customerPackageId = null;
-
-            if (data.has("customerPackageId")
-                    && !data.get("customerPackageId").isJsonNull()
-                    && !data.get("customerPackageId").getAsString().isBlank()) {
-
-                customerPackageId
-                        = data.get("customerPackageId").getAsInt();
-            }
-
-            String notes = null;
-
-            if (data.has("notes") && !data.get("notes").isJsonNull()) {
-                notes = data.get("notes").getAsString();
-            }
-
-            AppointmentDAO dao = use(new AppointmentDAO());
-
-            Appointment result
-                    = dao.createWalkInAppointment(
-                            customerId,
-                            serviceId,
-                            customerPackageId,
-                            appointmentDate,
-                            startTime,
-                            technicianId,
-                            notes);
-
-            response.status(201);
-            response.writer().write(gson.toJson(result));
-
-        } catch (IllegalArgumentException e) {
-
-            response.status(400);
-
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-
-            response.writer().write(gson.toJson(error));
-
-        } catch (IllegalStateException e) {
-
-            response.status(409);
-
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-
-            response.writer().write(gson.toJson(error));
-
-        } catch (SQLException e) {
-
-            response.status(
-                    500);
-
-            response.writer().write(
-                    "{\"message\":\"A database error occurred while creating the appointment.\"}");
-
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-            InputValidation.rethrowIfInvalid(e);
-
-            response.status(
-                    400);
-
-            response.writer().write(
-                    "{\"message\":\"Invalid appointment data.\"}");
-        }
+        JsonObject o = JsonParser.parseReader(request.bodyReader()).getAsJsonObject();
+        AppointmentDAO dao = use(new AppointmentDAO());
+        int id = dao.createAtCounter(o.get("customerId").getAsInt(), lines(o), text(o, "appointmentDate"), text(o, "startTime"),
+                o.has("technicianId") && !o.get("technicianId").isJsonNull() ? o.get("technicianId").getAsInt() : null,
+                text(o, "paymentChoice"), text(o, "notes"));
+        response.status(201);
+        response.writer().print(gson.toJson(Map.of("appointmentId", id, "message", "Đã tạo lịch hẹn (Đã xác nhận).")));
     }
 
-    public void put(
-            ActionRequest request,
-            ActionResult response)
-            throws IOException {
+    public void put(ActionRequest request, ActionResult response) throws Exception {
         bind(request);
-
-        String pathInfo = request.pathInfo();
-
-        try {
-
-            if (pathInfo == null || pathInfo.equals("/")) {
-
-                response.status(
-                        400
-                );
-
-                response.writer().write(
-                        "{\"message\":\"Appointment ID không hợp lệ\"}"
-                );
-
-                return;
-            }
-
-            String[] pathParts = pathInfo.split("/");
-
-            if (pathParts.length == 2) {
-
-                int appointmentId = Integer.parseInt(pathParts[1]);
-
-                Appointment data = gson.fromJson(
-                        request.bodyReader(),
-                        Appointment.class
-                );
-
-                String appointmentDate = data.getAppointmentDate();
-                String startTime = data.getStartTime();
-                String endTime = data.getEndTime();
-
-                AppointmentDAO dao = use(new AppointmentDAO());
-
-                boolean success = dao.rescheduleAppointment(
-                        appointmentId,
-                        appointmentDate,
-                        startTime,
-                        endTime
-                );
-
-                if (success) {
-
-                    response.status(
-                            200
-                    );
-
-                    response.writer().write(
-                            "{\"message\":\"Reschedule appointment thành công\"}"
-                    );
-
-                } else {
-
-                    response.status(
-                            404
-                    );
-
-                    response.writer().write(
-                            "{\"message\":\"Không tìm thấy appointment\"}"
-                    );
-                }
-
-                return;
-            }
-
-            if (pathParts.length == 3
-                    && pathParts[2].equals("cancel")) {
-
-                int appointmentId = Integer.parseInt(pathParts[1]);
-
-                AppointmentDAO dao = use(new AppointmentDAO());
-
-                JsonObject cancelData=gson.fromJson(request.bodyReader(),JsonObject.class);
-                if(cancelData==null || !cancelData.has("reason")) throw new IllegalArgumentException("Cancellation reason required.");
-                boolean success = dao.cancelAppointment(appointmentId,cancelData.get("reason").getAsString());
-
-                if (success) {
-
-                    response.status(
-                            200
-                    );
-
-                    response.writer().write(
-                            "{\"message\":\"Cancel appointment thành công\"}"
-                    );
-
-                } else {
-
-                    response.status(
-                            400
-                    );
-
-                    response.writer().write(
-                            "{\"message\":\"Không thể cancel appointment\"}"
-                    );
-                }
-
-                return;
-            }
-
-            response.status(
-                    400
-            );
-
-            response.writer().write(
-                    "{\"message\":\"URL appointment không hợp lệ\"}"
-            );
-
-        } catch (NumberFormatException e) {
-
-            response.status(
-                    400
-            );
-
-            response.writer().write(
-                    "{\"message\":\"Appointment ID không hợp lệ\"}"
-            );
-
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-            InputValidation.rethrowIfInvalid(e);
-
-            response.status(
-                    500
-            );
-
-            response.writer().write(
-                    "{\"message\":\"Lỗi khi xử lý appointment\"}"
-            );
+        String[] parts = request.pathInfo() == null ? new String[0] : request.pathInfo().split("/");
+        if (parts.length < 3) { response.error(404, "Không tìm thấy thao tác."); return; }
+        int id = Integer.parseInt(parts[1]);
+        String action = parts[2];
+        String body = new java.io.BufferedReader(request.bodyReader()).lines().reduce("", String::concat);
+        JsonObject o = body.isBlank() ? new JsonObject() : JsonParser.parseString(body).getAsJsonObject();
+        AppointmentDAO dao = use(new AppointmentDAO());
+        Object result;
+        switch (action) {
+            case "confirm": use(new AppointmentStatusDAO()).confirm(id);
+                result = Map.of("message", "Đã xác nhận lịch hẹn."); break;
+            case "cancel": result = dao.cancel(id, text(o, "reason")); break;
+            case "no-show": use(new AppointmentStatusDAO()).noShow(id);
+                result = Map.of("message", "Đã đánh dấu khách không đến."); break;
+            case "reschedule":
+                dao.reschedule(id, lines(o), text(o, "appointmentDate"), text(o, "startTime"), text(o, "reason"));
+                result = Map.of("message", "Đã đổi lịch hẹn."); break;
+            default: response.error(404, "Không tìm thấy thao tác."); return;
         }
+        response.writer().print(gson.toJson(result));
     }
+
+    private static String blank(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 }

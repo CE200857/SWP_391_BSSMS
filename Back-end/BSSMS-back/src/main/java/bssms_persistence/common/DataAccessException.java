@@ -1,6 +1,5 @@
 package bssms_persistence.common;
 
-/** Preserves SQL causes for the HTTP boundary without exposing details to the browser. */
 public final class DataAccessException extends RuntimeException {
     public DataAccessException(String message) { super(message); }
     public DataAccessException(Throwable cause) { super("Database operation failed",cause); }

@@ -12,9 +12,9 @@ export default function TermsOfUse() {
       </InfoSection>
       <InfoSection title="2. Đặt lịch, đổi và hủy lịch">
         <ul>
-          <li>Lịch hẹn nằm trong giờ làm việc 08:30–18:30 và chỉ được xác nhận khi còn kỹ thuật viên, phòng và thiết bị phù hợp.</li>
-          <li>Bạn đổi lịch trước khi check-in và hủy lịch khi lịch còn \"Chờ xác nhận\" hoặc \"Đã xác nhận\", kèm lý do.</li>
-          <li>Lịch quá giờ mà bạn không đến được ghi nhận là \"Không đến\".</li>
+          <li>Lịch hẹn nằm trong giờ làm việc 08:30–18:30 và chỉ được xác nhận khi còn kỹ thuật viên có kỹ năng phù hợp và giường đúng loại phòng. Mỗi lịch gồm 1–4 dịch vụ làm liên tiếp.</li>
+          <li>Lịch online đặt trước ít nhất 2 tiếng, tối đa 30 ngày. Bạn đổi hoặc hủy lịch trước giờ hẹn ít nhất 2 tiếng, kèm lý do.</li>
+          <li>Đến trễ quá 15 phút, lịch có thể được ghi nhận là \"Không đến\" và không được hoàn tiền.</li>
           <li>Vui lòng khai báo đúng tình trạng da và dị ứng để kỹ thuật viên tư vấn và thực hiện an toàn.</li>
         </ul>
       </InfoSection>
@@ -29,14 +29,14 @@ export default function TermsOfUse() {
         <ul>
           <li>Chấp nhận tiền mặt, chuyển khoản tại quầy và thanh toán trực tuyến qua VNPay.</li>
           <li>Hóa đơn không bị xóa; việc hủy hóa đơn và hoàn tiền do quản lý xem xét và thực hiện.</li>
-          <li>Ưu đãi hạng thành viên, voucher và ưu đãi sinh nhật áp dụng theo điều kiện, hạn dùng và số lần dùng của từng ưu đãi; ưu đãi giảm giá theo hạng không áp dụng cho gói liệu trình.</li>
+          <li>Ưu đãi hạng thành viên được trừ trước, voucher áp dụng sau; tổng giảm tối đa 50% giá trị hóa đơn. Thanh toán VNPay có hiệu lực 15 phút.</li>
         </ul>
       </InfoSection>
       <InfoSection title="5. Đánh giá của khách hàng">
         <p>Bạn chỉ đánh giá những dịch vụ mình đã hoàn thành. Nội dung đánh giá cần trung thực, không chứa lời lẽ xúc phạm hoặc thông tin sai sự thật; Seoul Center có thể ẩn đánh giá vi phạm.</p>
       </InfoSection>
       <InfoSection title="6. Trách nhiệm">
-        <p>Kết quả chăm sóc có thể khác nhau tùy cơ địa mỗi người. Seoul Center nỗ lực cung cấp dịch vụ và thông tin chính xác, nhưng không chịu trách nhiệm với thiệt hại phát sinh do thông tin bạn khai báo không đúng hoặc do sự cố ngoài tầm kiểm soát (đường truyền, cổng thanh toán, dịch vụ nhắn tin).</p>
+        <p>Kết quả chăm sóc có thể khác nhau tùy cơ địa mỗi người. Seoul Center nỗ lực cung cấp dịch vụ và thông tin chính xác, nhưng không chịu trách nhiệm với thiệt hại phát sinh do thông tin bạn khai báo không đúng hoặc do sự cố ngoài tầm kiểm soát (đường truyền, cổng thanh toán, dịch vụ gửi email).</p>
       </InfoSection>
       <InfoSection title="7. Thay đổi điều khoản">
         <p>Điều khoản có thể được cập nhật khi dịch vụ hoặc quy định thay đổi. Việc tiếp tục sử dụng hệ thống sau khi cập nhật được hiểu là bạn đồng ý với nội dung mới.</p>

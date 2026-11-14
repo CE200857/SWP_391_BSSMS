@@ -8,7 +8,6 @@ export function roleHome(role) {
 }
 
 export function loginDestination(role, from) {
-  // Only resume local application routes. Route guards still check the user's role.
   if (typeof from === 'string' && /^\/(slots|services|treatment-packages|appointments|customer|manager|receptionist|technician)(\/|\?|$)/.test(from)) {
     return from;
   }
@@ -25,7 +24,6 @@ export async function loginAccount(email, password, portal) {
   if (!response.ok) throw new Error(data.message || 'Đăng nhập thất bại.');
   const allowed = portal === 'staff' ? staffRoles.includes(data.role) : data.role === 'Customer';
   if (!allowed) {
-    // Login has created a server session; end it before rejecting the wrong portal.
     localStorage.removeItem('user');
     const logout = await fetch('/api/logout', { method: 'POST', credentials: 'include' });
     if (!logout.ok) throw new Error('Không thể kết thúc phiên đăng nhập. Vui lòng thử lại.');
