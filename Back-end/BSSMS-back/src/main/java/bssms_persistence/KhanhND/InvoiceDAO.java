@@ -1,105 +1,98 @@
 package bssms_persistence.KhanhND;
+
 import bssms_persistence.DBContext;
 import bssms_persistence.common.*;
-import bssms_billing.InvoiceProduct;
-import com.google.gson.*;
-import java.sql.*;
-import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.util.*;
+
 public class InvoiceDAO extends DBContext implements AutoCloseable {
-    public void close() throws SQLException {if(conn!=null) conn.close();}
-    private String scope() {return "EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " ac WHERE ac.account_id=? AND ac.status='Active' AND (ac.role IN ('Manager','Receptionist') OR (ac.role='Customer' AND c.account_id=ac.account_id)))";}
-    private String summary() {return "SELECT i.*,c.full_name AS customer_name,c.phone AS customer_phone,a.appointment_date,a.start_time,s.service_name,v.paid_amount,v.outstanding_amount,v.refunded_amount FROM Invoice i JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON c.customer_id=i.customer_id LEFT JOIN Appointment a ON a.appointment_id=i.appointment_id LEFT JOIN Service s ON s.service_id=a.service_id JOIN vw_InvoiceBalance v ON v.invoice_id=i.invoice_id WHERE ";}
-    public List<Map<String,Object>> getInvoices() throws SQLException {
-        return workflow().query(summary()+scope()+" ORDER BY i.invoice_id DESC",requireActorAccountId());
+    @Override public void close() throws SQLException { if (conn != null) conn.close(); }
+
+    private static final String SCOPE = "EXISTS(SELECT 1 FROM " + SchemaSql.ACCOUNTS + " ac WHERE ac.account_id=? AND ac.status='Active' AND (ac.role IN ('Receptionist','Manager') OR (ac.role='Customer' AND ac.customer_id=i.customer_id)))";
+
+    public List<Map<String, Object>> getInvoices(String status, String fromDate, String toDate) throws SQLException {
+        Workflow w = workflow();
+        return w.query("SELECT i.invoice_id,i.invoice_type,i.appointment_id,i.customer_id,c.full_name AS customer_name,c.phone AS customer_phone,i.invoice_date,i.subtotal,i.tier_discount,i.voucher_discount,i.total_discount,i.total_amount,i.status,i.paid_at,"
+                + "a.appointment_date,a.start_time,a.status AS appointment_status,a.payment_choice,"
+                + "(SELECT TOP 1 p.payment_method FROM Payment p WHERE p.invoice_id=i.invoice_id ORDER BY p.payment_id DESC) AS payment_method,"
+                + "(SELECT TOP 1 ip.package_name FROM InvoicePackage ip WHERE ip.invoice_id=i.invoice_id) AS package_name "
+                + "FROM Invoice i JOIN Customer c ON c.customer_id=i.customer_id LEFT JOIN Appointment a ON a.appointment_id=i.appointment_id "
+                + "WHERE " + SCOPE + " AND (? IS NULL OR i.status=?) AND CAST(i.invoice_date AS date)>=COALESCE(?,'1900-01-01') AND CAST(i.invoice_date AS date)<=COALESCE(?,'9999-12-31') "
+                + "ORDER BY i.invoice_date DESC", w.actor, status, status, fromDate, toDate);
     }
-    public Map<String,Object> getInvoiceDetails(int invoiceId) throws SQLException {
-        Workflow w=workflow(); Map<String,Object> result=new LinkedHashMap<>();
-        result.put("invoice",w.one(summary()+"i.invoice_id=? AND "+scope(),invoiceId,requireActorAccountId()));
-        result.put("payments",w.query("SELECT * FROM Payment WHERE invoice_id=?",invoiceId));
-        result.put("products",w.query("SELECT ip.*,p.product_name FROM InvoiceProduct ip JOIN Product p ON p.product_id=ip.product_id WHERE ip.invoice_id=?",invoiceId));
-        result.put("services",w.query("SELECT * FROM InvoiceService WHERE invoice_id=?",invoiceId));
-        result.put("packages",w.query("SELECT * FROM " + bssms_persistence.common.SchemaSql.PACKAGE_SALES + " InvoicePackage WHERE invoice_id=?",invoiceId));
-        result.put("refunds",w.query("SELECT r.*,p.payment_method FROM Refund r JOIN Payment p ON p.payment_id=r.payment_id WHERE p.invoice_id=?",invoiceId));
-        result.put("actions",w.query("SELECT * FROM AuditLog WHERE entity_name='Invoice' AND entity_id=CONVERT(nvarchar(100),?) ORDER BY audit_id",invoiceId));
-        return result;
+
+    public Map<String, Object> getInvoiceDetails(int invoiceId) throws SQLException {
+        Workflow w = workflow();
+        List<Map<String, Object>> rows = w.query("SELECT i.*,c.full_name AS customer_name,c.phone AS customer_phone,c.email AS customer_email,t.tier_name,t.discount_percent,v.voucher_code,v.voucher_name,"
+                + "a.appointment_date,a.start_time,a.status AS appointment_status,a.payment_choice,st.full_name AS created_by_name "
+                + "FROM Invoice i JOIN Customer c ON c.customer_id=i.customer_id JOIN MembershipTier t ON t.membership_tier_id=c.membership_tier_id "
+                + "LEFT JOIN Voucher v ON v.voucher_id=i.voucher_id LEFT JOIN Appointment a ON a.appointment_id=i.appointment_id LEFT JOIN Staff st ON st.staff_id=i.created_by_staff_id "
+                + "WHERE i.invoice_id=? AND " + SCOPE, invoiceId, w.actor);
+        if (rows.isEmpty()) throw new WorkflowException(404, "Không tìm thấy hóa đơn.");
+        Map<String, Object> invoice = new LinkedHashMap<>(rows.get(0));
+        invoice.put("services", w.query("SELECT x.invoice_service_id,x.appointment_service_id,x.service_name,x.unit_price,x.is_package_session,x.discount_amount,l.start_time,l.end_time,st.full_name AS technician_name "
+                + "FROM InvoiceService x JOIN AppointmentService l ON l.appointment_service_id=x.appointment_service_id LEFT JOIN Staff st ON st.staff_id=l.technician_id WHERE x.invoice_id=? ORDER BY l.line_no", invoiceId));
+        invoice.put("packages", w.query("SELECT ip.treatment_package_id,ip.package_name,ip.unit_price,tp.number_of_sessions,tp.validity_days FROM InvoicePackage ip JOIN TreatmentPackage tp ON tp.treatment_package_id=ip.treatment_package_id WHERE ip.invoice_id=?", invoiceId));
+        invoice.put("payments", w.query("SELECT p.payment_id,p.payment_method,p.amount,p.payment_date,p.transaction_code,p.status,st.full_name AS received_by FROM Payment p LEFT JOIN Staff st ON st.staff_id=p.received_by_staff_id WHERE p.invoice_id=? ORDER BY p.payment_id", invoiceId));
+        invoice.put("refunds", w.query("SELECT r.refund_id,r.amount,r.reason,r.status,r.created_at,r.completed_at,st.full_name AS approved_by FROM Refund r JOIN Payment p ON p.payment_id=r.payment_id LEFT JOIN Staff st ON st.staff_id=r.approved_by_staff_id WHERE p.invoice_id=? ORDER BY r.refund_id", invoiceId));
+        return invoice;
     }
-    public List<Map<String,Object>> getCompletedAppointmentsWithoutInvoice() throws SQLException {
-        workflow().roles("Receptionist","Manager");
-        return workflow().query("SELECT a.appointment_id,a.customer_id,c.full_name AS customer_name,s.service_name,s.price AS service_price,a.appointment_date,a.start_time FROM Appointment a JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON c.customer_id=a.customer_id JOIN Service s ON s.service_id=a.service_id WHERE a.status='Completed' AND a.customer_package_id IS NULL AND NOT EXISTS(SELECT 1 FROM Invoice i WHERE i.appointment_id=a.appointment_id AND i.status<>'Cancelled') ORDER BY a.appointment_date DESC");
-    }
-    public List<Map<String,Object>> getActiveProducts() throws SQLException {
-        workflow().roles("Receptionist","Manager");
-        return workflow().query("SELECT * FROM Product WHERE status='Active' AND product_type='Retail' AND stock_quantity>0");
-    }
-    public Map<String,Object> create(Integer customerId,Integer appointmentId,Integer packageId,Integer voucherId,boolean birthday,List<InvoiceProduct> products,String paymentMethod,BigDecimal received,String requestKey) throws SQLException {
-        Workflow w=workflow();w.roles("Receptionist");
-        final int customer=customerId!=null?customerId:Workflow.id(w.one("SELECT customer_id FROM Appointment WHERE appointment_id=?",appointmentId).get("customerId"));
-        JsonArray lines=new JsonArray();
-        for(InvoiceProduct product:products) {
-            if(product.getQuantity()<=0 || product.getProductId()<=0) throw new IllegalArgumentException("Invalid product quantity.");
-            JsonObject line=new JsonObject();line.addProperty("product_id",product.getProductId());line.addProperty("quantity",product.getQuantity());lines.add(line);
+
+    public List<Map<String, Object>> unpaidAppointments() throws SQLException {
+        workflow().roles("Receptionist");
+        List<Map<String, Object>> rows = workflow().query("SELECT i.invoice_id,i.appointment_id,i.total_amount,a.appointment_date,a.start_time,a.status AS appointment_status,c.full_name AS customer_name,c.phone AS customer_phone,"
+                + "(SELECT STRING_AGG(s.service_name,N', ') WITHIN GROUP (ORDER BY l.line_no) FROM AppointmentService l JOIN Service s ON s.service_id=l.service_id WHERE l.appointment_id=a.appointment_id) AS service_names "
+                + "FROM Invoice i JOIN Appointment a ON a.appointment_id=i.appointment_id JOIN Customer c ON c.customer_id=i.customer_id "
+                + "WHERE i.status='Unpaid' AND a.status IN ('Confirmed','Checked-in','In-progress','Completed') "
+                + "ORDER BY CASE WHEN a.status IN ('Checked-in','In-progress','Completed') THEN 0 ELSE 1 END,a.appointment_date,a.start_time");
+        for (Map<String, Object> r : rows) {
+            String block = Timing.collect(String.valueOf(r.get("appointmentStatus")));
+            r.put("canCollect", block == null);
+            r.put("collectNote", block);
         }
-        return w.transaction(()->{
-            String fingerprint=new Gson().toJson(Arrays.asList(customer,appointmentId,packageId,voucherId,birthday,lines,paymentMethod,received));
-            if(requestKey!=null && !requestKey.isBlank()) {
-                if(requestKey.length()>100)throw new IllegalArgumentException("requestKey is too long.");
-                List<Map<String,Object>> old=w.query("SELECT invoice_id,request_fingerprint FROM Invoice WHERE creation_request_key=?",requestKey);
-                if(!old.isEmpty()) {
-                    if(!fingerprint.equals(old.get(0).get("requestFingerprint")))throw new WorkflowException(409,"requestKey was already used for a different invoice request.");
-                    int priorId=Workflow.id(old.get(0).get("invoiceId"));
-                    return Map.of("invoiceId",priorId,"details",getInvoiceDetails(priorId));
-                }
-            }
-            int id=Workflow.id(w.call("usp_CreateInvoice",requireActorAccountId(),customer,appointmentId,packageId,lines.toString(),voucherId,birthday).get(0).get("invoiceId"));
-            if(requestKey!=null && !requestKey.isBlank())w.update("UPDATE Invoice SET creation_request_key=?,request_fingerprint=? WHERE invoice_id=?",requestKey,fingerprint,id);
-            Map<String,Object> result=new LinkedHashMap<>();result.put("invoiceId",id);
-            if(paymentMethod!=null && !paymentMethod.isBlank()) result.putAll(pay(id,paymentMethod,received,requestKey,null));
-            result.putAll(w.one("SELECT invoice_id,appointment_id,subtotal,discount,total_amount,status AS invoice_status FROM Invoice WHERE invoice_id=?",id));
-            result.put("details",getInvoiceDetails(id));return result;
+        return rows;
+    }
+
+    public Map<String, Object> applyVoucher(int invoiceId, String code) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Receptionist");
+        return w.transaction(() -> new BillingWorkflow(w).applyVoucher(invoiceId, code));
+    }
+
+    public Map<String, Object> pay(int invoiceId, String method, String voucherCode, String transactionCode) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Receptionist");
+        if ("VNPay".equals(method)) throw new IllegalArgumentException("Thanh toán VNPay được xác nhận qua cổng VNPay.");
+        return w.transaction(() -> {
+            BillingWorkflow billing = new BillingWorkflow(w);
+            billing.requireCollectible(invoiceId);
+            if (voucherCode != null) billing.applyVoucher(invoiceId, voucherCode);
+            int payment = billing.pay(invoiceId, method, transactionCode, w.staffId());
+            Map<String, Object> result = new LinkedHashMap<>(w.one("SELECT invoice_id,status,total_amount,paid_at FROM Invoice WHERE invoice_id=?", invoiceId));
+            result.put("paymentId", payment);
+            return result;
         });
     }
-    public Map<String,Object> pay(int invoiceId,String method,BigDecimal received,String requestKey,String transactionCode) throws SQLException {
-        Workflow w=workflow();w.roles("Receptionist");
-        if(!Arrays.asList("Cash","Bank Transfer").contains(method)) throw new IllegalArgumentException("Use Cash or Bank Transfer. VNPay requires a verified gateway callback.");
-        if(received==null || received.signum()<0) throw new IllegalArgumentException("Invalid payment amount.");
-        if(requestKey==null || requestKey.isBlank() || requestKey.length()>100) throw new IllegalArgumentException("requestKey is required (reuse it when retrying this payment).");
-        return w.transaction(()->{
-        // Do not recompute a cash tender after an idempotent retry.
-        List<Map<String,Object>> existing=w.query("SELECT invoice_id,payment_method,amount FROM Payment WHERE request_key=?",requestKey);
-        BigDecimal outstanding=(BigDecimal)w.one("SELECT outstanding_amount FROM vw_InvoiceBalance WHERE invoice_id=?",invoiceId).get("outstandingAmount");
-        BigDecimal amount="Cash".equals(method)?received.min(outstanding):received;
-        if(!existing.isEmpty()) {
-            Map<String,Object> old=existing.get(0);
-            if(Workflow.id(old.get("invoiceId"))!=invoiceId || !method.equals(old.get("paymentMethod"))) throw new WorkflowException(409,"requestKey belongs to a different payment.");
-            amount=(BigDecimal)old.get("amount");
-            if(received.compareTo(amount)<0 || (!"Cash".equals(method)&&received.compareTo(amount)!=0)) throw new WorkflowException(409,"Payment amount differs from original request.");
-        }
-        w.call("usp_RecordPayment",requireActorAccountId(),invoiceId,method,amount,requestKey,transactionCode);
-        Map<String,Object> result=w.one("SELECT i.invoice_id,i.status AS invoice_status,i.total_amount,v.paid_amount,v.outstanding_amount FROM Invoice i JOIN vw_InvoiceBalance v ON v.invoice_id=i.invoice_id WHERE i.invoice_id=?",invoiceId);
-        result.put("changeDue","Cash".equals(method)?received.subtract(amount):BigDecimal.ZERO);return result;
+
+    public void cancelInvoice(int invoiceId, String reason) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Manager");
+        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Vui lòng nhập lý do hủy.");
+        w.transaction(() -> { new BillingWorkflow(w).cancel(invoiceId, reason.trim(), w.staffId()); return null; });
+    }
+
+    public Map<String, Object> refundInvoice(int invoiceId, String reason) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Manager");
+        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Vui lòng nhập lý do hoàn tiền.");
+        return w.transaction(() -> {
+            boolean online = !w.query("SELECT payment_id FROM Payment WHERE invoice_id=? AND payment_method='VNPay' AND status='Success'", invoiceId).isEmpty();
+            int refund = new BillingWorkflow(w).refund(invoiceId, reason.trim(), w.staffId(), !online);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("refundId", refund);
+            result.put("status", online ? "Pending" : "Completed");
+            result.put("message", online ? "Đã tạo yêu cầu hoàn tiền VNPay." : "Đã hoàn tiền.");
+            return result;
         });
-    }
-    public Map<String,Object> refundInvoice(int invoiceId,BigDecimal amount,String reason,int accountId) throws SQLException {
-        Workflow w=workflow();w.roles("Manager");
-        BigDecimal paid=(BigDecimal)w.one("SELECT paid_amount FROM vw_InvoiceBalance WHERE invoice_id=?",invoiceId).get("paidAmount");
-        if(amount==null || amount.compareTo(paid)!=0) throw new IllegalArgumentException("Only full refunds are supported. Use the received payment total.");
-        w.call("usp_RequestFullRefund",requireActorAccountId(),invoiceId,reason,"refund-invoice-"+invoiceId);
-        return Map.of("invoiceId",invoiceId,"status","Pending","message","Refund requested. Confirm each refund after the money has actually been returned.","refunds",w.query("SELECT r.*,p.payment_method FROM Refund r JOIN Payment p ON p.payment_id=r.payment_id WHERE p.invoice_id=?",invoiceId));
-    }
-    public Map<String,Object> completeRefund(int refundId) throws SQLException {
-        workflow().roles("Manager");
-        Map<String,Object> refund=workflow().one("SELECT p.payment_method FROM Refund r JOIN Payment p ON p.payment_id=r.payment_id WHERE r.refund_id=?",refundId);
-        if("VNPay".equals(refund.get("paymentMethod"))) {
-            try(bssms_integration.VnPayRefundDAO gateway=new bssms_integration.VnPayRefundDAO()) {
-                gateway.setActorAccountId(requireActorAccountId());return gateway.process(refundId);
-            }
-        }
-        workflow().call("usp_CompleteRefund",requireActorAccountId(),refundId);
-        return workflow().one("SELECT * FROM Refund WHERE refund_id=?",refundId);
-    }
-    public Map<String,Object> cancelInvoice(int invoiceId,String reason,int accountId) throws SQLException {
-        workflow().call("usp_CancelInvoice",requireActorAccountId(),invoiceId,reason);
-        return Map.of("invoiceId",invoiceId,"status","Cancelled");
     }
 }

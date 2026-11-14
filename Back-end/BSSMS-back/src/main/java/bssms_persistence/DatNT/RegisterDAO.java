@@ -113,9 +113,6 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
         }
     }
 
-    /**
-     * table/keyCol/extra là hằng số nội bộ, không lấy từ người dùng.
-     */
     private boolean verifyOtp(bssms_persistence.common.Workflow w, String table, String keyCol, Object key,
             String purpose, String extra, Object[] extraArgs, String otp) throws java.sql.SQLException {
         String where = keyCol + "=? AND otp_purpose=? AND otp_consumed_at IS NULL AND otp_expiry_time>GETDATE()" + extra;
@@ -130,28 +127,41 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
         return w.update("UPDATE " + table + " SET otp_consumed_at=GETDATE() WHERE " + where + " AND otp_code=? AND otp_attempts<=" + OTP_MAX_ATTEMPTS, args.toArray()) == 1;
     }
 
-    // ---------- Đăng ký ----------
     public boolean saveRegistrationCode(String email, String otp) {
+        return saveRegistrationCode(email, otp, null, null, null, null, null);
+    }
+    public boolean saveRegistrationCode(String email, String otp, String fullName, String phone, String dateOfBirth) {
+        return saveRegistrationCode(email, otp, fullName, phone, dateOfBirth, null, null);
+    }
+
+    public boolean saveRegistrationCode(String email, String otp, String fullName, String phone, String dateOfBirth, String gender, String address) {
         requireConnection();
         try {
             bssms_persistence.common.Workflow w = new bssms_persistence.common.Workflow(conn, 0);
             return w.transaction(() -> {
-                w.call("usp_PurgeExpiredPendingCustomers");
+                w.update("DELETE FROM Customer WHERE status='Pending' AND email<>? AND (otp_expiry_time IS NULL OR otp_expiry_time<DATEADD(minute,-" + OTP_MINUTES + ",GETDATE()))", email);
+                if (phone != null && !phone.isBlank())
+                    w.update("DELETE FROM Customer WHERE status='Pending' AND email<>? AND phone=?", email, phone.trim());
                 java.util.List<Object[]> found = w.query(rs -> new Object[]{rs.getInt("customer_id"), rs.getString("status")},
                         "SELECT customer_id,status FROM Customer WHERE email=?", email);
+                String name = fullName == null || fullName.isBlank() ? email.substring(0, email.indexOf('@')) : fullName.trim();
+                java.sql.Date dob = dateOfBirth == null || dateOfBirth.isBlank() ? null : java.sql.Date.valueOf(dateOfBirth);
+                String sex = gender == null || gender.isBlank() ? null : gender.trim();
+                String addr = address == null || address.isBlank() ? null : address.trim();
                 if (found.isEmpty()) {
-                    String name = email.substring(0, email.indexOf('@'));
-                    return w.update("INSERT Customer(email,full_name,membership_tier_id,status,otp_code,otp_purpose,otp_attempts,otp_expiry_time,otp_created_at) "
-                            + "VALUES(?,?,1,'Pending',?,'Registration',0,DATEADD(minute," + OTP_MINUTES + ",GETDATE()),GETDATE())", email, name, otp) == 1;
+                    if (phone == null || phone.isBlank()) throw new IllegalArgumentException("Số điện thoại là bắt buộc.");
+                    return w.update("INSERT Customer(email,full_name,phone,date_of_birth,gender,address,membership_tier_id,lifetime_spending,status,created_at,otp_code,otp_purpose,otp_attempts,otp_expiry_time,otp_created_at) "
+                            + "VALUES(?,?,?,?,?,?,1,0,'Pending',GETDATE(),?,'Registration',0,DATEADD(minute," + OTP_MINUTES + ",GETDATE()),GETDATE())", email, name, phone.trim(), dob, sex, addr, otp) == 1;
                 }
                 int id = (Integer) found.get(0)[0];
                 if (!"Pending".equals(found.get(0)[1])) {
                     return false;
                 }
                 requireResendAllowed(w, "Customer", "customer_id", id);
-                return w.update("UPDATE Customer SET otp_code=?,otp_purpose='Registration',otp_email=NULL,otp_attempts=0,"
+                return w.update("UPDATE Customer SET full_name=COALESCE(?,full_name),phone=COALESCE(?,phone),date_of_birth=COALESCE(?,date_of_birth),gender=COALESCE(?,gender),address=COALESCE(?,address),"
+                        + "otp_code=?,otp_purpose='Registration',otp_email=NULL,otp_attempts=0,"
                         + "otp_expiry_time=DATEADD(minute," + OTP_MINUTES + ",GETDATE()),otp_created_at=GETDATE(),otp_consumed_at=NULL "
-                        + "WHERE customer_id=? AND status='Pending'", otp, id) == 1;
+                        + "WHERE customer_id=? AND status='Pending'", fullName == null || fullName.isBlank() ? null : name, phone == null || phone.isBlank() ? null : phone.trim(), dob, sex, addr, otp, id) == 1;
             });
         } catch (java.sql.SQLException e) {
             throw new DataAccessException(e);
@@ -172,16 +182,15 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
         requireConnection();
         try {
             bssms_persistence.common.Workflow w = new bssms_persistence.common.Workflow(conn, 0);
-            return w.transaction(() -> w.update("UPDATE Customer SET username=?,password=?,full_name=?,status='Active',otp_email=NULL," + CLEAR_OTP + " "
+            return w.transaction(() -> w.update("UPDATE Customer SET username=?,password=?,status='Active',otp_email=NULL," + CLEAR_OTP + " "
                     + "WHERE email=? AND status='Pending' AND otp_purpose='Registration' "
                     + "AND otp_consumed_at IS NOT NULL AND otp_consumed_at>DATEADD(minute,-10,GETDATE())",
-                    username, hashedPassword, username, email) == 1);
+                    username, hashedPassword, email) == 1);
         } catch (java.sql.SQLException e) {
             throw new DataAccessException(e);
         }
     }
 
-    // ---------- Quên mật khẩu ----------
     public boolean savePasswordResetCode(String email, String otp) {
         requireConnection();
         try {
@@ -239,7 +248,6 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
         }
     }
 
-    // ---------- Đổi email (khách) ----------
     public boolean saveEmailChangeCode(int customerId, String newEmail, String otp) {
         requireConnection();
         try {

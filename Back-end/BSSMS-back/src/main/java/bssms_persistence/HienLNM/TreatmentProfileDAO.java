@@ -1,182 +1,59 @@
 package bssms_persistence.HienLNM;
 
 import bssms_persistence.DBContext;
-import bssms_persistence.common.DataAccessException;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import bssms_persistence.common.*;
+import java.sql.SQLException;
+import java.util.*;
 
 public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
+    @Override public void close() throws SQLException { if (conn != null) conn.close(); }
 
-    private void requireConnection() {
-        if (conn == null) throw new DataAccessException("Database connection unavailable");
-    }
-    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
-
-    // Lấy hồ sơ điều trị theo customer ID
-    public List<Map<String, Object>> getTreatmentProfilesByCustomerId(int customerId) {
-        try {if (customerId > 0) workflow().customerAccess(customerId); else workflow().roles("Manager", "Receptionist", "Technician");} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
-        requireConnection();
-        List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT a.customer_id, (SELECT full_name FROM Customer WHERE customer_id=a.customer_id) AS customer_name, a.appointment_id, a.appointment_date, a.start_time, a.end_time, a.status AS appointment_status, "
-                     + "a.notes, tr.result_notes, s.service_name, s.price, "
-                     + "a.customer_package_id, a.package_usage_id, a.package_used_at, tp.package_name, tp.number_of_sessions, cp.remaining_sessions, "
-                     + "inv.invoice_id, inv.status AS invoice_status, ib.paid_amount, ib.outstanding_amount, "
-                     + "st.full_name AS staff_name, st.position, "
-                     + "f.rating, f.comment AS feedback_comment, f.created_at AS feedback_date "
-                     + "FROM Appointment a LEFT JOIN " + bssms_persistence.common.SchemaSql.TREATMENTS + " tr ON tr.appointment_id=a.appointment_id "
-                     + "LEFT JOIN Service s ON a.service_id = s.service_id "
-                     + "LEFT JOIN CustomerPackage cp ON a.customer_package_id = cp.customer_package_id "
-                     + "LEFT JOIN TreatmentPackage tp ON cp.treatment_package_id = tp.treatment_package_id "
-                     + "OUTER APPLY (SELECT TOP 1 i.invoice_id, i.status FROM Invoice i WHERE i.appointment_id=a.appointment_id AND i.status<>'Cancelled' ORDER BY i.invoice_id DESC) inv "
-                     + "LEFT JOIN vw_InvoiceBalance ib ON ib.invoice_id=inv.invoice_id "
-                     + "LEFT JOIN AppointmentStaff aps ON a.appointment_id = aps.appointment_id AND aps.role='Main Technician' "
-                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON aps.staff_id = st.staff_id "
-                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.FEEDBACK + " f ON a.appointment_id = f.appointment_id AND f.service_id = a.service_id "
-                     + "WHERE (?=0 OR a.customer_id = ?) AND " + bssms_persistence.common.Workflow.appointmentScope() + " "
-                     + "ORDER BY a.appointment_date DESC, a.start_time DESC";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, customerId);
-                ps.setInt(2, customerId);
-                ps.setInt(3, requireActorAccountId());
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("customerId", rs.getInt("customer_id"));
-                    map.put("customerName", rs.getString("customer_name"));
-                    map.put("appointmentId", rs.getInt("appointment_id"));
-                    map.put("appointmentDate", rs.getDate("appointment_date") != null ? rs.getDate("appointment_date").toString() : null);
-                    map.put("startTime", rs.getTime("start_time") != null ? rs.getTime("start_time").toString() : null);
-                    map.put("endTime", rs.getTime("end_time") != null ? rs.getTime("end_time").toString() : null);
-                    map.put("appointmentStatus", rs.getString("appointment_status"));
-                    map.put("notes", rs.getString("notes"));
-                    map.put("resultNotes", rs.getString("result_notes"));
-                    map.put("serviceName", rs.getString("service_name"));
-                    map.put("price", rs.getDouble("price"));
-                    map.put("customerPackageId", rs.getObject("customer_package_id"));
-                    map.put("packageUsageId", rs.getObject("package_usage_id"));
-                    map.put("packageUsedAt", rs.getTimestamp("package_used_at") != null ? rs.getTimestamp("package_used_at").toString() : null);
-                    map.put("packageName", rs.getString("package_name"));
-                    map.put("numberOfSessions", rs.getObject("number_of_sessions"));
-                    map.put("remainingSessions", rs.getInt("remaining_sessions"));
-                    map.put("invoiceId", rs.getObject("invoice_id"));
-                    map.put("invoiceStatus", rs.getString("invoice_status"));
-                    map.put("paidAmount", rs.getBigDecimal("paid_amount"));
-                    map.put("outstandingAmount", rs.getBigDecimal("outstanding_amount"));
-                    map.put("staffName", rs.getString("staff_name"));
-                    map.put("position", rs.getString("position"));
-                    map.put("rating", rs.getInt("rating"));
-                    map.put("feedbackComment", rs.getString("feedback_comment"));
-                    map.put("feedbackDate", rs.getTimestamp("feedback_date") != null ? rs.getTimestamp("feedback_date").toString() : null);
-                    list.add(map);
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return list;
+    private Workflow staffAccess(int customerId) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Receptionist", "Technician", "Manager");
+        w.customerAccess(customerId);
+        return w;
     }
 
-    // Lấy tổng quan hồ sơ điều trị
-    public Map<String, Object> getTreatmentSummary(int customerId) {
-        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
-        requireConnection();
-        Map<String, Object> map = new HashMap<>();
-        String query = "SELECT c.customer_id,c.full_name,c.date_of_birth,c.gender,c.phone,c.email, "
-            + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id) AS total_appointments, "
-            + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id AND status='Completed') AS completed_appointments, "
-            + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id AND status IN ('Pending','Confirmed')) AS upcoming_appointments, "
-            + "(SELECT COUNT(*) FROM CustomerPackage WHERE customer_id=c.customer_id) AS total_packages, "
-            + "(SELECT COALESCE(SUM(remaining_sessions),0) FROM CustomerPackage WHERE customer_id=c.customer_id AND status='Active') AS total_remaining_sessions, "
-            + "(SELECT COALESCE(AVG(CAST(rating AS decimal(5,2))),0) FROM ServiceFeedback WHERE customer_id=c.customer_id AND is_hidden=0) AS average_rating "
-            + "FROM " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c WHERE c.customer_id=?";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, customerId);
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    map.put("customerId", rs.getInt("customer_id"));
-                    map.put("fullName", rs.getString("full_name"));
-                    map.put("dateOfBirth", rs.getDate("date_of_birth") != null ? rs.getDate("date_of_birth").toString() : null);
-                    map.put("gender", rs.getString("gender"));
-                    map.put("phone", rs.getString("phone"));
-                    map.put("email", rs.getString("email"));
-                    map.put("totalAppointments", rs.getInt("total_appointments"));
-                    map.put("completedAppointments", rs.getInt("completed_appointments"));
-                    map.put("upcomingAppointments", rs.getInt("upcoming_appointments"));
-                    map.put("totalPackages", rs.getInt("total_packages"));
-                    map.put("totalRemainingSessions", rs.getInt("total_remaining_sessions"));
-                    map.put("averageRating", rs.getDouble("average_rating"));
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return map;
+    public Map<String, Object> getTreatmentSummary(int customerId) throws SQLException {
+        Workflow w = staffAccess(customerId);
+        Map<String, Object> r = new LinkedHashMap<>(w.one("SELECT c.customer_id,c.full_name,c.date_of_birth,c.gender,c.phone,c.email,c.skin_condition,c.allergies,c.notes,c.lifetime_spending,t.tier_name,"
+                + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id) AS total_appointments,"
+                + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id AND status='Completed') AS completed_appointments,"
+                + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id AND status IN ('Pending','Confirmed')) AS upcoming_appointments,"
+                + "(SELECT COUNT(*) FROM CustomerPackage WHERE customer_id=c.customer_id AND status='Active') AS active_packages,"
+                + "(SELECT COALESCE(SUM(remaining_sessions),0) FROM CustomerPackage WHERE customer_id=c.customer_id AND status='Active') AS total_remaining_sessions "
+                + "FROM Customer c JOIN MembershipTier t ON t.membership_tier_id=c.membership_tier_id WHERE c.customer_id=?", customerId));
+        r.put("packages", w.query("SELECT cp.customer_package_id,tp.package_name,cp.total_sessions,cp.remaining_sessions,cp.expiry_date,cp.status FROM CustomerPackage cp JOIN TreatmentPackage tp ON tp.treatment_package_id=cp.treatment_package_id WHERE cp.customer_id=? ORDER BY cp.purchase_date DESC", customerId));
+        r.put("recentResults", getTreatmentHistory(customerId).stream().limit(5).collect(java.util.stream.Collectors.toList()));
+        return r;
     }
 
-    // Cập nhật ghi chú điều trị
-    public boolean updateAppointmentNotes(int appointmentId, String notes) {
-        try {workflow().roles("Receptionist","Technician","Manager");workflow().appointmentAccess(appointmentId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
-        requireConnection();
-        String query = "UPDATE Appointment SET notes = ? WHERE appointment_id = ?";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setString(1, notes);
-                ps.setInt(2, appointmentId);
-                int rowsAffected = ps.executeUpdate();
-                return rowsAffected > 0;
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return false;
+    public List<Map<String, Object>> getTreatmentHistory(int customerId) throws SQLException {
+        Workflow w = staffAccess(customerId);
+        return w.query("SELECT l.appointment_service_id,a.appointment_id,a.appointment_date,l.start_time,s.service_name,st.full_name AS technician_name,l.result_notes,l.skin_reaction,l.done_at,"
+                + "(SELECT COUNT(*) FROM TreatmentPhoto p WHERE p.appointment_service_id=l.appointment_service_id) AS photo_count "
+                + "FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id JOIN Service s ON s.service_id=l.service_id LEFT JOIN Staff st ON st.staff_id=l.technician_id "
+                + "WHERE a.customer_id=? AND l.status='Done' ORDER BY l.done_at DESC", customerId);
     }
 
-    // Lấy lịch sử điều trị
-    public List<Map<String, Object>> getTreatmentHistory(int customerId) {
-        try {workflow().customerAccess(customerId);} catch(java.sql.SQLException ex){throw new DataAccessException(ex);}
-        requireConnection();
-        List<Map<String, Object>> list = new ArrayList<>();
-        String query = "SELECT a.appointment_id, a.appointment_date, a.status, s.service_name, "
-                     + "tp.package_name, st.full_name AS staff_name, f.rating, f.comment "
-                     + "FROM Appointment a LEFT JOIN " + bssms_persistence.common.SchemaSql.TREATMENTS + " tr ON tr.appointment_id=a.appointment_id "
-                     + "LEFT JOIN Service s ON a.service_id = s.service_id "
-                     + "LEFT JOIN CustomerPackage cp ON a.customer_package_id = cp.customer_package_id "
-                     + "LEFT JOIN TreatmentPackage tp ON cp.treatment_package_id = tp.treatment_package_id "
-                     + "LEFT JOIN AppointmentStaff aps ON a.appointment_id = aps.appointment_id AND aps.role='Main Technician' "
-                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON aps.staff_id = st.staff_id "
-                     + "LEFT JOIN " + bssms_persistence.common.SchemaSql.FEEDBACK + " f ON a.appointment_id = f.appointment_id AND f.service_id = a.service_id "
-                     + "WHERE a.customer_id = ? AND a.status = 'Completed' "
-                     + "ORDER BY a.appointment_date DESC";
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, customerId);
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("appointmentId", rs.getInt("appointment_id"));
-                    map.put("appointmentDate", rs.getDate("appointment_date") != null ? rs.getDate("appointment_date").toString() : null);
-                    map.put("status", rs.getString("status"));
-                    map.put("serviceName", rs.getString("service_name"));
-                    map.put("packageName", rs.getString("package_name"));
-                    map.put("staffName", rs.getString("staff_name"));
-                    map.put("rating", rs.getInt("rating"));
-                    map.put("comment", rs.getString("comment"));
-                    list.add(map);
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return list;
+    public List<Map<String, Object>> getTreatmentProfilesByCustomerId(int customerId) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Receptionist", "Technician", "Manager");
+        return w.query("SELECT c.customer_id,c.full_name AS customer_name,c.phone,c.skin_condition,c.allergies,"
+                + "(SELECT MAX(a.appointment_date) FROM Appointment a WHERE a.customer_id=c.customer_id AND a.status='Completed') AS last_visit "
+                + "FROM " + SchemaSql.CUSTOMERS + " c WHERE (?=0 OR c.customer_id=?) AND EXISTS(SELECT 1 FROM " + SchemaSql.ACCOUNTS + " ac WHERE ac.account_id=? AND (ac.role IN ('Receptionist','Manager') OR "
+                + "(ac.role='Technician' AND EXISTS(SELECT 1 FROM Appointment a JOIN AppointmentService l ON l.appointment_id=a.appointment_id WHERE a.customer_id=c.customer_id AND l.technician_id=ac.staff_id)))) ORDER BY c.full_name",
+                customerId, customerId, w.actor);
     }
+
+    public boolean updateHealthProfile(int customerId, String skinCondition, String allergies, String notes) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Receptionist", "Manager");
+        for (String v : new String[]{skinCondition, allergies, notes})
+            if (v != null && v.length() > 1000) throw new IllegalArgumentException("Mỗi mục tối đa 1000 ký tự.");
+        return w.update("UPDATE Customer SET skin_condition=?,allergies=?,notes=? WHERE customer_id=? AND status<>'Pending'",
+                blank(skinCondition), blank(allergies), blank(notes), customerId) == 1;
+    }
+    private static String blank(String v) { return v == null || v.isBlank() ? null : v.trim(); }
 }

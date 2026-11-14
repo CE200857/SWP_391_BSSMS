@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import bssms_account.*;
 import java.util.List;
 
-
 public class CustomerDAO extends DBContext implements AutoCloseable {
 
     private void requireConnection() {
@@ -32,7 +31,7 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
                 + "JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a ON c.account_id = a.account_id "
                 + "LEFT JOIN MembershipTier mt "
                 + "ON c.membership_tier_id = mt.membership_tier_id "
-                + "WHERE EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " actor WHERE actor.account_id=? AND actor.status='Active' AND (actor.role IN ('Manager','Receptionist') OR (actor.role='Technician' AND EXISTS(SELECT 1 FROM Appointment ap JOIN AppointmentStaff ast ON ast.appointment_id=ap.appointment_id JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON st.staff_id=ast.staff_id WHERE ap.customer_id=c.customer_id AND st.account_id=actor.account_id)))) ORDER BY c.full_name";
+                + "WHERE EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " actor WHERE actor.account_id=? AND actor.status='Active' AND (actor.role IN ('Manager','Receptionist') OR (actor.role='Technician' AND EXISTS(SELECT 1 FROM Appointment ap JOIN AppointmentService l ON l.appointment_id=ap.appointment_id WHERE ap.customer_id=c.customer_id AND l.technician_id=actor.staff_id)))) ORDER BY c.full_name";
 
         try {
             if (conn != null) {
@@ -69,10 +68,6 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
         } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
-    /**
-     * Xóa vĩnh viễn khách hàng (chỉ Manager). Khách đã có lịch hẹn, hóa đơn hoặc gói liệu trình thì không xóa được
-     * (phải đổi trạng thái sang Inactive); thông báo và voucher riêng của khách được xóa cùng.
-     */
     public void deleteCustomer(int customerId) {
         requireConnection();
         try {
@@ -86,8 +81,6 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
                 if (used.values().stream().anyMatch(v -> ((Number) v).intValue() > 0))
                     throw new bssms_persistence.common.WorkflowException(409,
                         "Khách hàng đã có lịch hẹn, hóa đơn hoặc gói liệu trình nên không xóa vĩnh viễn được. Hãy bấm Sửa và đổi trạng thái sang \"Không hoạt động\".");
-                workflow().update("DELETE FROM NotificationOutbox WHERE customer_id=?", customerId);
-                workflow().update("DELETE FROM Voucher WHERE customer_id=?", customerId);
                 if (workflow().update("DELETE FROM Customer WHERE customer_id=?", customerId) != 1)
                     throw new bssms_persistence.common.WorkflowException(404, "Không tìm thấy khách hàng.");
                 return Boolean.TRUE;
