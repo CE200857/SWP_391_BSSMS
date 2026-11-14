@@ -1,23 +1,19 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_feedback;
 import java.util.Date;
-/**
- *
- * @author admin
- */
 public class Feedback {
     private int feedbackId;
     private int customerId;
     private int appointmentId;
     private int serviceId;
+    private int appointmentServiceId;
     private int rating;
     private String comment;
     private Date createdAt;
 
     public Feedback() {}
+
+    public int getAppointmentServiceId() { return appointmentServiceId; }
+    public void setAppointmentServiceId(int appointmentServiceId) { this.appointmentServiceId = appointmentServiceId; }
 
     public Feedback(int feedbackId, int customerId, int appointmentId, int serviceId, int rating, String comment, Date createdAt) {
         this(feedbackId, customerId, appointmentId, rating, comment, createdAt);

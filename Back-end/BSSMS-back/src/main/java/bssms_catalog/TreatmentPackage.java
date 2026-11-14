@@ -1,13 +1,5 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_catalog;
 
-/**
- *
- * @author admin
- */
 public class TreatmentPackage {
     private Integer validityDays;
     private String status;
@@ -16,7 +8,9 @@ public class TreatmentPackage {
     public String getStatus(){return status;}
     public void setStatus(String value){status=value;}
     private int treatmentPackageId;
-    private int serviceId;
+    private java.util.List<Integer> serviceIds;
+    private java.util.List<java.util.Map<String, Object>> services;
+    private int customerCount;
     private String packageName;
     private String description;
     private double price;
@@ -24,9 +18,8 @@ public class TreatmentPackage {
 
     public TreatmentPackage() {}
 
-    public TreatmentPackage(int treatmentPackageId, int serviceId, String packageName, String description, double price, int numberOfSessions) {
+    public TreatmentPackage(int treatmentPackageId, String packageName, String description, double price, int numberOfSessions) {
         this.treatmentPackageId = treatmentPackageId;
-        this.serviceId = serviceId;
         this.packageName = packageName;
         this.description = description;
         this.price = price;
@@ -41,13 +34,12 @@ public class TreatmentPackage {
         this.treatmentPackageId = treatmentPackageId;
     }
 
-    public int getServiceId() {
-        return serviceId;
-    }
-
-    public void setServiceId(int serviceId) {
-        this.serviceId = serviceId;
-    }
+    public java.util.List<Integer> getServiceIds() { return serviceIds; }
+    public void setServiceIds(java.util.List<Integer> serviceIds) { this.serviceIds = serviceIds; }
+    public java.util.List<java.util.Map<String, Object>> getServices() { return services; }
+    public void setServices(java.util.List<java.util.Map<String, Object>> services) { this.services = services; }
+    public int getCustomerCount() { return customerCount; }
+    public void setCustomerCount(int customerCount) { this.customerCount = customerCount; }
 
     public String getPackageName() {
         return packageName;

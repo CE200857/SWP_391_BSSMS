@@ -1,18 +1,16 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_catalog;
 
-/**
- *
- * @author admin
- */
 public class Room {
     private int roomId;
     private String roomName;
     private String roomType;
-    private String status = "Available";
+    private String status = "Active";
+    private int bedCount;
+    private int activeBedCount;
+    public int getBedCount() { return bedCount; }
+    public void setBedCount(int v) { bedCount = v; }
+    public int getActiveBedCount() { return activeBedCount; }
+    public void setActiveBedCount(int v) { activeBedCount = v; }
 
     public Room() {}
 

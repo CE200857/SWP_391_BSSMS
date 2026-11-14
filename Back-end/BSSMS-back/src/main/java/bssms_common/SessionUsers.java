@@ -2,7 +2,6 @@ package bssms_common;
 import bssms_account.Account;
 import java.util.Map;
 
-/** Compatibility boundary for sessions created before typed account models. */
 public final class SessionUsers {
     private SessionUsers() {}
     public static Account from(Object value) {

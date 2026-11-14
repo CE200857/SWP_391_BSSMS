@@ -1,13 +1,5 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package bssms_catalog;
 
-/**
- *
- * @author admin
- */
 public class Service {
     private String category;
     private String requiredRoomType;
@@ -15,13 +7,19 @@ public class Service {
     public void setCategory(String value){category=value;}
     public String getRequiredRoomType(){return requiredRoomType;}
     public void setRequiredRoomType(String value){requiredRoomType=value;}
+    private Double tourCount;
+    public Double getTourCount(){return tourCount;}
+    public void setTourCount(Double value){tourCount=value;}
+    private java.util.List<Integer> technicianIds;
+    public java.util.List<Integer> getTechnicianIds(){return technicianIds;}
+    public void setTechnicianIds(java.util.List<Integer> value){technicianIds=value;}
     private int serviceId;
     private String serviceName;
     private String description;
     private double price;
     private int duration; 
     private String status;
-    private String imageUrl; // ảnh dịch vụ (null nếu chưa có), do ServiceDAO điền
+    private String imageUrl;
 
     public Service() {
     }
