@@ -11,12 +11,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Files;
 
-/**
- * 4.6 Before/after photos.
- *   POST /api/treatment-photos/{appointmentId}  body {photoType,contentType,data(base64)}  (Technician)
- *   GET  /api/treatment-photos/{appointmentId}  list photos of an appointment
- *   GET  /api/treatment-photos/file/{photoId}   image bytes
- */
 @WebServlet(name = "TreatmentPhotoServlet", urlPatterns = {"/api/treatment-photos/*"})
 public class TreatmentPhotoServlet extends BaseApiServlet {
     private Account requireUser(HttpServletRequest request) {
@@ -29,7 +23,7 @@ public class TreatmentPhotoServlet extends BaseApiServlet {
         handle(request, response, 201, () -> {
             Account user = requireUser(request);
             String path = request.getPathInfo();
-            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã lịch hẹn.");
+            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã dòng dịch vụ.");
             int appointmentId = Integer.parseInt(path.substring(1));
             JsonObject body = body(request, JsonObject.class);
             try (TreatmentPhotoDAO dao = new TreatmentPhotoDAO()) {
@@ -40,7 +34,6 @@ public class TreatmentPhotoServlet extends BaseApiServlet {
         });
     }
 
-    /** DELETE /api/treatment-photos/{photoId}: Technician xóa ảnh trước/sau của lịch hẹn mình phụ trách. */
     @Override protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
         handle(request, response, 200, () -> {
             Account user = requireUser(request);
@@ -58,7 +51,7 @@ public class TreatmentPhotoServlet extends BaseApiServlet {
         if (path != null && path.matches("/file/[0-9]+")) { streamFile(request, response, Integer.parseInt(path.substring(6))); return; }
         handle(request, response, 200, () -> {
             Account user = requireUser(request);
-            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã lịch hẹn.");
+            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã dòng dịch vụ.");
             try (TreatmentPhotoDAO dao = new TreatmentPhotoDAO()) {
                 dao.setActorAccountId(user.getAccountId());
                 return dao.list(Integer.parseInt(path.substring(1)));

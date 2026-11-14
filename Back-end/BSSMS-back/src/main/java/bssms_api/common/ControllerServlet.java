@@ -8,7 +8,6 @@ import java.io.*;
 import java.sql.SQLException;
 import java.util.*;
 
-/** HTTP adapter shared by the newly extracted controllers. */
 public abstract class ControllerServlet extends HttpServlet {
     @FunctionalInterface protected interface Action { void run(ActionRequest request,ActionResult result) throws Exception; }
     private void prepare(HttpServletResponse response) {
@@ -22,7 +21,6 @@ public abstract class ControllerServlet extends HttpServlet {
     protected void dispatch(HttpServletRequest request,HttpServletResponse response,Action action) throws IOException {
         prepare(response); request.setCharacterEncoding("UTF-8");
         HttpSession session=request.getSession(false);
-        // Serializes session-sensitive operations such as consuming a reset grant.
         synchronized(session==null ? request : session) { execute(request,response,session,action); }
     }
     private void execute(HttpServletRequest request,HttpServletResponse response,HttpSession original,Action action) throws IOException {
@@ -63,9 +61,15 @@ public abstract class ControllerServlet extends HttpServlet {
             log("Database operation failed",e);
             int code=0;
             for(Throwable cause=e;cause!=null;cause=cause.getCause()) if(cause instanceof SQLException) {code=((SQLException)cause).getErrorCode();break;}
-            result.error(code==547 || code==2601 || code==2627 ? 409 : 500,"Không thể lưu hoặc đọc dữ liệu. Vui lòng kiểm tra lại.");
-        } catch(JsonParseException | IllegalArgumentException | NullPointerException | ClassCastException e) {
+            result.error(code==547 || code==2601 || code==2627 ? 409 : 500,"Không thể lưu hoặc đọc dữ liệu (mã lỗi SQL "+code+"). Xem log máy chủ để biết chi tiết.");
+        } catch(JsonParseException | NullPointerException | ClassCastException | IllegalStateException e) {
             result.error(400,"Dữ liệu đầu vào thiếu hoặc không hợp lệ.");
+        } catch(IllegalArgumentException e) {
+            String message=e.getMessage();
+            if("Invalid request data".equals(message) && e.getCause()!=null) message=e.getCause().getMessage();
+            boolean technical=message==null || message.isBlank() || message.startsWith("For input string") || e instanceof NumberFormatException
+                    || e.getCause() instanceof JsonParseException || e.getCause() instanceof java.time.format.DateTimeParseException;
+            result.error(400,technical?"Dữ liệu đầu vào thiếu hoặc không hợp lệ.":message);
         } catch(Exception e) {
             log("Controller operation failed",e);
             result.error(500,"Không thể thực hiện thao tác. Vui lòng thử lại.");

@@ -10,11 +10,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 
-/**
- *
- * @author Nguyen Tien Dat - CE200858
- */
-
 public class CustomerController extends ControllerSupport {
 
     private final Gson gson = new Gson();

@@ -9,16 +9,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Map;
-/**
- * @author HienLNM
- */
 
 public class RoomBedStatusController extends ControllerSupport {
 
     private RoomBedStatusDAO dao = use(new RoomBedStatusDAO());
     private final Gson gson = new Gson();
 
-    public void get(ActionRequest req, ActionResult resp) throws IOException {
+    public void get(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
 
         PrintWriter out = resp.writer();
@@ -28,7 +25,7 @@ public class RoomBedStatusController extends ControllerSupport {
         out.flush();
     }
 
-    public void put(ActionRequest req, ActionResult resp) throws IOException {
+    public void put(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
 
         PrintWriter out = resp.writer();

@@ -16,4 +16,11 @@ public class TreatmentStatusServlet extends ControllerServlet {
             }
         });
     }
+    @Override protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        dispatch(request, response, (input, result) -> {
+            try (TreatmentStatusController controller = new TreatmentStatusController()) {
+                controller.put(input, result);
+            }
+        });
+    }
 }

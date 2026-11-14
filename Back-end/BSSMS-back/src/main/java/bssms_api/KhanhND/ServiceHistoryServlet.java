@@ -15,9 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Read-only API for completed service history.
- */
 @WebServlet(name = "ServiceHistoryServlet", urlPatterns = {"/api/service-history"})
 public class ServiceHistoryServlet extends HttpServlet {
 
@@ -64,7 +61,6 @@ public class ServiceHistoryServlet extends HttpServlet {
                 Integer accountId = parsePositiveId(user.getAccountId());
                 Integer customerId;
 
-                // Prefer resolving through the account-to-customer relationship.
                 if (accountId != null) {
                     customerId = dao.findCustomerIdByAccountId(accountId);
                 } else {
@@ -77,7 +73,6 @@ public class ServiceHistoryServlet extends HttpServlet {
                     return;
                 }
 
-                // Customer ID is derived from the authenticated session, not the URL.
                 result = dao.getHistoryByCustomer(customerId);
 
             } else if ("Technician".equals(role)) {
@@ -96,7 +91,6 @@ public class ServiceHistoryServlet extends HttpServlet {
                     return;
                 }
 
-                // Technician sees only completed appointments assigned to them.
                 result = dao.getHistoryByStaff(staffId);
 
             } else if ("Receptionist".equals(role) || "Manager".equals(role)) {

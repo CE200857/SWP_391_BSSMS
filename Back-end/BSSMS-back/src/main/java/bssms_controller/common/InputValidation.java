@@ -1,7 +1,5 @@
 package bssms_controller.common;
 
-import bssms_inventory.Product;
-import bssms_inventory.Supplier;
 import java.time.LocalDate;
 
 public final class InputValidation {
@@ -17,35 +15,6 @@ public final class InputValidation {
         return value.trim();
     }
     public static void positive(int value,String name) { if(value<=0) throw new IllegalArgumentException(name+" must be positive"); }
-    public static void product(Product value,boolean update) {
-        if(value==null) throw new IllegalArgumentException("Product is required");
-        value.setProductName(text(value.getProductName(),"productName"));
-        if(!Double.isFinite(value.getUnitPrice()) || value.getUnitPrice()<0 || (value.getStockQuantity()==null || value.getStockQuantity().signum()<0) || (value.getReorderLevel()==null || value.getReorderLevel().signum()<0))
-            throw new IllegalArgumentException("Product price and quantities cannot be negative");
-        if(value.getStockQuantity().scale()>3 || value.getReorderLevel().scale()>3) throw new IllegalArgumentException("Stock quantities allow at most 3 decimal places.");
-        if(!java.util.Arrays.asList("Retail","Consumable").contains(value.getProductType())) throw new IllegalArgumentException("Invalid productType.");
-        value.setUnit(text(value.getUnit(),"unit"));
-        if("Consumable".equals(value.getProductType()) && "ml".equalsIgnoreCase(value.getUnit())) {
-            value.setPurchaseUnit(text(value.getPurchaseUnit(),"purchaseUnit"));
-            if(value.getUnitsPerPurchaseUnit()==null || value.getUnitsPerPurchaseUnit().signum()<=0
-                    || value.getReorderPackageCount()==null || value.getReorderPackageCount().signum()<0)
-                throw new IllegalArgumentException("Milliliter products require a package size and minimum stock in packages.");
-            if(value.getUnitsPerPurchaseUnit().scale()>3 || value.getReorderPackageCount().scale()>3)
-                throw new IllegalArgumentException("Package quantities allow at most 3 decimal places.");
-        } else {
-            value.setPurchaseUnit(null);
-            value.setUnitsPerPurchaseUnit(null);
-            value.setReorderPackageCount(null);
-        }
-        if(value.getStatus()==null) value.setStatus("Active");
-        if(!java.util.Arrays.asList("Active","Inactive").contains(value.getStatus())) throw new IllegalArgumentException("Invalid product status.");
-        if(update) positive(value.getProductId(),"productId");
-    }
-    public static void supplier(Supplier value,boolean update) {
-        if(value==null) throw new IllegalArgumentException("Supplier is required");
-        value.setSupplierName(text(value.getSupplierName(),"supplierName"));
-        if(update) positive(value.getSupplierId(),"supplierId");
-    }
     public static void percent(double value) {
         if(!Double.isFinite(value)||value<=0||value>100) throw new IllegalArgumentException("Percentage must be in (0,100]");
     }

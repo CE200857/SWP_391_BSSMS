@@ -1,4 +1,4 @@
-package bssms_api.KhanhLTQ;
+package bssms_security;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -12,12 +12,6 @@ import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
 import java.util.Set;
 
-/**
- * Bộ lọc CORS duy nhất của hệ thống.
- * Các servlet/filter khác đang tự set "Access-Control-Allow-Origin: http://localhost:5173"
- * và ghi đè lên header đúng, nên ở đây bọc response để BỎ QUA mọi header Access-Control-*
- * do code phía sau set. Nhờ vậy không phải sửa từng file.
- */
 @WebFilter(filterName = "CorsFilter", urlPatterns = {"/*"})
 public class CorsFilter implements Filter {
 
@@ -35,7 +29,6 @@ public class CorsFilter implements Filter {
         HttpServletRequest request = (HttpServletRequest) servletRequest;
         HttpServletResponse response = (HttpServletResponse) servletResponse;
 
-        // Tránh chạy 2 lần nếu filter bị map trùng (web.xml + annotation)
         if (request.getAttribute(DONE) != null) {
             chain.doFilter(request, response);
             return;

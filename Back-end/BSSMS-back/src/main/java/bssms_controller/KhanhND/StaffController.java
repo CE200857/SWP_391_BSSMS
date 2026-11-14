@@ -21,6 +21,12 @@ public class StaffController extends ControllerSupport {
         PrintWriter out = response.writer();
 
         String idParam = request.parameter("id");
+        String skillsOf = request.parameter("skillsOf");
+        if (skillsOf != null && !skillsOf.isBlank()) {
+            out.print(gson.toJson(dao.getSkills(Integer.parseInt(skillsOf.trim()))));
+            out.flush();
+            return;
+        }
 
         if (idParam != null && !idParam.trim().isEmpty()) {
             try {
@@ -119,6 +125,16 @@ public class StaffController extends ControllerSupport {
                 com.google.gson.JsonObject jsonObject = gson.fromJson(request.bodyReader(), com.google.gson.JsonObject.class);
                 String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : null;
                 
+                if ("save-skills".equals(action)) {
+                    int staffId = jsonObject.get("staffId").getAsInt();
+                    java.util.List<Integer> serviceIds = new java.util.ArrayList<>();
+                    jsonObject.getAsJsonArray("serviceIds").forEach(e -> serviceIds.add(e.getAsInt()));
+                    use(new StaffDAO()).saveSkills(staffId, serviceIds);
+                    out.print("{\"message\": \"Đã lưu kỹ năng của kỹ thuật viên.\"}");
+                    out.flush();
+                    return;
+                }
+
                 if ("update-status".equals(action)) {
                     int accountId = jsonObject.get("accountId").getAsInt();
                     String status = jsonObject.get("status").getAsString();
@@ -145,7 +161,6 @@ public class StaffController extends ControllerSupport {
                     String role = jsonObject.get("role").getAsString();
                     String username = jsonObject.get("username").getAsString().trim();
                     String hireDate = jsonObject.has("hireDate") ? jsonObject.get("hireDate").getAsString() : null;
-                    double salary = jsonObject.has("salary") ? jsonObject.get("salary").getAsDouble() : 0;
                     
                     String rawPassword = jsonObject.has("password") ? jsonObject.get("password").getAsString() : "";
                     String hashedPassword = null;
@@ -163,7 +178,7 @@ public class StaffController extends ControllerSupport {
                         return;
                     }
                     
-                    boolean success = dao.updateStaff(accountId, fullName, phone, email, role, hireDate, salary, username, hashedPassword);
+                    boolean success = dao.updateStaff(accountId, fullName, phone, email, role, hireDate, username, hashedPassword);
                     
                     if (success) {
                         response.status(200);
@@ -181,7 +196,10 @@ public class StaffController extends ControllerSupport {
                     String role = jsonObject.get("role").getAsString();
                     String username = jsonObject.get("username").getAsString();
                     String password = jsonObject.get("password").getAsString();
-                    double salary = jsonObject.has("salary") ? jsonObject.get("salary").getAsDouble() : 0;
+                    String hireDate = jsonObject.has("hireDate") && !jsonObject.get("hireDate").isJsonNull() ? jsonObject.get("hireDate").getAsString() : null;
+                    java.util.List<Integer> serviceIds = new java.util.ArrayList<>();
+                    if (jsonObject.has("serviceIds") && jsonObject.get("serviceIds").isJsonArray())
+                        jsonObject.getAsJsonArray("serviceIds").forEach(e -> serviceIds.add(e.getAsInt()));
                     
                     StaffDAO dao = use(new StaffDAO());
                     
@@ -194,7 +212,7 @@ public class StaffController extends ControllerSupport {
                         return;
                     }
                     
-                    String finalUsername = dao.createStaff(username, password, email, phone, fullName, role, salary);
+                    String finalUsername = dao.createStaff(username, password, email, phone, fullName, role, hireDate, serviceIds);
                     
                     if (finalUsername != null) {
                         response.status(201);

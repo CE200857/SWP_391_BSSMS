@@ -23,11 +23,4 @@ public class CustomerPackageServlet extends ControllerServlet {
             }
         });
     }
-    @Override protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        dispatch(request, response, (input, result) -> {
-            try (CustomerPackageController controller = new CustomerPackageController()) {
-                controller.put(input, result);
-            }
-        });
-    }
 }

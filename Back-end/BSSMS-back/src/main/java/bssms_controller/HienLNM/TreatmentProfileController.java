@@ -1,81 +1,31 @@
 package bssms_controller.HienLNM;
 
 import bssms_controller.common.*;
-import bssms_persistence.common.DataAccessException;
-
-import com.google.gson.Gson;
 import bssms_persistence.HienLNM.TreatmentProfileDAO;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.List;
-import java.util.Map;
-public class TreatmentProfileController extends ControllerSupport {
+import com.google.gson.*;
 
+public class TreatmentProfileController extends ControllerSupport {
     private final Gson gson = new Gson();
 
-    public void get(ActionRequest request, ActionResult response)
-            throws IOException {
+    public void get(ActionRequest request, ActionResult response) throws Exception {
         bind(request);
-
         TreatmentProfileDAO dao = use(new TreatmentProfileDAO());
-        PrintWriter out = response.writer();
-
-        String customerIdParam = request.parameter("customerId");
+        String id = request.parameter("customerId");
+        int customerId = id == null || id.isBlank() ? 0 : Integer.parseInt(id.trim());
         String action = request.parameter("action");
-
-        try {
-            int customerId = customerIdParam == null || customerIdParam.trim().isEmpty() ? 0 : Integer.parseInt(customerIdParam);
-
-            if ("summary".equals(action)) {
-                Map<String, Object> summary = dao.getTreatmentSummary(customerId);
-                out.print(this.gson.toJson(summary));
-            } else if ("history".equals(action)) {
-                List<Map<String, Object>> history = dao.getTreatmentHistory(customerId);
-                out.print(this.gson.toJson(history));
-            } else {
-                List<Map<String, Object>> profiles = dao.getTreatmentProfilesByCustomerId(customerId);
-                out.print(this.gson.toJson(profiles));
-            }
-        } catch (NumberFormatException e) {
-            response.status(400);
-            out.print("{\"message\": \"CustomerId không hợp lệ\"}");
-        }
-        out.flush();
+        Object data = "summary".equals(action) ? dao.getTreatmentSummary(customerId)
+                : "history".equals(action) ? dao.getTreatmentHistory(customerId)
+                : dao.getTreatmentProfilesByCustomerId(customerId);
+        response.writer().print(gson.toJson(data));
     }
 
-    public void post(ActionRequest request, ActionResult response)
-            throws IOException {
+    public void post(ActionRequest request, ActionResult response) throws Exception {
         bind(request);
-
-        PrintWriter out = response.writer();
-        try {
-            com.google.gson.JsonObject jsonObject = gson.fromJson(request.bodyReader(), com.google.gson.JsonObject.class);
-            TreatmentProfileDAO dao = use(new TreatmentProfileDAO());
-
-            String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : null;
-
-            if ("update-notes".equals(action)) {
-                int appointmentId = jsonObject.get("appointmentId").getAsInt();
-                String notes = jsonObject.get("notes").getAsString();
-
-                boolean success = dao.updateAppointmentNotes(appointmentId, notes);
-                if (success) {
-                    out.print("{\"message\": \"Cập nhật ghi chú thành công!\"}");
-                } else {
-                    response.status(500);
-                    out.print("{\"message\": \"Cập nhật ghi chú thất bại!\"}");
-                }
-            } else {
-                response.status(400);
-                out.print("{\"message\": \"Action không hợp lệ!\"}");
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-            InputValidation.rethrowIfInvalid(e);
-            response.status(400);
-            out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
-            
-        }
-        out.flush();
+        JsonObject o = JsonParser.parseReader(request.bodyReader()).getAsJsonObject();
+        if (!"update-health".equals(o.has("action") ? o.get("action").getAsString() : null)) { response.error(400, "Action không hợp lệ!"); return; }
+        boolean ok = use(new TreatmentProfileDAO()).updateHealthProfile(o.get("customerId").getAsInt(), text(o, "skinCondition"), text(o, "allergies"), text(o, "notes"));
+        if (!ok) { response.error(404, "Không tìm thấy khách hàng."); return; }
+        response.writer().print("{\"message\": \"Đã cập nhật hồ sơ sức khỏe.\"}");
     }
+    private static String text(JsonObject o, String k) { return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : null; }
 }

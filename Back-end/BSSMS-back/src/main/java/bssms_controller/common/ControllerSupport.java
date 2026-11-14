@@ -5,7 +5,6 @@ import bssms_common.SessionUsers;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Request-scoped ownership of DAO connections, including early returns/error paths. */
 public abstract class ControllerSupport implements AutoCloseable {
     private final List<AutoCloseable> resources=new ArrayList<>();
     private int actorAccountId;

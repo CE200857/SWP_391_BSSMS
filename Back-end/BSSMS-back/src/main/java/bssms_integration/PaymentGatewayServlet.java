@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.util.*;
 @WebServlet(urlPatterns={"/api/payments/vnpay/create","/api/payments/vnpay/ipn","/api/payments/vnpay/return"})
 public class PaymentGatewayServlet extends BaseApiServlet {
- /** VNPay chỉ nhận địa chỉ IPv4: IPv6 (ví dụ ::1 khi chạy localhost) đổi thành 127.0.0.1. */
  static String clientIp(HttpServletRequest req) {
     String ip=req.getHeader("X-Forwarded-For");
     if(ip!=null&&!ip.isBlank())ip=ip.split(",")[0].trim();else ip=req.getRemoteAddr();
@@ -36,24 +35,22 @@ public class PaymentGatewayServlet extends BaseApiServlet {
  }
  protected void doGet(HttpServletRequest req,HttpServletResponse res)throws IOException {
     if(req.getServletPath().endsWith("/return")) {
-        // Khách quay về từ VNPay: kiểm tra chữ ký, xác nhận giao dịch (an toàn vì chữ ký do VNPay ký và mỗi giao dịch chỉ ghi một lần),
-        // rồi chuyển về trang hóa đơn kèm kết quả.
-        String outcome="error",invoice="";
+        String outcome="error",invoice="",type="",appointment="";
         try {
             Map<String,String> p=params(req);
             if(!VnPay.verify(p,VnPay.required("VNPAY_HASH_SECRET")))outcome="invalid";
             else try(PaymentGatewayDAO dao=new PaymentGatewayDAO()){
                 Map<String,String> result=dao.handleReturn(p,AppConfig.flag("VNPAY_CONFIRM_ON_RETURN",true));
-                outcome=result.get("outcome");invoice=result.getOrDefault("invoiceId","");
+                outcome=result.get("outcome");invoice=result.getOrDefault("invoiceId","");type=result.getOrDefault("type","");appointment=result.getOrDefault("appointmentId","");
             }
         } catch(Exception e){log("VNPay return not applied",e);}
-        res.sendRedirect(AppConfig.get("BSSMS_FRONTEND_URL","http://localhost:5173")+"/invoices?payment="+outcome+(invoice.isEmpty()?"":"&invoice="+invoice));return;
+        String page=!appointment.isEmpty()?"/appointments/"+appointment:"Package".equals(type)?"/my-treatment-profile":"/invoices";
+        res.sendRedirect(AppConfig.get("BSSMS_FRONTEND_URL","http://localhost:5173")+page+"?payment="+outcome+(invoice.isEmpty()?"":"&invoice="+invoice));return;
     }
     if(!req.getServletPath().endsWith("/ipn")){res.sendError(405);return;}
     res.setContentType("application/json");res.setCharacterEncoding("UTF-8");
     try {
         Map<String,String> p=params(req);
-        // Authenticate the callback before opening the database.
         if(!VnPay.verify(p,VnPay.required("VNPAY_HASH_SECRET"))){res.getWriter().write("{\"RspCode\":\"97\",\"Message\":\"Invalid signature\"}");return;}
         try(PaymentGatewayDAO dao=new PaymentGatewayDAO()){res.getWriter().write(new Gson().toJson(dao.ipn(p)));}
     }catch(Exception e){log("VNPay IPN not applied",e);res.getWriter().write("{\"RspCode\":\"99\",\"Message\":\"Unable to confirm\"}");}

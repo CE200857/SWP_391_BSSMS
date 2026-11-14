@@ -1,17 +1,24 @@
 package bssms_controller.DatTT;
 import java.util.List;
 
-/** Transport-neutral data read from the JSON body; null means a field was absent. */
 public class BookingRequest {
+    public static class Line {
+        public Integer serviceId;
+        public Integer customerPackageId;
+    }
+    public static class Assignment {
+        public Integer appointmentServiceId;
+        public Integer technicianId;
+        public Integer bedId;
+    }
+    public List<Line> services;
     public Integer serviceId;
     public Integer customerPackageId;
     public String appointmentDate;
     public String startTime;
     public Integer technicianId;
+    public String paymentChoice;
     public String notes;
     public Integer appointmentId;
-    public String status;
-    public Integer roomId;
-    public Integer bedId;
-    public List<Integer> equipmentIds;
+    public List<Assignment> assignments;
 }

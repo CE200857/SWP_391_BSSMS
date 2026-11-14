@@ -5,7 +5,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Collections;
 
-/** In-memory application result; does not write to a network response. */
 public final class ActionResult {
     private int status=200;
     private final StringWriter buffer=new StringWriter();

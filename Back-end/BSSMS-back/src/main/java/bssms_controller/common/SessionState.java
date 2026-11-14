@@ -2,7 +2,6 @@ package bssms_controller.common;
 
 import java.util.*;
 
-/** Session values and pending changes. Only the Servlet writes the actual HttpSession. */
 public final class SessionState {
     private final Map<String,Object> values=new HashMap<>(), changes=new HashMap<>();
     private final Set<String> removals=new HashSet<>();

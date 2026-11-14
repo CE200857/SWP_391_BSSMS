@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.StringReader;
 import java.util.Map;
 
-/** Values copied at the Servlet boundary. No Jakarta dependency or live HTTP objects. */
 public final class ActionRequest {
     private final Map<String,String> parameters;
     private final String body, uri, contextPath, servletPath, pathInfo, query;

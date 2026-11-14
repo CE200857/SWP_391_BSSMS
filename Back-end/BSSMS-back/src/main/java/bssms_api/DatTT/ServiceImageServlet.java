@@ -11,13 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-/**
- * Ảnh dịch vụ.
- *   GET    /api/service-image/{serviceId}   ảnh (công khai, để khách xem danh sách dịch vụ)
- *   POST   /api/service-image/{serviceId}   body {contentType,data(base64)}  (Manager)
- *   DELETE /api/service-image/{serviceId}   xóa ảnh (Manager)
- * Quyền Manager được kiểm tra ở AuthorizationFilter.
- */
 @WebServlet(name = "ServiceImageServlet", urlPatterns = {"/api/service-image/*"})
 public class ServiceImageServlet extends BaseApiServlet {
     private static int serviceId(HttpServletRequest request) {

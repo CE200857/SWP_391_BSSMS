@@ -2,92 +2,86 @@ package bssms_controller.DatTT;
 
 import bssms_account.Account;
 import bssms_persistence.DatTT.BookingManagementDAO;
+import bssms_persistence.common.BookingWorkflow;
 import java.time.LocalDate;
-import bssms_booking.*;
 import java.time.LocalTime;
 import java.util.*;
 
-/** Validates requests and session identity before delegating transactional SQL to DAO. */
 public class BookingManagementController {
     private final BookingManagementDAO dao;
     public BookingManagementController(BookingManagementDAO dao) { this.dao = dao; }
 
-    private int requiredId(Integer value, String field) {
-        if (value == null) throw new IllegalArgumentException(field + " is required.");
-        Validation.id(value, field);
-        return value;
-    }
     private String date(String value) {
         return LocalDate.parse(Validation.text(value, "date")).toString();
     }
     private void bind(Account user) {
         if (user == null || user.getAccountId() == null || user.getAccountId() <= 0)
-            throw new ControllerException(403, "Please log in again.");
+            throw new ControllerException(401, "Vui lòng đăng nhập lại.");
         dao.setActorAccountId(user.getAccountId());
     }
-    private int customerId(Account user) throws Exception {
+    static List<Integer> serviceIds(String list, String single) {
+        List<Integer> ids = new ArrayList<>();
+        String source = list != null && !list.isBlank() ? list : single;
+        if (source == null || source.isBlank()) throw new IllegalArgumentException("Vui lòng chọn dịch vụ.");
+        for (String part : source.split(",")) {
+            int id = Integer.parseInt(part.trim());
+            Validation.id(id, "serviceId");
+            ids.add(id);
+        }
+        if (ids.size() > 4) throw new IllegalArgumentException("Một lịch hẹn tối đa 4 dịch vụ (BR-02).");
+        return ids;
+    }
+    static List<BookingWorkflow.LineInput> lines(BookingRequest value) {
+        List<BookingWorkflow.LineInput> result = new ArrayList<>();
+        if (value.services != null) for (BookingRequest.Line l : value.services) {
+            if (l == null || l.serviceId == null) throw new IllegalArgumentException("Thiếu dịch vụ.");
+            Validation.optionalId(l.customerPackageId, "customerPackageId");
+            result.add(new BookingWorkflow.LineInput(l.serviceId, l.customerPackageId));
+        } else if (value.serviceId != null) result.add(new BookingWorkflow.LineInput(value.serviceId, value.customerPackageId));
+        if (result.isEmpty() || result.size() > 4) throw new IllegalArgumentException("Một lịch hẹn gồm từ 1 đến 4 dịch vụ (BR-02).");
+        return result;
+    }
+    public static Map<Integer, Integer>[] assignments(BookingRequest value) {
+        @SuppressWarnings("unchecked") Map<Integer, Integer>[] maps = new Map[]{new HashMap<>(), new HashMap<>()};
+        if (value.assignments != null) for (BookingRequest.Assignment a : value.assignments) {
+            if (a == null || a.appointmentServiceId == null) continue;
+            if (a.technicianId != null) maps[0].put(a.appointmentServiceId, a.technicianId);
+            if (a.bedId != null) maps[1].put(a.appointmentServiceId, a.bedId);
+        }
+        return maps;
+    }
+
+    public Map<String, Object> checkSlots(Account user, String serviceIds, String serviceId, String date, Integer technicianId, Integer appointmentId) throws Exception {
         bind(user);
-        Validation.role(user, "Customer");
-        int customerId = dao.getCustomerIdByAccountId(user.getAccountId());
-        if (customerId <= 0) throw new IllegalArgumentException("Customer profile not found. Please update your profile.");
-        return customerId;
-    }
-    public SlotAvailability checkSlots(int serviceId, String date, Integer technicianId) throws Exception {
-        Validation.id(serviceId, "serviceId");
         Validation.optionalId(technicianId, "technicianId");
-        return dao.checkSlotAvailability(serviceId, date(date), technicianId);
+        return dao.slots(serviceIds(serviceIds, serviceId), date(date), technicianId, appointmentId);
     }
-    public List<ActivePackage> myPackages(Account user) throws Exception {
-        return dao.getActivePackagesByCustomer(customerId(user));
-    }
-    public Appointment createOnline(Account user, BookingRequest value) throws Exception {
+    public Map<String, Object> createOnline(Account user, BookingRequest value) throws Exception {
         bind(user);
         Validation.role(user, "Customer");
         Validation.body(value);
-        int serviceId = requiredId(value.serviceId, "serviceId");
-        String date = date(value.appointmentDate);
         String time = LocalTime.parse(Validation.text(value.startTime, "startTime")).toString();
-        Validation.optionalId(value.customerPackageId, "customerPackageId");
         Validation.optionalId(value.technicianId, "technicianId");
-        // Never trust customerId supplied by the browser.
-        return dao.createOnlineAppointment(customerId(user), serviceId, value.customerPackageId,
-                date, time, value.technicianId, value.notes);
+        int id = dao.createOnline(lines(value), date(value.appointmentDate), time, value.technicianId, value.paymentChoice, value.notes);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("appointmentId", id);
+        result.put("status", "Pending");
+        Map<String, Object> invoice = dao.openInvoice(id);
+        result.put("invoiceId", invoice == null ? null : invoice.get("invoiceId"));
+        result.put("totalAmount", invoice == null ? 0 : invoice.get("totalAmount"));
+        result.put("message", "Đặt lịch thành công. Lịch đang chờ lễ tân xác nhận.");
+        return result;
     }
-    public Object coordination(Account user, Integer appointmentId) throws Exception {
+    public Object checkInPlan(Account user, int appointmentId) throws Exception {
         bind(user);
-        Validation.role(user, "Receptionist", "Manager");
-        if (appointmentId == null) return dao.getAllAppointmentsForCoordination();
-        Validation.id(appointmentId, "appointmentId");
-        return dao.getCoordinationResources(appointmentId);
+        return dao.checkInPlan(appointmentId);
     }
     public Map<String, String> checkIn(Account user, BookingRequest value) throws Exception {
         bind(user);
-        Validation.role(user, "Receptionist", "Manager", "Technician");
         Validation.body(value);
-        int id = requiredId(value.appointmentId, "appointmentId");
-        Validation.status(value.status, "Pending", "Confirmed", "Checked-in",
-                "In-progress", "Completed", "Cancelled", "No-show");
-        Validation.found(dao.updateCheckInAndStatus(id, value.status, value.notes));
-        return Collections.singletonMap("message", "Appointment status updated successfully.");
-    }
-    public Map<String, String> coordinate(Account user, BookingRequest value) throws Exception {
-        bind(user);
-        Validation.role(user, "Receptionist", "Manager");
-        Validation.body(value);
-        int id = requiredId(value.appointmentId, "appointmentId");
-        Validation.optionalId(value.technicianId, "technicianId");
-        Validation.optionalId(value.roomId, "roomId");
-        Validation.optionalId(value.bedId, "bedId");
-        if (value.bedId != null && value.roomId == null) {
-            throw new IllegalArgumentException("roomId is required when selecting a bed.");
-        }
-        List<Integer> equipmentIds = value.equipmentIds == null ? Collections.emptyList() : value.equipmentIds;
-        Set<Integer> unique = new HashSet<>();
-        for (Integer equipmentId : equipmentIds) {
-            requiredId(equipmentId, "equipmentId");
-            if (!unique.add(equipmentId)) throw new IllegalArgumentException("Duplicate equipmentId.");
-        }
-        Validation.found(dao.coordinateAppointment(id, value.technicianId, value.roomId, value.bedId, equipmentIds));
-        return Collections.singletonMap("message", "Appointment coordinated successfully.");
+        if (value.appointmentId == null) throw new IllegalArgumentException("appointmentId is required.");
+        Map<Integer, Integer>[] maps = assignments(value);
+        dao.checkIn(value.appointmentId, maps[0], maps[1]);
+        return Collections.singletonMap("message", "Đã check-in và phân công kỹ thuật viên, giường.");
     }
 }

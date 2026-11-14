@@ -1,8 +1,8 @@
-package bssms_api.HienLNM;
+package bssms_api.KhanhLTQ;
 
 import bssms_account.Account;
 import bssms_api.common.BaseApiServlet;
-import bssms_persistence.HienLNM.PackagePurchaseDAO;
+import bssms_persistence.KhanhLTQ.PackagePurchaseDAO;
 import bssms_persistence.common.WorkflowException;
 import com.google.gson.JsonObject;
 import jakarta.servlet.annotation.WebServlet;
@@ -11,7 +11,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
 
-/** POST /api/package-purchases {treatmentPackageId} -> {invoiceId}; the customer then pays it via /api/payments/vnpay/create. */
 @WebServlet(name = "PackagePurchaseServlet", urlPatterns = {"/api/package-purchases"})
 public class PackagePurchaseServlet extends BaseApiServlet {
     @Override protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -25,7 +24,8 @@ public class PackagePurchaseServlet extends BaseApiServlet {
             int packageId = body.get("treatmentPackageId").getAsInt();
             try (PackagePurchaseDAO dao = new PackagePurchaseDAO()) {
                 dao.setActorAccountId(user.getAccountId());
-                return Map.of("invoiceId", dao.purchase(packageId));
+                String voucher = body.has("voucherCode") && !body.get("voucherCode").isJsonNull() ? body.get("voucherCode").getAsString() : null;
+                return Map.of("invoiceId", dao.purchase(packageId, voucher));
             }
         });
     }

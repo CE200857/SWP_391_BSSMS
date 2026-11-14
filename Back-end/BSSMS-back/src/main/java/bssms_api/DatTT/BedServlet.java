@@ -13,7 +13,7 @@ public class BedServlet extends BaseApiServlet {
         handle(request, response, 200, () -> {
             try (BedDAO dao = new BedDAO()) {
                 BedController controller = new BedController(dao);
-                return controller.getAllBeds();
+                return controller.getAllBeds(optionalId(request, "roomId"));
             }
         });
     }
@@ -22,7 +22,7 @@ public class BedServlet extends BaseApiServlet {
             try (BedDAO dao = new BedDAO()) {
                 BedController controller = new BedController(dao);
                 controller.create(user(request), body(request, Bed.class));
-                return message("Created successfully.");
+                return message("Đã thêm giường.");
             }
         });
     }
@@ -30,8 +30,7 @@ public class BedServlet extends BaseApiServlet {
         handle(request, response, 200, () -> {
             try (BedDAO dao = new BedDAO()) {
                 BedController controller = new BedController(dao);
-                controller.update(user(request), body(request, Bed.class));
-                return message("Updated successfully.");
+                return controller.update(user(request), body(request, Bed.class));
             }
         });
     }
@@ -40,7 +39,7 @@ public class BedServlet extends BaseApiServlet {
             try (BedDAO dao = new BedDAO()) {
                 BedController controller = new BedController(dao);
                 controller.delete(user(request), id(request, "id"));
-                return message("Deleted successfully.");
+                return message("Đã xóa giường.");
             }
         });
     }

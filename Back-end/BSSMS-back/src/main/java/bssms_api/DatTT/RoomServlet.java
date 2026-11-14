@@ -13,7 +13,8 @@ public class RoomServlet extends BaseApiServlet {
         handle(request, response, 200, () -> {
             try (RoomDAO dao = new RoomDAO()) {
                 RoomController controller = new RoomController(dao);
-                return controller.getAllRooms();
+                Integer affected = optionalId(request, "affectedOf");
+                return affected != null ? controller.affected(user(request), affected) : controller.getAllRooms();
             }
         });
     }
@@ -22,7 +23,7 @@ public class RoomServlet extends BaseApiServlet {
             try (RoomDAO dao = new RoomDAO()) {
                 RoomController controller = new RoomController(dao);
                 controller.create(user(request), body(request, Room.class));
-                return message("Created successfully.");
+                return message("Đã thêm phòng.");
             }
         });
     }
@@ -30,8 +31,7 @@ public class RoomServlet extends BaseApiServlet {
         handle(request, response, 200, () -> {
             try (RoomDAO dao = new RoomDAO()) {
                 RoomController controller = new RoomController(dao);
-                controller.update(user(request), body(request, Room.class));
-                return message("Updated successfully.");
+                return controller.update(user(request), body(request, Room.class));
             }
         });
     }
@@ -40,7 +40,7 @@ public class RoomServlet extends BaseApiServlet {
             try (RoomDAO dao = new RoomDAO()) {
                 RoomController controller = new RoomController(dao);
                 controller.delete(user(request), id(request, "id"));
-                return message("Deleted successfully.");
+                return message("Đã xóa phòng.");
             }
         });
     }
