@@ -1,4 +1,3 @@
-/* Keep the account panel out of the header's document flow. */
 .customer-account {
   position: relative;
   flex: 0 0 auto;
@@ -229,7 +228,6 @@
   }
 }
 
-/* Booking stays visible beside the account button, including on mobile. */
 .customer-booking-link {
   display: inline-flex;
   align-items: center;

@@ -10,7 +10,7 @@ import axios from 'axios';
 import { installSessionGuard } from './auth/sessionGuard';
 
    axios.defaults.baseURL = '';
-installSessionGuard(axios); // phiên mất (401) thì đăng xuất và về trang đăng nhập
+installSessionGuard(axios);
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -23,8 +23,11 @@ const customerLinks = [
 
 const customerAccountLinks = [
   ["/profile", "Tài khoản của tôi", "person"],
+  ["/appointments", "Lịch hẹn của tôi", "calendar2-week"],
+  ["/my-treatment-profile", "Liệu trình của tôi", "box-seam"],
   ["/invoices", "Hóa đơn của tôi", "receipt"],
   ["/my-feedback", "Đánh giá của tôi", "star"],
+  ["/service-history", "Lịch sử dịch vụ", "clock-history"],
   ["/membership-benefits", "Quyền lợi thành viên", "award"],
 ];
 
@@ -36,6 +39,13 @@ const dashboardTitles = {
   "/staffs": "Quản lý nhân viên",
   "/vouchers": "Quản lý voucher",
   "/manager/resources": "Phòng & giường",
+  "/receptionist/coordination": "Check-in & điều phối",
+  "/treatment-status": "Trạng thái dịch vụ",
+  "/manager/scheduling": "Ca làm & kỹ năng",
+  "/manager/leaves": "Duyệt nghỉ phép",
+  "/manager/tour-report": "Báo cáo tour",
+  "/my-schedule": "Ca làm & nghỉ phép",
+  "/invoices/create": "Thu ngân",
   "/profile": "Hồ sơ cá nhân",
 };
 
@@ -176,9 +186,9 @@ const Header = ({
           </span>
           {user?.role === "Manager" && (
             <Link
-              to="/manager/policy"
+              to="/manager/leaves"
               className="app-header-icon"
-              aria-label="Theo dõi thông báo"
+              aria-label="Đơn nghỉ phép chờ duyệt"
             >
               <i className="bi bi-bell" aria-hidden="true" />
             </Link>

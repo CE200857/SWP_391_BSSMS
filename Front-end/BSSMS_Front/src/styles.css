@@ -1,10 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap");
 
-/* BSSMS — application design system. Edit this file for all screens. */
-
-/* index.css */
 :root {
-  /* Vietnamese + English typography; system fallback while web fonts load. */
   --app-font-sans: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
   --app-font-heading: "Playfair Display", Georgia, serif;
   --bs-font-sans-serif: var(--app-font-sans);
@@ -95,7 +91,6 @@ p {
   background: var(--seoul-600);
 }
 
-/* Keep compact Bootstrap controls legible without changing icon fonts. */
 .btn-sm,
 .form-control-sm,
 .form-select-sm {
@@ -112,7 +107,6 @@ small,
   --bs-popover-font-size: 0.875rem;
 }
 
-/* App.css */
 #root {
   width: 100%;
   min-height: 100vh;
@@ -5620,7 +5614,6 @@ small,
   }
 }
 
-/* Let enlarged labels wrap rather than clip in narrow booking cards. */
 .public-slot-card,
 .customer-booking-slot-grid > * {
   overflow-wrap: anywhere;
@@ -5645,7 +5638,6 @@ small,
   }
 }
 
-/* components/ManagerSidebar.css */
 .app-sidebar.manager-sidebar {
   background: #fff;
   height: 100vh;
@@ -5750,7 +5742,6 @@ small,
   outline-offset: 1px;
 }
 
-/* pages/Auth/DashboardLogin.css */
 .staff-login {
   min-height: 100dvh;
   display: grid;
@@ -6287,7 +6278,6 @@ small,
   font-weight: 700;
 }
 
-/* pages/Dashboard/Manager/ManagerDashboard.css */
 .manager-overview {
   max-width: 1600px;
   margin: auto;
@@ -6501,7 +6491,6 @@ small,
   }
 }
 
-/* pages/Dashboard/Manager/MembershipAdmin/MembershipManagementPage.css */
 .membership-management-page {
   min-width: 0;
 }
@@ -6591,7 +6580,6 @@ small,
   }
 }
 
-/* pages/Dashboard/ServiceHistory/ServiceHistory.css */
 .service-history-page {
   color: #253047;
   min-width: 0;
@@ -6754,7 +6742,6 @@ small,
   }
 }
 
-/* pages/Shared/Feedback/PublicFeedbackList.css */
 .feedback-management-page {
   max-width: 1400px;
   margin-left: auto;
@@ -6773,7 +6760,6 @@ small,
   padding: 22px;
 }
 
-/* pages/Shared/Membership/MembershipBenefits.css */
 .membership-benefits-page {
   max-width: 1600px;
   margin: 0 auto;
@@ -6836,7 +6822,6 @@ small,
   }
 }
 
-/* Shared tokens and stable application shell */
 :root {
   --ui-bg: #faf7f9;
   --ui-surface: #fff;
@@ -7140,7 +7125,6 @@ body {
   }
 }
 
-/* Keep the header height stable when a page title changes. */
 .app-dashboard-header {
   height: 76px;
   min-height: 76px;
@@ -7171,7 +7155,6 @@ body {
   }
 }
 
-/* Staff workspaces and responsive navigation — shared by all three staff roles. */
 .app-sidebar.manager-sidebar {
   flex-basis: 248px;
   width: 248px;
@@ -7607,7 +7590,6 @@ body {
   line-height: 1.65;
 }
 
-/* Public and customer headers adapt to available width rather than scaling the page. */
 .app-public-header-inner {
   width: min(100% - 48px, 1320px);
   gap: 20px;
@@ -7891,7 +7873,6 @@ body {
   }
 }
 
-/* Shared responsive details; page-specific panels retain their own heading sizes. */
 .app-registration-page {
   display: flex;
   justify-content: center;
