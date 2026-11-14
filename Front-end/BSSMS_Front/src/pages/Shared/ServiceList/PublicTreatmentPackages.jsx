@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Alert, Button, Modal } from "react-bootstrap";
+import { Alert, Button, Form, Modal } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { post } from "../../../services/api";
 import servicePhoto01 from "../../../assets/figma/service-card-exact-01.png";
@@ -12,10 +12,8 @@ const photos = [servicePhoto01, servicePhoto02, servicePhoto03, servicePhoto04];
 const packageDescription = (description) =>
   description?.replace(/Sử dụng trong 180 ngày kể từ ngày mua\.?/gi, "").trim();
 
-// Guest xem gói liệu trình và bảng giá; bấm "Mua gói" sẽ chuyển sang đăng nhập rồi quay lại trang này để mua.
 export default function PublicTreatmentPackages({ user = null }) {
   const [packages, setPackages] = useState([]);
-  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -23,17 +21,17 @@ export default function PublicTreatmentPackages({ user = null }) {
   const [buying, setBuying] = useState(null);
   const [buyBusy, setBuyBusy] = useState(false);
   const [buyError, setBuyError] = useState("");
+  const [voucherCode, setVoucherCode] = useState("");
   const isCustomer = user?.role === "Customer";
   const navigate = useNavigate();
 
-  // Khách tự mua gói: tạo hóa đơn gói (Unpaid) rồi chuyển sang VNPay để thanh toán.
   const confirmPurchase = async () => {
     if (!buying || buyBusy) return;
     setBuyBusy(true);
     setBuyError("");
     let invoiceId = null;
     try {
-      const created = await post("/api/package-purchases", { treatmentPackageId: buying.treatmentPackageId });
+      const created = await post("/api/package-purchases", { treatmentPackageId: buying.treatmentPackageId, voucherCode: voucherCode.trim() || null });
       invoiceId = created.invoiceId;
       const payment = await post("/api/payments/vnpay/create", { invoiceId });
       window.location.assign(payment.paymentUrl);
@@ -53,12 +51,8 @@ export default function PublicTreatmentPackages({ user = null }) {
       setLoading(true);
       setLoadError(false);
       try {
-        const [packageResponse, serviceResponse] = await Promise.all([
-          axios.get("/api/treatment-packages", { signal: controller.signal }),
-          axios.get("/api/service", { signal: controller.signal }),
-        ]);
+        const packageResponse = await axios.get("/api/treatment-packages?activeOnly=true", { signal: controller.signal });
         setPackages(Array.isArray(packageResponse.data) ? packageResponse.data : []);
-        setServices(Array.isArray(serviceResponse.data) ? serviceResponse.data : []);
       } catch (error) {
         if (!axios.isCancel(error)) setLoadError(true);
       } finally {
@@ -73,11 +67,8 @@ export default function PublicTreatmentPackages({ user = null }) {
     const term = searchTerm.trim().toLowerCase();
     return packages
       .filter((item) => !item.status || item.status === "Active")
-      .filter((item) => !term || String(item.packageName || "").toLowerCase().includes(term));
+      .filter((item) => !term || `${item.packageName} ${(item.services || []).map((service) => service.serviceName).join(" ")}`.toLowerCase().includes(term));
   }, [packages, searchTerm]);
-
-  const serviceName = (id) =>
-    services.find((service) => service.serviceId === id)?.serviceName || `Dịch vụ #${id}`;
 
   return (
     <main className="public-service-page">
@@ -150,7 +141,7 @@ export default function PublicTreatmentPackages({ user = null }) {
               <article className="public-service-card public-treatment-package-card" key={item.treatmentPackageId}>
                 <div className="public-service-card-image">
                   <img
-                    src={`/api/service-image/${item.serviceId}`}
+                    src={`/api/service-image/${item.serviceIds?.[0]}`}
                     alt=""
                     onError={(event) => {
                       event.currentTarget.onerror = null;
@@ -162,7 +153,7 @@ export default function PublicTreatmentPackages({ user = null }) {
                   <span className="public-service-code">{item.numberOfSessions} buổi</span>
                   <h3>{item.packageName}</h3>
                   <p className="small text-muted mb-2">
-                    Dịch vụ: {serviceName(item.serviceId)}
+                    Dịch vụ: {(item.services || []).map((service) => service.serviceName).join(", ")}
                   </p>
                   {packageDescription(item.description) && (
                     <p className="small mb-2">{packageDescription(item.description)}</p>
@@ -212,14 +203,19 @@ export default function PublicTreatmentPackages({ user = null }) {
         <Modal.Body>
           {buyError && <Alert variant="danger">{buyError}</Alert>}
           <p className="mb-1">
-            <strong>{buying?.packageName}</strong> · {buying?.numberOfSessions} buổi
+            <strong>{buying?.packageName}</strong> · {buying?.numberOfSessions} buổi · hạn dùng {buying?.validityDays} ngày
           </p>
+          <p className="small text-muted mb-1">Áp dụng cho: {(buying?.services || []).map((service) => service.serviceName).join(", ")}</p>
           <p className="fs-5 fw-bold">{Number(buying?.price || 0).toLocaleString("vi-VN")} VNĐ</p>
+          <Form.Group className="mb-3">
+            <Form.Label className="small">Mã voucher (nếu có)</Form.Label>
+            <Form.Control size="sm" value={voucherCode} onChange={(event) => setVoucherCode(event.target.value.toUpperCase())} disabled={buyBusy} />
+          </Form.Group>
           <ul className="small text-muted ps-3 mb-0">
-            <li>Bạn sẽ được chuyển sang VNPay để thanh toán toàn bộ gói.</li>
-            <li>Gói chỉ đặt lịch được sau khi thanh toán thành công; hạn dùng tính từ ngày mua.</li>
-            <li>Ưu đãi VIP/sinh nhật không áp dụng cho gói liệu trình.</li>
-            <li>Hóa đơn chưa thanh toán sau 24 giờ sẽ tự hủy.</li>
+            <li>Bạn sẽ được chuyển sang VNPay để thanh toán; liên kết có hiệu lực 15 phút.</li>
+            <li>Ưu đãi theo hạng thành viên được trừ trước, sau đó đến voucher (tổng giảm tối đa 50%).</li>
+            <li>Gói được kích hoạt ngay khi thanh toán thành công; hạn dùng tính từ ngày mua.</li>
+            <li>Nếu thanh toán không thành công, hóa đơn gói sẽ bị hủy và bạn có thể mua lại.</li>
           </ul>
         </Modal.Body>
         <Modal.Footer>

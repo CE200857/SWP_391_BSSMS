@@ -14,12 +14,12 @@ export default function PrivacyPolicy() {
         <ul>
           <li>Đặt lịch, phân công kỹ thuật viên, thực hiện và ghi nhận dịch vụ.</li>
           <li>Lập hóa đơn, thanh toán, hoàn tiền và áp dụng ưu đãi thành viên.</li>
-          <li>Gửi mã xác thực qua email, nhắc lịch hẹn và nhắc gói liệu trình qua Zalo.</li>
+          <li>Gửi mã xác thực và thông báo qua email.</li>
           <li>Hiển thị đánh giá dịch vụ và cải thiện chất lượng phục vụ.</li>
         </ul>
       </InfoSection>
       <InfoSection title="3. Chia sẻ thông tin">
-        <p>Seoul Center không bán thông tin cá nhân. Chúng tôi chỉ chia sẻ phần cần thiết với đơn vị xử lý thanh toán trực tuyến (VNPay), dịch vụ nhắn tin Zalo và dịch vụ gửi email để thực hiện đúng các chức năng nêu trên, hoặc khi cơ quan nhà nước có thẩm quyền yêu cầu theo quy định pháp luật.</p>
+        <p>Seoul Center không bán thông tin cá nhân. Chúng tôi chỉ chia sẻ phần cần thiết với đơn vị xử lý thanh toán trực tuyến (VNPay) và dịch vụ gửi email để thực hiện đúng các chức năng nêu trên, hoặc khi cơ quan nhà nước có thẩm quyền yêu cầu theo quy định pháp luật.</p>
       </InfoSection>
       <InfoSection title="4. Ai được xem thông tin của bạn">
         <p>Nhân viên chỉ xem được dữ liệu phù hợp với vai trò của mình: lễ tân và quản lý xem hồ sơ để phục vụ, kỹ thuật viên chỉ xem lịch hẹn và hồ sơ của khách được phân công. Ảnh trước/sau điều trị chỉ khách hàng đó và nhân viên phụ trách buổi hẹn xem được. Tên bạn có thể hiển thị cùng đánh giá công khai.</p>

@@ -11,6 +11,7 @@ import {
 } from "react-bootstrap";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
+import { PROVINCES, joinAddress, splitAddress } from "../../utils/provinces";
 
 const formatDobForInput = (dobString) => {
   if (!dobString) return "";
@@ -156,8 +157,8 @@ const EditProfile = ({ user, setUser }) => {
         }
       }
 
-      if (!formData.dob || !formData.address.trim()) {
-        return "Vui lòng nhập đầy đủ Ngày sinh và Địa chỉ!";
+      if (!formData.dob || !splitAddress(formData.address).province) {
+        return "Vui lòng nhập Ngày sinh và chọn Tỉnh/Thành phố!";
       }
     }
 
@@ -397,18 +398,26 @@ const EditProfile = ({ user, setUser }) => {
                         </Form.Group>
                       </Col>
                     </Row>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="text-muted fw-bold mb-1">
-                        Địa chỉ (*)
-                      </Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="address"
-                        value={formData.address}
-                        onChange={handleChange}
-                        placeholder="Nhập địa chỉ của bạn"
-                      />
-                    </Form.Group>
+                    {(() => {
+                      const { detail, province } = splitAddress(formData.address);
+                      const setAddress = (d, p) => setFormData((f) => ({ ...f, address: joinAddress(d, p) }));
+                      return (
+                        <Row>
+                          <Col md={5} className="mb-3">
+                            <Form.Label className="text-muted fw-bold mb-1">Tỉnh/Thành phố (*)</Form.Label>
+                            <Form.Select value={province} onChange={(e) => setAddress(detail, e.target.value)}>
+                              <option value="">Chọn tỉnh/thành</option>
+                              {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
+                            </Form.Select>
+                          </Col>
+                          <Col md={7} className="mb-3">
+                            <Form.Label className="text-muted fw-bold mb-1">Địa chỉ chi tiết</Form.Label>
+                            <Form.Control type="text" value={detail} maxLength={200}
+                              onChange={(e) => setAddress(e.target.value, province)} placeholder="Số nhà, đường, phường/xã" />
+                          </Col>
+                        </Row>
+                      );
+                    })()}
                   </>
                 )}
 

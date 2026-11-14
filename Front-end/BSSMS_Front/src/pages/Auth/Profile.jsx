@@ -7,8 +7,6 @@ const Profile = ({ user, setUser }) => {
   const [profileData, setProfileData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Gọi API lấy thông tin chi tiết ngay khi trang vừa load xong
-  // Gọi API lấy thông tin chi tiết ngay khi trang vừa load xong
   useEffect(() => {
     const fetchProfile = async () => {
       const idToFetch = user?.account_id || user?.accountId;
@@ -19,12 +17,11 @@ const Profile = ({ user, setUser }) => {
       }
 
       try {
-        // Đổi thành đường dẫn tuyệt đối và thêm credentials
         const response = await fetch(
           `/api/profile?accountId=${idToFetch}&role=${user.role}`,
           {
             method: "GET",
-            credentials: "include", // Bắt buộc phải có để Backend nhận diện được Session
+            credentials: "include",
           },
         );
         if (response.ok) {
@@ -43,10 +40,9 @@ const Profile = ({ user, setUser }) => {
 
   const handleLogout = async () => {
     try {
-      // Sửa lại đường dẫn API logout
       await fetch("/api/logout", {
         method: "POST",
-        credentials: "include", // Gửi cookie để Backend hủy Session
+        credentials: "include",
       });
     } catch (error) {
       console.error("Lỗi khi gọi API logout:", error);
@@ -59,7 +55,6 @@ const Profile = ({ user, setUser }) => {
 
   if (!user) return null;
 
-  // Lấy ký tự đầu làm Avatar
   const displayName = profileData?.fullName || user?.fullName || "User";
   const initial = displayName.charAt(0).toUpperCase();
 
@@ -230,7 +225,6 @@ const Profile = ({ user, setUser }) => {
                   </div>
                 </div>
 
-                {/* Chỉ hiển thị Ngày sinh, Giới tính, Địa chỉ nếu là Khách hàng */}
                 {profileData.role === "Customer" && (
                   <>
                     <Row>
@@ -275,7 +269,6 @@ const Profile = ({ user, setUser }) => {
                   </div>
                 </div>
 
-                {/* Membership Information - Customer only */}
                 {profileData.role === "Customer" && (
                   <Card className="border-0 bg-light mb-4">
                     <Card.Body>
@@ -343,7 +336,6 @@ const Profile = ({ user, setUser }) => {
                   </Card>
                 )}
 
-                {/* Khu vực nút bấm */}
                 <div className="d-flex justify-content-between mt-auto pt-3 flex-wrap gap-2">
                   <Button
                     variant="outline-secondary"

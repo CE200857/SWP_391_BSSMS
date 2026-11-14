@@ -1,159 +1,73 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useLocation } from "react-router-dom";
-import {
-  Card,
-  Form,
-  Badge,
-  Spinner,
-  Alert,
-} from "react-bootstrap";
+import { Card, Form, Badge, Spinner, Alert } from "react-bootstrap";
+import { ServiceLinesEditor, useSlots, emptyLine } from "../../../components/BookingPicker";
+import { api, today, viDate } from "../../../services/api";
 
-const getTodayString = () => {
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = String(today.getMonth() + 1).padStart(2, "0");
-  const d = String(today.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-};
-
-const CheckSlotAvailability = ({ user, setUser }) => {
+const CheckSlotAvailability = ({ user }) => {
   const navigate = useNavigate();
   const location = useLocation();
-
   const role = user?.role || "Guest";
+  const initialService = new URLSearchParams(location.search).get("serviceId") || "";
 
   const [services, setServices] = useState([]);
-  const [selectedServiceId, setSelectedServiceId] = useState(() => new URLSearchParams(location.search).get("serviceId") || "");
-  const [selectedDate, setSelectedDate] = useState(getTodayString());
+  const [lines, setLines] = useState([{ ...emptyLine(), serviceId: initialService }]);
+  const [selectedDate, setSelectedDate] = useState(today());
   const [selectedTechId, setSelectedTechId] = useState("");
-
-  const [slotData, setSlotData] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Tải danh sách dịch vụ đang hoạt động
   useEffect(() => {
     if (!user) return;
-    const loadServices = async () => {
-      try {
-        const res = await fetch("/api/service", { credentials: "include" });
-        if (!res.ok) {
-          throw new Error(`Không thể tải danh sách dịch vụ (${res.status}).`);
-        }
-
-        const data = await res.json();
-        const activeList = Array.isArray(data)
-          ? data.filter((s) => s.status?.toLowerCase() === "active")
-          : [];
-        setServices(activeList);
-        if (activeList.length > 0) {
-          setSelectedServiceId((currentServiceId) =>
-            activeList.some(service => String(service.serviceId) === currentServiceId) ? currentServiceId : String(activeList[0].serviceId)
-          );
-        }
-      } catch (err) {
-        console.error("Lỗi tải danh sách dịch vụ:", err);
-        setError("Không thể tải danh sách dịch vụ. Vui lòng thử lại.");
-      }
-    };
-    loadServices();
+    api("/api/service")
+      .then((rows) => {
+        const active = (rows || []).filter((s) => s.status === "Active");
+        setServices(active);
+        setLines((current) => current[0].serviceId || !active.length ? current : [{ ...emptyLine(), serviceId: String(active[0].serviceId) }]);
+      })
+      .catch(() => setError("Không thể tải danh sách dịch vụ. Vui lòng thử lại."));
   }, [user]);
 
-  // Tự động tra cứu lịch trống khi thay đổi Dịch vụ, Ngày hoặc KTV
-  useEffect(() => {
-    if (!user || !selectedServiceId || !selectedDate) return;
-    const controller = new AbortController();
-    let cancelled = false;
-
-    const fetchSlots = async () => {
-      setLoading(true);
-      setSlotData(null);
-      setError("");
-      try {
-        const params = new URLSearchParams({
-          serviceId: selectedServiceId,
-          date: selectedDate,
-        });
-        if (selectedTechId) {
-          params.append("technicianId", selectedTechId);
-        }
-
-        const res = await fetch(`/api/booking/slots?${params.toString()}`, {
-          signal: controller.signal, credentials: "include",
-        });
-        if (cancelled) return;
-        if (res.status === 401) {
-          localStorage.removeItem('user');
-          setUser(null);
-          navigate(user.role === 'Customer' ? '/login' : '/dashboard/login', {
-            replace: true, state: { from: '/slots?serviceId=' + encodeURIComponent(selectedServiceId) },
-          });
-          return;
-        }
-        const data = await res.json();
-        if (cancelled) return;
-        if (res.ok) {
-          setSlotData(data);
-        } else {
-          setError(data.message || "Không thể kiểm tra lịch trống.");
-        }
-      } catch (err) {
-        if (cancelled || err.name === "AbortError") return;
-        console.error("Lỗi kiểm tra lịch trống:", err);
-        setError("Lỗi kết nối máy chủ khi kiểm tra lịch trống.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    fetchSlots();
-    return () => { cancelled = true; controller.abort(); };
-  }, [user, setUser, navigate, selectedServiceId, selectedDate, selectedTechId]);
+  const { data: slotData, loading, error: slotError } = useSlots(lines, selectedDate, selectedTechId);
+  const serviceIds = lines.filter((l) => l.serviceId).map((l) => l.serviceId);
+  const title = slotData?.services?.map((s) => s.serviceName).join(" → ");
 
   const handleSelectSlot = (slot) => {
     if (!slot.available) return;
-
-    const chosenSlot = {
-      serviceId: String(selectedServiceId),
-      appointmentDate: selectedDate,
-      startTime: slot.startTime,
-      technicianId: selectedTechId || "",
-    };
-
-    if (role === "Customer") {
-      navigate("/appointments/online", { state: chosenSlot });
-    } else if (role === "Receptionist" || role === "Manager") {
-      sessionStorage.setItem(
-        "bssms.walkInAppointmentDraft",
-        JSON.stringify({
-          formData: {
-            customerId: "",
-            ...chosenSlot,
-            notes: "",
-          },
-          customerSearch: "",
-        })
-      );
-      navigate("/appointments/create");
-    }
+    const chosen = { serviceIds, appointmentDate: selectedDate, startTime: slot.startTime, technicianId: selectedTechId };
+    if (role === "Customer") navigate("/appointments/online", { state: chosen });
+    else navigate("/appointments/create", { state: chosen });
   };
-
-  const isPublicRoute = role === "Guest" || role === "Customer";
-  const selectedService = services.find(
-    (service) => String(service.serviceId) === String(selectedServiceId)
-  );
 
   if (!user) return <Navigate to="/login" state={{ from: "/slots" + location.search }} replace />;
 
-  if (isPublicRoute) {
+  const filters = (
+    <>
+      <ServiceLinesEditor services={services} lines={lines} onChange={(next) => { setLines(next); setSelectedTechId(""); }} />
+      <div className="public-slot-filter-fields mt-3">
+        <Form.Group>
+          <Form.Label>Ngày hẹn *</Form.Label>
+          <Form.Control type="date" min={today()} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} required />
+        </Form.Group>
+        <Form.Group>
+          <Form.Label>Kỹ thuật viên (Tùy chọn)</Form.Label>
+          <Form.Select value={selectedTechId} onChange={(e) => setSelectedTechId(e.target.value)}>
+            <option value="">Tất cả kỹ thuật viên</option>
+            {slotData?.technicians?.map((t) => (
+              <option key={t.staffId} value={t.staffId}>{t.fullName}</option>
+            ))}
+          </Form.Select>
+        </Form.Group>
+      </div>
+    </>
+  );
+
+  if (role === "Customer") {
     return (
       <main className="public-slot-page">
         <section className="customer-page-banner public-slot-banner">
           <div className="customer-page-container">
             <div className="customer-breadcrumb">
-              <button type="button" onClick={() => navigate(role === "Customer" ? "/customer/home" : "/bssms-guest")}>
-                Trang chủ
-              </button>
+              <button type="button" onClick={() => navigate("/customer/home")}>Trang chủ</button>
               <i className="bi bi-chevron-right" aria-hidden="true" />
               <strong>Tra cứu lịch trống</strong>
             </div>
@@ -161,11 +75,11 @@ const CheckSlotAvailability = ({ user, setUser }) => {
               <div>
                 <span className="home-eyebrow">DÀNH MỘT KHOẢNG THỜI GIAN CHO BẠN</span>
                 <h1>Tra cứu lịch trống</h1>
-                <p>Chọn dịch vụ, ngày hẹn và kỹ thuật viên bạn mong muốn.<br />Tìm khung giờ phù hợp để bắt đầu buổi chăm sóc tại Seoul Center.</p>
+                <p>Chọn tối đa 4 dịch vụ, ngày hẹn và kỹ thuật viên bạn mong muốn.<br />Tìm khung giờ phù hợp để bắt đầu buổi chăm sóc tại Seoul Center.</p>
               </div>
               <div className="customer-summary-card public-slot-summary">
-                <span><i className="bi bi-calendar2-check" aria-hidden="true" /> Khung giờ ngày {selectedDate}</span>
-                <strong>{slotData?.slots?.filter((slot) => slot.available).length ?? "—"}</strong>
+                <span><i className="bi bi-calendar2-check" aria-hidden="true" /> Khung giờ ngày {viDate(selectedDate)}</span>
+                <strong>{slotData?.slots?.filter((s) => s.available).length ?? "—"}</strong>
                 <small>khung giờ còn trống</small>
               </div>
             </div>
@@ -173,56 +87,13 @@ const CheckSlotAvailability = ({ user, setUser }) => {
         </section>
 
         <div className="customer-page-container public-slot-content">
-          {error && <Alert variant="danger">{error}</Alert>}
+          {(error || slotError) && <Alert variant="danger">{error || slotError}</Alert>}
           <section className="public-slot-filter-panel">
             <div className="customer-filter-title">
               <strong><i className="bi bi-sliders" aria-hidden="true" /> Tìm khung giờ dành cho bạn</strong>
               <small>* Thông tin bắt buộc</small>
             </div>
-            <div className="public-slot-filter-fields">
-              <Form.Group>
-                <Form.Label>Chọn dịch vụ *</Form.Label>
-                <Form.Select
-                  value={selectedServiceId}
-                  onChange={(event) => {
-                    setSelectedServiceId(event.target.value);
-                    setSelectedTechId("");
-                  }}
-                  required
-                >
-                  <option value="">-- Chọn dịch vụ --</option>
-                  {services.map((service) => (
-                    <option key={service.serviceId} value={service.serviceId}>
-                      {service.serviceName} ({service.duration} phút · {Number(service.price).toLocaleString("vi-VN")} đ)
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-              <Form.Group>
-                <Form.Label>Ngày hẹn *</Form.Label>
-                <Form.Control
-                  type="date"
-                  min={getTodayString()}
-                  value={selectedDate}
-                  onChange={(event) => setSelectedDate(event.target.value)}
-                  required
-                />
-              </Form.Group>
-              <Form.Group>
-                <Form.Label>Kỹ thuật viên (Tùy chọn)</Form.Label>
-                <Form.Select
-                  value={selectedTechId}
-                  onChange={(event) => setSelectedTechId(event.target.value)}
-                >
-                  <option value="">Tất cả kỹ thuật viên</option>
-                  {slotData?.technicians?.map((technician) => (
-                    <option key={technician.staffId} value={technician.staffId}>
-                      {technician.fullName}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-            </div>
+            {filters}
           </section>
 
           {loading ? (
@@ -234,30 +105,24 @@ const CheckSlotAvailability = ({ user, setUser }) => {
             <section className="public-slot-results">
               <div className="public-slot-results-heading">
                 <div>
-                  <h2>Khung giờ dành cho bạn <span>{slotData.slots?.filter((slot) => slot.available).length || 0} khung giờ</span></h2>
-                  <strong>{slotData.serviceName || selectedService?.serviceName}</strong>
-                  <small><i className="bi bi-calendar3" aria-hidden="true" /> {selectedDate} <i className="bi bi-clock" aria-hidden="true" /> Thời lượng: {slotData.duration || selectedService?.duration} phút</small>
+                  <h2>Khung giờ dành cho bạn <span>{slotData.slots?.filter((s) => s.available).length || 0} khung giờ</span></h2>
+                  <strong>{title}</strong>
+                  <small><i className="bi bi-calendar3" aria-hidden="true" /> {viDate(selectedDate)} <i className="bi bi-clock" aria-hidden="true" /> Tổng thời lượng: {slotData.totalDuration} phút</small>
                 </div>
                 <div className="public-slot-legend">
                   <span><i className="is-available" /> Còn chỗ trống</span>
-                  <span><i className="is-unavailable" /> Đã kín lịch</span>
+                  <span><i className="is-unavailable" /> Không khả dụng</span>
                 </div>
               </div>
-
               {slotData.slots?.length ? (
                 <div className="public-slot-grid">
                   {slotData.slots.map((slot) => (
-                    <button
-                      key={slot.startTime}
-                      type="button"
-                      className={`public-slot-card${slot.available ? "" : " is-unavailable"}`}
-                      disabled={!slot.available}
-                      onClick={() => handleSelectSlot(slot)}
-                    >
+                    <button key={slot.startTime} type="button" className={`public-slot-card${slot.available ? "" : " is-unavailable"}`}
+                      disabled={!slot.available} onClick={() => handleSelectSlot(slot)}>
                       <strong>{slot.startTime}–{slot.endTime}</strong>
-                      <span className="public-slot-status">{slot.available ? "Còn trống" : "Đã kín"}</span>
+                      <span className="public-slot-status">{slot.available ? "Còn trống" : slot.reason}</span>
                       <small><i className="bi bi-person" aria-hidden="true" /> {slot.availableTechnicianCount} kỹ thuật viên rảnh</small>
-                      {slot.available && <span className="public-slot-cta">{role === "Guest" ? "Đăng nhập để đặt" : "Nhấn để đặt lịch online"} <i className="bi bi-arrow-right" aria-hidden="true" /></span>}
+                      {slot.available && <span className="public-slot-cta">Nhấn để đặt lịch online <i className="bi bi-arrow-right" aria-hidden="true" /></span>}
                     </button>
                   ))}
                 </div>
@@ -265,20 +130,20 @@ const CheckSlotAvailability = ({ user, setUser }) => {
                 <div className="customer-empty-state">
                   <i className="bi bi-calendar-x" aria-hidden="true" />
                   <strong>Không có khung giờ phù hợp</strong>
-                  <span>Thử chọn ngày hoặc kỹ thuật viên khác.</span>
+                  <span>Tổng thời lượng vượt quá giờ mở cửa. Thử bớt dịch vụ.</span>
                 </div>
               )}
               <div className="public-slot-footer-note">
-                <span>Bạn đang xem tất cả khung giờ trong ngày đã chọn.</span>
+                <span>Lịch online cần đặt trước ít nhất 2 tiếng và tối đa 30 ngày.</span>
                 <span>Chọn một khung giờ trống để đặt lịch online.</span>
               </div>
             </section>
-          ) : !error ? (
+          ) : (
             <div className="customer-empty-state">
               <i className="bi bi-calendar2-week" aria-hidden="true" />
               <strong>Chọn dịch vụ để tra cứu lịch trống</strong>
             </div>
-          ) : null}
+          )}
         </div>
       </main>
     );
@@ -289,66 +154,19 @@ const CheckSlotAvailability = ({ user, setUser }) => {
       <div className="ui-page-heading">
         <div>
           <h1>Tra cứu lịch trống</h1>
-          <p className="text-muted mb-0">
-            Kiểm tra các khung giờ còn trống theo dịch vụ, ngày hẹn và kỹ thuật viên.
-          </p>
+          <p className="text-muted mb-0">Kiểm tra khung giờ còn trống cho 1–4 dịch vụ liên tiếp theo ngày và kỹ thuật viên.</p>
         </div>
       </div>
 
       <Card className="staff-slot-filter-card mb-4">
         <Card.Header className="staff-slot-card-heading">
           <strong>Điều kiện tra cứu</strong>
-          <span>Chọn dịch vụ, ngày hẹn và kỹ thuật viên nếu cần.</span>
+          <span>Khung giờ chỉ trống khi đủ KTV có kỹ năng, có ca làm và còn giường đúng loại phòng.</span>
         </Card.Header>
-        <Card.Body>
-          <div className="staff-slot-filters">
-            <Form.Group>
-              <Form.Label>Chọn dịch vụ *</Form.Label>
-              <Form.Select
-                value={selectedServiceId}
-                onChange={(e) => {
-                  setSelectedServiceId(e.target.value);
-                  setSelectedTechId("");
-                }}
-              >
-                {services.map((s) => (
-                  <option key={s.serviceId} value={s.serviceId}>
-                    {s.serviceName} ({s.duration} phút -{" "}
-                    {Number(s.price).toLocaleString("vi-VN")} ₫)
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group>
-              <Form.Label>Ngày hẹn *</Form.Label>
-              <Form.Control
-                type="date"
-                min={getTodayString()}
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-            </Form.Group>
-
-            <Form.Group>
-              <Form.Label>Kỹ thuật viên (Tùy chọn)</Form.Label>
-              <Form.Select
-                value={selectedTechId}
-                onChange={(e) => setSelectedTechId(e.target.value)}
-              >
-                <option value="">-- Tất cả kỹ thuật viên --</option>
-                {slotData?.technicians?.map((t) => (
-                  <option key={t.staffId} value={t.staffId}>
-                    {t.fullName}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-          </div>
-        </Card.Body>
+        <Card.Body>{filters}</Card.Body>
       </Card>
 
-      {error && <Alert variant="danger">{error}</Alert>}
+      {(error || slotError) && <Alert variant="danger">{error || slotError}</Alert>}
 
       {loading ? (
         <div className="text-center py-5">
@@ -359,57 +177,38 @@ const CheckSlotAvailability = ({ user, setUser }) => {
         <Card className="staff-slot-results-card">
           <Card.Header className="staff-slot-results-heading">
             <div>
-              <h2>{slotData.serviceName}</h2>
-              <Badge bg="primary">
-                Thời lượng: {slotData.duration} phút
-              </Badge>
+              <h2>{title}</h2>
+              <Badge bg="primary">Tổng thời lượng: {slotData.totalDuration} phút</Badge>
             </div>
             <div className="staff-slot-results-meta">
-              <span className="staff-slot-date">
-                <i className="bi bi-calendar3" aria-hidden="true" />
-                {selectedDate}
-              </span>
+              <span className="staff-slot-date"><i className="bi bi-calendar3" aria-hidden="true" />{viDate(selectedDate)}</span>
               <div className="staff-slot-legend">
-                <span className="is-available">
-                  <i aria-hidden="true" /> Còn chỗ trống
-                </span>
-                <span className="is-unavailable">
-                  <i aria-hidden="true" /> Đã kín lịch
-                </span>
+                <span className="is-available"><i aria-hidden="true" /> Còn chỗ trống</span>
+                <span className="is-unavailable"><i aria-hidden="true" /> Không khả dụng</span>
               </div>
             </div>
           </Card.Header>
-
           <Card.Body>
             <div className="staff-slot-grid">
               {slotData.slots?.map((slot) => (
-                <button
-                  key={slot.startTime}
-                  onClick={() => handleSelectSlot(slot)}
-                  type="button"
-                  disabled={!slot.available}
-                  className={`staff-slot-card${slot.available ? "" : " is-unavailable"}`}
-                  aria-label={
-                    slot.available
-                      ? `${slot.startTime} đến ${slot.endTime}, còn trống, ${slot.availableTechnicianCount} kỹ thuật viên rảnh`
-                      : `${slot.startTime} đến ${slot.endTime}, đã kín lịch`
-                  }
-                >
-                  <strong className="staff-slot-time">
-                    {slot.startTime} – {slot.endTime}
-                  </strong>
-                  <span className="staff-slot-status">
-                    {slot.available ? "Còn trống" : "Đã kín lịch"}
+                <button key={slot.startTime} onClick={() => handleSelectSlot(slot)} type="button" disabled={!slot.available || role !== "Receptionist"}
+                  className={`staff-slot-card${slot.available ? "" : " is-unavailable"}`}>
+                  <strong className="staff-slot-time">{slot.startTime} – {slot.endTime}</strong>
+                  <span className="staff-slot-status">{slot.available ? "Còn trống" : slot.reason}</span>
+                  <span className="staff-slot-capacity"><i className="bi bi-person-check" aria-hidden="true" />
+                    {slot.freeTechnicians ? `Còn nhận ${slot.availableTechnicianCount} lịch` : `${slot.availableTechnicianCount} KTV rảnh`}
                   </span>
-                  <span className="staff-slot-capacity">
-                    <i className="bi bi-person-check" aria-hidden="true" />
-                    {slot.availableTechnicianCount} KTV rảnh
-                  </span>
-                  {slot.available && (
-                    <span className="staff-slot-action">
-                      Tạo lịch tại quầy
-                      <i className="bi bi-arrow-right" aria-hidden="true" />
+                  {slot.available && (slot.freeTechnicians || []).map((part, i, all) => (
+                    <span key={i} className="staff-slot-techs" title={part.map((t) => t.fullName).join(", ")}>
+                      <b>{all.length > 1 ? `Phần ${i + 1} – ` : ""}KTV rảnh: </b>
+                      {part.length ? part.map((t) => t.fullName.split(" ").slice(-2).join(" ")).join(", ") : "—"}
                     </span>
+                  ))}
+                  {slot.available && slot.waitingAppointments > 0 && (
+                    <span className="staff-slot-techs text-muted">{slot.waitingAppointments} lịch khác đang chờ phân KTV</span>
+                  )}
+                  {slot.available && role === "Receptionist" && (
+                    <span className="staff-slot-action">Tạo lịch tại quầy <i className="bi bi-arrow-right" aria-hidden="true" /></span>
                   )}
                 </button>
               ))}

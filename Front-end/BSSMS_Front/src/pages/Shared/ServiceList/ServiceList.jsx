@@ -41,21 +41,19 @@ const ServiceList = ({ user }) => {
   const [serviceToDelete, setServiceToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [statusTarget, setStatusTarget] = useState(null); // dịch vụ đang chờ xác nhận đổi trạng thái
+  const [statusTarget, setStatusTarget] = useState(null);
   const [statusBusy, setStatusBusy] = useState(false);
   const [actionNotice, setActionNotice] = useState(
     location.state?.serviceNotice || "",
   );
 
-  // 1. THÊM BIẾN REFRESH ĐỂ KÍCH HOẠT LOAD LẠI DATA
   const [refresh, setRefresh] = useState(0);
 
-  // Lấy thông tin user để phân quyền hiển thị nút bấm
   const isManager = user?.role === "Manager";
   const isStaff = ["Manager", "Receptionist", "Technician"].includes(
     user?.role,
   );
-  const isGuest = !user; // Nếu không có user thì là khách vãng lai
+  const isGuest = !user;
   const { filteredRows: staffServices, toolbar } = useManagerSearchFilter(
     services,
     [
@@ -115,7 +113,6 @@ const ServiceList = ({ user }) => {
     return matchesSearch && matchesPrice && matchesDuration;
   });
 
-  // 2. ĐƯA TOÀN BỘ LOGIC GỌI API VÀO TRONG useEffect
   useEffect(() => {
     const controller = new AbortController();
     const fetchServices = async () => {
@@ -138,7 +135,7 @@ const ServiceList = ({ user }) => {
 
     fetchServices();
     return () => controller.abort();
-  }, [refresh]); // <-- Lắng nghe biến refresh. Mỗi lần biến này đổi, API sẽ tự động gọi lại.
+  }, [refresh]);
 
   if (!isStaff) {
     const publicServices = filteredServices.filter(
@@ -269,7 +266,7 @@ const ServiceList = ({ user }) => {
                       className="public-service-card-image"
                       aria-label={`Xem dịch vụ ${service.serviceName}`}
                     >
-                      <img src={service.imageUrl || servicePhotos[imageIndex]} alt="" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
+                      <img src={service.imageUrl || servicePhotos[imageIndex]} alt="" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => { const img = event.currentTarget; if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = servicePhotos[imageIndex]; return; } img.classList.add("is-loaded"); }} />
                     </Link>
                     <div className="public-service-card-body">
                       <span className="public-service-code">
@@ -339,7 +336,6 @@ const ServiceList = ({ user }) => {
     setServiceToDelete(service);
   };
 
-  // Bấm vào trạng thái -> hộp thoại xác nhận -> đổi trạng thái hoạt động / ngừng hoạt động của dịch vụ.
   const confirmStatusChange = async () => {
     if (!statusTarget || statusBusy) return;
     const next = statusTarget.status === "Active" ? "Inactive" : "Active";
@@ -364,10 +360,10 @@ const ServiceList = ({ user }) => {
     setDeleting(true);
     setDeleteError("");
     try {
-      await axios.delete(`/api/service?id=${serviceToDelete.serviceId}`);
+      const response = await axios.delete(`/api/service?id=${serviceToDelete.serviceId}`);
       setServiceToDelete(null);
       setActionNotice(
-        `Đã xóa dịch vụ "${serviceToDelete.serviceName}".`,
+        `Dịch vụ "${serviceToDelete.serviceName}": ${response.data?.message || "đã ngừng kinh doanh."}`,
       );
       setRefresh((prev) => prev + 1);
     } catch (error) {
@@ -402,7 +398,6 @@ const ServiceList = ({ user }) => {
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
         <div className="manager-list-toolbar">{toolbar}</div>
 
-        {/* CHỈ MANAGER MỚI THẤY NÚT THÊM MỚI */}
         {isManager && (
           <Link to="/services/new" className="btn btn-primary ms-auto">
             Thêm dịch vụ mới
@@ -443,7 +438,6 @@ const ServiceList = ({ user }) => {
                     )}
                   </td>
                   <td><div className="manager-list-actions">
-                    {/* 1. NÚT XEM CHI TIẾT DÀNH CHO TẤT CẢ MỌI NGƯỜI */}
                     <Link
                       to={
                         isGuest
@@ -455,7 +449,6 @@ const ServiceList = ({ user }) => {
                       <i className="bi bi-eye-fill" aria-hidden="true" /> Xem
                     </Link>
 
-                    {/* 2. NÚT SỬA/XÓA CHỈ DÀNH RIÊNG CHO MANAGER */}
                     {isManager && (
                       <>
                         <Link
@@ -502,7 +495,7 @@ const ServiceList = ({ user }) => {
       >
         <Modal.Header closeButton={!deleting}>
           <Modal.Title id="delete-service-title">
-            Xác nhận xóa dịch vụ
+            Ngừng kinh doanh dịch vụ
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -512,13 +505,12 @@ const ServiceList = ({ user }) => {
             </div>
           )}
           <p className="mb-2">
-            Bạn có chắc muốn <strong>xóa vĩnh viễn</strong> dịch vụ{" "}
+            Ngừng kinh doanh dịch vụ{" "}
             <strong>{serviceToDelete?.serviceName}</strong>?
           </p>
           <p className="text-muted small mb-0">
-            Thao tác không thể hoàn tác. Dịch vụ đã có lịch hẹn, hóa đơn, gói liệu
-            trình hoặc đánh giá thì không xóa được; khi đó hãy bấm "Ngừng" để chuyển
-            sang không hoạt động.
+            Dịch vụ được giữ lại để bảo toàn lịch sử (lịch hẹn, hóa đơn, đánh giá) và không
+            còn hiển thị khi đặt lịch. Các lịch hẹn tương lai đã đặt vẫn được giữ nguyên.
           </p>
         </Modal.Body>
         <Modal.Footer>

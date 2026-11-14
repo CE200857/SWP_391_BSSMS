@@ -18,7 +18,6 @@ const ChangePassword = () => {
     setError("");
     setSuccessMsg("");
 
-    // Validate mật khẩu
     if (newPassword.length < 6) {
       setError("Mật khẩu mới phải có ít nhất 6 ký tự!");
       return;
@@ -38,7 +37,7 @@ const ChangePassword = () => {
       const response = await fetch("/api/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // Cực kỳ quan trọng để giữ Session
+        credentials: "include",
         body: JSON.stringify({ oldPassword, newPassword }),
       });
 
@@ -46,12 +45,10 @@ const ChangePassword = () => {
 
       if (response.ok) {
         setSuccessMsg(data.message || "Đổi mật khẩu thành công!");
-        // Làm sạch form
         setOldPassword("");
         setNewPassword("");
         setConfirmPassword("");
         
-        // Tùy chọn: Chuyển hướng về Profile sau 2 giây
         setTimeout(() => {
           navigate("/profile");
         }, 2000);
@@ -116,7 +113,7 @@ const ChangePassword = () => {
             <Button
               variant="outline-secondary"
               className="fw-bold w-50"
-              onClick={() => navigate(-1)} // Nút quay lại
+              onClick={() => navigate(-1)}
               disabled={isLoading}
             >
               <i className="bi bi-arrow-left me-1"></i> Quay lại
