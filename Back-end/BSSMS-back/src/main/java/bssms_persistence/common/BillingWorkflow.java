@@ -29,24 +29,61 @@ public final class BillingWorkflow {
 
     public int validateVoucher(String code, BigDecimal afterTier) throws SQLException {
         List<Map<String, Object>> rows = w.query("SELECT voucher_id,status,start_date,end_date,max_uses,used_count,min_order_amount FROM Voucher WHERE voucher_code=?", code == null ? "" : code.trim());
-        if (rows.isEmpty()) throw new WorkflowException(404, "Mã voucher không tồn tại.");
+        if (rows.isEmpty()) throw new WorkflowException(404, "Voucher code does not exist.");
         Map<String, Object> v = rows.get(0);
-        if (!"Active".equals(v.get("status"))) throw new WorkflowException(409, "Voucher đã ngừng áp dụng.");
+        if (!"Active".equals(v.get("status"))) throw new WorkflowException(409, "The voucher has been deactivated.");
         if (w.query("SELECT voucher_id FROM Voucher WHERE voucher_id=? AND SYSDATETIME() BETWEEN start_date AND end_date", v.get("voucherId")).isEmpty())
-            throw new WorkflowException(409, "Voucher chưa đến hạn hoặc đã hết hạn.");
-        if (((Number) v.get("usedCount")).intValue() >= ((Number) v.get("maxUses")).intValue()) throw new WorkflowException(409, "Voucher đã hết lượt sử dụng.");
-        if (afterTier.compareTo(money(v.get("minOrderAmount"))) < 0) throw new WorkflowException(409, "Đơn hàng chưa đạt giá trị tối thiểu của voucher.");
+            throw new WorkflowException(409, "The voucher is not valid yet or has expired.");
+        if (((Number) v.get("usedCount")).intValue() >= ((Number) v.get("maxUses")).intValue()) throw new WorkflowException(409, "The voucher has no uses left.");
+        if (afterTier.compareTo(money(v.get("minOrderAmount"))) < 0) throw new WorkflowException(409, "The order does not meet the voucher's minimum value.");
         return Workflow.id(v.get("voucherId"));
     }
 
-    void writeAmounts(int invoice, int customer, BigDecimal subtotal, Integer voucher) throws SQLException {
+    // Công thức: tier = subtotal x %hạng; voucher tính trên (subtotal - tier); tổng giảm <= 50% subtotal
+    // Trả về [tierDiscount, voucherDiscount, totalDiscount, totalAmount]
+    BigDecimal[] amounts(int customer, BigDecimal subtotal, Integer voucher) throws SQLException {
         BigDecimal tier = round(subtotal.multiply(tierPercent(customer)).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
         BigDecimal limit = round(subtotal.multiply(new BigDecimal("0.5")));
         tier = tier.min(limit);
         BigDecimal voucherDiscount = voucherDiscount(voucher, subtotal.subtract(tier)).min(limit.subtract(tier));
         BigDecimal total = tier.add(voucherDiscount);
+        return new BigDecimal[] { tier, voucherDiscount, total, subtotal.subtract(total) };
+    }
+
+    void writeAmounts(int invoice, int customer, BigDecimal subtotal, Integer voucher) throws SQLException {
+        BigDecimal[] a = amounts(customer, subtotal, voucher);
         w.update("UPDATE Invoice SET subtotal=?,tier_discount=?,voucher_discount=?,total_discount=?,total_amount=?,voucher_id=? WHERE invoice_id=?",
-                subtotal, tier, voucherDiscount, total, subtotal.subtract(total), voucher, invoice);
+                subtotal, a[0], a[1], a[2], a[3], voucher, invoice);
+    }
+
+    // Hóa đơn tạm khi mua gói: tính giống packageInvoice nhưng không ghi gì vào DB
+    public Map<String, Object> packageQuote(int customer, int pkg, String voucherCode) throws SQLException {
+        Map<String, Object> p = w.query("SELECT treatment_package_id,package_name,price FROM TreatmentPackage WHERE treatment_package_id=? AND status='Active'", pkg)
+                .stream().findFirst().orElseThrow(() -> new WorkflowException(404, "The treatment package does not exist or is no longer sold."));
+        Map<String, Object> c = w.one("SELECT t.tier_name,t.discount_percent FROM Customer c JOIN MembershipTier t ON t.membership_tier_id=c.membership_tier_id WHERE c.customer_id=?", customer);
+        BigDecimal price = money(p.get("price"));
+        Integer voucher = null;
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (voucherCode != null && !voucherCode.isBlank()) {
+            BigDecimal afterTier = price.subtract(round(price.multiply(tierPercent(customer)).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)));
+            voucher = validateVoucher(voucherCode, afterTier);
+            Map<String, Object> v = w.one("SELECT voucher_code,discount_type,discount_value,max_discount FROM Voucher WHERE voucher_id=?", voucher);
+            result.put("voucherCode", v.get("voucherCode"));
+            result.put("voucherType", v.get("discountType"));
+            result.put("voucherValue", v.get("discountValue"));
+            result.put("voucherMaxDiscount", v.get("maxDiscount"));
+        }
+        BigDecimal[] a = amounts(customer, price, voucher);
+        result.put("packageName", p.get("packageName"));
+        result.put("subtotal", price);
+        result.put("tierName", c.get("tierName"));
+        result.put("tierPercent", c.get("discountPercent"));
+        result.put("tierDiscount", a[0]);
+        result.put("voucherDiscount", a[1]);
+        result.put("totalDiscount", a[2]);
+        result.put("totalAmount", a[3]);
+        result.put("discountCapped", a[2].compareTo(round(price.multiply(new BigDecimal("0.5")))) == 0 && a[2].signum() > 0);
+        return result;
     }
 
     public void syncAppointmentInvoice(int appointment, Integer staff) throws SQLException {
@@ -58,14 +95,14 @@ public final class BillingWorkflow {
         List<Map<String, Object>> invoices = w.query("SELECT invoice_id,status,subtotal,voucher_id FROM Invoice WHERE appointment_id=? AND status IN ('Unpaid','Paid')", appointment);
         if (!invoices.isEmpty() && "Paid".equals(invoices.get(0).get("status"))) {
             if (money(invoices.get(0).get("subtotal")).compareTo(subtotal) != 0)
-                throw new WorkflowException(409, "Hóa đơn đã thanh toán nên không thể đổi dịch vụ làm thay đổi số tiền. Vui lòng liên hệ lễ tân.");
+                throw new WorkflowException(409, "The invoice is already paid, so services that change the amount cannot be changed. Please contact the receptionist.");
             int invoice = Workflow.id(invoices.get(0).get("invoiceId"));
             w.update("DELETE FROM InvoiceService WHERE invoice_id=?", invoice);
             insertInvoiceLines(invoice, lines);
             return;
         }
         if (subtotal.signum() == 0) {
-            for (Map<String, Object> i : invoices) cancel(Workflow.id(i.get("invoiceId")), "Lịch chỉ dùng buổi trong gói", staff);
+            for (Map<String, Object> i : invoices) cancel(Workflow.id(i.get("invoiceId")), "Appointment uses package sessions only", staff);
             return;
         }
         int invoice;
@@ -89,8 +126,8 @@ public final class BillingWorkflow {
 
     public int packageInvoice(int customer, int pkg, String voucherCode, Integer staff) throws SQLException {
         Map<String, Object> p = w.query("SELECT treatment_package_id,package_name,price FROM TreatmentPackage WHERE treatment_package_id=? AND status='Active'", pkg)
-                .stream().findFirst().orElseThrow(() -> new WorkflowException(404, "Gói liệu trình không tồn tại hoặc đã ngừng bán."));
-        if (w.query("SELECT customer_id FROM Customer WHERE customer_id=? AND status='Active'", customer).isEmpty()) throw new WorkflowException(404, "Khách hàng không hoạt động.");
+                .stream().findFirst().orElseThrow(() -> new WorkflowException(404, "The treatment package does not exist or is no longer sold."));
+        if (w.query("SELECT customer_id FROM Customer WHERE customer_id=? AND status='Active'", customer).isEmpty()) throw new WorkflowException(404, "The customer is inactive.");
         BigDecimal price = money(p.get("price"));
         int invoice = w.insert("INSERT INTO Invoice(customer_id,invoice_type,appointment_id,created_by_staff_id,invoice_date,subtotal,tier_discount,voucher_discount,total_discount,total_amount,status) VALUES(?,'Package',NULL,?,SYSDATETIME(),?,0,0,0,?,'Unpaid')",
                 customer, staff, price, price);
@@ -106,7 +143,7 @@ public final class BillingWorkflow {
 
     public Map<String, Object> applyVoucher(int invoice, String code) throws SQLException {
         Map<String, Object> i = w.one("SELECT customer_id,subtotal,status FROM Invoice WHERE invoice_id=?", invoice);
-        if (!"Unpaid".equals(i.get("status"))) throw new WorkflowException(409, "Chỉ áp voucher cho hóa đơn chưa thanh toán.");
+        if (!"Unpaid".equals(i.get("status"))) throw new WorkflowException(409, "Vouchers can only be applied to unpaid invoices.");
         int customer = Workflow.id(i.get("customerId"));
         BigDecimal subtotal = money(i.get("subtotal"));
         Integer voucher = null;
@@ -120,8 +157,8 @@ public final class BillingWorkflow {
 
     public int pay(int invoice, String method, String transactionCode, Integer staff) throws SQLException {
         Map<String, Object> i = w.one("SELECT * FROM Invoice WHERE invoice_id=?", invoice);
-        if (!"Unpaid".equals(i.get("status"))) throw new WorkflowException(409, "Hóa đơn không ở trạng thái chưa thanh toán.");
-        if (!Arrays.asList("Cash", "BankTransfer", "VNPay").contains(method)) throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ.");
+        if (!"Unpaid".equals(i.get("status"))) throw new WorkflowException(409, "The invoice is not unpaid.");
+        if (!Arrays.asList("Cash", "BankTransfer", "VNPay").contains(method)) throw new IllegalArgumentException("Invalid payment method.");
         BigDecimal total = money(i.get("totalAmount"));
         int customer = Workflow.id(i.get("customerId"));
         int payment = 0;
@@ -130,7 +167,7 @@ public final class BillingWorkflow {
                     invoice, method, total, transactionCode, staff);
         w.update("UPDATE Invoice SET status='Paid',paid_at=SYSDATETIME() WHERE invoice_id=?", invoice);
         if (i.get("voucherId") != null && w.update("UPDATE Voucher SET used_count=used_count+1 WHERE voucher_id=? AND used_count<max_uses", i.get("voucherId")) != 1)
-            throw new WorkflowException(409, "Voucher đã hết lượt sử dụng.");
+            throw new WorkflowException(409, "The voucher has no uses left.");
         addSpending(customer, total);
         if ("Package".equals(i.get("invoiceType"))) {
             for (Map<String, Object> p : w.query("SELECT ip.treatment_package_id,tp.number_of_sessions,tp.validity_days FROM InvoicePackage ip JOIN TreatmentPackage tp ON tp.treatment_package_id=ip.treatment_package_id WHERE ip.invoice_id=?", invoice)) {
@@ -141,7 +178,7 @@ public final class BillingWorkflow {
         } else if (i.get("appointmentId") != null) {
             int appointment = Workflow.id(i.get("appointmentId"));
             if (w.update("UPDATE Appointment SET status='Confirmed',confirmed_at=SYSDATETIME(),payment_choice=CASE WHEN ?='VNPay' THEN 'Online' ELSE payment_choice END WHERE appointment_id=? AND status='Pending'", method, appointment) == 1)
-                w.history(appointment, "Pending", "Confirmed", "Thanh toán thành công");
+                w.history(appointment, "Pending", "Confirmed", "Payment successful");
         }
         return payment;
     }
@@ -161,20 +198,20 @@ public final class BillingWorkflow {
     }
 
     public void cancel(int invoice, String reason, Integer staff) throws SQLException {
-        if (w.update("UPDATE Invoice SET status='Cancelled',cancelled_at=SYSDATETIME(),cancellation_reason=? WHERE invoice_id=? AND status='Unpaid'", reason == null ? "Hủy" : reason, invoice) != 1)
-            throw new WorkflowException(409, "Chỉ hủy được hóa đơn chưa thanh toán. Hóa đơn đã thanh toán dùng chức năng Hoàn tiền.");
+        if (w.update("UPDATE Invoice SET status='Cancelled',cancelled_at=SYSDATETIME(),cancellation_reason=? WHERE invoice_id=? AND status='Unpaid'", reason == null ? "Cancel" : reason, invoice) != 1)
+            throw new WorkflowException(409, "Only unpaid invoices can be cancelled. Use Refund for paid invoices.");
     }
 
     public int refund(int invoice, String reason, int staff, boolean completed) throws SQLException {
         Map<String, Object> i = w.one("SELECT * FROM Invoice WHERE invoice_id=?", invoice);
-        if (!"Paid".equals(i.get("status"))) throw new WorkflowException(409, "Chỉ hoàn tiền hóa đơn đã thanh toán.");
+        if (!"Paid".equals(i.get("status"))) throw new WorkflowException(409, "Only paid invoices can be refunded.");
         if ("Appointment".equals(i.get("invoiceType"))) {
             Object status = w.one("SELECT status FROM Appointment WHERE appointment_id=?", i.get("appointmentId")).get("status");
-            if ("No-show".equals(status)) throw new WorkflowException(409, "Lịch No-show không được hoàn tiền (BR-19).");
-            if (!"Cancelled".equals(status)) throw new WorkflowException(409, "Chỉ hoàn tiền khi lịch hẹn đã bị hủy.");
+            if ("No-show".equals(status)) throw new WorkflowException(409, "No-show appointments are not refunded.");
+            if (!"Cancelled".equals(status)) throw new WorkflowException(409, "A refund is only allowed when the appointment has been cancelled.");
         } else {
             if (!w.query("SELECT customer_package_id FROM CustomerPackage WHERE sold_invoice_id=? AND remaining_sessions<total_sessions", invoice).isEmpty())
-                throw new WorkflowException(409, "Gói đã sử dụng buổi nên không thể hoàn tiền.");
+                throw new WorkflowException(409, "The package has used sessions, so it cannot be refunded.");
             w.update("UPDATE CustomerPackage SET status='Cancelled' WHERE sold_invoice_id=?", invoice);
         }
         int refund = 0;

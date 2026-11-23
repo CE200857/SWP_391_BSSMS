@@ -22,7 +22,7 @@ public class BedServlet extends BaseApiServlet {
             try (BedDAO dao = new BedDAO()) {
                 BedController controller = new BedController(dao);
                 controller.create(user(request), body(request, Bed.class));
-                return message("Đã thêm giường.");
+                return message("Bed added.");
             }
         });
     }
@@ -39,7 +39,7 @@ public class BedServlet extends BaseApiServlet {
             try (BedDAO dao = new BedDAO()) {
                 BedController controller = new BedController(dao);
                 controller.delete(user(request), id(request, "id"));
-                return message("Đã xóa giường.");
+                return message("Bed deleted.");
             }
         });
     }

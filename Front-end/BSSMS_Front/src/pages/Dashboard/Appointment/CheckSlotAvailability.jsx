@@ -24,7 +24,7 @@ const CheckSlotAvailability = ({ user }) => {
         setServices(active);
         setLines((current) => current[0].serviceId || !active.length ? current : [{ ...emptyLine(), serviceId: String(active[0].serviceId) }]);
       })
-      .catch(() => setError("Không thể tải danh sách dịch vụ. Vui lòng thử lại."));
+      .catch(() => setError("Could not load the service list. Please try again."));
   }, [user]);
 
   const { data: slotData, loading, error: slotError } = useSlots(lines, selectedDate, selectedTechId);
@@ -45,13 +45,13 @@ const CheckSlotAvailability = ({ user }) => {
       <ServiceLinesEditor services={services} lines={lines} onChange={(next) => { setLines(next); setSelectedTechId(""); }} />
       <div className="public-slot-filter-fields mt-3">
         <Form.Group>
-          <Form.Label>Ngày hẹn *</Form.Label>
+          <Form.Label>Appointment date *</Form.Label>
           <Form.Control type="date" min={today()} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} required />
         </Form.Group>
         <Form.Group>
-          <Form.Label>Kỹ thuật viên (Tùy chọn)</Form.Label>
+          <Form.Label>Technician (optional)</Form.Label>
           <Form.Select value={selectedTechId} onChange={(e) => setSelectedTechId(e.target.value)}>
-            <option value="">Tất cả kỹ thuật viên</option>
+            <option value="">All technicians</option>
             {slotData?.technicians?.map((t) => (
               <option key={t.staffId} value={t.staffId}>{t.fullName}</option>
             ))}
@@ -67,20 +67,20 @@ const CheckSlotAvailability = ({ user }) => {
         <section className="customer-page-banner public-slot-banner">
           <div className="customer-page-container">
             <div className="customer-breadcrumb">
-              <button type="button" onClick={() => navigate("/customer/home")}>Trang chủ</button>
+              <button type="button" onClick={() => navigate("/customer/home")}>Home</button>
               <i className="bi bi-chevron-right" aria-hidden="true" />
-              <strong>Tra cứu lịch trống</strong>
+              <strong>Check available times</strong>
             </div>
             <div className="public-slot-banner-row">
               <div>
-                <span className="home-eyebrow">DÀNH MỘT KHOẢNG THỜI GIAN CHO BẠN</span>
-                <h1>Tra cứu lịch trống</h1>
-                <p>Chọn tối đa 4 dịch vụ, ngày hẹn và kỹ thuật viên bạn mong muốn.<br />Tìm khung giờ phù hợp để bắt đầu buổi chăm sóc tại Seoul Center.</p>
+                <span className="home-eyebrow">TAKE SOME TIME FOR YOURSELF</span>
+                <h1>Check available times</h1>
+                <p>Choose up to 4 services, an appointment date and your preferred technician.<br />Find a time that suits you for your next visit to Seoul Center.</p>
               </div>
               <div className="customer-summary-card public-slot-summary">
-                <span><i className="bi bi-calendar2-check" aria-hidden="true" /> Khung giờ ngày {viDate(selectedDate)}</span>
+                <span><i className="bi bi-calendar2-check" aria-hidden="true" /> Time slots on {viDate(selectedDate)}</span>
                 <strong>{slotData?.slots?.filter((s) => s.available).length ?? "—"}</strong>
-                <small>khung giờ còn trống</small>
+                <small>available time slots</small>
               </div>
             </div>
           </div>
@@ -90,8 +90,8 @@ const CheckSlotAvailability = ({ user }) => {
           {(error || slotError) && <Alert variant="danger">{error || slotError}</Alert>}
           <section className="public-slot-filter-panel">
             <div className="customer-filter-title">
-              <strong><i className="bi bi-sliders" aria-hidden="true" /> Tìm khung giờ dành cho bạn</strong>
-              <small>* Thông tin bắt buộc</small>
+              <strong><i className="bi bi-sliders" aria-hidden="true" /> Find a time that suits you</strong>
+              <small>* Required information</small>
             </div>
             {filters}
           </section>
@@ -99,19 +99,19 @@ const CheckSlotAvailability = ({ user }) => {
           {loading ? (
             <div className="customer-empty-state public-slot-loading" role="status">
               <Spinner animation="border" variant="danger" />
-              <strong>Đang tìm khung giờ phù hợp...</strong>
+              <strong>Checking availability...</strong>
             </div>
           ) : slotData ? (
             <section className="public-slot-results">
               <div className="public-slot-results-heading">
                 <div>
-                  <h2>Khung giờ dành cho bạn <span>{slotData.slots?.filter((s) => s.available).length || 0} khung giờ</span></h2>
+                  <h2>Available times <span>{slotData.slots?.filter((s) => s.available).length || 0} time slots</span></h2>
                   <strong>{title}</strong>
-                  <small><i className="bi bi-calendar3" aria-hidden="true" /> {viDate(selectedDate)} <i className="bi bi-clock" aria-hidden="true" /> Tổng thời lượng: {slotData.totalDuration} phút</small>
+                  <small><i className="bi bi-calendar3" aria-hidden="true" /> {viDate(selectedDate)} <i className="bi bi-clock" aria-hidden="true" /> Total duration: {slotData.totalDuration} minutes</small>
                 </div>
                 <div className="public-slot-legend">
-                  <span><i className="is-available" /> Còn chỗ trống</span>
-                  <span><i className="is-unavailable" /> Không khả dụng</span>
+                  <span><i className="is-available" /> Available</span>
+                  <span><i className="is-unavailable" /> Unavailable</span>
                 </div>
               </div>
               {slotData.slots?.length ? (
@@ -120,28 +120,28 @@ const CheckSlotAvailability = ({ user }) => {
                     <button key={slot.startTime} type="button" className={`public-slot-card${slot.available ? "" : " is-unavailable"}`}
                       disabled={!slot.available} onClick={() => handleSelectSlot(slot)}>
                       <strong>{slot.startTime}–{slot.endTime}</strong>
-                      <span className="public-slot-status">{slot.available ? "Còn trống" : slot.reason}</span>
-                      <small><i className="bi bi-person" aria-hidden="true" /> {slot.availableTechnicianCount} kỹ thuật viên rảnh</small>
-                      {slot.available && <span className="public-slot-cta">Nhấn để đặt lịch online <i className="bi bi-arrow-right" aria-hidden="true" /></span>}
+                      <span className="public-slot-status">{slot.available ? "Available" : slot.reason}</span>
+                      <small><i className="bi bi-person" aria-hidden="true" /> {slot.availableTechnicianCount} available technicians</small>
+                      {slot.available && <span className="public-slot-cta">Book online <i className="bi bi-arrow-right" aria-hidden="true" /></span>}
                     </button>
                   ))}
                 </div>
               ) : (
                 <div className="customer-empty-state">
                   <i className="bi bi-calendar-x" aria-hidden="true" />
-                  <strong>Không có khung giờ phù hợp</strong>
-                  <span>Tổng thời lượng vượt quá giờ mở cửa. Thử bớt dịch vụ.</span>
+                  <strong>No times available</strong>
+                  <span>The total duration exceeds opening hours. Try removing a service.</span>
                 </div>
               )}
               <div className="public-slot-footer-note">
-                <span>Lịch online cần đặt trước ít nhất 2 tiếng và tối đa 30 ngày.</span>
-                <span>Chọn một khung giờ trống để đặt lịch online.</span>
+                <span>Online bookings must be made at least 2 hours and at most 30 days in advance.</span>
+                <span>Select a time to book online.</span>
               </div>
             </section>
           ) : (
             <div className="customer-empty-state">
               <i className="bi bi-calendar2-week" aria-hidden="true" />
-              <strong>Chọn dịch vụ để tra cứu lịch trống</strong>
+              <strong>Select a service to check available times</strong>
             </div>
           )}
         </div>
@@ -153,15 +153,15 @@ const CheckSlotAvailability = ({ user }) => {
     <section className="staff-slot-availability">
       <div className="ui-page-heading">
         <div>
-          <h1>Tra cứu lịch trống</h1>
-          <p className="text-muted mb-0">Kiểm tra khung giờ còn trống cho 1–4 dịch vụ liên tiếp theo ngày và kỹ thuật viên.</p>
+          <h1>Check available times</h1>
+          <p className="text-muted mb-0">Check available time slots for 1–4 back-to-back services by date and technician.</p>
         </div>
       </div>
 
       <Card className="staff-slot-filter-card mb-4">
         <Card.Header className="staff-slot-card-heading">
-          <strong>Điều kiện tra cứu</strong>
-          <span>Khung giờ chỉ trống khi đủ KTV có kỹ năng, có ca làm và còn giường đúng loại phòng.</span>
+          <strong>Search criteria</strong>
+          <span>A time slot is available only when there are enough skilled technicians on shift and free beds of the right room type.</span>
         </Card.Header>
         <Card.Body>{filters}</Card.Body>
       </Card>
@@ -171,20 +171,20 @@ const CheckSlotAvailability = ({ user }) => {
       {loading ? (
         <div className="text-center py-5">
           <Spinner animation="border" variant="danger" />
-          <p className="mt-2 text-muted">Đang tính toán các khung giờ trống...</p>
+          <p className="mt-2 text-muted">Checking availability...</p>
         </div>
       ) : slotData ? (
         <Card className="staff-slot-results-card">
           <Card.Header className="staff-slot-results-heading">
             <div>
               <h2>{title}</h2>
-              <Badge bg="primary">Tổng thời lượng: {slotData.totalDuration} phút</Badge>
+              <Badge bg="primary">Total duration: {slotData.totalDuration} minutes</Badge>
             </div>
             <div className="staff-slot-results-meta">
               <span className="staff-slot-date"><i className="bi bi-calendar3" aria-hidden="true" />{viDate(selectedDate)}</span>
               <div className="staff-slot-legend">
-                <span className="is-available"><i aria-hidden="true" /> Còn chỗ trống</span>
-                <span className="is-unavailable"><i aria-hidden="true" /> Không khả dụng</span>
+                <span className="is-available"><i aria-hidden="true" /> Available</span>
+                <span className="is-unavailable"><i aria-hidden="true" /> Unavailable</span>
               </div>
             </div>
           </Card.Header>
@@ -194,21 +194,21 @@ const CheckSlotAvailability = ({ user }) => {
                 <button key={slot.startTime} onClick={() => handleSelectSlot(slot)} type="button" disabled={!slot.available || role !== "Receptionist"}
                   className={`staff-slot-card${slot.available ? "" : " is-unavailable"}`}>
                   <strong className="staff-slot-time">{slot.startTime} – {slot.endTime}</strong>
-                  <span className="staff-slot-status">{slot.available ? "Còn trống" : slot.reason}</span>
+                  <span className="staff-slot-status">{slot.available ? "Available" : slot.reason}</span>
                   <span className="staff-slot-capacity"><i className="bi bi-person-check" aria-hidden="true" />
-                    {slot.freeTechnicians ? `Còn nhận ${slot.availableTechnicianCount} lịch` : `${slot.availableTechnicianCount} KTV rảnh`}
+                    {slot.freeTechnicians ? `Can take ${slot.availableTechnicianCount} more` : `${slot.availableTechnicianCount} available technicians`}
                   </span>
                   {slot.available && (slot.freeTechnicians || []).map((part, i, all) => (
                     <span key={i} className="staff-slot-techs" title={part.map((t) => t.fullName).join(", ")}>
-                      <b>{all.length > 1 ? `Phần ${i + 1} – ` : ""}KTV rảnh: </b>
+                      <b>{all.length > 1 ? `Part ${i + 1} – ` : ""}Available technicians: </b>
                       {part.length ? part.map((t) => t.fullName.split(" ").slice(-2).join(" ")).join(", ") : "—"}
                     </span>
                   ))}
                   {slot.available && slot.waitingAppointments > 0 && (
-                    <span className="staff-slot-techs text-muted">{slot.waitingAppointments} lịch khác đang chờ phân KTV</span>
+                    <span className="staff-slot-techs text-muted">{slot.waitingAppointments} other appointments are waiting for a technician</span>
                   )}
                   {slot.available && role === "Receptionist" && (
-                    <span className="staff-slot-action">Tạo lịch tại quầy <i className="bi bi-arrow-right" aria-hidden="true" /></span>
+                    <span className="staff-slot-action">Book at the counter <i className="bi bi-arrow-right" aria-hidden="true" /></span>
                   )}
                 </button>
               ))}

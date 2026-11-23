@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Container, Card, Form, Button, Alert, Modal } from "react-bootstrap";
+import { Container, Card, Form, Button, Modal } from "react-bootstrap";
 import axios from "axios";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 const CreateWalkInCustomer = () => {
   const navigate = useNavigate();
@@ -41,12 +42,12 @@ const CreateWalkInCustomer = () => {
 
     const trimmedName = formData.fullName.trim();
     if (trimmedName.split(/\s+/).length < 2) {
-      setError("Họ và tên bắt buộc phải có từ 2 từ trở lên!");
+      setError("Please enter your full name (first and last name).");
       return;
     }
 
     if (!/^0[1-9]\d{8}$/.test(formData.phone.trim())) {
-      setError("Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0)!");
+      setError("Invalid phone number (10 digits, starting with 0)!");
       return;
     }
 
@@ -78,7 +79,7 @@ const CreateWalkInCustomer = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Có lỗi xảy ra, SĐT có thể đã tồn tại!",
+          "An error occurred, the phone number may already exist!",
       );
     } finally {
       setIsLoading(false);
@@ -94,62 +95,62 @@ const CreateWalkInCustomer = () => {
     <Container fluid className="customer-create-page">
       <div className="ui-page-heading">
         <div>
-          <h1>Tạo tài khoản khách hàng</h1>
-          <p>Tạo hồ sơ khách hàng để sử dụng các dịch vụ tại Seoul Center.</p>
+          <h1>Create customer account</h1>
+          <p>Create a customer profile to use services at Seoul Center.</p>
         </div>
       </div>
       <Card className="customer-create-card">
         <Card.Header className="customer-create-card-heading">
           <i className="bi bi-person-plus" aria-hidden="true" />
           <div>
-            <strong>Thông tin khách hàng</strong>
-            <span>Các trường có dấu (*) là bắt buộc.</span>
+            <strong>Customer information</strong>
+            <span>Fields marked (*) are required.</span>
           </div>
         </Card.Header>
         <Card.Body>
 
-          {error && <Alert variant="danger">{error}</Alert>}
+          <FloatingAlert message={error} onClose={() => setError("")} />
 
           <Form className="customer-create-form" onSubmit={handleSubmit}>
             <div className="customer-create-fields">
               <Form.Group>
-                <Form.Label className="fw-bold">Họ và tên (*)</Form.Label>
+                <Form.Label className="fw-bold">Full name (*)</Form.Label>
                 <Form.Control
                   type="text"
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleChange}
-                  placeholder="Nhập họ và tên khách hàng"
+                  placeholder="Enter the customer’s full name"
                   required
                 />
               </Form.Group>
 
               <Form.Group>
-                <Form.Label className="fw-bold">Số điện thoại (*)</Form.Label>
+                <Form.Label className="fw-bold">Phone number (*)</Form.Label>
                 <Form.Control
                   type="text"
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="Nhập số điện thoại 10 số"
+                  placeholder="Enter a 10-digit phone number"
                   required
                 />
               </Form.Group>
 
               <Form.Group>
-                <Form.Label className="fw-bold">Giới tính (*)</Form.Label>
+                <Form.Label className="fw-bold">Gender (*)</Form.Label>
                 <Form.Select name="gender" value={formData.gender} onChange={handleChange}>
-                  <option value="Female">Nữ</option>
-                  <option value="Male">Nam</option>
-                  <option value="Other">Khác</option>
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Other">Other</option>
                 </Form.Select>
               </Form.Group>
             </div>
 
             <div className="customer-create-actions">
-              <Button variant="outline-secondary" onClick={() => navigate("/customers")}>Hủy</Button>
+              <Button variant="outline-secondary" onClick={() => navigate("/customers")}>Cancel</Button>
               <Button variant="primary" type="submit" disabled={isLoading}>
-                {isLoading ? "Đang tạo..." : "Xác nhận tạo"}
+                {isLoading ? "Creating..." : "Create"}
               </Button>
             </div>
           </Form>
@@ -159,22 +160,22 @@ const CreateWalkInCustomer = () => {
       <Modal className="customer-create-success" show={showSuccessModal} onHide={handleCloseSuccess} centered backdrop="static" keyboard={false}>
         <Modal.Header>
           <Modal.Title className="text-success fw-bold">
-            <i className="bi bi-check-circle-fill me-2"></i> Tạo hồ sơ thành công
+            <i className="bi bi-check-circle-fill me-2"></i> Profile created successfully
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Tài khoản khách hàng đã được tạo thành công.</p>
+          <p>The customer account has been created successfully.</p>
           <div className="customer-created-credentials">
-            <p className="mb-2"><strong>Tài khoản:</strong> <span className="text-primary fs-5">{accountInfo.username}</span></p>
-            <p className="mb-0"><strong>Mật khẩu mặc định:</strong> <span className="text-danger fs-5">{accountInfo.password}</span></p>
+            <p className="mb-2"><strong>Account:</strong> <span className="text-primary fs-5">{accountInfo.username}</span></p>
+            <p className="mb-0"><strong>Default password:</strong> <span className="text-danger fs-5">{accountInfo.password}</span></p>
           </div>
           <p className="mt-3 mb-0 text-muted small">
-            <i className="bi bi-info-circle me-1"></i> SĐT hoặc Tài khoản trên có thể dùng để định danh hoặc cho khách tự đăng nhập nếu muốn.
+            <i className="bi bi-info-circle me-1"></i> The phone number or account above can be used for identification or for the customer to log in if they want.
           </p>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="primary" onClick={handleCloseSuccess}>
-            Đóng & Quay lại danh sách
+            Close & Back to list
           </Button>
         </Modal.Footer>
       </Modal>

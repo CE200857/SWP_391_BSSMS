@@ -22,12 +22,12 @@ public class BedController {
         Validation.id(value.getBedId(), "id");
         validate(value, value.getBedId());
         if ("Maintenance".equals(value.getStatus()) && "InUse".equals(dao.useState(value.getBedId())))
-            throw new IllegalArgumentException("Giường đang được sử dụng, không thể chuyển sang Bảo trì.");
+            throw new IllegalArgumentException("The bed is in use and cannot be set to Maintenance.");
         if ("Active".equals(value.getStatus()) && "Maintenance".equals(dao.roomStatus(value.getRoomId())))
-            throw new IllegalArgumentException("Phòng đang bảo trì, không thể kích hoạt giường.");
+            throw new IllegalArgumentException("The room is under maintenance, so the bed cannot be activated.");
         Validation.found(dao.updateBed(value));
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("message", "Đã cập nhật giường.");
+        result.put("message", "Bed updated.");
         List<Map<String, Object>> affected = List.of();
         if ("Maintenance".equals(value.getStatus())) try (RoomDAO rooms = new RoomDAO()) { affected = rooms.affectedByBed(value.getBedId()); }
         result.put("affectedAppointments", affected);
@@ -37,16 +37,16 @@ public class BedController {
         Validation.role(user, "Manager");
         Validation.id(id, "id");
         if (dao.everUsed(id))
-            throw new IllegalArgumentException("Giường đã có lịch sử sử dụng, không thể xóa. Hãy chuyển giường sang Bảo trì.");
+            throw new IllegalArgumentException("The bed is assigned to upcoming appointments. Reassign them before deleting.");
         Validation.found(dao.deleteBed(id));
     }
     private void validate(Bed value, int id) throws SQLException {
         Validation.body(value);
         Validation.id(value.getRoomId(), "roomId");
-        if (dao.roomStatus(value.getRoomId()) == null) throw new IllegalArgumentException("Phòng không tồn tại.");
+        if (dao.roomStatus(value.getRoomId()) == null) throw new IllegalArgumentException("The room does not exist.");
         value.setBedNumber(Validation.text(value.getBedNumber(), "bedNumber"));
-        if (value.getBedNumber().length() > 20) throw new IllegalArgumentException("Số giường tối đa 20 ký tự.");
-        if (dao.numberExists(value.getRoomId(), value.getBedNumber(), id)) throw new IllegalArgumentException("Số giường đã tồn tại trong phòng.");
+        if (value.getBedNumber().length() > 20) throw new IllegalArgumentException("Bed number can be at most 20 characters.");
+        if (dao.numberExists(value.getRoomId(), value.getBedNumber(), id)) throw new IllegalArgumentException("The bed number already exists in this room.");
         if (value.getStatus() == null) value.setStatus("Active");
         Validation.status(value.getStatus(), "Active", "Maintenance");
     }

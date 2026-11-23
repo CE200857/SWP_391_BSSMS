@@ -23,7 +23,7 @@ public class RoomServlet extends BaseApiServlet {
             try (RoomDAO dao = new RoomDAO()) {
                 RoomController controller = new RoomController(dao);
                 controller.create(user(request), body(request, Room.class));
-                return message("Đã thêm phòng.");
+                return message("Room added.");
             }
         });
     }
@@ -40,7 +40,7 @@ public class RoomServlet extends BaseApiServlet {
             try (RoomDAO dao = new RoomDAO()) {
                 RoomController controller = new RoomController(dao);
                 controller.delete(user(request), id(request, "id"));
-                return message("Đã xóa phòng.");
+                return message("Room deleted.");
             }
         });
     }

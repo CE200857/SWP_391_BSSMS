@@ -18,7 +18,7 @@ public class CustomerPackageController extends ControllerSupport {
 
     public void post(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
-        if (!"/sell".equals(req.pathInfo())) { resp.error(404, "Không tìm thấy thao tác."); return; }
+        if (!"/sell".equals(req.pathInfo())) { resp.error(404, "Action not found."); return; }
         JsonObject o = JsonParser.parseReader(req.bodyReader()).getAsJsonObject();
         int customer = o.get("customerId").getAsInt(), pkg = o.get("treatmentPackageId").getAsInt();
         InputValidation.positive(customer, "customerId");

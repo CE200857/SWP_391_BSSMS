@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Card,
   Row,
@@ -9,12 +9,14 @@ import {
   InputGroup,
   Badge,
   Spinner,
-  Alert,
   Modal,
   Table,
+  Dropdown,
+  Button,
 } from "react-bootstrap";
 import servicePhoto02 from "../../../assets/figma/service-card-exact-02.png";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 const PublicFeedbackList = ({ user, managerCompact = false }) => {
   const location = useLocation();
@@ -27,6 +29,38 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
   const [loadError, setLoadError] = useState("");
   const [detailFeedback, setDetailFeedback] = useState(null);
   const isStaffManagementView = managerCompact || user?.role === "Manager";
+  const navigate = useNavigate();
+  const isCustomer = user?.role === "Customer";
+  // Reviews written by the signed-in customer (the public list does not expose customer ids)
+  const [myIds, setMyIds] = useState(() => new Set());
+  const [deleting, setDeleting] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    if (!isCustomer) return;
+    fetch(`/api/feedback?customerId=${user.customerId ?? user.accountId}`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setMyIds(new Set((Array.isArray(data) ? data : []).map((f) => f.feedbackId))))
+      .catch(() => setMyIds(new Set()));
+  }, [isCustomer, user?.customerId, user?.accountId]);
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    try {
+      const response = await fetch(`/api/feedback?id=${deleting.feedbackId}`, { method: "DELETE", credentials: "include" });
+      if (!response.ok) throw new Error("This review cannot be deleted.");
+      setFeedbacks((list) => list.filter((f) => f.feedbackId !== deleting.feedbackId));
+      setMyIds((ids) => { const next = new Set(ids); next.delete(deleting.feedbackId); return next; });
+      setNotice("Your review was deleted.");
+      setDeleting(null);
+    } catch (err) {
+      setLoadError(err instanceof TypeError ? "Cannot connect to the server." : err.message);
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/service")
@@ -34,7 +68,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
       .then((data) => {
         if (Array.isArray(data)) setServices(data);
       })
-      .catch((err) => console.error("Lỗi tải dịch vụ:", err));
+      .catch((err) => console.error("Error loading services:", err));
   }, []);
 
   useEffect(() => {
@@ -50,12 +84,12 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
           const data = await response.json();
           if (!cancelled) setFeedbacks(Array.isArray(data) ? data : []);
         } else if (!cancelled) {
-          setLoadError("Không tải được danh sách đánh giá.");
+          setLoadError("Could not load the review list.");
         }
       } catch (err) {
         if (!cancelled) {
-          console.error("Lỗi tải feedback:", err);
-          setLoadError("Lỗi kết nối đến máy chủ!");
+          console.error("Error loading feedback:", err);
+          setLoadError("Cannot connect to the server.");
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -108,13 +142,13 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
   const { filteredRows: managerFeedbacks, toolbar } = useManagerSearchFilter(
     feedbacks,
     [
-      { key: "customerName", label: "Khách hàng", getValue: (feedback) => feedback.customerName || feedback.fullName, filterable: false },
-      { key: "serviceName", label: "Dịch vụ" },
-      { key: "comment", label: "Nội dung đánh giá", filterable: false },
-      { key: "rating", label: "Số sao" },
-      { key: "createdAt", label: "Ngày đánh giá", type: "date" },
+      { key: "customerName", label: "Customer", getValue: (feedback) => feedback.customerName || feedback.fullName, filterable: false },
+      { key: "serviceName", label: "Service" },
+      { key: "comment", label: "Review content", filterable: false },
+      { key: "rating", label: "Stars" },
+      { key: "createdAt", label: "Review date", type: "date" },
     ],
-    "Tìm theo khách hàng, dịch vụ, nội dung...",
+    "Search by customer, service, content...",
   );
   const visibleFeedbacks = isStaffManagementView
     ? managerFeedbacks
@@ -173,30 +207,30 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
         <div className="feedback-staff-page-heading">
           <div className="ui-page-heading">
             <div>
-              <h1>Đánh giá khách hàng</h1>
-              <p>Theo dõi điểm đánh giá và phản hồi công khai về dịch vụ.</p>
+              <h1>Customer reviews</h1>
+              <p>Track ratings and public feedback about services.</p>
             </div>
           </div>
         </div>
       )}
       {!managerCompact && <section className="public-service-hero feedback-public-hero">
         <div className="public-service-hero-copy">
-          <span className="seoul-eyebrow">CHIA SẺ · TRẢI NGHIỆM</span>
-          <h1>Đánh giá từ khách hàng</h1>
+          <span className="seoul-eyebrow">SHARE · EXPERIENCE</span>
+          <h1>Reviews from customers</h1>
           <p>
-            Những chia sẻ chân thực về trải nghiệm dịch vụ tại Seoul Center giúp
-            bạn lựa chọn chăm sóc phù hợp.
+            Honest stories about service experiences at Seoul Center help
+            choose the right care for you.
           </p>
           <span className="public-service-hero-note">
-            <i className="bi bi-chat-heart" aria-hidden="true" /> Lắng nghe để phục vụ bạn tốt hơn
+            <i className="bi bi-chat-heart" aria-hidden="true" /> We listen first
           </span>
         </div>
-        <img src={servicePhoto02} alt="Trải nghiệm chăm sóc tại Seoul Center" />
+        <img src={servicePhoto02} alt="Care experience at Seoul Center" />
       </section>}
 
       <section className={`${managerCompact ? "feedback-manager-compact-content" : "public-service-content"} feedback-page feedback-management-page`}>
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h2 className="fw-bold mb-0">Tổng quan đánh giá</h2>
+        <h2 className="fw-bold mb-0">Review overview</h2>
       </div>
 
       <Row className={`feedback-summary-stats mb-3 g-3${managerCompact ? " feedback-summary-stats-compact" : ""}`}>
@@ -205,7 +239,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
             <Card.Body className="text-center">
               <i className="bi bi-chat-quote-fill text-primary" style={{ fontSize: "32px" }}></i>
               <h3 className="fw-bold mt-2 mb-0">{stats.total}</h3>
-              <small className="text-muted">Tổng đánh giá</small>
+              <small className="text-muted">Total reviews</small>
             </Card.Body>
           </Card>
         </Col>
@@ -214,7 +248,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
             <Card.Body className="text-center">
               <i className="bi bi-star-fill text-warning" style={{ fontSize: "32px" }}></i>
               <h3 className="fw-bold mt-2 mb-0">{stats.avg} / 5</h3>
-              <small className="text-muted">Điểm trung bình</small>
+              <small className="text-muted">Average rating</small>
             </Card.Body>
           </Card>
         </Col>
@@ -223,7 +257,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
             <Card.Body className="text-center">
               <i className="bi bi-emoji-laughing-fill text-success" style={{ fontSize: "32px" }}></i>
               <h3 className="fw-bold mt-2 mb-0">{stats.fiveStar}</h3>
-              <small className="text-muted">Đánh giá 5 sao</small>
+              <small className="text-muted">5-star review</small>
             </Card.Body>
           </Card>
         </Col>
@@ -240,7 +274,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
                 <i className="bi bi-search"></i>
               </InputGroup.Text>
               <Form.Control
-                placeholder="Tìm theo tên, dịch vụ, nội dung..."
+                placeholder="Search by name, service, content..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -251,7 +285,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
               value={serviceFilter}
               onChange={(e) => setServiceFilter(e.target.value)}
             >
-              <option value="all">Tất cả dịch vụ</option>
+              <option value="all">All services</option>
               {services.map((s) => (
                 <option key={s.serviceId} value={s.serviceId}>
                   {s.serviceName}
@@ -264,7 +298,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
               value={ratingFilter}
               onChange={(e) => setRatingFilter(e.target.value)}
             >
-              <option value="all">Tất cả số sao</option>
+              <option value="all">All ratings</option>
               <option value="5">5 sao</option>
               <option value="4">4 sao</option>
               <option value="3">3 sao</option>
@@ -273,7 +307,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
             </Form.Select>
 
             <Badge bg="secondary" className="px-3 py-2">
-              Kết quả: {filteredFeedbacks.length}
+              Showing: {filteredFeedbacks.length}
             </Badge>
             </div>
           )}
@@ -282,24 +316,35 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
 
       <div className="public-service-list-heading feedback-review-heading">
         <div>
-          <h2>{managerCompact ? "Danh sách đánh giá" : "Cảm nhận từ khách hàng"}</h2>
-          <span className="public-service-count">{visibleFeedbacks.length} đánh giá</span>
+          <h2>{managerCompact ? "Review list" : "What our customers say"}</h2>
+          <span className="public-service-count">{visibleFeedbacks.length} reviews</span>
         </div>
+        {!isStaffManagementView && (isCustomer || !user) && (
+          <Link
+            to={isCustomer ? "/feedback/new" : "/login"}
+            state={isCustomer ? undefined : { from: "/feedback/new" }}
+            className="sc-btn sc-btn-primary feedback-write-button"
+          >
+            <i className="bi bi-pencil-square" aria-hidden="true" /> Write a review
+          </Link>
+        )}
       </div>
 
-      {loadError && <Alert variant="danger">{loadError}</Alert>}
+      <FloatingAlert message={notice} variant="success" onClose={() => setNotice("")} />
+
+      <FloatingAlert message={loadError} onClose={() => setLoadError("")} />
 
       {isLoading ? (
         <div className="text-center py-5">
           <Spinner animation="border" variant="danger" />
-          <p className="mt-3 text-muted">Đang tải đánh giá...</p>
+          <p className="mt-3 text-muted">Loading reviews...</p>
         </div>
       ) : visibleFeedbacks.length === 0 ? (
         <Card className="shadow-sm border-0" style={{ borderRadius: "12px" }}>
           <Card.Body className="text-center py-5 text-muted">
             {feedbacks.length === 0
-              ? "Chưa có đánh giá nào từ khách hàng."
-              : "Không tìm thấy đánh giá phù hợp với bộ lọc hiện tại."}
+              ? "No customer reviews yet."
+              : "No reviews match the current filters."}
           </Card.Body>
         </Card>
       ) : managerCompact ? (
@@ -309,12 +354,12 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
               <Table hover className="manager-list-table feedback-staff-table">
                 <thead>
                   <tr>
-                    <th>Khách hàng</th>
-                    <th>Dịch vụ</th>
-                    <th>Thời gian</th>
-                    <th>Đánh giá</th>
-                    <th>Trạng thái</th>
-                    <th className="feedback-staff-action-column">Hành động</th>
+                    <th>Customer</th>
+                    <th>Service</th>
+                    <th>Time</th>
+                    <th>Review</th>
+                    <th>Status</th>
+                    <th className="feedback-staff-action-column">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -322,7 +367,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
                     const feedbackTime = formatFeedbackTime(fb.createdAt);
                     return (
                       <tr key={fb.feedbackId}>
-                        <td>{fb.customerName || fb.fullName || "Khách hàng ẩn danh"}</td>
+                        <td>{fb.customerName || fb.fullName || "Anonymous customer"}</td>
                         <td className="feedback-staff-service-column">{fb.serviceName || "—"}</td>
                         <td className="feedback-staff-time-column">
                           {feedbackTime ? (
@@ -334,11 +379,11 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
                             "—"
                           )}
                         </td>
-                        <td className="feedback-staff-rating" aria-label={`${fb.rating || 0} trên 5 sao`}>
+                        <td className="feedback-staff-rating" aria-label={`${fb.rating || 0} out of 5 stars`}>
                           {renderStars(fb.rating)}
                         </td>
                         <td>
-                          <Badge bg="success">Đang hiển thị</Badge>
+                          <Badge bg="success">Visible</Badge>
                         </td>
                         <td className="feedback-staff-action-column">
                           <div className="manager-list-actions">
@@ -346,10 +391,10 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
                               type="button"
                               className="btn manager-list-action manager-list-action--view"
                               onClick={() => setDetailFeedback(fb)}
-                              aria-label={`Xem đánh giá của ${fb.customerName || fb.fullName || "khách hàng"}`}
+                              aria-label={`View reviews of ${fb.customerName || fb.fullName || "customers"}`}
                             >
                               <i className="bi bi-eye-fill" aria-hidden="true" />
-                              Xem
+                              View
                             </button>
                           </div>
                         </td>
@@ -386,10 +431,26 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
                       </div>
                       <div className="flex-grow-1" style={{ minWidth: 0 }}>
                         <h6 className="mb-0 fw-bold text-truncate">
-                          {fb.customerName || fb.fullName || "Khách hàng ẩn danh"}
+                          {fb.customerName || fb.fullName || "Anonymous customer"}
+                          {myIds.has(fb.feedbackId) && <span className="feedback-mine-tag">You</span>}
                         </h6>
                         <small className="text-muted">{formatDate(fb.createdAt)}</small>
                       </div>
+                      {myIds.has(fb.feedbackId) && (
+                        <Dropdown align="end" className="feedback-more">
+                          <Dropdown.Toggle variant="link" className="feedback-more-toggle" aria-label="Review options">
+                            <i className="bi bi-three-dots" aria-hidden="true" />
+                          </Dropdown.Toggle>
+                          <Dropdown.Menu>
+                            <Dropdown.Item onClick={() => navigate(`/feedback/edit/${fb.feedbackId}`)}>
+                              <i className="bi bi-pencil me-2" aria-hidden="true" /> Edit
+                            </Dropdown.Item>
+                            <Dropdown.Item className="text-danger" onClick={() => setDeleting(fb)}>
+                              <i className="bi bi-trash me-2" aria-hidden="true" /> Delete
+                            </Dropdown.Item>
+                          </Dropdown.Menu>
+                        </Dropdown>
+                      )}
                     </div>
 
                     <div className="mb-2" style={{ fontSize: "18px" }}>
@@ -400,10 +461,10 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
                       <Link
                         to={serviceLink(fb.serviceId)}
                         className="text-white text-decoration-none"
-                        title="Xem dịch vụ"
+                        title="View services"
                       >
                         <i className="bi bi-stars me-1"></i>
-                        {fb.serviceName || `Dịch vụ #${fb.serviceId}`}
+                        {fb.serviceName || `Service #${fb.serviceId}`}
                       </Link>
                     </Badge>
 
@@ -423,6 +484,21 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
           })}
         </Row>
       )}
+      <Modal show={!!deleting} onHide={() => !deleteBusy && setDeleting(null)} centered>
+        <Modal.Header closeButton={!deleteBusy}>
+          <Modal.Title>Delete your review?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Your review for <strong>{deleting?.serviceName}</strong> will be removed. This cannot be undone.
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" disabled={deleteBusy} onClick={() => setDeleting(null)}>Keep review</Button>
+          <Button variant="danger" disabled={deleteBusy} onClick={confirmDelete}>
+            {deleteBusy ? "Deleting…" : "Delete"}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       <Modal
         show={!!detailFeedback}
         onHide={() => setDetailFeedback(null)}
@@ -430,28 +506,28 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
         className="feedback-staff-detail-modal"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Chi tiết đánh giá</Modal.Title>
+          <Modal.Title>Review details</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p>
-            <strong>Khách hàng:</strong>{" "}
-            {detailFeedback?.customerName || detailFeedback?.fullName || "Khách hàng ẩn danh"}
+            <strong>Customer:</strong>{" "}
+            {detailFeedback?.customerName || detailFeedback?.fullName || "Anonymous customer"}
           </p>
-          <p><strong>Dịch vụ:</strong> {detailFeedback?.serviceName || "—"}</p>
+          <p><strong>Service:</strong> {detailFeedback?.serviceName || "—"}</p>
           <p>
-            <strong>Ngày đánh giá:</strong>{" "}
+            <strong>Review date:</strong>{" "}
             {detailFeedback?.createdAt ? formatDate(detailFeedback.createdAt) : "—"}
           </p>
           <p>
-            <strong>Đánh giá:</strong>{" "}
+            <strong>Rating:</strong>{" "}
             <span className="feedback-staff-rating">
               {renderStars(detailFeedback?.rating)}
             </span>
           </p>
           <p className="mb-0">
-            <strong>Nội dung:</strong>
+            <strong>Content:</strong>
             <br />
-            {detailFeedback?.comment || "Không có nội dung."}
+            {detailFeedback?.comment || "No content."}
           </p>
         </Modal.Body>
       </Modal>

@@ -13,6 +13,7 @@ import {
 } from "react-bootstrap";
 import { api } from "../../../services/api";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 export default function FeedbackModeration({ managerCompact = false }) {
   const [items, setItems] = useState([]);
@@ -50,7 +51,7 @@ export default function FeedbackModeration({ managerCompact = false }) {
     try {
       const data = await api("/api/feedback");
       if (!Array.isArray(data)) {
-        throw new Error("Dữ liệu tổng quan đánh giá không hợp lệ.");
+        throw new Error("Invalid review summary data.");
       }
       const totalRating = data.reduce(
         (sum, feedback) => sum + Number(feedback.rating || 0),
@@ -77,25 +78,25 @@ export default function FeedbackModeration({ managerCompact = false }) {
   const { filteredRows: visible, toolbar } = useManagerSearchFilter(
     items,
     [
-      { key: "customerName", label: "Khách hàng", filterable: false },
-      { key: "serviceName", label: "Dịch vụ", filterable: false },
-      { key: "comment", label: "Nội dung đánh giá", filterable: false },
-      { key: "rating", label: "Số sao" },
+      { key: "customerName", label: "Customer", filterable: false },
+      { key: "serviceName", label: "Service", filterable: false },
+      { key: "comment", label: "Review content", filterable: false },
+      { key: "rating", label: "Stars" },
       {
         key: "visibility",
-        label: "Trạng thái",
+        label: "Status",
         getValue: (feedback) => feedback.isHidden ? "hidden" : "visible",
-        formatValue: (value) => value === "hidden" ? "Đã ẩn" : "Đang hiển thị",
+        formatValue: (value) => value === "hidden" ? "Hidden" : "Visible",
       },
-      { key: "appointmentDate", label: "Ngày đánh giá", type: "date" },
+      { key: "appointmentDate", label: "Review date", type: "date" },
     ],
-    "Tìm theo khách hàng, dịch vụ, nội dung...",
+    "Search by customer, service, content...",
   );
 
   async function submit() {
     if (!target || busy) return;
     if (!reason.trim()) {
-      setError("Vui lòng nhập lý do.");
+      setError("Please enter a reason.");
       return;
     }
     setBusy(true);
@@ -109,7 +110,7 @@ export default function FeedbackModeration({ managerCompact = false }) {
         }),
       });
       setSuccess(
-        target.isHidden ? "Đã hiển thị lại đánh giá." : "Đã ẩn đánh giá.",
+        target.isHidden ? "Review shown again." : "Review hidden.",
       );
       setTarget(null);
       setReason("");
@@ -128,20 +129,20 @@ export default function FeedbackModeration({ managerCompact = false }) {
       {!managerCompact && (
         <div className="ui-page-heading">
           <div>
-            <h1>Duyệt đánh giá khách hàng</h1>
-            <p>Ẩn đánh giá vi phạm khỏi trang công khai hoặc hiển thị lại khi cần.</p>
+            <h1>Moderate customer reviews</h1>
+            <p>Hide violating reviews from the public page, or show them again when needed.</p>
           </div>
         </div>
       )}
-      <section className="feedback-moderation-overview" aria-label="Tổng quan đánh giá">
-        {statsError && <Alert variant="danger">{statsError}</Alert>}
+      <section className="feedback-moderation-overview" aria-label="Review overview">
+        <FloatingAlert message={statsError} onClose={() => setStatsError("")} />
         <Row className="g-3 mb-3">
           <Col md={4}>
             <Card className="feedback-stat-card h-100">
               <Card.Body className="text-center">
                 <i className="bi bi-chat-quote-fill text-primary" aria-hidden="true" />
                 <strong>{statsLoading ? "—" : publicStats.total}</strong>
-                <span>Tổng đánh giá công khai</span>
+                <span>Total public reviews</span>
               </Card.Body>
             </Card>
           </Col>
@@ -150,7 +151,7 @@ export default function FeedbackModeration({ managerCompact = false }) {
               <Card.Body className="text-center">
                 <i className="bi bi-star-fill text-warning" aria-hidden="true" />
                 <strong>{statsLoading ? "—" : `${publicStats.average} / 5`}</strong>
-                <span>Điểm trung bình</span>
+                <span>Average rating</span>
               </Card.Body>
             </Card>
           </Col>
@@ -159,7 +160,7 @@ export default function FeedbackModeration({ managerCompact = false }) {
               <Card.Body className="text-center">
                 <i className="bi bi-emoji-laughing-fill text-success" aria-hidden="true" />
                 <strong>{statsLoading ? "—" : publicStats.fiveStar}</strong>
-                <span>Đánh giá 5 sao</span>
+                <span>5-star review</span>
               </Card.Body>
             </Card>
           </Col>
@@ -183,38 +184,33 @@ export default function FeedbackModeration({ managerCompact = false }) {
               <Table hover className="manager-list-table">
                 <thead>
                   <tr>
-                    <th>Khách hàng</th>
-                    <th>Dịch vụ</th>
-                    <th>Đánh giá</th>
-                    <th>Trạng thái</th>
-                    <th>Thao tác</th>
+                    <th>Customer</th>
+                    <th>Service</th>
+                    <th>Review</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visible.map((fb) => (
                     <tr key={fb.feedbackId}>
                       <td>{fb.customerName}</td>
-                      <td>
+                      <td title={fb.appointmentDate ? `Visit ${String(fb.appointmentDate).slice(0, 10)}` : undefined}>
                         {fb.serviceName || "—"}
-                        <div className="small text-muted">
-                          {fb.appointmentDate
-                            ? String(fb.appointmentDate).slice(0, 10)
-                            : ""}
-                        </div>
                       </td>
                       <td className="text-warning">{stars(fb.rating)}</td>
                       <td>
                         {fb.isHidden ? (
                           <>
-                            <Badge bg="secondary">Đã ẩn</Badge>
+                            <Badge bg="secondary">Hidden</Badge>
                             {fb.moderationReason && (
                               <div className="small text-muted">
-                                Lý do: {fb.moderationReason}
+                                Reason: {fb.moderationReason}
                               </div>
                             )}
                           </>
                         ) : (
-                          <Badge bg="success">Đang hiển thị</Badge>
+                          <Badge bg="success">Visible</Badge>
                         )}
                       </td>
                       <td>
@@ -226,7 +222,7 @@ export default function FeedbackModeration({ managerCompact = false }) {
                           onClick={() => setDetailFeedback(fb)}
                         >
                           <i className="bi bi-eye-fill" aria-hidden="true" />
-                          Xem
+                          View
                         </Button>
                         <Button
                           size="sm"
@@ -242,7 +238,7 @@ export default function FeedbackModeration({ managerCompact = false }) {
                             className={`bi ${fb.isHidden ? "bi-eye" : "bi-eye-slash"}`}
                             aria-hidden="true"
                           />
-                          {fb.isHidden ? "Hiển thị lại" : "Ẩn"}
+                          {fb.isHidden ? "Show again" : "Hide"}
                         </Button>
                         </div>
                       </td>
@@ -250,7 +246,7 @@ export default function FeedbackModeration({ managerCompact = false }) {
                   ))}
                 </tbody>
               </Table>
-              {!visible.length && <p className="ui-empty">Không có đánh giá phù hợp.</p>}
+              {!visible.length && <p className="ui-empty">No matching reviews.</p>}
             </div>
           </Card.Body>
         </Card>
@@ -261,32 +257,32 @@ export default function FeedbackModeration({ managerCompact = false }) {
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>Chi tiết đánh giá</Modal.Title>
+          <Modal.Title>Review details</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p><strong>Khách hàng:</strong> {detailFeedback?.customerName || "—"}</p>
-          <p><strong>Dịch vụ:</strong> {detailFeedback?.serviceName || "—"}</p>
-          <p><strong>Ngày:</strong> {detailFeedback?.appointmentDate ? String(detailFeedback.appointmentDate).slice(0, 10) : "—"}</p>
-          <p><strong>Đánh giá:</strong> <span className="text-warning">{stars(detailFeedback?.rating)}</span></p>
-          <p className="mb-0"><strong>Nội dung:</strong><br />{detailFeedback?.comment || "Không có nội dung."}</p>
+          <p><strong>Customer:</strong> {detailFeedback?.customerName || "—"}</p>
+          <p><strong>Service:</strong> {detailFeedback?.serviceName || "—"}</p>
+          <p><strong>Date:</strong> {detailFeedback?.appointmentDate ? String(detailFeedback.appointmentDate).slice(0, 10) : "—"}</p>
+          <p><strong>Rating:</strong> <span className="text-warning">{stars(detailFeedback?.rating)}</span></p>
+          <p className="mb-0"><strong>Content:</strong><br />{detailFeedback?.comment || "No content."}</p>
           {detailFeedback?.moderationReason && (
-            <p className="mt-3 mb-0"><strong>Lý do kiểm duyệt:</strong> {detailFeedback.moderationReason}</p>
+            <p className="mt-3 mb-0"><strong>Moderation reason:</strong> {detailFeedback.moderationReason}</p>
           )}
         </Modal.Body>
       </Modal>
       <Modal show={!!target} onHide={() => !busy && setTarget(null)} centered>
         <Modal.Header closeButton={!busy}>
           <Modal.Title>
-            {target?.isHidden ? "Hiển thị lại đánh giá" : "Ẩn đánh giá vi phạm"}
+            {target?.isHidden ? "Show review again" : "Hide violating reviews"}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {error && <Alert variant="danger">{error}</Alert>}
+          <FloatingAlert message={error} onClose={() => setError("")} />
           <p className="mb-2">
-            <strong>{target?.customerName}</strong>: {target?.comment || "(không có nội dung)"}
+            <strong>{target?.customerName}</strong>: {target?.comment || "(no content)"}
           </p>
           <Form.Group>
-            <Form.Label>Lý do *</Form.Label>
+            <Form.Label>Reason *</Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
@@ -299,10 +295,10 @@ export default function FeedbackModeration({ managerCompact = false }) {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" disabled={busy} onClick={() => setTarget(null)}>
-            Quay lại
+            Back
           </Button>
           <Button disabled={busy} onClick={submit}>
-            {busy ? "Đang lưu…" : "Xác nhận"}
+            {busy ? "Saving…" : "Confirm"}
           </Button>
         </Modal.Footer>
       </Modal>

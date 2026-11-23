@@ -13,11 +13,11 @@ public class DashboardServlet extends BaseApiServlet {
     @Override protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         handle(request, response, 200, () -> {
             Account currentUser = user(request);
-            if (currentUser == null) throw new ControllerException(401, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-            if (!"Manager".equals(currentUser.getRole())) throw new ControllerException(403, "Bạn không có quyền xem báo cáo quản lý.");
+            if (currentUser == null) throw new ControllerException(401, "Your session has expired. Please log in again.");
+            if (!"Manager".equals(currentUser.getRole())) throw new ControllerException(403, "You do not have permission to view management reports.");
             Integer accountId = currentUser.getAccountId();
             if (accountId == null || accountId <= 0)
-                throw new ControllerException(401, "Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
+                throw new ControllerException(401, "Invalid session. Please log in again.");
             try (ReportDAO dao = new ReportDAO()) {
                 dao.setActorAccountId(accountId);
                 return new DashboardController(dao).getDashboardMetrics(request.getParameter("fromDate"), request.getParameter("toDate"));

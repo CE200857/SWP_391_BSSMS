@@ -1,206 +1,216 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, Form, Button, Alert, InputGroup, Row, Col } from "react-bootstrap";
+import { Link, useNavigate } from "react-router-dom";
+import { Card, Form, Button, InputGroup } from "react-bootstrap";
+import FloatingAlert from "../../components/FloatingAlert";
 import axios from "axios";
 import { PROVINCES, joinAddress } from "../../utils/provinces";
-import { today } from "../../services/api";
+import { today, birthDateError, MIN_BIRTH_DATE } from "../../services/api";
 
 const FIELD = { fontSize: "1rem", padding: "10px" };
 const PRIMARY = { backgroundColor: "#a61e4d", border: "none", borderRadius: "6px", padding: "10px" };
+const SIDE_BUTTON = { backgroundColor: "#a61e4d", border: "none", fontWeight: "bold", minWidth: "112px" };
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const FIELD_IDS = {
+  username: "reg-username", email: "reg-email", code: "reg-code", password: "reg-password", confirmPassword: "reg-confirm",
+  fullName: "reg-fullname", phone: "reg-phone", dob: "reg-dob", province: "reg-province",
+};
+
+// Inline error shown right under its field and linked with aria-describedby
+const FieldError = ({ id, message }) =>
+  message ? (
+    <div id={id} className="invalid-feedback d-block" role="alert">
+      <i className="bi bi-exclamation-circle me-1" aria-hidden="true" />{message}
+    </div>
+  ) : null;
+
+const fieldProps = (errors, name) => ({
+  isInvalid: !!errors[name],
+  "aria-invalid": errors[name] ? true : undefined,
+  "aria-describedby": errors[name] ? `${name}-error` : undefined,
+});
+
+const PasswordInput = ({ id, value, onChange, placeholder, autoComplete, errors, name }) => {
+  const [shown, setShown] = useState(false);
+  return (
+    <InputGroup hasValidation>
+      <Form.Control id={id} type={shown ? "text" : "password"} placeholder={placeholder} value={value}
+        onChange={onChange} autoComplete={autoComplete} style={FIELD} {...fieldProps(errors, name)} />
+      <Button variant="outline-secondary" type="button" onClick={() => setShown((s) => !s)}
+        aria-label={shown ? "Hide password" : "Show password"} title={shown ? "Hide password" : "Show password"}
+        aria-pressed={shown} style={{ minWidth: 52, borderColor: "#dee2e6" }}>
+        <i className={`bi ${shown ? "bi-eye-slash" : "bi-eye"}`} aria-hidden="true" />
+      </Button>
+    </InputGroup>
+  );
+};
 
 const Register = () => {
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [gender, setGender] = useState("Female");
   const [province, setProvince] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
-  const [email, setEmail] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    let timer;
-    if (countdown > 0) {
-      timer = setInterval(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-    }
+    if (countdown <= 0) return undefined;
+    const timer = setInterval(() => setCountdown((prev) => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [countdown]);
 
-  const changePersonal = (setter, value) => {
-    setter(value);
-    if (isCodeSent) setIsCodeSent(false);
+  const clearMessages = () => { setError(""); setSuccessMsg(""); };
+
+  // Remove a field's error as soon as the user edits it
+  const clearField = (name) => setFieldErrors((prev) => {
+    if (!prev[name]) return prev;
+    const next = { ...prev };
+    delete next[name];
+    return next;
+  });
+
+  // Show every problem under its field and move focus to the first one
+  const showFieldErrors = (errors, order) => {
+    setFieldErrors(errors);
+    const first = order.find((name) => errors[name]);
+    if (first) {
+      const target = document.getElementById(FIELD_IDS[first]);
+      if (target) target.focus();
+    }
+    return !first;
   };
 
-  const goNext = (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccessMsg("");
-    const name = fullName.trim();
-    if (name.split(/\s+/).length < 2) { setError("Họ và tên phải có ít nhất 2 từ!"); return; }
-    if (!/^0\d{9,10}$/.test(phone.trim())) { setError("Số điện thoại phải bắt đầu bằng 0 và có 10–11 chữ số!"); return; }
-    if (dateOfBirth && dateOfBirth > today()) { setError("Ngày sinh không hợp lệ!"); return; }
-    if (!province) { setError("Vui lòng chọn tỉnh/thành phố!"); return; }
-    setStep(2);
+  const changeEmail = (value) => {
+    setEmail(value);
+    clearField("email");
+    clearField("code");
+    setIsCodeSent(false);
+    setIsVerified(false);
+    setVerificationCode("");
   };
 
   const handleSendCode = async () => {
-    setError("");
-    setSuccessMsg("");
-
+    clearMessages();
     const trimmedEmail = email.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmedEmail)) {
-      setError("Vui lòng nhập đúng định dạng Email trước khi gửi mã!");
-      return;
-    }
-    if (fullName.trim().length < 2) {
-      setError("Vui lòng nhập họ tên trước khi gửi mã!");
-      return;
-    }
-    if (!/^0\d{9,10}$/.test(phone.trim())) {
-      setError("Số điện thoại phải bắt đầu bằng 0 và có 10–11 chữ số!");
-      return;
-    }
-
+    if (!EMAIL_RE.test(trimmedEmail)) { showFieldErrors({ ...fieldErrors, email: "Enter a valid email, for example name@gmail.com, then send the code." }, ["email"]); return; }
     setIsSendingCode(true);
     try {
-      const response = await axios.post(
-        "/api/register",
-        {
-          action: "send-code",
-          username: username.trim(),
-          email: trimmedEmail,
-          fullName: fullName.trim(),
-          phone: phone.trim(),
-          dateOfBirth: dateOfBirth || null,
-          gender,
-          address: joinAddress(addressDetail, province),
-        },
-        { withCredentials: true },
-      );
-
-      if (response.status === 200) {
-        setIsCodeSent(true);
-        setCountdown(60);
-        setSuccessMsg("Mã xác thực đã được gửi tới Email của bạn!");
-      }
+      await axios.post("/api/register",
+        { action: "send-code", username: username.trim(), email: trimmedEmail },
+        { withCredentials: true });
+      setIsCodeSent(true);
+      setIsVerified(false);
+      setVerificationCode("");
+      setCountdown(60);
+      setSuccessMsg("A verification code has been sent to your email!");
     } catch (err) {
-      if (err.response?.status === 429) {
-        setCountdown(60);
-      }
-      setError(
-        err.response?.data?.message ||
-          "Không thể gửi mã xác thực. Vui lòng thử lại!",
-      );
+      if (err.response?.status === 429) setCountdown(60);
+      showFieldErrors({ ...fieldErrors, email: err.response?.data?.message || "Could not send the verification code. Please try again!" }, ["email"]);
     } finally {
       setIsSendingCode(false);
     }
   };
 
+  const handleVerifyCode = async () => {
+    clearMessages();
+    if (!/^\d{6}$/.test(verificationCode.trim())) { showFieldErrors({ ...fieldErrors, code: "Enter the 6-digit code from your email." }, ["code"]); return; }
+    setIsVerifying(true);
+    try {
+      await axios.post("/api/register",
+        { action: "verify-code", email: email.trim(), verificationCode: verificationCode.trim() },
+        { withCredentials: true });
+      setIsVerified(true);
+      clearField("code");
+      setSuccessMsg("Email verified!");
+    } catch (err) {
+      showFieldErrors({ ...fieldErrors, code: err.response?.data?.message || "Could not verify the code. Please try again!" }, ["code"]);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const goNext = (e) => {
+    e.preventDefault();
+    clearMessages();
+    const name = username.trim();
+    const errors = {};
+    if (name.length < 3) errors.username = "The username needs at least 3 characters.";
+    else if (/\s/.test(name)) errors.username = "The username cannot contain spaces.";
+    if (!EMAIL_RE.test(email.trim())) errors.email = "Enter a valid email, for example name@gmail.com.";
+    else if (!isVerified) errors.code = isCodeSent ? "Enter the code from your email and press Verify." : "Press Send code, then enter the code from your email.";
+    if (password.length < 6) errors.password = "The password needs at least 6 characters.";
+    if (!confirmPassword) errors.confirmPassword = "Re-enter your password.";
+    else if (password !== confirmPassword) errors.confirmPassword = "The two passwords do not match.";
+    if (showFieldErrors(errors, ["username", "email", "code", "password", "confirmPassword"])) setStep(2);
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccessMsg("");
-
-    const trimmedUsername = username.trim();
-    if (trimmedUsername.length < 3) {
-      setError("Tên đăng nhập phải có ít nhất 3 ký tự!");
-      return;
-    }
-    if (/\s/.test(trimmedUsername)) {
-      setError("Tên đăng nhập không được chứa khoảng trắng!");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setError("Email không đúng định dạng!");
-      return;
-    }
-
-    if (!isCodeSent || !verificationCode.trim()) {
-      setError("Vui lòng gửi và nhập mã xác thực Email!");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp!");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự!");
-      return;
-    }
+    clearMessages();
+    const errors = {};
+    if (fullName.trim().split(/\s+/).length < 2) errors.fullName = "Enter your full name (first and last name).";
+    if (!/^0\d{9,10}$/.test(phone.trim())) errors.phone = "The phone number starts with 0 and has 10–11 digits.";
+    const dobProblem = birthDateError(dateOfBirth);
+    if (dobProblem) errors.dob = dobProblem;
+    if (!province) errors.province = "Select your province/city.";
+    if (!showFieldErrors(errors, ["fullName", "phone", "dob", "province"])) return;
 
     setLoading(true);
     try {
-      const response = await axios.post(
-        "/api/register",
-        {
-          username: trimmedUsername,
-          email: email.trim(),
-          password: password,
-          verificationCode: verificationCode.trim(),
-        },
-        { withCredentials: true },
-      );
-
+      const response = await axios.post("/api/register", {
+        username: username.trim(),
+        email: email.trim(),
+        password,
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        dateOfBirth: dateOfBirth || null,
+        gender,
+        address: joinAddress(addressDetail, province),
+      }, { withCredentials: true });
       if (response.status === 201) {
         navigate("/login", { replace: true, state: { registered: email.trim() } });
       }
     } catch (err) {
-      if (err.response && err.response.data && err.response.data.message) {
-        setError(err.response.data.message);
-      } else {
-        setError("Đăng ký thất bại. Vui lòng kiểm tra lại kết nối server.");
-      }
+      const message = err.response?.data?.message || "Registration failed. Please check the server connection.";
+      if (/phone/i.test(message)) showFieldErrors({ phone: message }, ["phone"]);
+      else setError(message);
     } finally {
       setLoading(false);
     }
   };
 
+  const backToStep1 = () => { clearMessages(); setStep(1); };
+
   return (
-    <div
-      className="app-registration-page"
-    >
-      <Card
-        className="app-registration-card p-4"
-        style={{ maxWidth: 520 }}
-      >
-        <h3 className="text-center mb-4 fw-bold" style={{ color: "#3a2a2f" }}>
-          ĐĂNG KÝ
-        </h3>
+    <div className="app-registration-page">
+      <Card className="app-registration-card p-4" style={{ maxWidth: 480 }}>
+        <h1 className="text-center mb-4 fw-bold" style={{ color: "#3a2a2f", fontSize: "2.2rem" }}>
+          SIGN UP
+        </h1>
 
-        {error && (
-          <Alert variant="danger" className="py-2 text-center fs-6">
-            {error}
-          </Alert>
-        )}
-        {successMsg && (
-          <Alert variant="success" className="py-2 text-center fs-6">
-            {successMsg}
-          </Alert>
-        )}
+        <FloatingAlert message={error} onClose={() => setError("")} />
+        <FloatingAlert message={successMsg} variant="success" onClose={() => setSuccessMsg("")} timeout={4000} />
 
-        <div className="d-flex align-items-center justify-content-center gap-2 mb-4" aria-label="Các bước đăng ký">
-          {["Thông tin cá nhân", "Tài khoản & xác thực"].map((label, i) => (
+        <div className="d-flex align-items-center justify-content-center gap-2 mb-4" aria-label="Registration steps">
+          {["Account", "Personal information"].map((label, i) => (
             <div key={label} className="d-flex align-items-center gap-2">
               {i > 0 && <span style={{ width: 28, height: 2, background: step > i ? "#a61e4d" : "#e3d4d9" }} />}
               <span
@@ -217,120 +227,146 @@ const Register = () => {
 
         {step === 1 ? (
           <Form onSubmit={goNext} noValidate>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Họ và tên*</Form.Label>
-              <Form.Control type="text" placeholder="Vui lòng nhập họ và tên" value={fullName} maxLength={100}
-                onChange={(e) => changePersonal(setFullName, e.target.value)} style={FIELD} autoFocus />
+            <Form.Group className="mb-3" controlId="reg-username">
+              <Form.Label className="fw-bold">Username*</Form.Label>
+              <Form.Control type="text" placeholder="At least 3 characters, no spaces" value={username}
+                onChange={(e) => { setUsername(e.target.value); clearField("username"); }} autoComplete="username" style={FIELD} autoFocus
+                {...fieldProps(fieldErrors, "username")} />
+              <FieldError id="username-error" message={fieldErrors.username} />
             </Form.Group>
-            <Row className="g-3 mb-3">
-              <Col sm={6}>
-                <Form.Label className="fw-bold">Số điện thoại*</Form.Label>
-                <Form.Control type="tel" placeholder="0xxxxxxxxx" value={phone} maxLength={11}
-                  onChange={(e) => changePersonal(setPhone, e.target.value)} style={FIELD} />
-              </Col>
-              <Col sm={6}>
-                <Form.Label className="fw-bold">Ngày sinh</Form.Label>
-                <Form.Control type="date" value={dateOfBirth} max={today()}
-                  onChange={(e) => changePersonal(setDateOfBirth, e.target.value)} style={FIELD} />
-              </Col>
-            </Row>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold d-block">Giới tính</Form.Label>
-              <div className="d-flex gap-4">
-                {[["Female", "Nữ"], ["Male", "Nam"], ["Other", "Khác"]].map(([value, text]) => (
-                  <Form.Check key={value} inline type="radio" id={`gender-${value}`} name="gender" label={text}
-                    checked={gender === value} onChange={() => changePersonal(setGender, value)} />
-                ))}
-              </div>
+
+            <Form.Group className="mb-3" controlId="reg-email">
+              <Form.Label className="fw-bold">Email*</Form.Label>
+              <InputGroup hasValidation>
+                <Form.Control type="email" placeholder="Please enter your email" value={email}
+                  onChange={(e) => changeEmail(e.target.value)} autoComplete="email" style={FIELD} disabled={isVerified}
+                  {...fieldProps(fieldErrors, "email")} />
+                {isVerified ? (
+                  <Button variant="outline-secondary" type="button" onClick={() => changeEmail(email)} style={{ minWidth: 112 }}>
+                    Change
+                  </Button>
+                ) : (
+                  <Button variant="danger" type="button" onClick={handleSendCode}
+                    disabled={isSendingCode || countdown > 0 || !email.trim()}
+                    style={{ ...SIDE_BUTTON, backgroundColor: countdown > 0 ? "#b9a1ab" : SIDE_BUTTON.backgroundColor }}>
+                    {isSendingCode ? "Sending" : countdown > 0 ? `${countdown}s` : isCodeSent ? "Resend" : "Send code"}
+                  </Button>
+                )}
+              </InputGroup>
+              <FieldError id="email-error" message={fieldErrors.email} />
             </Form.Group>
-            <Row className="g-3 mb-4">
-              <Col sm={5}>
-                <Form.Label className="fw-bold">Tỉnh/Thành phố*</Form.Label>
-                <Form.Select value={province} onChange={(e) => changePersonal(setProvince, e.target.value)} style={FIELD}>
-                  <option value="">Chọn tỉnh/thành</option>
-                  {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
-                </Form.Select>
-              </Col>
-              <Col sm={7}>
-                <Form.Label className="fw-bold">Địa chỉ chi tiết</Form.Label>
-                <Form.Control type="text" placeholder="Số nhà, đường, phường/xã" value={addressDetail} maxLength={200}
-                  onChange={(e) => changePersonal(setAddressDetail, e.target.value)} style={FIELD} />
-              </Col>
-            </Row>
+
+            <Form.Group className="mb-3" controlId="reg-code">
+              <Form.Label className="fw-bold">Verification code*</Form.Label>
+              {isVerified ? (
+                <div className="d-flex align-items-center gap-2 rounded px-3" style={{ minHeight: 46, background: "#eaf4ed", color: "#276444", fontWeight: 600 }}>
+                  <i className="bi bi-patch-check-fill" aria-hidden="true" /> Email verified
+                </div>
+              ) : (
+                <InputGroup hasValidation>
+                  <Form.Control type="text" inputMode="numeric" maxLength={6}
+                    placeholder={isCodeSent ? "Enter the 6-digit code" : "Send a code to your email first"}
+                    value={verificationCode} onChange={(e) => { setVerificationCode(e.target.value.replace(/\D/g, "")); clearField("code"); }}
+                    disabled={!isCodeSent} autoComplete="one-time-code" {...fieldProps(fieldErrors, "code")}
+                    style={{ ...FIELD, backgroundColor: !isCodeSent ? "#e9ecef" : "white" }} />
+                  <Button variant="danger" type="button" onClick={handleVerifyCode}
+                    disabled={!isCodeSent || isVerifying || verificationCode.trim().length !== 6} style={SIDE_BUTTON}>
+                    {isVerifying ? "Checking" : "Verify"}
+                  </Button>
+                </InputGroup>
+              )}
+              <FieldError id="code-error" message={fieldErrors.code} />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label className="fw-bold" htmlFor="reg-password">Password*</Form.Label>
+              <PasswordInput id="reg-password" value={password} onChange={(e) => { setPassword(e.target.value); clearField("password"); }}
+                placeholder="At least 6 characters" autoComplete="new-password" errors={fieldErrors} name="password" />
+              <FieldError id="password-error" message={fieldErrors.password} />
+            </Form.Group>
+
+            <Form.Group className="mb-4">
+              <Form.Label className="fw-bold" htmlFor="reg-confirm">Confirm password*</Form.Label>
+              <PasswordInput id="reg-confirm" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); clearField("confirmPassword"); }}
+                placeholder="Re-enter password" autoComplete="new-password" errors={fieldErrors} name="confirmPassword" />
+              <FieldError id="confirmPassword-error" message={fieldErrors.confirmPassword} />
+            </Form.Group>
+
             <Button type="submit" className="w-100 fw-bold" style={PRIMARY}>
-              Tiếp tục <i className="bi bi-arrow-right ms-1" />
+              Continue <i className="bi bi-arrow-right ms-1" />
             </Button>
           </Form>
         ) : (
-          <Form onSubmit={handleRegister}>
+          <Form onSubmit={handleRegister} noValidate>
             <div className="small text-muted mb-3 p-2 rounded" style={{ background: "#fbf3f6" }}>
-              <i className="bi bi-person-check me-1" /> {fullName.trim()} · {phone.trim()} · {province}
-              <Button variant="link" size="sm" className="p-0 ms-2 align-baseline" onClick={() => { setError(""); setSuccessMsg(""); setStep(1); }}>Sửa</Button>
+              <i className="bi bi-person-check me-1" /> {username.trim()} · {email.trim()}
+              <Button variant="link" size="sm" className="p-0 ms-2 align-baseline" onClick={backToStep1}>Edit</Button>
             </div>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Tên đăng nhập*</Form.Label>
-              <Form.Control type="text" placeholder="Ít nhất 3 ký tự, không khoảng trắng" value={username}
-                onChange={(e) => setUsername(e.target.value)} required style={FIELD} autoFocus />
+
+            <Form.Group className="mb-3" controlId="reg-fullname">
+              <Form.Label className="fw-bold">Full name*</Form.Label>
+              <Form.Control type="text" placeholder="Please enter your full name" value={fullName} maxLength={100}
+                onChange={(e) => { setFullName(e.target.value); clearField("fullName"); }} style={FIELD} autoFocus autoComplete="name"
+                {...fieldProps(fieldErrors, "fullName")} />
+              <FieldError id="fullName-error" message={fieldErrors.fullName} />
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Email*</Form.Label>
-              <InputGroup>
-                <Form.Control type="email" placeholder="Vui lòng nhập email" value={email}
-                  onChange={(e) => { setEmail(e.target.value); setIsCodeSent(false); }} required style={FIELD} />
-                <Button
-                  variant={countdown > 0 ? "secondary" : "danger"}
-                  onClick={handleSendCode}
-                  disabled={isSendingCode || countdown > 0 || !email.trim()}
-                  style={{ backgroundColor: countdown > 0 ? undefined : "#a61e4d", border: "none", fontWeight: "bold", width: "105px" }}
-                >
-                  {isSendingCode ? "Đang gửi" : countdown > 0 ? `${countdown}s` : isCodeSent ? "Gửi lại" : "Gửi mã"}
-                </Button>
-              </InputGroup>
+
+            <Form.Group className="mb-3" controlId="reg-phone">
+              <Form.Label className="fw-bold">Phone number*</Form.Label>
+              <Form.Control type="tel" placeholder="0xxxxxxxxx" value={phone} maxLength={11}
+                onChange={(e) => { setPhone(e.target.value); clearField("phone"); }} style={FIELD} autoComplete="tel"
+                {...fieldProps(fieldErrors, "phone")} />
+              <FieldError id="phone-error" message={fieldErrors.phone} />
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Mã xác thực Email*</Form.Label>
-              <Form.Control type="text" inputMode="numeric" placeholder="Nhập mã 6 chữ số" value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)} maxLength={6} required disabled={!isCodeSent}
-                style={{ ...FIELD, backgroundColor: !isCodeSent ? "#e9ecef" : "white" }} />
+
+            <Form.Group className="mb-3" controlId="reg-dob">
+              <Form.Label className="fw-bold">Date of birth</Form.Label>
+              <Form.Control type="date" value={dateOfBirth} min={MIN_BIRTH_DATE} max={today()}
+                onChange={(e) => { setDateOfBirth(e.target.value); clearField("dob"); }} style={FIELD} autoComplete="bday"
+                {...fieldProps(fieldErrors, "dob")} />
+              <FieldError id="dob-error" message={fieldErrors.dob} />
             </Form.Group>
-            <Row className="g-3 mb-4">
-              <Col sm={6}>
-                <Form.Label className="fw-bold">Mật khẩu*</Form.Label>
-                <Form.Control type="password" placeholder="Ít nhất 6 ký tự" value={password}
-                  onChange={(e) => setPassword(e.target.value)} required style={FIELD} />
-              </Col>
-              <Col sm={6}>
-                <Form.Label className="fw-bold">Xác nhận mật khẩu*</Form.Label>
-                <Form.Control type="password" placeholder="Nhập lại mật khẩu" value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)} required style={FIELD} />
-              </Col>
-            </Row>
+
+            <Form.Group className="mb-3">
+              <Form.Label className="fw-bold d-block">Gender</Form.Label>
+              <div className="d-flex gap-4">
+                {["Female", "Male", "Other"].map((value) => (
+                  <Form.Check key={value} inline type="radio" id={`gender-${value}`} name="gender" label={value}
+                    checked={gender === value} onChange={() => setGender(value)} />
+                ))}
+              </div>
+            </Form.Group>
+
+            <Form.Group className="mb-3" controlId="reg-province">
+              <Form.Label className="fw-bold">Province/City*</Form.Label>
+              <Form.Select value={province} onChange={(e) => { setProvince(e.target.value); clearField("province"); }} style={FIELD}
+                {...fieldProps(fieldErrors, "province")}>
+                <option value="">Select province/city</option>
+                {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </Form.Select>
+              <FieldError id="province-error" message={fieldErrors.province} />
+            </Form.Group>
+
+            <Form.Group className="mb-4" controlId="reg-address">
+              <Form.Label className="fw-bold">Detailed address</Form.Label>
+              <Form.Control type="text" placeholder="House number, street, ward/commune" value={addressDetail} maxLength={200}
+                onChange={(e) => setAddressDetail(e.target.value)} style={FIELD} />
+            </Form.Group>
+
             <div className="d-flex gap-2">
-              <Button variant="outline-secondary" className="fw-bold" style={{ padding: "10px 16px" }}
-                onClick={() => { setError(""); setSuccessMsg(""); setStep(1); }}>
-                <i className="bi bi-arrow-left" /> Quay lại
+              <Button variant="outline-secondary" className="fw-bold" style={{ padding: "10px 16px" }} onClick={backToStep1}>
+                <i className="bi bi-arrow-left" /> Back
               </Button>
-              <Button type="submit" className="flex-fill fw-bold" style={PRIMARY} disabled={loading || !isCodeSent}>
-                {loading ? "Đang xử lý..." : "Đăng ký"}
+              <Button type="submit" className="flex-fill fw-bold" style={PRIMARY} disabled={loading}>
+                {loading ? "Processing..." : "Sign up"}
               </Button>
             </div>
           </Form>
         )}
 
         <div className="text-center mt-4">
-          <span style={{ fontSize: "1rem", color: "#6c757d" }}>
-            Đã có tài khoản?{" "}
-          </span>
-          <span
-            style={{
-              textDecoration: "none",
-              color: "#0d6efd",
-              cursor: "pointer",
-            }}
-            onClick={() => navigate("/login")}
-          >
-            Đăng nhập
-          </span>
+          <span style={{ fontSize: "1rem", color: "#6c757d" }}>Already have an account? </span>
+          <Link to="/login" className="fw-semibold">Log in</Link>
         </div>
       </Card>
     </div>

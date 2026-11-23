@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Button, Card, Col, Container, Form, Row, Spinner } from "react-bootstrap";
 import { ServiceLinesEditor, SlotGrid, PlanPreview, useSlots, toServiceLines } from "../../../components/BookingPicker";
 import { api, put, today, addDays, viDate, time5 } from "../../../services/api";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 export default function RescheduleAppointment() {
   const { id } = useParams();
@@ -44,7 +45,7 @@ export default function RescheduleAppointment() {
   const submit = async (event) => {
     event.preventDefault();
     setError("");
-    if (!startTime) return setError("Vui lòng chọn khung giờ mới.");
+    if (!startTime) return setError("Please choose a new time slot.");
     setSaving(true);
     try {
       await put(`/api/appointments/${id}/reschedule`, {
@@ -64,33 +65,33 @@ export default function RescheduleAppointment() {
     <Container fluid className="mt-4 px-4">
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-          <h2 className="manager-page-title fw-bold mb-1">Đổi lịch hẹn #{id}</h2>
+          <h2 className="manager-page-title fw-bold mb-1">Reschedule appointment #{id}</h2>
           {appointment && (
             <p className="text-muted mb-0">
-              Lịch hiện tại: {viDate(appointment.appointmentDate)} · {time5(appointment.startTime)}–{time5(appointment.endTime)} · {appointment.customerName}
+              Current appointment: {viDate(appointment.appointmentDate)} · {time5(appointment.startTime)}–{time5(appointment.endTime)} · {appointment.customerName}
             </p>
           )}
         </div>
-        <Button variant="outline-secondary" onClick={() => navigate(`/appointments/${id}`)}><i className="bi bi-arrow-left" /> Quay lại</Button>
+        <Button variant="outline-secondary" onClick={() => navigate(`/appointments/${id}`)}><i className="bi bi-arrow-left" /> Back</Button>
       </div>
-      {error && <Alert variant="danger">{error}</Alert>}
-      {isCustomer && <Alert variant="info">Sau khi đổi, lịch sẽ quay về trạng thái Chờ xác nhận để lễ tân duyệt lại.</Alert>}
+      <FloatingAlert message={error} onClose={() => setError("")} />
+      {isCustomer && <Alert variant="info">After rescheduling, the appointment returns to Pending for the receptionist to approve again.</Alert>}
 
       {appointment && (
         <Form onSubmit={submit}>
           <Row className="g-4">
             <Col lg={8}>
               <Card className="shadow-sm border-0 mb-4">
-                <Card.Header className="bg-white fw-bold">Dịch vụ</Card.Header>
+                <Card.Header className="bg-white fw-bold">Service</Card.Header>
                 <Card.Body>
                   <ServiceLinesEditor services={services} packages={packages} lines={lines} onChange={(next) => { setLines(next); setStartTime(""); }} disabled={saving} />
                 </Card.Body>
               </Card>
               <Card className="shadow-sm border-0">
-                <Card.Header className="bg-white fw-bold">Ngày & khung giờ mới</Card.Header>
+                <Card.Header className="bg-white fw-bold">Date & new time slots</Card.Header>
                 <Card.Body>
                   <Form.Group className="mb-3" style={{ maxWidth: 260 }}>
-                    <Form.Label>Ngày hẹn</Form.Label>
+                    <Form.Label>Appointment date</Form.Label>
                     <Form.Control type="date" min={today()} max={isCustomer ? addDays(today(), 30) : undefined} value={date}
                       onChange={(e) => { setDate(e.target.value); setStartTime(""); }} />
                   </Form.Group>
@@ -100,16 +101,16 @@ export default function RescheduleAppointment() {
             </Col>
             <Col lg={4}>
               <Card className="shadow-sm border-0">
-                <Card.Header className="bg-white fw-bold">Xác nhận đổi lịch</Card.Header>
+                <Card.Header className="bg-white fw-bold">Confirm reschedule</Card.Header>
                 <Card.Body>
-                  <p className="mb-2"><strong>Khung giờ mới:</strong> {selected ? `${viDate(date)} · ${selected.startTime}–${selected.endTime}` : "Chưa chọn"}</p>
+                  <p className="mb-2"><strong>New time slot:</strong> {selected ? `${viDate(date)} · ${selected.startTime}–${selected.endTime}` : "Not selected"}</p>
                   <PlanPreview services={slots.data?.services} startTime={startTime} />
                   <Form.Group className="mb-3">
-                    <Form.Label>Lý do đổi lịch</Form.Label>
+                    <Form.Label>Reschedule reason</Form.Label>
                     <Form.Control as="textarea" rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
                   </Form.Group>
                   <Button type="submit" className="w-100 fw-bold" disabled={saving || !startTime}>
-                    {saving ? <><Spinner size="sm" /> Đang lưu...</> : "Xác nhận đổi lịch"}
+                    {saving ? <><Spinner size="sm" /> Saving...</> : "Confirm reschedule"}
                   </Button>
                 </Card.Body>
               </Card>

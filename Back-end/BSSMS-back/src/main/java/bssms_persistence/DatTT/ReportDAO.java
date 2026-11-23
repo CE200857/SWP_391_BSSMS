@@ -14,9 +14,9 @@ public class ReportDAO extends DBContext implements AutoCloseable {
         String today = String.valueOf(w.one("SELECT CONVERT(char(10)," + TODAY + ",23) AS today").get("today"));
         String to = toDate == null ? today : toDate;
         String from = fromDate == null ? java.time.LocalDate.parse(to).minusDays(29).toString() : fromDate;
-        if (from.compareTo(to) > 0) throw new IllegalArgumentException("Từ ngày phải trước hoặc bằng đến ngày.");
+        if (from.compareTo(to) > 0) throw new IllegalArgumentException("The start date must be on or before the end date.");
         if (java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.parse(from), java.time.LocalDate.parse(to)) > 366)
-            throw new IllegalArgumentException("Khoảng thời gian báo cáo tối đa 1 năm.");
+            throw new IllegalArgumentException("The report period can be at most 1 year.");
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("today", today);

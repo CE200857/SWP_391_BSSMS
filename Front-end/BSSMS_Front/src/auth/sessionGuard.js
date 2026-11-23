@@ -42,7 +42,7 @@ function showNoticeIfNeeded() {
   if (!flagged) return;
   const box = document.createElement("div");
   box.setAttribute("role", "alert");
-  box.textContent = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  box.textContent = "Your session has expired. Please log in again.";
   box.style.cssText =
     "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2000;background:#fff3cd;color:#664d03;" +
     "border:1px solid #ffecb5;border-radius:8px;padding:10px 18px;box-shadow:0 4px 16px rgba(0,0,0,.15);font-size:15px";

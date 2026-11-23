@@ -21,10 +21,10 @@ public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
                 + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id) AS total_appointments,"
                 + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id AND status='Completed') AS completed_appointments,"
                 + "(SELECT COUNT(*) FROM Appointment WHERE customer_id=c.customer_id AND status IN ('Pending','Confirmed')) AS upcoming_appointments,"
-                + "(SELECT COUNT(*) FROM CustomerPackage WHERE customer_id=c.customer_id AND status='Active') AS active_packages,"
-                + "(SELECT COALESCE(SUM(remaining_sessions),0) FROM CustomerPackage WHERE customer_id=c.customer_id AND status='Active') AS total_remaining_sessions "
+                + "(SELECT COUNT(*) FROM CustomerPackage WHERE customer_id=c.customer_id AND status='Active' AND expiry_date>=CAST(SYSDATETIME() AS date)) AS active_packages,"
+                + "(SELECT COALESCE(SUM(remaining_sessions),0) FROM CustomerPackage WHERE customer_id=c.customer_id AND status='Active' AND expiry_date>=CAST(SYSDATETIME() AS date)) AS total_remaining_sessions "
                 + "FROM Customer c JOIN MembershipTier t ON t.membership_tier_id=c.membership_tier_id WHERE c.customer_id=?", customerId));
-        r.put("packages", w.query("SELECT cp.customer_package_id,tp.package_name,cp.total_sessions,cp.remaining_sessions,cp.expiry_date,cp.status FROM CustomerPackage cp JOIN TreatmentPackage tp ON tp.treatment_package_id=cp.treatment_package_id WHERE cp.customer_id=? ORDER BY cp.purchase_date DESC", customerId));
+        r.put("packages", w.query("SELECT cp.customer_package_id,tp.package_name,cp.total_sessions,cp.remaining_sessions,cp.expiry_date,CASE WHEN cp.status='Active' AND cp.expiry_date<CAST(SYSDATETIME() AS date) THEN 'Expired' ELSE cp.status END AS status FROM CustomerPackage cp JOIN TreatmentPackage tp ON tp.treatment_package_id=cp.treatment_package_id WHERE cp.customer_id=? ORDER BY cp.purchase_date DESC", customerId));
         r.put("recentResults", getTreatmentHistory(customerId).stream().limit(5).collect(java.util.stream.Collectors.toList()));
         return r;
     }
@@ -51,7 +51,7 @@ public class TreatmentProfileDAO extends DBContext implements AutoCloseable {
         Workflow w = workflow();
         w.roles("Receptionist", "Manager");
         for (String v : new String[]{skinCondition, allergies, notes})
-            if (v != null && v.length() > 1000) throw new IllegalArgumentException("Mỗi mục tối đa 1000 ký tự.");
+            if (v != null && v.length() > 1000) throw new IllegalArgumentException("Each field can be at most 1000 characters.");
         return w.update("UPDATE Customer SET skin_condition=?,allergies=?,notes=? WHERE customer_id=? AND status<>'Pending'",
                 blank(skinCondition), blank(allergies), blank(notes), customerId) == 1;
     }

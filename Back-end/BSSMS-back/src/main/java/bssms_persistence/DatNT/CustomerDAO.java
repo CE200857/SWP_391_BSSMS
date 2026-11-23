@@ -31,7 +31,8 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
                 + "JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a ON c.account_id = a.account_id "
                 + "LEFT JOIN MembershipTier mt "
                 + "ON c.membership_tier_id = mt.membership_tier_id "
-                + "WHERE EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " actor WHERE actor.account_id=? AND actor.status='Active' AND (actor.role IN ('Manager','Receptionist') OR (actor.role='Technician' AND EXISTS(SELECT 1 FROM Appointment ap JOIN AppointmentService l ON l.appointment_id=ap.appointment_id WHERE ap.customer_id=c.customer_id AND l.technician_id=actor.staff_id)))) ORDER BY c.full_name";
+                + "WHERE NOT EXISTS(SELECT 1 FROM Customer d WHERE d.customer_id=c.customer_id AND d.deleted_at IS NOT NULL) "
+                + "AND EXISTS(SELECT 1 FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " actor WHERE actor.account_id=? AND actor.status='Active' AND (actor.role IN ('Manager','Receptionist') OR (actor.role='Technician' AND EXISTS(SELECT 1 FROM Appointment ap JOIN AppointmentService l ON l.appointment_id=ap.appointment_id WHERE ap.customer_id=c.customer_id AND l.technician_id=actor.staff_id)))) ORDER BY c.full_name";
 
         try {
             if (conn != null) {
@@ -73,22 +74,22 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
         try {
             workflow().roles("Manager");
             workflow().transaction(() -> {
-                java.util.Map<String, Object> used = workflow().one(
-                    "SELECT (SELECT COUNT(*) FROM Appointment WHERE customer_id=?) AS appointments,"
-                  + "(SELECT COUNT(*) FROM Invoice WHERE customer_id=?) AS invoices,"
-                  + "(SELECT COUNT(*) FROM CustomerPackage WHERE customer_id=?) AS packages",
-                    customerId, customerId, customerId);
-                if (used.values().stream().anyMatch(v -> ((Number) v).intValue() > 0))
+                // Xoa mem: giu lai khach va toan bo lich su, chi chan khi con lich hen sap toi hoac hoa don chua thanh toan
+                java.util.Map<String, Object> open = workflow().one(
+                    "SELECT (SELECT COUNT(*) FROM Appointment WHERE customer_id=? AND status IN ('Pending','Confirmed','Checked-in','In-progress')) AS appointments,"
+                  + "(SELECT COUNT(*) FROM Invoice WHERE customer_id=? AND status='Unpaid') AS invoices",
+                    customerId, customerId);
+                if (open.values().stream().anyMatch(v -> ((Number) v).intValue() > 0))
                     throw new bssms_persistence.common.WorkflowException(409,
-                        "Khách hàng đã có lịch hẹn, hóa đơn hoặc gói liệu trình nên không xóa vĩnh viễn được. Hãy bấm Sửa và đổi trạng thái sang \"Không hoạt động\".");
-                if (workflow().update("DELETE FROM Customer WHERE customer_id=?", customerId) != 1)
-                    throw new bssms_persistence.common.WorkflowException(404, "Không tìm thấy khách hàng.");
+                        "The customer still has upcoming appointments or unpaid invoices. Cancel or finish them before deleting.");
+                if (workflow().update("UPDATE Customer SET status='Inactive',deleted_at=SYSDATETIME() WHERE customer_id=? AND deleted_at IS NULL", customerId) != 1)
+                    throw new bssms_persistence.common.WorkflowException(404, "Customer not found.");
                 return Boolean.TRUE;
             });
         } catch (java.sql.SQLException e) {
             if (e.getErrorCode() == 547)
                 throw new bssms_persistence.common.WorkflowException(409,
-                    "Khách hàng còn dữ liệu liên quan nên không xóa được. Hãy đổi trạng thái sang \"Không hoạt động\".");
+                    "The customer has related data and cannot be deleted. Change the status to \"Inactive\" instead.");
             throw new DataAccessException(e);
         }
     }
@@ -110,7 +111,7 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
                 String duplicateField = checkDuplicate(null, null, phone, null);
                 if (duplicateField != null) {
                     throw new bssms_persistence.common.WorkflowException(
-                            409, duplicateField + " này đã tồn tại trên hệ thống.");
+                            409, duplicateField + " already exists in the system.");
                 }
                 return w.one(
                         rs -> rs.getInt("customer_id"),
@@ -201,6 +202,14 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
         value.setMembership(membership);
     }
 
+    public boolean updateCustomerStatus(int customerId, String status) {
+        requireConnection();
+        try {
+            workflow().roles("Manager");
+            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Customer SET status=? WHERE customer_id=? AND deleted_at IS NULL", status, customerId) == 1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
+    }
+
     public boolean updateCustomer(int accountId, String fullName, String phone, String email, String gender, String dob, String address, String status) {
         requireConnection();
         try {
@@ -224,7 +233,7 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
             phone = null;
         }
         if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
-            return "Email (Trùng với email hệ thống)";
+            return "Email (same as the system email)";
         }
 
         String sql = "SELECT username, email, phone FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE (username = ? OR email = ? OR phone = ?)";
@@ -252,10 +261,10 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
                     String dbPhone = rs.getString("phone");
 
                     if (username != null && username.equalsIgnoreCase(dbUsername)) {
-                        return "Tên đăng nhập (Username)";
+                        return "Username";
                     }
                     if (phone != null && phone.equals(dbPhone)) {
-                        return "Số điện thoại";
+                        return "Phone number";
                     }
                     if (email != null && email.equalsIgnoreCase(dbEmail)) {
                         return "Email";

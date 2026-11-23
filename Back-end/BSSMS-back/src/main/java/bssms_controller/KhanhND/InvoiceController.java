@@ -29,7 +29,7 @@ public class InvoiceController extends ControllerSupport {
     public void post(ActionRequest request, ActionResult response) throws Exception {
         bind(request);
         String[] parts = path(request).split("/");
-        if (parts.length < 3) { response.error(404, "Không tìm thấy thao tác."); return; }
+        if (parts.length < 3) { response.error(404, "Action not found."); return; }
         int id = Integer.parseInt(parts[1]);
         JsonObject o = JsonParser.parseReader(request.bodyReader()).getAsJsonObject();
         InvoiceDAO dao = use(new InvoiceDAO());
@@ -37,7 +37,7 @@ public class InvoiceController extends ControllerSupport {
         switch (parts[2]) {
             case "voucher": result = dao.applyVoucher(id, blank(text(o, "voucherCode"))); break;
             case "pay": result = dao.pay(id, text(o, "paymentMethod"), o.has("voucherCode") ? blank(text(o, "voucherCode")) : null, blank(text(o, "transactionCode"))); break;
-            case "cancel": dao.cancelInvoice(id, text(o, "reason")); result = Map.of("message", "Đã hủy hóa đơn."); break;
+            case "cancel": dao.cancelInvoice(id, text(o, "reason")); result = Map.of("message", "Invoice cancelled."); break;
             case "refund":
                 Map<String, Object> refund = dao.refundInvoice(id, text(o, "reason"));
                 if ("Pending".equals(refund.get("status"))) {
@@ -45,7 +45,7 @@ public class InvoiceController extends ControllerSupport {
                     refund.put("vnpay", vnpay.process(((Number) refund.get("refundId")).intValue()));
                 }
                 result = refund; break;
-            default: response.error(404, "Không tìm thấy thao tác."); return;
+            default: response.error(404, "Action not found."); return;
         }
         response.writer().write(gson.toJson(result));
     }

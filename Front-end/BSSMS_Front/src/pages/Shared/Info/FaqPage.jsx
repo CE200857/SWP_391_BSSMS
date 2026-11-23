@@ -2,31 +2,31 @@ import { Accordion } from "react-bootstrap";
 import InfoPage from "./InfoPage";
 
 const FAQ = [
-  ["Làm thế nào để đặt lịch?",
-   "Đăng nhập tài khoản khách hàng (hoặc đăng ký nếu chưa có), chọn \"Đặt lịch\", chọn từ 1 đến 4 dịch vụ (làm liên tiếp), ngày giờ còn trống và kỹ thuật viên nếu bạn muốn. Lịch online cần đặt trước ít nhất 2 tiếng và tối đa 30 ngày; lịch mới ở trạng thái \"Chờ xác nhận\" cho tới khi lễ tân xác nhận."],
-  ["Spa làm việc vào những giờ nào?",
-   "Seoul Center mở cửa 08:30–18:30 hằng ngày. Lịch hẹn được xếp trong khung giờ này."],
-  ["Tôi có thể đổi hoặc hủy lịch hẹn không?",
-   "Bạn tự đổi hoặc hủy lịch trước giờ hẹn ít nhất 2 tiếng khi lịch còn \"Chờ xác nhận\" hoặc \"Đã xác nhận\" (cần ghi lý do); sau khi đổi, lịch chờ lễ tân xác nhận lại. Nếu đã thanh toán, quản lý sẽ xử lý hoàn tiền khi bạn hủy."],
-  ["Nếu tôi đến muộn hoặc không đến thì sao?",
-   "Nếu bạn đến trễ quá 15 phút, lễ tân có thể đánh dấu lịch \"Không đến\"; khoản đã thanh toán cho lịch không đến không được hoàn. Với gói liệu trình, buổi không đến hoặc bị hủy không bị trừ vào số buổi của bạn."],
-  ["Gói liệu trình hoạt động thế nào?",
-   "Bạn mua gói tại quầy hoặc trực tuyến qua VNPay. Gói chỉ dùng được sau khi thanh toán thành công, có số buổi và hạn dùng ghi trên từng gói; mỗi buổi hoàn thành sẽ trừ một buổi. Bạn theo dõi số buổi còn lại ở mục \"Liệu trình của tôi\"."],
-  ["Seoul Center nhận những hình thức thanh toán nào?",
-   "Tiền mặt, chuyển khoản tại quầy và thanh toán trực tuyến qua VNPay."],
-  ["Tôi được hưởng ưu đãi thành viên nào?",
-   "Hạng thành viên (Standard, Silver, Gold, VIP, VVIP) được xét tự động theo tổng chi tiêu trọn đời. Mỗi hạng có mức giảm riêng cho dịch vụ và gói liệu trình; voucher (nếu có) được áp dụng sau ưu đãi hạng và tổng giảm tối đa 50% hóa đơn. Xem chi tiết ở mục \"Quyền lợi thành viên\"."],
-  ["Làm sao để lấy lại mật khẩu khi quên?",
-   "Chọn \"Quên mật khẩu\" ở trang đăng nhập, nhập email đã đăng ký. Hệ thống gửi mã xác thực gồm 6 chữ số tới email của bạn; mã chỉ có hiệu lực trong thời gian ngắn nên hãy nhập ngay."],
-    ["Tôi có thể đánh giá dịch vụ ở đâu?",
-   "Sau khi hoàn thành dịch vụ, vào \"Đánh giá của tôi\" để viết đánh giá. Mỗi dịch vụ trong mỗi lần đến được đánh giá một lần; bạn sửa hoặc xóa đánh giá của mình bất cứ lúc nào. Đánh giá vi phạm quy định có thể bị quản lý ẩn."],
-  ["Hóa đơn có thể được hủy hoặc hoàn tiền không?",
-   "Việc hủy hóa đơn và hoàn tiền do quản lý thực hiện, hóa đơn không bị xóa mà chuyển sang trạng thái \"Đã hủy\" hoặc \"Đã hoàn tiền\". Thanh toán VNPay được hoàn qua VNPay; tiền mặt/chuyển khoản được hoàn tại quầy. Vui lòng liên hệ quầy để được hỗ trợ."],
+  ["How do I book an appointment?",
+   "Log in to your customer account (or register if you don’t have one), choose \"Book\", choose 1 to 4 services (done back to back), an available date and time, and a technician if you like. Online bookings must be made at least 2 hours and at most 30 days in advance; new appointments are in status \"Pending\" until the receptionist confirms."],
+  ["What are the spa’s opening hours?",
+   "Seoul Center is open 08:30–18:30 daily. Appointments are scheduled within these hours."],
+  ["Can I reschedule or cancel my appointment?",
+   "You can reschedule or cancel yourself at least 2 hours before the appointment while it is still \"Pending\" or \"Confirmed\" (reason required); after rescheduling, the appointment waits for the receptionist to confirm again. If you have paid, the manager will handle the refund when you cancel."],
+  ["What if I am late or do not show up?",
+   "If you are more than 15 minutes late, the receptionist may mark the appointment as \"No-show\"; amounts paid for missed appointments are not refunded. For treatment packages, missed or cancelled sessions are not deducted from your sessions."],
+  ["How do treatment packages work?",
+   "You buy a package at the counter or online via VNPay. A package can be used only after successful payment; the number of sessions and the expiry date are shown on each package; each completed session deducts one session. You can track remaining sessions under \"My packages\"."],
+  ["Which payment methods does Seoul Center accept?",
+   "Cash, bank transfer at the counter and online payment via VNPay."],
+  ["Which member benefits do I get?",
+   "Membership tiers (Standard, Silver, Gold, VIP, VVIP) are assigned automatically based on lifetime spending. Each tier has its own discount for services and treatment packages; the voucher (if any) is applied after the tier discount, and the total discount is at most 50% of the invoice. See details under \"Membership benefits\"."],
+  ["How do I recover a forgotten password?",
+   "Select \"Forgot password\" on the login page, enter your registered email. The system sends a 6-digit verification code to your email; the code is only valid for a short time, so enter it right away."],
+    ["Where can I review a service?",
+   "After the service is completed, go to \"My reviews\" to write a review. Each service in each visit can be reviewed once; you can edit or delete your reviews at any time. Reviews that break the rules may be hidden by the manager."],
+  ["Can invoices be cancelled or refunded?",
+   "Invoice cancellations and refunds are done by the manager; invoices are not deleted but moved to status \"Cancelled\" or \"Refunded\". VNPay payments are refunded through VNPay; cash/bank transfer payments are refunded at the counter. Please contact the counter for help."],
 ];
 
 export default function FaqPage() {
   return (
-    <InfoPage title="Câu hỏi thường gặp" lead="Những điều khách hàng thường hỏi khi đặt lịch và sử dụng dịch vụ tại Seoul Center.">
+    <InfoPage title="Frequently asked questions" lead="Common questions customers ask when booking and using services at Seoul Center.">
       <Accordion alwaysOpen>
         {FAQ.map(([question, answer], index) => (
           <Accordion.Item eventKey={String(index)} key={question}>

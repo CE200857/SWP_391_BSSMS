@@ -33,7 +33,7 @@ public class AuthenticationFilter implements Filter {
                 || path.endsWith("/api/register")
                 || path.endsWith("/api/logout")
                 || path.contains("/api/forgot-password")
-                || ((path.endsWith("/api/service") || path.endsWith("/api/treatment-packages") || path.matches(".*/api/service-image/[0-9]+")) && "GET".equalsIgnoreCase(req.getMethod()))
+                || ((path.endsWith("/api/service") || path.endsWith("/api/treatment-packages") || (path.endsWith("/api/membership-tiers") && req.getParameter("mine") == null && req.getParameter("customerId") == null) || path.matches(".*/api/service-image/[0-9]+")) && "GET".equalsIgnoreCase(req.getMethod()))
                 || ((path.endsWith("/api/feedback") || path.endsWith("/api/feedback/service-ratings") || path.matches(".*/api/feedback/[0-9]+")) && "GET".equalsIgnoreCase(req.getMethod()))) {
             chain.doFilter(request, response);
             return;
@@ -50,7 +50,7 @@ public class AuthenticationFilter implements Filter {
             res.setCharacterEncoding("UTF-8");
             res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
             res.setHeader("Access-Control-Allow-Credentials", "true");
-            res.getWriter().write("{\"message\": \"Vui lòng đăng nhập để tiếp tục!\"}");
+            res.getWriter().write("{\"message\": \"Please log in to continue!\"}");
         }
     }
 }

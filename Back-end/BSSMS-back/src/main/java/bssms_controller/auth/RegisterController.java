@@ -32,21 +32,17 @@ public class RegisterController extends ControllerSupport {
 
                 if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                     response.status(400);
-                    out.print("{\"message\": \"Email không đúng định dạng!\"}");
+                    out.print("{\"message\": \"Invalid email format!\"}");
                     out.flush();
                     return;
                 }
 
-                String fullName = jsonObject.has("fullName") && !jsonObject.get("fullName").isJsonNull() ? jsonObject.get("fullName").getAsString().trim() : null;
-                String phone = jsonObject.has("phone") && !jsonObject.get("phone").isJsonNull() ? jsonObject.get("phone").getAsString().trim() : null;
-                String dateOfBirth = jsonObject.has("dateOfBirth") && !jsonObject.get("dateOfBirth").isJsonNull() ? jsonObject.get("dateOfBirth").getAsString().trim() : null;
-                String gender = jsonObject.has("gender") && !jsonObject.get("gender").isJsonNull() ? jsonObject.get("gender").getAsString().trim() : null;
-                String address = jsonObject.has("address") && !jsonObject.get("address").isJsonNull() ? jsonObject.get("address").getAsString().trim() : null;
-                if (gender != null && !gender.isEmpty() && !java.util.Arrays.asList("Male", "Female", "Other").contains(gender)) { response.error(400, "Giới tính không hợp lệ!"); return; }
-                if (address == null || address.isBlank()) { response.error(400, "Vui lòng chọn tỉnh/thành phố!"); return; }
-                if (address.length() > 255) { response.error(400, "Địa chỉ tối đa 255 ký tự!"); return; }
-                if (fullName == null || fullName.isEmpty()) { response.error(400, "Vui lòng nhập họ tên!"); return; }
-                if (phone == null || !phone.matches("^0\\d{9,10}$")) { response.error(400, "Số điện thoại không hợp lệ (10-11 số, bắt đầu bằng 0)!"); return; }
+                // Step 1 of sign-up only needs the email; the profile is saved when the account is created.
+                if (username != null && !username.isEmpty() && (username.length() < 3 || username.contains(" "))) {
+                    response.error(400, "The username must have at least 3 characters and no spaces!");
+                    return;
+                }
+                String phone = null;
                 String duplicateField = dao.checkDuplicate(
                         (username != null && !username.isEmpty()) ? username : null,
                         email,
@@ -55,24 +51,35 @@ public class RegisterController extends ControllerSupport {
                 );
                 if (duplicateField != null) {
                     response.status(409);
-                    out.print("{\"message\": \"" + duplicateField + " này đã được sử dụng. Vui lòng chọn thông tin khác!\"}");
+                    out.print("{\"message\": \"" + duplicateField + " is already in use. Please choose different information!\"}");
                     out.flush();
                     return;
                 }
 
                 String otp = EmailUtil.generateOTP();
-                boolean isSaved = dao.saveRegistrationCode(email, otp, fullName, phone, dateOfBirth, gender, address);
+                boolean isSaved = dao.saveRegistrationCode(email, otp, null, null, null, null, null);
                 if (!isSaved) {
                     response.status(500);
-                    out.print("{\"message\": \"Không thể lưu mã OTP. Vui lòng thử lại!\"}");
+                    out.print("{\"message\": \"Could not save the OTP. Please try again!\"}");
                     out.flush();
                     return;
                 }
 
-                if (!EmailUtil.sendOTP(email, otp, "[BSSMS] Mã xác thực đăng ký tài khoản")) { response.error(503,"Không gửi được email. Vui lòng thử lại sau."); return; }
+                if (!EmailUtil.sendOTP(email, otp, "[BSSMS] Account registration verification code")) { response.error(503,"Could not send the email. Please try again later."); return; }
 
                 response.status(200);
-                out.print("{\"message\": \"Mã xác thực đã được gửi đến email của bạn!\"}");
+                out.print("{\"message\": \"A verification code has been sent to your email!\"}");
+                out.flush();
+                return;
+            }
+
+            if ("verify-code".equals(action)) {
+                String email = text(jsonObject, "email");
+                String code = text(jsonObject, "verificationCode");
+                if (email == null || code == null || code.isEmpty()) { response.error(400, "Please enter the verification code!"); return; }
+                if (!dao.verifyRegistrationCode(email, code)) { response.error(400, "The verification code is incorrect or has expired!"); return; }
+                response.status(200);
+                out.print("{\"message\": \"Email verified!\", \"verified\": true}");
                 out.flush();
                 return;
             }
@@ -84,21 +91,21 @@ public class RegisterController extends ControllerSupport {
 
             if (username.length() < 3 || username.contains(" ")) {
                 response.status(400);
-                out.print("{\"message\": \"Tên đăng nhập phải có ít nhất 3 ký tự và không chứa khoảng trắng!\"}");
+                out.print("{\"message\": \"The username must have at least 3 characters and no spaces!\"}");
                 out.flush();
                 return;
             }
 
             if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                 response.status(400);
-                out.print("{\"message\": \"Email không đúng định dạng!\"}");
+                out.print("{\"message\": \"Invalid email format!\"}");
                 out.flush();
                 return;
             }
 
             if (rawPassword.length() < 6) {
                 response.status(400);
-                out.print("{\"message\": \"Mật khẩu phải có ít nhất 6 ký tự!\"}");
+                out.print("{\"message\": \"The password must have at least 6 characters!\"}");
                 out.flush();
                 return;
             }
@@ -106,20 +113,32 @@ public class RegisterController extends ControllerSupport {
             String duplicateField = dao.checkDuplicate(username, email, null, null);
             if (duplicateField != null) {
                 response.status(409);
-                out.print("{\"message\": \"" + duplicateField + " này đã được sử dụng. Vui lòng chọn thông tin khác!\"}");
+                out.print("{\"message\": \"" + duplicateField + " is already in use. Please choose different information!\"}");
                 out.flush();
                 return;
             }
 
-            if (!dao.verifyRegistrationCode(email, verificationCode)) {
-                response.status(400);
-                out.print("{\"message\": \"Mã xác thực không chính xác hoặc đã hết hạn!\"}");
-                out.flush();
-                return;
-            }
+            String fullName = text(jsonObject, "fullName");
+            String phone = text(jsonObject, "phone");
+            String dateOfBirth = text(jsonObject, "dateOfBirth");
+            String gender = text(jsonObject, "gender");
+            String address = text(jsonObject, "address");
+            if (fullName == null || fullName.isEmpty()) { response.error(400, "Please enter your full name!"); return; }
+            if (fullName.length() > 100) { response.error(400, "Full name can be at most 100 characters!"); return; }
+            if (phone == null || !phone.matches("^0\\d{9,10}$")) { response.error(400, "Invalid phone number (10-11 digits, starting with 0)!"); return; }
+            if (gender != null && !gender.isEmpty() && !java.util.Arrays.asList("Male", "Female", "Other").contains(gender)) { response.error(400, "Invalid gender!"); return; }
+            if (address == null || address.isBlank()) { response.error(400, "Please select a province/city!"); return; }
+            if (address.length() > 255) { response.error(400, "Address can be at most 255 characters!"); return; }
+            String dobError = InputValidation.birthDateError(dateOfBirth);
+            if (dobError != null) { response.error(400, dobError); return; }
+            String phoneTaken = dao.checkDuplicate(null, null, phone, null);
+            if (phoneTaken != null) { response.error(409, "Phone number is already in use. Please choose different information!"); return; }
+
+            // Older clients may still send the code with the final request.
+            if (!verificationCode.isEmpty()) dao.verifyRegistrationCode(email, verificationCode);
 
             String hashedPassword = PasswordUtil.hashMD5(rawPassword);
-            boolean isCreated = dao.completeRegistration(username, hashedPassword, email);
+            boolean isCreated = dao.completeRegistration(username, hashedPassword, email, fullName, phone, dateOfBirth, gender, address);
 
             if (isCreated) {
 
@@ -130,18 +149,22 @@ public class RegisterController extends ControllerSupport {
                 }
 
                 response.status(201);
-                out.print("{\"message\": \"Đăng ký thành công!\"}");
+                out.print("{\"message\": \"Registration successful!\"}");
             } else {
                 response.status(409);
-                out.print("{\"message\": \"Tên đăng nhập này đã tồn tại. Vui lòng chọn tên khác!\"}");
+                out.print("{\"message\": \"Email verification has expired. Please go back to step 1 and verify your email again.\"}");
             }
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
             
             response.status(500);
-            out.print("{\"message\": \"Lỗi xử lý tại máy chủ: " + e.getClass().getSimpleName() + "\"}");
+            out.print("{\"message\": \"Server error: " + e.getClass().getSimpleName() + "\"}");
         }
         out.flush();
+    }
+
+    private static String text(JsonObject o, String key) {
+        return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString().trim() : null;
     }
 }

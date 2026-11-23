@@ -43,10 +43,10 @@ public class DBContext {
 
         try {
             Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-            conn = DriverManager.getConnection(dbURL, username, password);
+            conn = ConnectionPool.get(dbURL, username, password);
         } catch (ClassNotFoundException ex) {
             throw new IllegalStateException(
-                    "Không tìm thấy SQL Server JDBC Driver.", ex);
+                    "SQL Server JDBC Driver not found.", ex);
         } catch (SQLException ex) {
             throw new DataAccessException(ex);
         }
@@ -63,12 +63,12 @@ public class DBContext {
 
         try (Connection connection = db.conn) {
             if (connection != null && connection.isValid(5)) {
-                System.out.println("Kết nối SQL Server thành công!");
+                System.out.println("Connected to SQL Server successfully!");
                 System.out.println(
-                        "Database đang kết nối: " + connection.getCatalog());
+                        "Connected database: " + connection.getCatalog());
             } else {
                 throw new IllegalStateException(
-                        "Kết nối SQL Server không hợp lệ.");
+                        "Invalid SQL Server connection.");
             }
         } catch (SQLException ex) {
             throw new DataAccessException(ex);

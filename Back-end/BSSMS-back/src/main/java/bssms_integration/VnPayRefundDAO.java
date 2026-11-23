@@ -24,13 +24,13 @@ public class VnPayRefundDAO extends DBContext implements AutoCloseable {
    if(r.get("providerRequestId")==null){String id=UUID.randomUUID().toString().replace("-","");w.update("UPDATE Refund SET provider_request_id=? WHERE refund_id=?",id,refundId);r.put("providerRequestId",id);r.put("send",true);}
    return r;
   });
-  if("Completed".equals(row.get("status")))return Map.of("status","Success","message","Giao dịch đã hoàn tiền.");
-  if(!"Pending".equals(row.get("status")))throw new WorkflowException(409,"Giao dịch không chờ hoàn tiền.");
+  if("Completed".equals(row.get("status")))return Map.of("status","Success","message","The transaction has already been refunded.");
+  if(!"Pending".equals(row.get("status")))throw new WorkflowException(409,"The transaction is not waiting for a refund.");
   boolean send=Boolean.TRUE.equals(row.get("send"));
   Map<String,String> p=new LinkedHashMap<>();
   DateTimeFormatter fmt=DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
   String now=ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(fmt);
-  p.put("vnp_RequestId",send?row.get("providerRequestId").toString():UUID.randomUUID().toString().replace("-",""));p.put("vnp_Version","2.1.0");p.put("vnp_Command",send?"refund":"querydr");p.put("vnp_TmnCode",merchant);p.put("vnp_TxnRef",row.get("merchantReference").toString());p.put("vnp_OrderInfo","Hoan hoa don - refund "+refundId);
+  p.put("vnp_RequestId",send?row.get("providerRequestId").toString():UUID.randomUUID().toString().replace("-",""));p.put("vnp_Version","2.1.0");p.put("vnp_Command",send?"refund":"querydr");p.put("vnp_TmnCode",merchant);p.put("vnp_TxnRef",row.get("merchantReference").toString());p.put("vnp_OrderInfo","Refund #"+refundId);
   p.put("vnp_TransactionDate",LocalDateTime.parse(row.get("transactionDate").toString().replace(' ','T')).format(fmt));p.put("vnp_CreateDate",now);p.put("vnp_IpAddr",ip);
   if(send){p.put("vnp_TransactionType","02");p.put("vnp_Amount",((BigDecimal)row.get("amount")).multiply(new BigDecimal(100)).toBigIntegerExact().toString());p.put("vnp_TransactionNo",row.get("transactionCode").toString());p.put("vnp_CreateBy","staff"+requireActorAccountId()/2);}
   String fields=send?"RequestId,Version,Command,TmnCode,TransactionType,TxnRef,Amount,TransactionNo,TransactionDate,CreateBy,CreateDate,IpAddr,OrderInfo":"RequestId,Version,Command,TmnCode,TxnRef,TransactionDate,CreateDate,IpAddr,OrderInfo";
@@ -42,15 +42,15 @@ public class VnPayRefundDAO extends DBContext implements AutoCloseable {
    JsonObject json=JsonParser.parseString(response.body()).getAsJsonObject();Map<String,String> result=new HashMap<>();json.entrySet().forEach(e->{if(!e.getValue().isJsonNull())result.put(e.getKey(),e.getValue().getAsString());});
    String responseFields="ResponseId,Command,ResponseCode,Message,TmnCode,TxnRef,Amount,BankCode,PayDate,TransactionNo,TransactionType,TransactionStatus,OrderInfo"+(send?"":",PromotionCode,PromotionAmount");
    String hash=result.getOrDefault("vnp_SecureHash","").toLowerCase(Locale.ROOT);
-   if(!hash.matches("[a-f0-9]{128}")||!MessageDigest.isEqual(hash.getBytes(StandardCharsets.US_ASCII),VnPay.hmac(joined(result,responseFields),secret).getBytes(StandardCharsets.US_ASCII))||!merchant.equals(result.get("vnp_TmnCode"))||!p.get("vnp_Command").equals(result.get("vnp_Command"))||!p.get("vnp_TxnRef").equals(result.get("vnp_TxnRef")))throw new IllegalStateException("Phản hồi không xác thực");
+   if(!hash.matches("[a-f0-9]{128}")||!MessageDigest.isEqual(hash.getBytes(StandardCharsets.US_ASCII),VnPay.hmac(joined(result,responseFields),secret).getBytes(StandardCharsets.US_ASCII))||!merchant.equals(result.get("vnp_TmnCode"))||!p.get("vnp_Command").equals(result.get("vnp_Command"))||!p.get("vnp_TxnRef").equals(result.get("vnp_TxnRef")))throw new IllegalStateException("Unverified response");
    boolean success="00".equals(result.get("vnp_ResponseCode"))&&"00".equals(result.get("vnp_TransactionStatus"))&&"02".equals(result.get("vnp_TransactionType"))&&new BigDecimal(result.getOrDefault("vnp_Amount","-1")).compareTo(((BigDecimal)row.get("amount")).multiply(new BigDecimal(100)))==0;
    String note="code="+result.get("vnp_ResponseCode")+", status="+result.get("vnp_TransactionStatus")+", type="+result.get("vnp_TransactionType");
    return w.transaction(()->{
     w.update("UPDATE Refund SET provider_response=? WHERE refund_id=?",note,refundId);
     if(success)w.update("UPDATE Refund SET status='Completed',completed_at=SYSDATETIME() WHERE refund_id=? AND status='Pending'",refundId);
-    return Map.of("status",success?"Success":"Pending","message",success?"VNPay xác nhận hoàn tiền thành công.":"Chưa xác nhận hoàn tiền: "+note+". Đối soát lại sau; không gửi yêu cầu hoàn lần hai.");
+    return Map.of("status",success?"Success":"Pending","message",success?"VNPay confirmed the refund.":"Refund not confirmed yet: "+note+". Reconcile later; do not send a second refund request.");
    });
   } catch(SQLException e){throw e;}
-  catch(Exception e){if(e instanceof InterruptedException)Thread.currentThread().interrupt();w.update("UPDATE Refund SET provider_response=? WHERE refund_id=?","Chưa xác định kết quả; cần đối soát: "+e.getClass().getSimpleName(),refundId);throw new WorkflowException(502,"Chưa xác định kết quả từ VNPay. Dùng lại chức năng để đối soát; hệ thống không gửi lặp yêu cầu hoàn.");}
+  catch(Exception e){if(e instanceof InterruptedException)Thread.currentThread().interrupt();w.update("UPDATE Refund SET provider_response=? WHERE refund_id=?","Result unknown; reconciliation needed: "+e.getClass().getSimpleName(),refundId);throw new WorkflowException(502,"The VNPay result is not known yet. Use this function again to reconcile; the system will not send a duplicate refund request.");}
  }
 }

@@ -25,12 +25,12 @@ public class BookingManagementDAO extends DBContext implements AutoCloseable {
     }
 
     public Map<String, Object> checkInPlan(int appointment) throws SQLException {
-        workflow().roles("Receptionist");
+        workflow().roles("Receptionist", "Manager");
         return booking().checkInPlan(appointment);
     }
 
     public void checkIn(int appointment, Map<Integer, Integer> technicians, Map<Integer, Integer> beds) throws SQLException {
-        workflow().roles("Receptionist");
+        workflow().roles("Receptionist", "Manager");
         booking().checkIn(appointment, technicians, beds);
     }
 

@@ -1,16 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Alert, Button, Form, Modal } from "react-bootstrap";
+import { Button, Form, Modal } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { post } from "../../../services/api";
 import servicePhoto01 from "../../../assets/figma/service-card-exact-01.png";
 import servicePhoto02 from "../../../assets/figma/service-card-exact-02.png";
 import servicePhoto03 from "../../../assets/figma/service-card-exact-03.png";
 import servicePhoto04 from "../../../assets/figma/service-card-exact-04.png";
+import "./PublicTreatmentPackages.css";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 const photos = [servicePhoto01, servicePhoto02, servicePhoto03, servicePhoto04];
+const vnd = (value) => `${Math.round(Number(value || 0)).toLocaleString("vi-VN")} VND`;
+// Giá sau giảm theo hạng = giá gốc - làm tròn(giá gốc x %hạng / 100), tối đa giảm 50%
+const tierPrice = (price, percent) => {
+  const p = Number(price || 0);
+  const off = Math.min(Math.round((p * Number(percent || 0)) / 100), Math.round(p * 0.5));
+  return p - off;
+};
 const packageDescription = (description) =>
   description?.replace(/Sử dụng trong 180 ngày kể từ ngày mua\.?/gi, "").trim();
+const normalizeQuote = (result, item, membership) => {
+  const subtotal = Number(result?.subtotal ?? result?.packagePrice ?? result?.price ?? item?.price ?? 0);
+  const tierPercent = Number(result?.tierPercent ?? result?.discountPercent ?? membership?.discountPercent ?? 0);
+  const calculatedTierDiscount = Math.min(
+    Math.round(subtotal * tierPercent / 100),
+    Math.round(subtotal * 0.5),
+  );
+  const tierDiscount = Number(result?.tierDiscount ?? result?.membershipDiscount ?? calculatedTierDiscount);
+  const voucherDiscount = Number(result?.voucherDiscount ?? result?.discountAmount ?? 0);
+  const totalAmount = Number(result?.totalAmount ?? result?.amountToPay ?? Math.max(subtotal - tierDiscount - voucherDiscount, 0));
+
+  return {
+    ...result,
+    subtotal,
+    tierName: result?.tierName ?? membership?.tierName ?? "No tier",
+    tierPercent,
+    tierDiscount,
+    voucherDiscount,
+    voucherCode: result?.voucherCode ?? result?.appliedVoucherCode ?? null,
+    voucherType: result?.voucherType ?? result?.type ?? null,
+    voucherValue: Number(result?.voucherValue ?? result?.value ?? 0),
+    totalAmount,
+  };
+};
 
 export default function PublicTreatmentPackages({ user = null }) {
   const [packages, setPackages] = useState([]);
@@ -22,8 +55,57 @@ export default function PublicTreatmentPackages({ user = null }) {
   const [buyBusy, setBuyBusy] = useState(false);
   const [buyError, setBuyError] = useState("");
   const [voucherCode, setVoucherCode] = useState("");
+  const [tier, setTier] = useState(null);
+  const [quote, setQuote] = useState(null);
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const [voucherError, setVoucherError] = useState("");
   const isCustomer = user?.role === "Customer";
   const navigate = useNavigate();
+
+  // Hạng thành viên của khách (để hiện giá sau giảm trên thẻ gói)
+  useEffect(() => {
+    if (!isCustomer) return;
+    axios.get("/api/membership-tiers?mine=1")
+      .then((r) => setTier(r.data || null))
+      .catch(() => setTier(null));
+  }, [isCustomer]);
+
+  // Hóa đơn tạm: hỏi back-end tính tiền (không tạo hóa đơn)
+  const loadQuote = async (item, code) => {
+    setQuoteBusy(true);
+    setBuyError("");
+    try {
+      const result = await post("/api/package-purchases", { treatmentPackageId: item.treatmentPackageId, voucherCode: code || null, preview: true });
+      setQuote(normalizeQuote(result, item, tier));
+      setVoucherError("");
+      return true;
+    } catch (error) {
+      if (code) setVoucherError(error.message);
+      else setBuyError(error.message);
+      return false;
+    } finally {
+      setQuoteBusy(false);
+    }
+  };
+
+  const openBuy = (item) => {
+    setBuyError("");
+    setVoucherError("");
+    setVoucherCode("");
+    setQuote(null);
+    setBuying(item);
+    loadQuote(item, "");
+  };
+
+  const applyVoucher = () => {
+    if (!buying) return;
+    loadQuote(buying, voucherCode.trim());
+  };
+
+  const removeVoucher = () => {
+    setVoucherCode("");
+    if (buying) loadQuote(buying, "");
+  };
 
   const confirmPurchase = async () => {
     if (!buying || buyBusy) return;
@@ -31,14 +113,14 @@ export default function PublicTreatmentPackages({ user = null }) {
     setBuyError("");
     let invoiceId = null;
     try {
-      const created = await post("/api/package-purchases", { treatmentPackageId: buying.treatmentPackageId, voucherCode: voucherCode.trim() || null });
+      const created = await post("/api/package-purchases", { treatmentPackageId: buying.treatmentPackageId, voucherCode: quote?.voucherCode || null });
       invoiceId = created.invoiceId;
       const payment = await post("/api/payments/vnpay/create", { invoiceId });
       window.location.assign(payment.paymentUrl);
     } catch (error) {
       setBuyError(
         invoiceId
-          ? `Đã tạo hóa đơn #${invoiceId} nhưng chưa mở được cổng VNPay (${error.message}). Bạn có thể thanh toán lại trong "Hóa đơn của tôi".`
+          ? `Created invoice #${invoiceId} but could not open the VNPay gateway (${error.message}). You can pay again within "My invoices".`
           : error.message,
       );
       setBuyBusy(false);
@@ -70,76 +152,57 @@ export default function PublicTreatmentPackages({ user = null }) {
       .filter((item) => !term || `${item.packageName} ${(item.services || []).map((service) => service.serviceName).join(" ")}`.toLowerCase().includes(term));
   }, [packages, searchTerm]);
 
+  const tierPercent = isCustomer ? Number(tier?.discountPercent || 0) : 0;
+
   return (
-    <main className="public-service-page">
+    <div className="sc-page">
       <section className="public-service-hero">
         <div className="public-service-hero-copy">
-          <span className="seoul-eyebrow">LIỆU TRÌNH · BẢNG GIÁ</span>
-          <h1>Gói liệu trình chăm sóc.</h1>
-          <p>
-            Chăm sóc theo lộ trình với số buổi và giá ưu đãi rõ ràng.{" "}
-            {isCustomer
-              ? "Bạn có thể mua gói ngay trên web (thanh toán VNPay) hoặc tại quầy; sau khi thanh toán, theo dõi số buổi còn lại và hạn dùng ở mục \"Liệu trình của tôi\"."
-              : "Gói được bán tại quầy hoặc trên web sau khi bạn đăng nhập tài khoản khách hàng."}
-          </p>
+          <span className="seoul-eyebrow">TREATMENT PACKAGES</span>
+          <h1>Come back more, pay less</h1>
+          <p>Buy a set of sessions once and book each visit when it suits you. The validity period starts on the purchase date.</p>
           <span className="public-service-hero-note">
             <i className="bi bi-heart" aria-hidden="true" />{" "}
-            {isCustomer ? "Mua gói ngay trên web" : user ? "Liên hệ lễ tân để mua gói" : "Chỉ xem · Không cần đăng nhập"}
+            {tierPercent > 0
+              ? `Your ${tier.tierName} discount (−${tierPercent}%) is already applied below`
+              : isCustomer ? "Buy online with VNPay" : user ? "Sold at the counter" : "Log in to buy online and see your member price"}
           </span>
         </div>
-        <img src={servicePhoto01} alt="Gói liệu trình tại Seoul Center" />
+        <img src={servicePhoto01} alt="Treatment packages at Seoul Center" />
       </section>
 
-      <section className="public-service-content">
-        <div className="public-service-filter-card">
-          <div className="public-service-filter-title">
-            <strong>
-              <i className="bi bi-sliders" aria-hidden="true" /> Tìm gói liệu trình
-            </strong>
-            <span>Theo tên gói</span>
-          </div>
-          <label className="public-service-search">
-            <span className="visually-hidden">Tìm gói liệu trình</span>
-            <i className="bi bi-search" aria-hidden="true" />
-            <input
-              type="search"
-              placeholder="Tìm theo tên gói..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-          </label>
-        </div>
+      <section className="sc-container sc-toolbar" aria-label="Search packages">
+        <span className="sc-muted">{loading ? "Loading…" : `${visible.length} package${visible.length === 1 ? "" : "s"} available`}</span>
+        <label className="sc-search">
+          <i className="bi bi-search" aria-hidden="true" />
+          <span className="visually-hidden">Search packages</span>
+          <input type="search" placeholder="Search packages or services" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+        </label>
+      </section>
 
-        <div className="public-service-list-heading">
-          <div>
-            <h2>Các gói liệu trình</h2>
-            <span className="public-service-count">
-              {loading ? "Đang tải…" : `${visible.length} gói`}
-            </span>
-          </div>
-          <span className="public-service-updated">Hiển thị gói đang bán</span>
-        </div>
-
+      <section className="sc-container sc-section-tight">
         {loading && packages.length === 0 ? (
-          <div className="public-service-state" role="status">Đang tải danh sách gói liệu trình…</div>
+          <div className="sc-empty" role="status">Loading packages…</div>
         ) : loadError ? (
-          <div className="public-service-state" role="alert">
+          <div className="sc-empty" role="alert">
             <i className="bi bi-wifi-off" aria-hidden="true" />
-            <strong>Không tải được danh sách gói liệu trình</strong>
-            <span>Hãy kiểm tra kết nối rồi thử lại.</span>
-            <button type="button" onClick={() => setRefresh((value) => value + 1)}>Thử lại</button>
+            <strong>Could not load the treatment packages</strong>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setRefresh((value) => value + 1)}>Try again</button>
           </div>
         ) : visible.length === 0 ? (
-          <div className="public-service-state">
+          <div className="sc-empty">
             <i className="bi bi-search" aria-hidden="true" />
-            <strong>Chưa có gói liệu trình phù hợp</strong>
-            <span>Thử thay đổi từ khóa hoặc quay lại sau.</span>
+            <strong>No packages found</strong>
+            <span>Try another keyword or come back later.</span>
           </div>
         ) : (
-          <div className="public-service-grid">
-            {visible.map((item, index) => (
-              <article className="public-service-card public-treatment-package-card" key={item.treatmentPackageId}>
-                <div className="public-service-card-image">
+          <div className="sc-package-grid">
+            {visible.map((item, index) => {
+              const serviceNames = (item.services || []).map((service) => service.serviceName).join(", ");
+              const description = packageDescription(item.description);
+              const memberPrice = tierPercent > 0 ? tierPrice(item.price, tierPercent) : null;
+              return (
+                <article className="sc-package-card" key={item.treatmentPackageId}>
                   <img
                     src={`/api/service-image/${item.serviceIds?.[0]}`}
                     alt=""
@@ -148,85 +211,148 @@ export default function PublicTreatmentPackages({ user = null }) {
                       event.currentTarget.src = photos[index % photos.length];
                     }}
                   />
-                </div>
-                <div className="public-service-card-body">
-                  <span className="public-service-code">{item.numberOfSessions} buổi</span>
-                  <h3>{item.packageName}</h3>
-                  <p className="small text-muted mb-2">
-                    Dịch vụ: {(item.services || []).map((service) => service.serviceName).join(", ")}
-                  </p>
-                  {packageDescription(item.description) && (
-                    <p className="small mb-2">{packageDescription(item.description)}</p>
-                  )}
-                  <div className="public-service-card-meta">
-                    <strong>
-                      {Number(item.price).toLocaleString("vi-VN")} <small>VNĐ</small>
-                    </strong>
-                    <span>
-                      <i className="bi bi-calendar-check" aria-hidden="true" /> {item.numberOfSessions} buổi
+                  <div className="sc-package-body">
+                    <h2>{item.packageName}</h2>
+                    <span className="sc-muted">
+                      {item.numberOfSessions} sessions{item.validityDays ? ` · valid for ${item.validityDays} days` : ""}
                     </span>
+                    {serviceNames && <span className="sc-package-services">{serviceNames}</span>}
+                    {description && <p className="sc-package-desc">{description}</p>}
+                    <div className="sc-package-price">
+                      {memberPrice !== null ? (
+                        <>
+                          <span className="sc-price">{memberPrice.toLocaleString("vi-VN")} <small>VND</small></span>
+                          <del>{vnd(item.price)}</del>
+                        </>
+                      ) : (
+                        <span className="sc-price">{Number(item.price).toLocaleString("vi-VN")} <small>VND</small></span>
+                      )}
+                    </div>
+                    <span className="sc-muted sc-small">
+                      ≈ {Math.round((memberPrice ?? Number(item.price || 0)) / Math.max(1, Number(item.numberOfSessions || 1))).toLocaleString("vi-VN")} VND per session
+                    </span>
+                    {isCustomer && (
+                      <button type="button" className="sc-btn sc-btn-primary" onClick={() => openBuy(item)}>Buy package</button>
+                    )}
+                    {!user && (
+                      <button type="button" className="sc-btn sc-btn-primary" onClick={() => navigate("/login", { state: { from: "/treatment-packages" } })}>
+                        Log in to buy
+                      </button>
+                    )}
+                    {user && !isCustomer && <span className="sc-muted sc-small">Sold at the counter by the receptionist.</span>}
                   </div>
-                  {isCustomer && (
-                    <div className="public-treatment-package-action">
-                      <Button
-                        className="w-100"
-                        onClick={() => {
-                          setBuyError("");
-                          setBuying(item);
-                        }}
-                      >
-                        Mua gói
-                      </Button>
-                    </div>
-                  )}
-                  {!user && (
-                    <div className="public-treatment-package-action">
-                      <Button
-                        className="w-100"
-                        onClick={() => navigate("/login", { state: { from: "/treatment-packages" } })}
-                      >
-                        Mua gói
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
 
-      <Modal show={!!buying} onHide={() => !buyBusy && setBuying(null)} centered>
+      <Modal
+        show={!!buying}
+        onHide={() => !buyBusy && setBuying(null)}
+        centered
+        scrollable
+        size="lg"
+        dialogClassName="package-summary-modal"
+      >
         <Modal.Header closeButton={!buyBusy}>
-          <Modal.Title>Mua gói liệu trình</Modal.Title>
+          <div>
+            <span className="package-summary-eyebrow">TREATMENT PACKAGE</span>
+            <Modal.Title>Preliminary invoice</Modal.Title>
+          </div>
         </Modal.Header>
         <Modal.Body>
-          {buyError && <Alert variant="danger">{buyError}</Alert>}
-          <p className="mb-1">
-            <strong>{buying?.packageName}</strong> · {buying?.numberOfSessions} buổi · hạn dùng {buying?.validityDays} ngày
+          <FloatingAlert message={buyError} onClose={() => setBuyError("")} />
+          <div className="package-summary-customer">
+            <div className="package-summary-customer-icon"><i className="bi bi-person" aria-hidden="true" /></div>
+            <div className="package-summary-customer-info">
+              <strong>{user?.fullName || "Customer"}</strong>
+              <span>{user?.phoneNumber || user?.phone || "Customer account"} · Tier {quote?.tierName || tier?.tierName || "No tier"}</span>
+            </div>
+            <div className="package-summary-meta">
+              <span>PRE-PAYMENT REVIEW</span>
+              <strong>Draft invoice</strong>
+              <small>{new Date().toLocaleString("vi-VN")}</small>
+            </div>
+          </div>
+
+          <section className="package-summary-section">
+            <div className="package-summary-section-heading"><i className="bi bi-list-ul" aria-hidden="true" /> Details</div>
+            <div className="package-summary-table-wrap">
+              <table className="table package-summary-table mb-0">
+                <thead>
+                  <tr><th>Item</th><th>Time / Sessions</th><th className="text-end">Unit price</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="package-summary-item-name">
+                      {buying?.packageName}
+                      <small>Applies to: {(buying?.services || []).map((service) => service.serviceName).join(", ") || "Selected treatments"}</small>
+                    </td>
+                    <td>{buying?.numberOfSessions} sessions · valid for {buying?.validityDays} days</td>
+                    <td className="text-end">{vnd(buying?.price)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="package-summary-totals">
+              <div><span>Subtotal</span><strong>{vnd(quote?.subtotal ?? buying?.price)}</strong></div>
+              {Number(quote?.tierDiscount) > 0 && (
+                <div><span>Tier discount ({quote.tierName} · {Number(quote.tierPercent)}%)</span><strong className="text-success">− {vnd(quote.tierDiscount)}</strong></div>
+              )}
+              <div><span>Voucher {quote?.voucherCode ? `(${quote.voucherCode})` : ""}</span><strong className={quote?.voucherCode ? "text-success" : ""}>− {vnd(quote?.voucherDiscount)}</strong></div>
+              <div className="package-summary-grand-total"><span>Amount to pay</span><strong>{vnd(quote?.totalAmount)}</strong></div>
+            </div>
+          </section>
+
+          <section className="package-summary-voucher-section">
+            <div className="package-summary-voucher-heading">
+              <div><i className="bi bi-ticket-perforated" aria-hidden="true" /> Voucher code</div>
+              {quote?.discountCapped && <span className="package-summary-capped">Discount capped at 50%</span>}
+            </div>
+            <Form.Group>
+              <div className="d-flex gap-2">
+                <Form.Control
+                  size="sm"
+                  placeholder="Enter voucher code"
+                  value={voucherCode}
+                  isInvalid={!!voucherError}
+                  onChange={(event) => setVoucherCode(event.target.value.toUpperCase())}
+                  onKeyDown={(event) => event.key === "Enter" && voucherCode.trim() && applyVoucher()}
+                  disabled={buyBusy || quoteBusy}
+                />
+                {quote?.voucherCode ? (
+                  <Button size="sm" variant="outline-secondary" disabled={buyBusy || quoteBusy} onClick={removeVoucher}>Remove</Button>
+                ) : (
+                  <Button size="sm" variant="outline-primary" disabled={buyBusy || quoteBusy || !voucherCode.trim()} onClick={applyVoucher}>Apply</Button>
+                )}
+              </div>
+              {voucherError && <div className="small text-danger mt-1">{voucherError}</div>}
+            </Form.Group>
+          </section>
+
+          {(!quote || quoteBusy) && (
+            <div className="package-summary-loading">
+              <span className="spinner-border spinner-border-sm" aria-hidden="true" />
+              <span>{quoteBusy ? "Calculating your invoice…" : "Preparing invoice…"}</span>
+            </div>
+          )}
+          <p className="package-summary-note mb-0">
+            <i className="bi bi-info-circle" aria-hidden="true" />
+            The package is activated after successful payment. VNPay payment link is valid for 15 minutes.
           </p>
-          <p className="small text-muted mb-1">Áp dụng cho: {(buying?.services || []).map((service) => service.serviceName).join(", ")}</p>
-          <p className="fs-5 fw-bold">{Number(buying?.price || 0).toLocaleString("vi-VN")} VNĐ</p>
-          <Form.Group className="mb-3">
-            <Form.Label className="small">Mã voucher (nếu có)</Form.Label>
-            <Form.Control size="sm" value={voucherCode} onChange={(event) => setVoucherCode(event.target.value.toUpperCase())} disabled={buyBusy} />
-          </Form.Group>
-          <ul className="small text-muted ps-3 mb-0">
-            <li>Bạn sẽ được chuyển sang VNPay để thanh toán; liên kết có hiệu lực 15 phút.</li>
-            <li>Ưu đãi theo hạng thành viên được trừ trước, sau đó đến voucher (tổng giảm tối đa 50%).</li>
-            <li>Gói được kích hoạt ngay khi thanh toán thành công; hạn dùng tính từ ngày mua.</li>
-            <li>Nếu thanh toán không thành công, hóa đơn gói sẽ bị hủy và bạn có thể mua lại.</li>
-          </ul>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" disabled={buyBusy} onClick={() => setBuying(null)}>
-            Quay lại
+            Back
           </Button>
-          <Button disabled={buyBusy} onClick={confirmPurchase}>
-            {buyBusy ? "Đang xử lý…" : "Mua và thanh toán"}
+          <Button disabled={buyBusy || quoteBusy || !quote} onClick={confirmPurchase}>
+            {buyBusy ? "Processing…" : `Confirm and pay${quote ? ` ${vnd(quote.totalAmount)}` : ""}`}
           </Button>
         </Modal.Footer>
       </Modal>
-    </main>
+    </div>
   );
 }

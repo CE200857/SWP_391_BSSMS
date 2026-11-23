@@ -16,7 +16,7 @@ public class TreatmentStatusController extends ControllerSupport {
         String path = req.pathInfo();
         if (path != null && !path.equals("/")) {
             Map<String, Object> result = dao.getTreatmentStatusById(Integer.parseInt(path.substring(1)));
-            if (result == null) { resp.error(404, "Không tìm thấy dòng dịch vụ."); return; }
+            if (result == null) { resp.error(404, "Service line not found."); return; }
             resp.writer().print(gson.toJson(result));
             return;
         }
@@ -28,11 +28,11 @@ public class TreatmentStatusController extends ControllerSupport {
     public void put(ActionRequest req, ActionResult resp) throws Exception {
         bind(req);
         String[] parts = req.pathInfo() == null ? new String[0] : req.pathInfo().split("/");
-        if (parts.length < 3) { resp.error(404, "Không tìm thấy thao tác."); return; }
+        if (parts.length < 3) { resp.error(404, "Action not found."); return; }
         int id = Integer.parseInt(parts[1]);
         TreatmentStatusDAO dao = use(new TreatmentStatusDAO());
-        if ("start".equals(parts[2])) { dao.start(id); resp.writer().print("{\"message\":\"Đã bắt đầu dịch vụ.\"}"); }
+        if ("start".equals(parts[2])) { dao.start(id); resp.writer().print("{\"message\":\"Service started.\"}"); }
         else if ("done".equals(parts[2])) resp.writer().print(gson.toJson(dao.done(id)));
-        else resp.error(404, "Không tìm thấy thao tác.");
+        else resp.error(404, "Action not found.");
     }
 }

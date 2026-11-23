@@ -12,6 +12,6 @@ public class DashboardController {
     private static String date(String value) {
         if (value == null || value.isBlank()) return null;
         try { return java.time.LocalDate.parse(value.trim()).toString(); }
-        catch (java.time.format.DateTimeParseException e) { throw new IllegalArgumentException("Ngày không hợp lệ."); }
+        catch (java.time.format.DateTimeParseException e) { throw new IllegalArgumentException("Invalid date."); }
     }
 }

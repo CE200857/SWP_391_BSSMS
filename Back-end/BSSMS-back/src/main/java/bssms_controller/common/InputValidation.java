@@ -22,4 +22,17 @@ public final class InputValidation {
         if(LocalDate.parse(text(end,"endDate")).isBefore(LocalDate.parse(text(start,"startDate"))))
             throw new IllegalArgumentException("End date must not precede start date");
     }
+    /** Earliest date of birth accepted anywhere in the system. */
+    public static final LocalDate MIN_BIRTH_DATE = LocalDate.of(1900, 1, 1);
+    /** Returns an error message for an invalid date of birth, or null when it is empty or valid. */
+    public static String birthDateError(String dob) {
+        if (dob == null || dob.trim().isEmpty()) return null;
+        String value = dob.trim();
+        LocalDate d;
+        try { d = LocalDate.parse(value.substring(0, Math.min(10, value.length()))); }
+        catch (java.time.format.DateTimeParseException e) { return "Invalid date of birth!"; }
+        if (d.isBefore(MIN_BIRTH_DATE)) return "Date of birth must be on or after 01/01/1900!";
+        if (d.isAfter(LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")))) return "Date of birth cannot be in the future!";
+        return null;
+    }
 }

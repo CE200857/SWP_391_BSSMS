@@ -1,0 +1,94 @@
+/* Đồng bộ giao diện các trang quản lý theo trang Service list */
+
+/* Nhãn trạng thái: viên thuốc nền nhạt giống nút trạng thái ở Service list */
+.app-dashboard-content .manager-list-table .badge,
+.app-dashboard-content .staff-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.app-dashboard-content .manager-list-table .badge.bg-success,
+.app-dashboard-content .staff-status-badge:not(.is-inactive) {
+  background: #eaf7f0 !important;
+  border-color: #ccebd9;
+  color: #24784a !important;
+}
+.app-dashboard-content .manager-list-table .badge.bg-success::before,
+.app-dashboard-content .staff-status-badge:not(.is-inactive)::before {
+  font-family: "bootstrap-icons";
+  content: "\f26a";
+  font-weight: 400;
+}
+.app-dashboard-content .manager-list-table .badge.bg-secondary,
+.app-dashboard-content .staff-status-badge.is-inactive {
+  background: #f2f1f3 !important;
+  border-color: #e1dfe2;
+  color: #69636a !important;
+}
+.app-dashboard-content .manager-list-table .badge.bg-secondary::before,
+.app-dashboard-content .staff-status-badge.is-inactive::before {
+  font-family: "bootstrap-icons";
+  content: "\f4c1";
+  font-weight: 400;
+}
+.app-dashboard-content .manager-list-table .badge.bg-warning {
+  background: #fff6e0 !important;
+  border-color: #f5dfa6;
+  color: #8a5a00 !important;
+}
+.app-dashboard-content .manager-list-table .badge.bg-danger {
+  background: #fdecef !important;
+  border-color: #f3c5cd;
+  color: #a42e3d !important;
+}
+.app-dashboard-content .manager-list-table .badge.bg-info {
+  background: #e8f4f8 !important;
+  border-color: #c7e3ee;
+  color: #1f6f8b !important;
+}
+.app-dashboard-content .manager-list-table .badge.bg-primary {
+  background: #fde7f1 !important;
+  border-color: #f6c5da;
+  color: #b0125b !important;
+}
+.app-dashboard-content .manager-list-table .badge.bg-dark {
+  background: #ececed !important;
+  border-color: #d8d8da;
+  color: #333 !important;
+}
+
+/* Nút thao tác luôn nằm trên một hàng như Service list */
+.app-dashboard-content .manager-list-table .manager-list-actions {
+  flex-wrap: nowrap;
+}
+
+/* Trạng thái lịch hẹn: mỗi trạng thái một màu dễ phân biệt */
+.appt-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.appt-status--pending     { background: #fff4d6; border-color: #f2d48a; color: #8a5a00; }  /* vàng: chờ duyệt */
+.appt-status--confirmed   { background: #e6f0ff; border-color: #b9d2f7; color: #1d5fbf; }  /* xanh dương: đã xác nhận */
+.appt-status--checked-in  { background: #f1eafd; border-color: #d6c4f5; color: #6a3fb5; }  /* tím: khách đã đến */
+.appt-status--in-progress { background: #e0f5f6; border-color: #a9dfe3; color: #0f7686; }  /* xanh ngọc: đang làm */
+.appt-status--completed   { background: #e6f6ec; border-color: #b8e2c7; color: #1f7a45; }  /* xanh lá: hoàn thành */
+.appt-status--cancelled   { background: #fdecef; border-color: #f3c5cd; color: #a42e3d; }  /* đỏ: đã hủy */
+.appt-status--no-show     { background: #ececed; border-color: #d2d2d5; color: #45454a; }  /* xám: không đến */
+.appt-status--other       { background: #f2f1f3; border-color: #e1dfe2; color: #69636a; }

@@ -29,7 +29,7 @@ public class LoginController extends ControllerSupport {
                 session.invalidate();
             }
             response.status(200);
-            out.print("{\"message\": \"Đăng xuất thành công\"}");
+            out.print("{\"message\": \"Logged out successfully\"}");
             out.flush();
             return;
         }
@@ -45,7 +45,7 @@ public class LoginController extends ControllerSupport {
 
             if (!isValidEmail && !isValidPhone) {
                 response.status(400);
-                out.print("{\"message\": \"Vui lòng nhập đúng định dạng Email hoặc Số điện thoại!\"}");
+                out.print("{\"message\": \"Please enter a valid email or phone number!\"}");
                 out.flush();
                 return;
             }
@@ -58,7 +58,7 @@ public class LoginController extends ControllerSupport {
             if (user != null) {
                 if ("Inactive".equals(user.getStatus())) {
                     response.status(403);
-                    out.print("{\"message\": \"Tài khoản của bạn đã bị khóa hoặc chưa kích hoạt.\"}");
+                    out.print("{\"message\": \"Your account is locked or not activated.\"}");
                 } else {
                     SessionState session = request.session(true);
                     session.set("user", user);
@@ -68,14 +68,14 @@ public class LoginController extends ControllerSupport {
                 }
             } else {
                 response.status(401);
-                out.print("{\"message\": \"Email hoặc mật khẩu không chính xác!\"}");
+                out.print("{\"message\": \"Incorrect email or password!\"}");
             }
             out.flush();
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
             response.status(400);
-            out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+            out.print("{\"message\": \"Invalid input data!\"}");
         }
     }
 }

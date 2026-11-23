@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Container, Card, Form, Button, Alert } from "react-bootstrap";
+import { Container, Card, Form, Button } from "react-bootstrap";
+import FloatingAlert from "../../components/FloatingAlert";
 
 const ChangePassword = () => {
   const [oldPassword, setOldPassword] = useState("");
@@ -19,15 +20,15 @@ const ChangePassword = () => {
     setSuccessMsg("");
 
     if (newPassword.length < 6) {
-      setError("Mật khẩu mới phải có ít nhất 6 ký tự!");
+      setError("The new password must have at least 6 characters!");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp!");
+      setError("Passwords do not match.");
       return;
     }
     if (oldPassword === newPassword) {
-      setError("Mật khẩu mới phải khác mật khẩu hiện tại!");
+      setError("The new password must be different from the current password!");
       return;
     }
 
@@ -44,7 +45,7 @@ const ChangePassword = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setSuccessMsg(data.message || "Đổi mật khẩu thành công!");
+        setSuccessMsg(data.message || "Your password has been changed.");
         setOldPassword("");
         setNewPassword("");
         setConfirmPassword("");
@@ -53,10 +54,10 @@ const ChangePassword = () => {
           navigate("/profile");
         }, 2000);
       } else {
-        setError(data.message || "Đổi mật khẩu thất bại!");
+        setError(data.message || "Failed to change the password!");
       }
     } catch {
-      setError("Lỗi kết nối đến máy chủ. Vui lòng thử lại!");
+      setError("Cannot connect to the server. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -66,18 +67,18 @@ const ChangePassword = () => {
     <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: "80vh" }}>
       <Card className="shadow-sm border-0" style={{ width: "450px", borderRadius: "12px", padding: "30px" }}>
         <h3 className="text-center mb-4 fw-bold text-uppercase" style={{ color: "#3a2a2f" }}>
-          Đổi mật khẩu
+          Change password
         </h3>
 
-        {error && <Alert variant="danger">{error}</Alert>}
-        {successMsg && <Alert variant="success">{successMsg}</Alert>}
+        <FloatingAlert message={error} onClose={() => setError("")} />
+        <FloatingAlert message={successMsg} variant="success" onClose={() => setSuccessMsg("")} />
 
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Mật khẩu hiện tại*</Form.Label>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Current password*</Form.Label>
             <Form.Control
               type="password"
-              placeholder="Nhập mật khẩu hiện tại"
+              placeholder="Enter the current password"
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
               required
@@ -86,10 +87,10 @@ const ChangePassword = () => {
           </Form.Group>
 
           <Form.Group className="mb-3">
-            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Mật khẩu mới*</Form.Label>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>New password*</Form.Label>
             <Form.Control
               type="password"
-              placeholder="Nhập mật khẩu mới"
+              placeholder="Enter a new password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
@@ -98,10 +99,10 @@ const ChangePassword = () => {
           </Form.Group>
 
           <Form.Group className="mb-4">
-            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Xác nhận mật khẩu mới*</Form.Label>
+            <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Confirm new password*</Form.Label>
             <Form.Control
               type="password"
-              placeholder="Nhập lại mật khẩu mới"
+              placeholder="Re-enter the new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
@@ -116,7 +117,7 @@ const ChangePassword = () => {
               onClick={() => navigate(-1)}
               disabled={isLoading}
             >
-              <i className="bi bi-arrow-left me-1"></i> Quay lại
+              <i className="bi bi-arrow-left me-1"></i> Back
             </Button>
 
             <Button
@@ -125,7 +126,7 @@ const ChangePassword = () => {
               style={{ backgroundColor: "#a61e4d", border: "none" }}
               disabled={isLoading || successMsg !== ""}
             >
-              {isLoading ? "Đang xử lý..." : "Xác nhận đổi"}
+              {isLoading ? "Processing..." : "Confirm change"}
             </Button>
           </div>
         </Form>

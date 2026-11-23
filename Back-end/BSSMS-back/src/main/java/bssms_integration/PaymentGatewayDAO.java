@@ -14,12 +14,12 @@ public class PaymentGatewayDAO extends DBContext implements AutoCloseable {
     String merchant=VnPay.required("VNPAY_TMN_CODE"),secret=VnPay.required("VNPAY_HASH_SECRET"),returnUrl=bssms_common.AppConfig.get("VNPAY_RETURN_URL",defaultReturnUrl);
     Workflow w=workflow();
     String role=w.role();
-    if(!"Customer".equals(role)&&!"Receptionist".equals(role))throw new WorkflowException(403,"Role not permitted.");
+    if(!"Customer".equals(role)&&!"Receptionist".equals(role)&&!"Manager".equals(role))throw new WorkflowException(403,"Role not permitted.");
     return w.transaction(()->{
         Map<String,Object> invoice=w.one("SELECT * FROM Invoice WHERE invoice_id=?",invoiceId);
-        if("Customer".equals(role)&&w.customerId()!=Workflow.id(invoice.get("customerId")))throw new WorkflowException(404,"Không tìm thấy hóa đơn.");
+        if("Customer".equals(role)&&w.customerId()!=Workflow.id(invoice.get("customerId")))throw new WorkflowException(404,"Invoice not found.");
         BigDecimal amount=new BigDecimal(String.valueOf(invoice.get("totalAmount")));
-        if(!"Unpaid".equals(invoice.get("status"))||amount.signum()<=0)throw new WorkflowException(409,"Hóa đơn không còn chờ thanh toán.");
+        if(!"Unpaid".equals(invoice.get("status"))||amount.signum()<=0)throw new WorkflowException(409,"The invoice is no longer awaiting payment.");
         if("Customer".equals(role))new BillingWorkflow(w).requireOnlinePayable(invoiceId);else new BillingWorkflow(w).requireCollectible(invoiceId);
         LocalDateTime now=LocalDateTime.now(ZONE);
         w.update("UPDATE PaymentAttempt SET status='Expired',verified_at=? WHERE invoice_id=? AND status='Pending' AND expires_at<=?",now,invoiceId,now);
@@ -33,7 +33,7 @@ public class PaymentGatewayDAO extends DBContext implements AutoCloseable {
         } else {ref=existing.get(0).get("merchantReference").toString();created=LocalDateTime.parse(existing.get(0).get("createdAt").toString().replace(' ','T'));}
         ZonedDateTime at=created.atZone(ZONE);
         Map<String,String> p=new TreeMap<>();
-        p.put("vnp_Version","2.1.0");p.put("vnp_Command","pay");p.put("vnp_TmnCode",merchant);p.put("vnp_Amount",amount.multiply(new BigDecimal(100)).toBigIntegerExact().toString());p.put("vnp_CurrCode","VND");p.put("vnp_TxnRef",ref);p.put("vnp_OrderInfo","Thanh toan hoa don "+invoiceId);p.put("vnp_OrderType","other");p.put("vnp_Locale","vn");p.put("vnp_ReturnUrl",returnUrl);p.put("vnp_IpAddr",ip);p.put("vnp_CreateDate",at.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));p.put("vnp_ExpireDate",at.plusMinutes(15).format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+        p.put("vnp_Version","2.1.0");p.put("vnp_Command","pay");p.put("vnp_TmnCode",merchant);p.put("vnp_Amount",amount.multiply(new BigDecimal(100)).toBigIntegerExact().toString());p.put("vnp_CurrCode","VND");p.put("vnp_TxnRef",ref);p.put("vnp_OrderInfo","Payment for invoice "+invoiceId);p.put("vnp_OrderType","other");p.put("vnp_Locale","vn");p.put("vnp_ReturnUrl",returnUrl);p.put("vnp_IpAddr",ip);p.put("vnp_CreateDate",at.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));p.put("vnp_ExpireDate",at.plusMinutes(15).format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
         String base=bssms_common.AppConfig.get("VNPAY_PAYMENT_URL","https://sandbox.vnpayment.vn/paymentv2/vpcpay.html");
         return Map.of("paymentUrl",base+"?"+VnPay.canonical(p)+"&vnp_SecureHash="+VnPay.sign(p,secret),"invoiceId",invoiceId);
     });
@@ -82,7 +82,7 @@ public class PaymentGatewayDAO extends DBContext implements AutoCloseable {
  static void failed(Workflow w,int invoice)throws SQLException {
     Map<String,Object> i=w.one("SELECT invoice_type,appointment_id,status FROM Invoice WHERE invoice_id=?",invoice);
     if(!"Unpaid".equals(i.get("status")))return;
-    if("Package".equals(i.get("invoiceType")))new BillingWorkflow(w).cancel(invoice,"Thanh toán VNPay không thành công",null);
+    if("Package".equals(i.get("invoiceType")))new BillingWorkflow(w).cancel(invoice,"VNPay payment failed",null);
     else if(i.get("appointmentId")!=null)w.update("UPDATE Appointment SET payment_choice='Counter' WHERE appointment_id=? AND payment_choice='Online'",i.get("appointmentId"));
  }
 

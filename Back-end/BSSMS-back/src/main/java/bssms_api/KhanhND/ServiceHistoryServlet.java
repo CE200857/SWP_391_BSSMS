@@ -44,7 +44,7 @@ public class ServiceHistoryServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         if (session == null || SessionUsers.from(session.getAttribute("user")) == null) {
             writeError(response, HttpServletResponse.SC_UNAUTHORIZED,
-                    "Vui lòng đăng nhập để xem lịch sử dịch vụ.");
+                    "Please log in to view service history.");
             return;
         }
 
@@ -69,7 +69,7 @@ public class ServiceHistoryServlet extends HttpServlet {
 
                 if (customerId == null) {
                     writeError(response, HttpServletResponse.SC_FORBIDDEN,
-                            "Tài khoản chưa được liên kết với hồ sơ khách hàng.");
+                            "The account is not linked to a customer profile.");
                     return;
                 }
 
@@ -87,7 +87,7 @@ public class ServiceHistoryServlet extends HttpServlet {
 
                 if (staffId == null) {
                     writeError(response, HttpServletResponse.SC_FORBIDDEN,
-                            "Tài khoản chưa được liên kết với hồ sơ nhân viên.");
+                            "The account is not linked to a staff profile.");
                     return;
                 }
 
@@ -101,7 +101,7 @@ public class ServiceHistoryServlet extends HttpServlet {
                     customerId = parsePositiveId(customerIdText.trim());
                     if (customerId == null) {
                         writeError(response, HttpServletResponse.SC_BAD_REQUEST,
-                                "Customer ID phải là số nguyên dương.");
+                                "Customer ID must be a positive integer.");
                         return;
                     }
                 }
@@ -110,7 +110,7 @@ public class ServiceHistoryServlet extends HttpServlet {
 
             } else {
                 writeError(response, HttpServletResponse.SC_FORBIDDEN,
-                        "Bạn không có quyền xem lịch sử dịch vụ.");
+                        "You do not have permission to view service history.");
                 return;
             }
 
@@ -120,7 +120,7 @@ public class ServiceHistoryServlet extends HttpServlet {
         } catch (Exception e) {
             e.printStackTrace();
             writeError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "Không thể tải lịch sử dịch vụ lúc này.");
+                    "Service history cannot be loaded right now.");
         }
     }
 

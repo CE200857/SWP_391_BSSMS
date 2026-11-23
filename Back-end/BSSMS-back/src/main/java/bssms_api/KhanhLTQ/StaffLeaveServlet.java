@@ -11,7 +11,7 @@ import java.io.IOException;
 @WebServlet(name = "StaffLeaveServlet", urlPatterns = {"/api/operations/leaves", "/api/operations/leave-appointments", "/api/operations/tour-report"})
 public class StaffLeaveServlet extends BaseApiServlet {
     private StaffLeaveDAO dao(HttpServletRequest request) {
-        if (user(request) == null) throw new WorkflowException(401, "Vui lòng đăng nhập.");
+        if (user(request) == null) throw new WorkflowException(401, "Please log in.");
         StaffLeaveDAO dao = new StaffLeaveDAO();
         dao.setActorAccountId(user(request).getAccountId());
         return dao;

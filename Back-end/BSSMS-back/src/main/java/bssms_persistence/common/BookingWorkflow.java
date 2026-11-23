@@ -102,14 +102,14 @@ public final class BookingWorkflow {
     }
 
     public List<Line> plan(List<LineInput> inputs, LocalTime start) throws SQLException {
-        if (inputs == null || inputs.isEmpty() || inputs.size() > 4) throw new IllegalArgumentException("Một lịch hẹn gồm từ 1 đến 4 dịch vụ.");
+        if (inputs == null || inputs.isEmpty() || inputs.size() > 4) throw new IllegalArgumentException("An appointment has 1 to 4 services.");
         List<Line> lines = new ArrayList<>();
         LocalTime cursor = start;
         int no = 1;
         for (LineInput in : inputs) {
-            if (in == null || in.serviceId == null) throw new IllegalArgumentException("Thiếu dịch vụ.");
+            if (in == null || in.serviceId == null) throw new IllegalArgumentException("Missing service.");
             Map<String, Object> s = w.query("SELECT service_id,service_name,duration,tour_count,required_room_type,price FROM Service WHERE service_id=? AND status='Active'", in.serviceId)
-                    .stream().findFirst().orElseThrow(() -> new WorkflowException(404, "Dịch vụ không tồn tại hoặc đã ngừng kinh doanh."));
+                    .stream().findFirst().orElseThrow(() -> new WorkflowException(404, "The service does not exist or has been discontinued."));
             Line l = new Line();
             l.serviceId = in.serviceId; l.customerPackageId = in.customerPackageId; l.lineNo = no++;
             l.serviceName = String.valueOf(s.get("serviceName")); l.duration = ((Number) s.get("duration")).intValue();
@@ -147,23 +147,23 @@ public final class BookingWorkflow {
     String reason(Day day, List<Line> lines, Integer requested, boolean customerRules, int[] technicianCount) {
         LocalDateTime start = LocalDateTime.of(day.date, lines.get(0).start);
         LocalDateTime now = LocalDateTime.now(ZONE);
-        if (lines.get(lines.size() - 1).end.isAfter(CLOSE) || lines.get(0).start.isBefore(OPEN)) return "Ngoài giờ làm việc";
-        if (!start.isAfter(now)) return "Đã qua giờ";
-        if (customerRules && start.isBefore(now.plusHours(2))) return "Đã qua giờ";
-        if (customerRules && day.date.isAfter(now.toLocalDate().plusDays(30))) return "Quá 30 ngày";
+        if (lines.get(lines.size() - 1).end.isAfter(CLOSE) || lines.get(0).start.isBefore(OPEN)) return "Outside working hours";
+        if (!start.isAfter(now)) return "Time has passed";
+        if (customerRules && start.isBefore(now.plusHours(2))) return "Time has passed";
+        if (customerRules && day.date.isAfter(now.toLocalDate().plusDays(30))) return "More than 30 days ahead";
         int minimum = Integer.MAX_VALUE;
         for (List<Line> part : parts(lines)) {
             List<Integer> candidates = day.candidates(part);
             if (requested != null && part.get(0).part == 0) {
-                if (!candidates.contains(requested)) return "KTV đã chọn bận";
+                if (!candidates.contains(requested)) return "Selected technician is busy";
                 minimum = Math.min(minimum, 1);
                 continue;
             }
             int spare = candidates.size() - day.unassigned(part.get(0).start, part.get(part.size() - 1).end);
-            if (spare <= 0) return "Hết KTV";
+            if (spare <= 0) return "No technician";
             minimum = Math.min(minimum, spare);
         }
-        for (Line l : lines) if (day.freeBeds(l.roomType, l.start, l.end) <= 0) return "Hết phòng/giường";
+        for (Line l : lines) if (day.freeBeds(l.roomType, l.start, l.end) <= 0) return "No room/bed";
         if (technicianCount != null) technicianCount[0] = minimum == Integer.MAX_VALUE ? 0 : minimum;
         return null;
     }
@@ -259,12 +259,12 @@ public final class BookingWorkflow {
         int pkg = line.customerPackageId;
         List<Map<String, Object>> rows = w.query("SELECT cp.remaining_sessions,cp.expiry_date,cp.status,(SELECT COUNT(*) FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id WHERE l.customer_package_id=cp.customer_package_id AND l.status<>'Done' AND " + SchemaSql.BUSY_APPOINTMENT + " AND a.appointment_id<>?) AS reserved FROM CustomerPackage cp JOIN TreatmentPackageService ps ON ps.treatment_package_id=cp.treatment_package_id AND ps.service_id=? WHERE cp.customer_package_id=? AND cp.customer_id=?",
                 excludeAppointment == null ? -1 : excludeAppointment, line.serviceId, pkg, customer);
-        if (rows.isEmpty()) throw new IllegalArgumentException("Gói liệu trình không áp dụng cho dịch vụ " + line.serviceName + ".");
+        if (rows.isEmpty()) throw new IllegalArgumentException("The treatment package does not cover the service " + line.serviceName + ".");
         Map<String, Object> r = rows.get(0);
         LocalDate expiry = LocalDate.parse(String.valueOf(r.get("expiryDate")).substring(0, 10));
         int remaining = ((Number) r.get("remainingSessions")).intValue() - ((Number) r.get("reserved")).intValue() - usedInThisBooking.getOrDefault(pkg, 0);
         if (!"Active".equals(r.get("status")) || expiry.isBefore(date) || remaining <= 0)
-            throw new WorkflowException(409, "Gói liệu trình đã hết buổi hoặc hết hạn. Vui lòng chọn thanh toán dịch vụ.");
+            throw new WorkflowException(409, "The treatment package has no sessions left or has expired. Please pay for the service instead.");
         usedInThisBooking.merge(pkg, 1, Integer::sum);
     }
 
@@ -272,7 +272,7 @@ public final class BookingWorkflow {
                       String paymentChoice, String notes, Integer createdByStaff) throws SQLException {
         return w.transaction(() -> {
             if (w.query("SELECT customer_id FROM Customer WHERE customer_id=? AND status='Active'", customer).isEmpty())
-                throw new WorkflowException(404, "Khách hàng không tồn tại hoặc đã bị vô hiệu hóa.");
+                throw new WorkflowException(404, "The customer does not exist or has been deactivated.");
             boolean online = createdByStaff == null;
             LocalDate day = LocalDate.parse(date);
             List<Line> lines = plan(inputs, LocalTime.parse(start));
@@ -283,7 +283,7 @@ public final class BookingWorkflow {
                     customer, java.sql.Date.valueOf(day), Time.valueOf(lines.get(0).start), Time.valueOf(lines.get(lines.size() - 1).end),
                     status, choice, blank(notes), createdByStaff, online ? null : new Timestamp(System.currentTimeMillis()));
             insertLines(id, lines, requested);
-            w.history(id, null, status, online ? "Khách đặt online" : "Lễ tân tạo lịch");
+            w.history(id, null, status, online ? "Customer booked online" : "Created by receptionist");
             new BillingWorkflow(w).syncAppointmentInvoice(id, createdByStaff);
             return id;
         });
@@ -300,18 +300,18 @@ public final class BookingWorkflow {
         for (Line l : lines) if (l.customerPackageId != null) requirePackage(customer, l, day, exclude, used);
         if (!w.query("SELECT a.appointment_id FROM Appointment a WHERE a.customer_id=? AND a.appointment_date=? AND " + SchemaSql.BUSY_APPOINTMENT + " AND a.appointment_id<>? AND a.start_time<? AND a.end_time>?",
                 customer, java.sql.Date.valueOf(day), exclude == null ? -1 : exclude, Time.valueOf(lines.get(lines.size() - 1).end), Time.valueOf(lines.get(0).start)).isEmpty())
-            throw new WorkflowException(409, "Khách hàng đã có lịch hẹn khác trùng giờ.");
+            throw new WorkflowException(409, "The customer already has another appointment at this time.");
         String reason = reason(new Day(day, exclude), lines, requested, customerRules, null);
         if (reason != null) {
-            if (customerRules && "Đã qua giờ".equals(reason)) throw new WorkflowException(409, "Lịch online phải đặt trước ít nhất 2 tiếng và không quá 30 ngày (BR-06).");
-            throw new WorkflowException(409, "Khung giờ không còn trống: " + reason + ". Vui lòng chọn khung giờ khác.");
+            if (customerRules && "Time has passed".equals(reason)) throw new WorkflowException(409, "Online bookings must be made at least 2 hours and at most 30 days in advance.");
+            throw new WorkflowException(409, "The time slot is no longer available: " + reason + ". Please choose another time slot.");
         }
     }
 
     public String recheck(int appointment) throws SQLException {
         LocalDate date = LocalDate.parse(String.valueOf(w.one("SELECT appointment_date FROM Appointment WHERE appointment_id=?", appointment).get("appointmentDate")).substring(0, 10));
         List<Line> lines = lines(appointment);
-        if (lines.isEmpty()) return "Lịch không có dịch vụ";
+        if (lines.isEmpty()) return "The appointment has no services";
         Integer requested = lines.stream().filter(l -> l.requested && l.part == 0 && l.technicianId != null).map(l -> l.technicianId).findFirst().orElse(null);
         return reason(new Day(date, appointment), lines, requested, false, null);
     }
@@ -320,9 +320,9 @@ public final class BookingWorkflow {
         w.transaction(() -> {
             Map<String, Object> a = w.one("SELECT customer_id,status,appointment_date,start_time FROM Appointment WHERE appointment_id=?", appointment);
             String status = String.valueOf(a.get("status"));
-            if (!"Pending".equals(status) && !"Confirmed".equals(status)) throw new WorkflowException(409, "Chỉ đổi được lịch đang chờ xác nhận hoặc đã xác nhận.");
+            if (!"Pending".equals(status) && !"Confirmed".equals(status)) throw new WorkflowException(409, "Only pending or confirmed appointments can be rescheduled.");
             LocalDateTime current = LocalDateTime.of(LocalDate.parse(String.valueOf(a.get("appointmentDate")).substring(0, 10)), time(a.get("startTime")));
-            if (byCustomer && current.isBefore(LocalDateTime.now(ZONE).plusHours(2))) throw new WorkflowException(409, "Chỉ được đổi lịch trước giờ hẹn ít nhất 2 tiếng (BR-06).");
+            if (byCustomer && current.isBefore(LocalDateTime.now(ZONE).plusHours(2))) throw new WorkflowException(409, "Appointments can only be rescheduled at least 2 hours in advance.");
             List<LineInput> list = inputs;
             if (list == null || list.isEmpty()) {
                 list = new ArrayList<>();
@@ -341,7 +341,7 @@ public final class BookingWorkflow {
             String next = byCustomer ? "Pending" : status;
             w.update("UPDATE Appointment SET appointment_date=?,start_time=?,end_time=?,status=?,confirmed_at=CASE WHEN ?='Pending' THEN NULL ELSE confirmed_at END WHERE appointment_id=?",
                     java.sql.Date.valueOf(day), Time.valueOf(lines.get(0).start), Time.valueOf(lines.get(lines.size() - 1).end), next, next, appointment);
-            w.history(appointment, status, next, blank(reason) == null ? "Đổi lịch" : reason);
+            w.history(appointment, status, next, blank(reason) == null ? "Reschedule" : reason);
             new BillingWorkflow(w).syncAppointmentInvoice(appointment, null);
             return null;
         });
@@ -493,17 +493,17 @@ public final class BookingWorkflow {
             for (Line l : part) {
                 Integer v = technicianByLine == null ? null : technicianByLine.get(l.appointmentServiceId);
                 if (v == null) continue;
-                if (chosen != null && !chosen.equals(v)) throw new IllegalArgumentException("Mỗi phần dịch vụ chỉ do một kỹ thuật viên thực hiện (BR-11).");
+                if (chosen != null && !chosen.equals(v)) throw new IllegalArgumentException("Each service part is performed by only one technician.");
                 chosen = v;
             }
             List<Integer> candidates = day.candidates(part);
             if (chosen != null && !chosen.equals(current) && !candidates.contains(chosen))
-                throw new WorkflowException(409, "Kỹ thuật viên đã chọn không đủ kỹ năng hoặc không rảnh trong khung giờ này.");
+                throw new WorkflowException(409, "The selected technician is not qualified or not available at this time.");
             if (chosen == null) chosen = current;
             if (chosen == null) {
                 chosen = rotate(candidates, date, usedTechnicians);
                 if (chosen == null) chosen = rotate(candidates, date, Collections.emptySet());
-                if (chosen == null) throw new WorkflowException(409, "Không có kỹ thuật viên phù hợp đang rảnh cho " + part.get(0).serviceName + ".");
+                if (chosen == null) throw new WorkflowException(409, "No qualified technician is available for " + part.get(0).serviceName + ".");
             }
             usedTechnicians.add(chosen);
             boolean requested = part.get(0).requested;
@@ -520,9 +520,9 @@ public final class BookingWorkflow {
                 final Integer wanted = bed;
                 boolean ok = wanted != null && free.stream().anyMatch(b -> Workflow.id(b.get("bedId")) == wanted);
                 if (!ok) {
-                    if (override != null) throw new WorkflowException(409, "Giường đã chọn không trống hoặc không đúng loại phòng.");
+                    if (override != null) throw new WorkflowException(409, "The selected bed is not available or is not the right room type.");
                     if (!free.isEmpty()) bed = Workflow.id(free.get(0).get("bedId"));
-                    else if (checkIn) throw new WorkflowException(409, "Hết giường loại " + l.roomType + " trống cho " + l.serviceName + ".");
+                    else if (checkIn) throw new WorkflowException(409, "No available bed of type " + l.roomType + " available for " + l.serviceName + ".");
                     else bed = null;
                 }
                 if (bed != null) takenBeds.add(bed);
@@ -535,7 +535,7 @@ public final class BookingWorkflow {
         w.transaction(() -> {
             Map<String, Object> a = w.one("SELECT status,appointment_date FROM Appointment WHERE appointment_id=?", appointment);
             String status = String.valueOf(a.get("status"));
-            if (!Arrays.asList("Pending", "Confirmed", "Checked-in", "In-progress").contains(status)) throw new WorkflowException(409, "Lịch hẹn không còn hiệu lực.");
+            if (!Arrays.asList("Pending", "Confirmed", "Checked-in", "In-progress").contains(status)) throw new WorkflowException(409, "The appointment is no longer valid.");
             LocalDate date = LocalDate.parse(String.valueOf(a.get("appointmentDate")).substring(0, 10));
             boolean started = !"Pending".equals(status) && !"Confirmed".equals(status);
             if (!started) {
@@ -549,21 +549,21 @@ public final class BookingWorkflow {
                     for (List<Line> part : parts(lines(appointment))) {
                         Integer t = technicianByLine.get(part.get(0).appointmentServiceId);
                         if (t == null) continue;
-                        if (!day.candidates(part).contains(t)) throw new WorkflowException(409, "Kỹ thuật viên thay thế không phù hợp hoặc đang bận.");
+                        if (!day.candidates(part).contains(t)) throw new WorkflowException(409, "The replacement technician is not suitable or is busy.");
                         for (Line l : part) w.update("UPDATE AppointmentService SET technician_id=?,is_requested_technician=0 WHERE appointment_service_id=?", t, l.appointmentServiceId);
                     }
                 }
             } else assign(appointment, date, technicianByLine, bedByLine, false);
-            w.history(appointment, status, status, "Điều phối lại do nghỉ phép/bảo trì");
+            w.history(appointment, status, status, "Reassigned due to leave/maintenance");
             return null;
         });
     }
 
     public List<Map<String, Object>> affected() throws SQLException {
         return w.query("SELECT a.appointment_id,a.appointment_date,a.start_time,a.status,c.full_name AS customer_name,c.phone AS customer_phone,l.appointment_service_id,l.line_no,s.service_name,l.start_time AS line_start,l.end_time AS line_end,st.full_name AS technician_name,b.bed_number,r.room_name,"
-                + "CASE WHEN l.technician_id IS NOT NULL AND EXISTS(SELECT 1 FROM StaffLeave lv WHERE lv.staff_id=l.technician_id AND lv.status='Approved' AND a.appointment_date BETWEEN lv.start_date AND lv.end_date) THEN N'KTV nghỉ phép' "
-                + "WHEN l.technician_id IS NOT NULL AND (st.status<>'Active' OR st.role<>'Technician' OR NOT EXISTS(SELECT 1 FROM StaffShift sh WHERE sh.staff_id=l.technician_id AND sh.shift_date=a.appointment_date AND sh.start_time<=l.start_time AND sh.end_time>=l.end_time)) THEN N'KTV không có ca' "
-                + "WHEN l.bed_id IS NOT NULL AND (b.status<>'Active' OR r.status<>'Active') THEN N'Giường/phòng bảo trì' END AS reason "
+                + "CASE WHEN l.technician_id IS NOT NULL AND EXISTS(SELECT 1 FROM StaffLeave lv WHERE lv.staff_id=l.technician_id AND lv.status='Approved' AND a.appointment_date BETWEEN lv.start_date AND lv.end_date) THEN N'Technician on leave' "
+                + "WHEN l.technician_id IS NOT NULL AND (st.status<>'Active' OR st.role<>'Technician' OR NOT EXISTS(SELECT 1 FROM StaffShift sh WHERE sh.staff_id=l.technician_id AND sh.shift_date=a.appointment_date AND sh.start_time<=l.start_time AND sh.end_time>=l.end_time)) THEN N'Technician has no shift' "
+                + "WHEN l.bed_id IS NOT NULL AND (b.status<>'Active' OR r.status<>'Active') THEN N'Bed/room under maintenance' END AS reason "
                 + "FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id JOIN Customer c ON c.customer_id=a.customer_id JOIN Service s ON s.service_id=l.service_id "
                 + "LEFT JOIN Staff st ON st.staff_id=l.technician_id LEFT JOIN Bed b ON b.bed_id=l.bed_id LEFT JOIN Room r ON r.room_id=b.room_id "
                 + "WHERE a.appointment_date>=CAST(SYSDATETIME() AS date) AND " + SchemaSql.BUSY_APPOINTMENT + " AND l.status<>'Done' AND ("

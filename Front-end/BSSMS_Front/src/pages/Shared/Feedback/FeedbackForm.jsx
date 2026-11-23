@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link, useLocation } from "react-router-dom";
 import { Container, Card, Form, Button, Row, Col, Alert } from "react-bootstrap";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 const lineKey = (appointmentId, serviceId) => `${appointmentId}:${serviceId}`;
 
@@ -18,6 +19,7 @@ const formatDateTime = (dateStr, timeStr) => {
 const FeedbackForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { search } = useLocation();
   const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState({ rating: 5, comment: "" });
@@ -42,7 +44,7 @@ const FeedbackForm = () => {
       .then((data) => {
         if (Array.isArray(data)) setServices(data);
       })
-      .catch((err) => console.error("Lỗi tải dịch vụ:", err));
+      .catch((err) => console.error("Error loading services:", err));
   }, []);
 
   useEffect(() => {
@@ -57,19 +59,23 @@ const FeedbackForm = () => {
           if (!cancelled) {
             const list = Array.isArray(data) ? data : [];
             setOptions(list);
-            const wanted = new URLSearchParams(window.location.search).get("appointmentServiceId");
-            const match = list.find((o) => String(o.appointmentServiceId) === wanted);
-            if (match) setSelected(lineKey(match.appointmentId, match.serviceId));
+            const params = new URLSearchParams(search);
+            const wanted = params.get("appointmentServiceId");
+            const wantedAppointment = params.get("appointmentId");
+            const match =
+              list.find((o) => String(o.appointmentServiceId) === wanted) ||
+              (wantedAppointment && list.find((o) => String(o.appointmentId) === wantedAppointment));
+            setSelected(match ? lineKey(match.appointmentId, match.serviceId) : "");
           }
         }
       } catch (err) {
-        if (!cancelled) console.error("Lỗi tải dữ liệu:", err);
+        if (!cancelled) console.error("Error loading data:", err);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [user, customerId, isEdit]);
+  }, [user, customerId, isEdit, search]);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -84,11 +90,11 @@ const FeedbackForm = () => {
             serviceId: data.serviceId,
           });
         } else {
-          setError("Không tìm thấy đánh giá này.");
+          setError("This review was not found.");
         }
       } catch (err) {
-        console.error("Lỗi tải đánh giá:", err);
-        setError("Lỗi kết nối đến máy chủ!");
+        console.error("Error loading reviews:", err);
+        setError("Cannot connect to the server.");
       } finally {
         setIsFetching(false);
       }
@@ -111,7 +117,7 @@ const FeedbackForm = () => {
     setSuccessMsg("");
 
     if (!user) {
-      setError("Bạn cần đăng nhập để thực hiện thao tác này!");
+      setError("You need to log in to do this!");
       return;
     }
 
@@ -119,14 +125,14 @@ const FeedbackForm = () => {
     if (!isEdit) {
       const option = options.find((o) => lineKey(o.appointmentId, o.serviceId) === selected);
       if (!option) {
-        setError("Vui lòng chọn dịch vụ cần đánh giá!");
+        setError("Please select the service to review!");
         return;
       }
       target = { appointmentId: option.appointmentId, serviceId: option.serviceId, appointmentServiceId: option.appointmentServiceId };
     }
 
     if (!formData.comment.trim()) {
-      setError("Vui lòng nhập nội dung đánh giá!");
+      setError("Please enter the review content!");
       return;
     }
 
@@ -149,18 +155,18 @@ const FeedbackForm = () => {
       if (response.ok) {
         setSuccessMsg(
           isEdit
-            ? "Cập nhật đánh giá thành công! Đang chuyển hướng..."
-            : "Gửi đánh giá thành công! Đang chuyển hướng...",
+            ? "Review updated! Redirecting..."
+            : "Thank you! Your review has been posted.",
         );
-        setTimeout(() => navigate("/my-feedback"), 1500);
+        setTimeout(() => navigate("/feedback"), 1500);
       } else {
         const data = await response.json().catch(() => ({}));
-        setError(data.message || "Thao tác thất bại, vui lòng thử lại!");
+        setError(data.message || "Something went wrong. Please try again.");
         setIsLoading(false);
       }
     } catch (err) {
-      console.error("Lỗi submit:", err);
-      setError("Lỗi kết nối đến máy chủ!");
+      console.error("Submit error:", err);
+      setError("Cannot connect to the server.");
       setIsLoading(false);
     }
   };
@@ -168,9 +174,9 @@ const FeedbackForm = () => {
   if (user && user.role !== "Customer") {
     return (
       <Container className="mt-4 px-4">
-        <Alert variant="warning">Chỉ khách hàng mới có thể tạo/cập nhật đánh giá.</Alert>
+        <Alert variant="warning">Only customers can create/update reviews.</Alert>
         <Link to="/feedback" className="btn btn-secondary">
-          Xem đánh giá của khách hàng
+          View customer reviews
         </Link>
       </Container>
     );
@@ -179,10 +185,18 @@ const FeedbackForm = () => {
   if (isFetching) {
     return (
       <Container className="text-center mt-5">
-        <h5>Đang tải dữ liệu...</h5>
+        <h5>Loading data...</h5>
       </Container>
     );
   }
+
+  // Opened from a specific appointment: only offer that visit's services
+  const fromAppointment = new URLSearchParams(search).get("appointmentId");
+  const appointmentOptions = fromAppointment
+    ? options.filter((o) => String(o.appointmentId) === fromAppointment)
+    : [];
+  const visibleOptions = appointmentOptions.length > 0 ? appointmentOptions : options;
+  const selectedOption = options.find((o) => lineKey(o.appointmentId, o.serviceId) === selected);
 
   const optionLabel = (o) => {
     const when = formatDateTime(o.appointmentDate, o.startTime);
@@ -190,7 +204,7 @@ const FeedbackForm = () => {
   };
 
   const editServiceName = editTarget
-    ? services.find((s) => s.serviceId === editTarget.serviceId)?.serviceName || `Dịch vụ #${editTarget.serviceId}`
+    ? services.find((s) => s.serviceId === editTarget.serviceId)?.serviceName || `Service #${editTarget.serviceId}`
     : "";
 
   const renderStars = () => {
@@ -218,27 +232,32 @@ const FeedbackForm = () => {
         <Card.Body className="p-4 p-md-5">
           <div className="d-flex justify-content-between align-items-center mb-4">
             <h2 className="fw-bold text-uppercase mb-0">
-              {isEdit ? "Cập nhật đánh giá" : "Tạo đánh giá mới"}
+              {isEdit ? "Update review" : "Write a review"}
             </h2>
-            <Link to="/my-feedback" className="btn btn-outline-secondary">
-              <i className="bi bi-arrow-left me-1"></i> Quay lại
+            <Link to="/feedback" className="btn btn-outline-secondary">
+              <i className="bi bi-arrow-left me-1"></i> Back
             </Link>
           </div>
 
-          {error && <Alert variant="danger">{error}</Alert>}
-          {successMsg && <Alert variant="success">{successMsg}</Alert>}
+          <FloatingAlert message={error} onClose={() => setError("")} />
+          <FloatingAlert message={successMsg} variant="success" onClose={() => setSuccessMsg("")} />
 
           <Form onSubmit={handleSubmit}>
             <Row>
               <Col md={6} className="mb-3">
                 <Form.Group>
-                  <Form.Label className="fw-bold">Dịch vụ đã sử dụng*</Form.Label>
+                  <Form.Label className="fw-bold">Service *</Form.Label>
                   {isEdit ? (
                     <>
                       <Form.Control value={editServiceName} disabled readOnly />
                       <Form.Text className="text-muted">
-                        Không thể thay đổi dịch vụ khi cập nhật đánh giá.
+                        The service cannot be changed when updating a review.
                       </Form.Text>
+                    </>
+                  ) : appointmentOptions.length === 1 && selectedOption ? (
+                    <>
+                      <Form.Control value={optionLabel(selectedOption)} disabled readOnly />
+                      <Form.Text className="text-muted">From the appointment you chose.</Form.Text>
                     </>
                   ) : (
                     <>
@@ -248,8 +267,8 @@ const FeedbackForm = () => {
                         disabled={isLoading || successMsg !== ""}
                         required
                       >
-                        <option value="">-- Chọn dịch vụ --</option>
-                        {options.map((o) => (
+                        <option value="">-- Select service --</option>
+                        {visibleOptions.map((o) => (
                           <option key={lineKey(o.appointmentId, o.serviceId)} value={lineKey(o.appointmentId, o.serviceId)}>
                             {optionLabel(o)}
                           </option>
@@ -257,11 +276,11 @@ const FeedbackForm = () => {
                       </Form.Select>
                       {options.length === 0 ? (
                         <Form.Text className="text-danger">
-                          Bạn chưa có dịch vụ nào đã hoàn thành và chưa đánh giá.
+                          You have no completed services waiting for a review.
                         </Form.Text>
                       ) : (
                         <Form.Text className="text-muted">
-                          Mỗi dịch vụ trong mỗi lần đến được đánh giá một lần.
+                          Each service in each visit can be reviewed once.
                         </Form.Text>
                       )}
                     </>
@@ -271,35 +290,35 @@ const FeedbackForm = () => {
 
               <Col md={6} className="mb-3">
                 <Form.Group>
-                  <Form.Label className="fw-bold">Mức đánh giá*</Form.Label>
+                  <Form.Label className="fw-bold">Rating *</Form.Label>
                   <div className="p-2">{renderStars()}</div>
                 </Form.Group>
               </Col>
             </Row>
 
             <Form.Group className="mb-4">
-              <Form.Label className="fw-bold">Nội dung đánh giá*</Form.Label>
+              <Form.Label className="fw-bold">Review content*</Form.Label>
               <Form.Control
                 as="textarea"
                 rows={5}
                 name="comment"
-                placeholder="Chia sẻ trải nghiệm của bạn về dịch vụ..."
+                placeholder="Tell us about your experience..."
                 value={formData.comment}
                 onChange={handleChange}
                 disabled={isLoading || successMsg !== ""}
                 required
                 maxLength={500}
               />
-              <Form.Text className="text-muted">{formData.comment.length}/500 ký tự</Form.Text>
+              <Form.Text className="text-muted">{formData.comment.length}/500 characters</Form.Text>
             </Form.Group>
 
             <div className="d-flex justify-content-end gap-2">
               <Button
                 variant="secondary"
-                onClick={() => navigate("/my-feedback")}
+                onClick={() => navigate("/feedback")}
                 disabled={isLoading || successMsg !== ""}
               >
-                Hủy bỏ
+                Cancel
               </Button>
               <Button
                 variant="danger"
@@ -308,12 +327,12 @@ const FeedbackForm = () => {
                 style={{ minWidth: "160px" }}
               >
                 {isLoading
-                  ? "Đang xử lý..."
+                  ? "Processing..."
                   : successMsg
-                    ? "Đang chuyển hướng..."
+                    ? "Redirecting..."
                     : isEdit
-                      ? "Cập nhật"
-                      : "Gửi đánh giá"}
+                      ? "Update"
+                      : "Post review"}
               </Button>
             </div>
           </Form>

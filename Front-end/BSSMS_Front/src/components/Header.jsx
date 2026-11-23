@@ -6,47 +6,44 @@ import "./Header.css";
 import { roleHome } from "../auth/login";
 
 const guestLinks = [
-  { to: "/bssms-guest", label: "Trang chủ", end: true },
-  { to: "/guest/services", label: "Danh sách dịch vụ" },
-  { to: "/guest/treatment-packages", label: "Gói liệu trình" },
-  { to: "/guest/feedback", label: "Đánh giá khách hàng" },
+  { to: "/bssms-guest", label: "Home", end: true },
+  { to: "/guest/services", label: "Services" },
+  { to: "/guest/treatment-packages", label: "Packages" },
+  { to: "/guest/feedback", label: "Reviews" },
 ];
 
 const customerLinks = [
-  { to: "/customer/home", label: "Trang chủ", end: true },
-  { to: "/services", label: "Dịch vụ" },
-  { to: "/treatment-packages", label: "Gói liệu trình" },
-  { to: "/appointments", label: "Lịch hẹn" },
-  { to: "/my-treatment-profile", label: "Liệu trình của tôi" },
-  { to: "/feedback", label: "Đánh giá khách hàng" },
+  { to: "/customer/home", label: "Home", end: true },
+  { to: "/services", label: "Services" },
+  { to: "/treatment-packages", label: "Packages" },
+  { to: "/appointments", label: "My Appointments" },
+  { to: "/my-treatment-profile", label: "My packages" },
+  { to: "/feedback", label: "Reviews" },
 ];
 
 const customerAccountLinks = [
-  ["/profile", "Tài khoản của tôi", "person"],
-  ["/appointments", "Lịch hẹn của tôi", "calendar2-week"],
-  ["/my-treatment-profile", "Liệu trình của tôi", "box-seam"],
-  ["/invoices", "Hóa đơn của tôi", "receipt"],
-  ["/my-feedback", "Đánh giá của tôi", "star"],
-  ["/service-history", "Lịch sử dịch vụ", "clock-history"],
-  ["/membership-benefits", "Quyền lợi thành viên", "award"],
+  ["/profile", "My account", "person"],
+  ["/invoices", "My invoices", "receipt"],
+  ["/membership-benefits", "Membership benefits", "award"],
 ];
 
 const dashboardTitles = {
-  "/manager/dashboard": "Tổng quan",
-  "/services": "Danh sách dịch vụ",
-  "/appointments": "Danh sách lịch hẹn",
-  "/customers": "Danh sách khách hàng",
-  "/staffs": "Quản lý nhân viên",
-  "/vouchers": "Quản lý voucher",
-  "/manager/resources": "Phòng & giường",
-  "/receptionist/coordination": "Check-in & điều phối",
-  "/treatment-status": "Trạng thái dịch vụ",
-  "/manager/scheduling": "Ca làm & kỹ năng",
-  "/manager/leaves": "Duyệt nghỉ phép",
-  "/manager/tour-report": "Báo cáo tour",
-  "/my-schedule": "Ca làm & nghỉ phép",
-  "/invoices/create": "Thu ngân",
-  "/profile": "Hồ sơ cá nhân",
+  "/manager/dashboard": "Overview",
+  "/services": "Service list",
+  "/appointments": "Appointment list",
+  "/customers": "Customer list",
+  "/staffs": "Staff management",
+  "/vouchers": "Voucher management",
+  "/manager/resources": "Rooms & beds",
+  "/receptionist/coordination": "Check-in & coordination",
+  "/treatment-status": "Service status",
+  "/manager/scheduling": "Shifts & skills",
+  "/manager/leaves": "Leave approval",
+  "/manager/tour-report": "Tour report",
+  "/tour-report": "Tour report",
+  "/my-schedule": "Shifts & leave",
+  "/invoices/create": "Payments",
+  "/profile": "My profile",
 };
 
 const Header = ({
@@ -88,7 +85,7 @@ const Header = ({
         const data = await response.json().catch(() => null);
         if (!response.ok) {
           throw new Error(
-            data?.message || `Không tải được hạng thành viên (HTTP ${response.status}).`,
+            data?.message || `Could not load membership tiers (HTTP ${response.status}).`,
           );
         }
         return data;
@@ -102,7 +99,7 @@ const Header = ({
       })
       .catch((error) => {
         if (error.name !== "AbortError") {
-          console.error("Lỗi khi tải hạng thành viên:", error);
+          console.error("Error loading membership tiers:", error);
         }
       });
 
@@ -140,13 +137,13 @@ const Header = ({
         credentials: "include",
       });
       if (!response.ok && response.status !== 401)
-        throw new Error("Chưa đăng xuất được. Bạn thử lại nhé.");
+        throw new Error("Could not log out. Please try again.");
       localStorage.removeItem("user");
       setUser(null);
       closeMenu();
       navigate("/bssms-guest", { replace: true });
     } catch {
-      setLogoutError("Chưa đăng xuất được. Bạn thử lại nhé.");
+      setLogoutError("Could not log out. Please try again.");
     } finally {
       setLoggingOut(false);
     }
@@ -159,7 +156,7 @@ const Header = ({
       staffSection(user?.role, location.pathname)?.link[1] ||
       (location.pathname === staffNavigation[user?.role]?.home
         ? staffNavigation[user.role].homeLabel
-        : "Tài khoản");
+        : "Account");
     return (
       <header className="app-header app-dashboard-header">
         <button
@@ -169,7 +166,7 @@ const Header = ({
           aria-controls="staff-sidebar"
           aria-expanded={mobileMenuOpen}
           aria-label={
-            mobileMenuOpen ? "Đóng menu chức năng" : "Mở menu chức năng"
+            mobileMenuOpen ? "Close menu" : "Open menu"
           }
         >
           <i className="bi bi-list" aria-hidden="true" />
@@ -182,13 +179,13 @@ const Header = ({
         <div className="app-dashboard-header-actions">
           <span className="app-dashboard-location">
             <i className="bi bi-geo-alt" aria-hidden="true" /> Seoul Center ·
-            Cần Thơ
+            Can Tho
           </span>
           {user?.role === "Manager" && (
             <Link
               to="/manager/leaves"
               className="app-header-icon"
-              aria-label="Đơn nghỉ phép chờ duyệt"
+              aria-label="Leave requests pending approval"
             >
               <i className="bi bi-bell" aria-hidden="true" />
             </Link>
@@ -197,11 +194,11 @@ const Header = ({
             className="app-user-trigger app-user-trigger-dashboard"
             type="button"
             onClick={() => navigate("/profile")}
-            title="Xem hồ sơ cá nhân"
+            title="View my profile"
           >
             <span className="app-user-avatar">{initial}</span>
             <span className="app-dashboard-user-name">
-              {user?.fullName || "Tài khoản"}
+              {user?.fullName || "Account"}
             </span>
             <i className="bi bi-chevron-down" aria-hidden="true" />
           </button>
@@ -224,14 +221,14 @@ const Header = ({
           to={isCustomer ? "/customer/home" : "/bssms-guest"}
           className="app-public-brand"
           onClick={closeMenu}
-          aria-label="Seoul Center - Trang chủ"
+          aria-label="Seoul Center - Home"
         >
           <SeoulBrand />
         </Link>
         <button
           className="app-public-menu-toggle"
           type="button"
-          aria-label={menuOpen ? "Đóng menu" : "Mở menu"}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
           aria-controls="public-navigation"
           onClick={() => {
@@ -247,7 +244,7 @@ const Header = ({
         <nav
           id="public-navigation"
           className={`app-public-nav${menuOpen ? " is-open" : ""}`}
-          aria-label="Điều hướng chính"
+          aria-label="Main navigation"
         >
           {links.map((link) => (
             <NavLink
@@ -269,21 +266,21 @@ const Header = ({
                 to="/register"
                 onClick={closeMenu}
               >
-                Đăng ký
+                Sign up
               </Link>
               <Link
                 className="app-public-auth-link app-public-auth-primary"
                 to="/login"
                 onClick={closeMenu}
               >
-                Đăng nhập{" "}
+                Log in{" "}
                 <i className="bi bi-calendar2-check" aria-hidden="true" />
               </Link>
             </>
           )}
-          {user && !isCustomer && <Link className="app-public-auth-link" to={roleHome(user.role)} onClick={closeMenu}>Về dashboard</Link>}
+          {user && !isCustomer && <Link className="app-public-auth-link" to={roleHome(user.role)} onClick={closeMenu}>Back to dashboard</Link>}
         </nav>
-        {isCustomer && <Link to="/appointments/online" className="customer-booking-link" onClick={closeMenu}><i className="bi bi-calendar-plus" aria-hidden="true" /><span>Đặt lịch</span></Link>}
+        {isCustomer && <Link to="/appointments/online" className="customer-booking-link" onClick={closeMenu}><i className="bi bi-calendar-plus" aria-hidden="true" /><span>Book</span></Link>}
         {isCustomer && (
           <div
             className="customer-account"
@@ -299,8 +296,8 @@ const Header = ({
               type="button"
               aria-expanded={accountOpen}
               aria-controls="customer-account-panel"
-              aria-label="Menu tài khoản"
-              title={user.fullName || "Tài khoản của bạn"}
+              aria-label="Account menu"
+              title={user.fullName || "Your account"}
               onClick={() => {
                 setAccountOpen((open) => !open);
                 setMenuOpen(false);
@@ -309,7 +306,7 @@ const Header = ({
               <span className="customer-account-avatar">{initial}</span>
               <span className="customer-account-identity">
                 <span className="customer-account-name-line">
-                  <strong>{user.fullName || "Tài khoản của bạn"}</strong>
+                  <strong>{user.fullName || "Your account"}</strong>
                   {membershipTierName && (
                     <>
                       <span className="customer-account-tier-separator" aria-hidden="true">·</span>
@@ -317,7 +314,7 @@ const Header = ({
                     </>
                   )}
                 </span>
-                <small>Khách hàng</small>
+                <small>Customer</small>
               </span>
               <i className="bi bi-chevron-down" aria-hidden="true" />
             </button>
@@ -330,7 +327,7 @@ const Header = ({
                   <span className="customer-account-avatar" aria-hidden="true">{initial}</span>
                   <div>
                     <div className="customer-account-heading-name">
-                      <strong>{user.fullName || "Tài khoản của bạn"}</strong>
+                      <strong>{user.fullName || "Your account"}</strong>
                       {membershipTierName && (
                         <>
                           <span className="customer-account-tier-separator" aria-hidden="true">·</span>
@@ -338,10 +335,10 @@ const Header = ({
                         </>
                       )}
                     </div>
-                    <span>{user.email || "Khách hàng Seoul Center"}</span></div>
+                    <span>{user.email || "Seoul Center customer"}</span></div>
                 </div>
                 <nav
-                  aria-label="Chức năng tài khoản"
+                  aria-label="Account menu"
                   className="customer-account-links"
                 >
                   {customerAccountLinks.map(([to, label, icon]) => (
@@ -360,7 +357,7 @@ const Header = ({
                   {logoutError && <p role="alert">{logoutError}</p>}
                   <button type="button" onClick={logout} disabled={loggingOut}>
                     <i className="bi bi-box-arrow-right" aria-hidden="true" />
-                    {loggingOut ? "Đang đăng xuất…" : "Đăng xuất"}
+                    {loggingOut ? "Logging out…" : "Log out"}
                   </button>
                 </div>
               </div>

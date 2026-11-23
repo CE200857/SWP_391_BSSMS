@@ -17,7 +17,7 @@ public class VoucherDAO extends DBContext implements AutoCloseable {
         Workflow w = workflow();
         w.roles("Manager", "Receptionist");
         String like = search == null || search.isBlank() ? null : "%" + search.trim() + "%";
-        return w.query("SELECT " + COLUMNS + " FROM Voucher v LEFT JOIN Staff st ON st.staff_id=v.created_by_staff_id WHERE (? IS NULL OR v.voucher_code LIKE ? OR v.voucher_name LIKE ?) AND (? IS NULL OR v.status=?) ORDER BY v.start_date DESC",
+        return w.query("SELECT " + COLUMNS + " FROM Voucher v LEFT JOIN Staff st ON st.staff_id=v.created_by_staff_id WHERE v.deleted_at IS NULL AND (? IS NULL OR v.voucher_code LIKE ? OR v.voucher_name LIKE ?) AND (? IS NULL OR v.status=?) ORDER BY v.start_date DESC",
                 like, like, like, status, status);
     }
 
@@ -32,16 +32,16 @@ public class VoucherDAO extends DBContext implements AutoCloseable {
         public BigDecimal discountValue, minOrderAmount, maxDiscount;
         public Integer maxUses;
         void validate() {
-            if (voucherCode == null || !voucherCode.trim().matches("[A-Za-z0-9_-]{3,50}")) throw new IllegalArgumentException("Mã voucher 3-50 ký tự chữ, số, - hoặc _.");
-            if (voucherName == null || voucherName.isBlank() || voucherName.length() > 100) throw new IllegalArgumentException("Tên voucher không hợp lệ.");
-            if (!"Percent".equals(discountType) && !"Amount".equals(discountType)) throw new IllegalArgumentException("Loại giảm phải là Percent hoặc Amount.");
+            if (voucherCode == null || !voucherCode.trim().matches("[A-Za-z0-9_-]{3,50}")) throw new IllegalArgumentException("Voucher code must be 3-50 letters, digits, - or _.");
+            if (voucherName == null || voucherName.isBlank() || voucherName.length() > 100) throw new IllegalArgumentException("Invalid voucher name.");
+            if (!"Percent".equals(discountType) && !"Amount".equals(discountType)) throw new IllegalArgumentException("Discount type must be Percent or Amount.");
             if (discountValue == null || discountValue.signum() <= 0 || ("Percent".equals(discountType) && discountValue.compareTo(BigDecimal.valueOf(100)) > 0))
-                throw new IllegalArgumentException("Giá trị giảm không hợp lệ.");
+                throw new IllegalArgumentException("Invalid discount value.");
             if (minOrderAmount == null) minOrderAmount = BigDecimal.ZERO;
-            if (minOrderAmount.signum() < 0 || (maxDiscount != null && maxDiscount.signum() <= 0)) throw new IllegalArgumentException("Đơn tối thiểu/giảm tối đa không hợp lệ.");
-            if (maxUses == null || maxUses <= 0) throw new IllegalArgumentException("Số lượt sử dụng phải lớn hơn 0.");
+            if (minOrderAmount.signum() < 0 || (maxDiscount != null && maxDiscount.signum() <= 0)) throw new IllegalArgumentException("Invalid minimum order / maximum discount.");
+            if (maxUses == null || maxUses <= 0) throw new IllegalArgumentException("Max uses must be greater than 0.");
             if (startDate == null || endDate == null || !at(endDate, true).after(at(startDate, false)))
-                throw new IllegalArgumentException("Ngày kết thúc phải sau ngày bắt đầu.");
+                throw new IllegalArgumentException("The end date must be after the start date.");
             voucherCode = voucherCode.trim().toUpperCase();
         }
     }
@@ -60,8 +60,8 @@ public class VoucherDAO extends DBContext implements AutoCloseable {
         w.roles("Manager");
         d.validate();
         if (at(d.endDate, true).toLocalDateTime().isBefore(java.time.LocalDateTime.now(bssms_persistence.common.BookingWorkflow.ZONE)))
-            throw new IllegalArgumentException("Ngày kết thúc đã qua: voucher mới phải còn hạn sử dụng.");
-        if (isVoucherCodeExists(d.voucherCode, null)) throw new WorkflowException(409, "Mã voucher đã tồn tại!");
+            throw new IllegalArgumentException("The end date has passed: a new voucher must still be valid.");
+        if (isVoucherCodeExists(d.voucherCode, null)) throw new WorkflowException(409, "Voucher code already exists!");
         return w.insert("INSERT INTO Voucher(voucher_code,voucher_name,discount_type,discount_value,min_order_amount,max_discount,max_uses,used_count,start_date,end_date,status,created_by_staff_id) VALUES(?,?,?,?,?,?,?,0,?,?,'Active',?)",
                 d.voucherCode, d.voucherName.trim(), d.discountType, d.discountValue, d.minOrderAmount, d.maxDiscount, d.maxUses, at(d.startDate, false), at(d.endDate, true), w.staffId());
     }
@@ -72,19 +72,22 @@ public class VoucherDAO extends DBContext implements AutoCloseable {
         d.validate();
         Map<String, Object> current = w.one("SELECT voucher_code,used_count FROM Voucher WHERE voucher_id=?", voucherId);
         int used = ((Number) current.get("usedCount")).intValue();
-        if (used > 0 && !d.voucherCode.equals(current.get("voucherCode"))) throw new WorkflowException(409, "Không đổi mã của voucher đã được sử dụng.");
-        if (d.maxUses < used) throw new WorkflowException(409, "Số lượt không được thấp hơn số lượt đã dùng (" + used + ").");
-        if (isVoucherCodeExists(d.voucherCode, voucherId)) throw new WorkflowException(409, "Mã voucher đã tồn tại!");
+        if (used > 0 && !d.voucherCode.equals(current.get("voucherCode"))) throw new WorkflowException(409, "The code of a voucher that has been used cannot be changed.");
+        if (d.maxUses < used) throw new WorkflowException(409, "Max uses cannot be lower than the number already used (" + used + ").");
+        if (isVoucherCodeExists(d.voucherCode, voucherId)) throw new WorkflowException(409, "Voucher code already exists!");
         return w.update("UPDATE Voucher SET voucher_code=?,voucher_name=?,discount_type=?,discount_value=?,min_order_amount=?,max_discount=?,max_uses=?,start_date=?,end_date=? WHERE voucher_id=?",
                 d.voucherCode, d.voucherName.trim(), d.discountType, d.discountValue, d.minOrderAmount, d.maxDiscount, d.maxUses, at(d.startDate, false), at(d.endDate, true), voucherId) == 1;
     }
 
     public boolean setVoucherStatus(int voucherId, String status) throws SQLException {
         workflow().roles("Manager");
-        if (!"Active".equals(status) && !"Inactive".equals(status)) throw new IllegalArgumentException("Trạng thái phải là Active hoặc Inactive.");
+        if (!"Active".equals(status) && !"Inactive".equals(status)) throw new IllegalArgumentException("Status must be Active or Inactive.");
         return workflow().update("UPDATE Voucher SET status=? WHERE voucher_id=?", status, voucherId) == 1;
     }
-    public boolean deleteVoucher(int voucherId) throws SQLException { return setVoucherStatus(voucherId, "Inactive"); }
+    public boolean deleteVoucher(int voucherId) throws SQLException {
+        workflow().roles("Manager");
+        return workflow().update("UPDATE Voucher SET status='Inactive',deleted_at=SYSDATETIME() WHERE voucher_id=? AND deleted_at IS NULL", voucherId) == 1;
+    }
 
     public boolean isVoucherCodeExists(String voucherCode, Integer excludeVoucherId) throws SQLException {
         return !workflow().query("SELECT voucher_id FROM Voucher WHERE voucher_code=? AND voucher_id<>?", voucherCode, excludeVoucherId == null ? -1 : excludeVoucherId).isEmpty();

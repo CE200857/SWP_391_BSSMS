@@ -48,7 +48,7 @@ public class ProfileController extends ControllerSupport {
         try {
             SessionState currentSession=request.session(false);
             if(currentSession==null || SessionUsers.from(currentSession.get("user")) == null) {
-                response.error(401,"Vui lòng đăng nhập để xem hồ sơ."); return;
+                response.error(401,"Please log in to view your profile."); return;
             }
             Account currentUser = SessionUsers.from(currentSession.get("user"));
             int accountId=extractAccountId(currentUser);
@@ -63,14 +63,14 @@ public class ProfileController extends ControllerSupport {
                 out.print(gson.toJson(profile));
             } else {
                 response.status(404);
-                out.print("{\"message\": \"Không tìm thấy hồ sơ!\"}");
+                out.print("{\"message\": \"Profile not found!\"}");
             }
             out.flush();
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
             response.status(400);
-            response.writer().print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+            response.writer().print("{\"message\": \"Invalid input data!\"}");
         }
     }
 
@@ -82,7 +82,7 @@ public class ProfileController extends ControllerSupport {
 
         if (session == null || SessionUsers.from(session.get("user")) == null) {
             response.status(401);
-            out.print("{\"message\": \"Phiên làm việc không hợp lệ! Vui lòng đăng nhập lại.\"}");
+            out.print("{\"message\": \"Invalid session! Please log in again.\"}");
             out.flush();
             return;
         }
@@ -101,13 +101,13 @@ public class ProfileController extends ControllerSupport {
 
                 if (newPassword == null || newPassword.length() < 6) {
                     response.status(400);
-                    out.print("{\"message\": \"Mật khẩu mới phải có ít nhất 6 ký tự!\"}");
+                    out.print("{\"message\": \"The new password must have at least 6 characters!\"}");
                     out.flush();
                     return;
                 }
                 if (oldPassword.equals(newPassword)) {
                     response.status(400);
-                    out.print("{\"message\": \"Mật khẩu mới không được trùng với mật khẩu hiện tại!\"}");
+                    out.print("{\"message\": \"The new password must be different from the current password!\"}");
                     out.flush();
                     return;
                 }
@@ -121,10 +121,10 @@ public class ProfileController extends ControllerSupport {
 
                 if (isChanged) {
                     response.status(200);
-                    out.print("{\"message\": \"Đổi mật khẩu thành công!\"}");
+                    out.print("{\"message\": \"Password changed successfully!\"}");
                 } else {
                     response.status(400);
-                    out.print("{\"message\": \"Mật khẩu hiện tại không chính xác!\"}");
+                    out.print("{\"message\": \"The current password is incorrect!\"}");
                 }
                 out.flush();
                 return;
@@ -137,7 +137,7 @@ public class ProfileController extends ControllerSupport {
             if (uri.endsWith("/update-profile") && "send-email-code".equals(action)) {
                 if (!"Customer".equals(role)) {
                     response.status(403);
-                    out.print("{\"message\": \"Chỉ khách hàng mới được phép đổi email tại đây!\"}");
+                    out.print("{\"message\": \"Only customers can change their email here!\"}");
                     out.flush();
                     return;
                 }
@@ -145,7 +145,7 @@ public class ProfileController extends ControllerSupport {
                 String newEmail = jsonObject.has("email") ? jsonObject.get("email").getAsString().trim() : "";
                 if (!newEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                     response.status(400);
-                    out.print("{\"message\": \"Email mới không đúng định dạng!\"}");
+                    out.print("{\"message\": \"Invalid new email format!\"}");
                     out.flush();
                     return;
                 }
@@ -153,7 +153,7 @@ public class ProfileController extends ControllerSupport {
                 String duplicateField = dao.checkDuplicate(null, newEmail, null, accountId);
                 if (duplicateField != null) {
                     response.status(409);
-                    out.print("{\"message\": \"" + duplicateField + " này đã được tài khoản khác sử dụng!\"}");
+                    out.print("{\"message\": \"" + duplicateField + " is already used by another account!\"}");
                     out.flush();
                     return;
                 }
@@ -161,14 +161,14 @@ public class ProfileController extends ControllerSupport {
                 String otp = EmailUtil.generateOTP();
                 if (!authDao.saveEmailChangeCode(bssms_common.LoginIdentity.customerId(accountId), newEmail, otp)) {
                     response.status(500);
-                    out.print("{\"message\": \"Không thể tạo mã xác thực. Vui lòng thử lại!\"}");
+                    out.print("{\"message\": \"Could not create a verification code. Please try again!\"}");
                     out.flush();
                     return;
                 }
 
-                EmailUtil.sendOTP(newEmail, otp, "[BSSMS] Mã xác thực thay đổi Email");
+                EmailUtil.sendOTP(newEmail, otp, "[BSSMS] Email change verification code");
                 response.status(200);
-                out.print("{\"message\": \"Mã xác thực đã được gửi tới Email mới của bạn!\"}");
+                out.print("{\"message\": \"A verification code has been sent to your new email!\"}");
                 out.flush();
                 return;
             }
@@ -178,13 +178,13 @@ public class ProfileController extends ControllerSupport {
 
             if (fullName.split("\\s+").length < 2) {
                 response.status(400);
-                out.print("{\"message\": \"Họ và tên bắt buộc phải có từ 2 từ trở lên!\"}");
+                out.print("{\"message\": \"Full name must have at least 2 words!\"}");
                 out.flush();
                 return;
             }
             if (!phone.matches("^0[1-9]\\d{8}$")) {
                 response.status(400);
-                out.print("{\"message\": \"Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0, số thứ hai khác 0)!\"}");
+                out.print("{\"message\": \"Invalid phone number (10 digits, starting with 0, second digit not 0)!\"}");
                 out.flush();
                 return;
             }
@@ -195,7 +195,7 @@ public class ProfileController extends ControllerSupport {
                 String username = jsonObject.has("username") ? jsonObject.get("username").getAsString().trim() : "";
                 if (username.length() < 3 || username.contains(" ")) {
                     response.status(400);
-                    out.print("{\"message\": \"Tên đăng nhập phải có ít nhất 3 ký tự và không chứa khoảng trắng!\"}");
+                    out.print("{\"message\": \"The username must have at least 3 characters and no spaces!\"}");
                     out.flush();
                     return;
                 }
@@ -209,7 +209,7 @@ public class ProfileController extends ControllerSupport {
                 if (isEmailChanged) {
                     if (!newEmail.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                         response.status(400);
-                        out.print("{\"message\": \"Email mới không đúng định dạng!\"}");
+                        out.print("{\"message\": \"Invalid new email format!\"}");
                         out.flush();
                         return;
                     }
@@ -223,7 +223,7 @@ public class ProfileController extends ControllerSupport {
                 );
                 if (duplicateField != null) {
                     response.status(409);
-                    out.print("{\"message\": \"" + duplicateField + " này đã được người khác sử dụng!\"}");
+                    out.print("{\"message\": \"" + duplicateField + " is already used by someone else!\"}");
                     out.flush();
                     return;
                 }
@@ -234,7 +234,7 @@ public class ProfileController extends ControllerSupport {
                             : "";
                     if (verificationCode.isEmpty() || !authDao.verifyEmailChangeCode(bssms_common.LoginIdentity.customerId(accountId), newEmail, verificationCode)) {
                         response.status(400);
-                        out.print("{\"message\": \"Mã xác thực Email không chính xác hoặc đã hết hạn!\"}");
+                        out.print("{\"message\": \"The email verification code is incorrect or has expired!\"}");
                         out.flush();
                         return;
                     }
@@ -243,6 +243,7 @@ public class ProfileController extends ControllerSupport {
                 boolean isUpdated;
                 if ("Customer".equals(role)) {
                     String dob = jsonObject.get("dob").getAsString();
+                    { String dobError = bssms_controller.common.InputValidation.birthDateError(dob); if (dobError != null) { response.error(400, dobError); return; } }
                     String gender = jsonObject.get("gender").getAsString();
                     String address = jsonObject.get("address").getAsString();
                     isUpdated = dao.updateCustomerProfile(accountId, standardizedName, dob, gender, phone, address, username, newEmail);
@@ -262,20 +263,21 @@ public class ProfileController extends ControllerSupport {
                     out.print(gson.toJson(user));
                 } else {
                     response.status(500);
-                    out.print("{\"message\": \"Không thể lưu thông tin. Vui lòng thử lại!\"}");
+                    out.print("{\"message\": \"Could not save the information. Please try again!\"}");
                 }
                 out.flush();
                 return;
             }
 
             String dob = jsonObject.get("dob").getAsString();
+            { String dobError = bssms_controller.common.InputValidation.birthDateError(dob); if (dobError != null) { response.error(400, dobError); return; } }
             String gender = jsonObject.get("gender").getAsString();
             String address = jsonObject.get("address").getAsString();
 
             String duplicateField = dao.checkDuplicate(null, null, phone, accountId);
             if (duplicateField != null) {
                 response.status(409);
-                out.print("{\"message\": \"" + duplicateField + " này đã được sử dụng bởi tài khoản khác!\"}");
+                out.print("{\"message\": \"" + duplicateField + " is already used by another account!\"}");
                 out.flush();
                 return;
             }
@@ -289,13 +291,13 @@ public class ProfileController extends ControllerSupport {
                 out.print(gson.toJson(user));
             } else {
                 response.status(500);
-                out.print("{\"message\": \"Không thể lưu thông tin. Vui lòng thử lại!\"}");
+                out.print("{\"message\": \"Could not save the information. Please try again!\"}");
             }
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
             response.status(400);
-            out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+            out.print("{\"message\": \"Invalid input data!\"}");
             
         }
         out.flush();

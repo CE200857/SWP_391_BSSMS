@@ -14,15 +14,17 @@ import java.util.Map;
 public class MembershipTierServlet extends BaseApiServlet {
 
     private static void allow(Account user, String... roles) {
-        if (user == null) throw new ControllerException(401, "Vui lòng đăng nhập lại.");
+        if (user == null) throw new ControllerException(401, "Please log in again.");
         for (String r : roles) if (r.equals(user.getRole())) return;
-        throw new ControllerException(403, "Bạn không có quyền thực hiện thao tác này.");
+        throw new ControllerException(403, "You do not have permission to perform this action.");
     }
 
     @Override protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         handle(request, response, 200, () -> {
             Account user = user(request);
-            allow(user, "Customer", "Receptionist", "Manager");
+            // Danh sách hạng (không tham số) là thông tin công khai, dùng ở trang chi tiết dịch vụ
+            if (request.getParameter("mine") != null || request.getParameter("customerId") != null)
+                allow(user, "Customer", "Receptionist", "Manager");
             try (MembershipTierDAO dao = new MembershipTierDAO()) {
                 Integer customerId = null;
                 if ("1".equals(request.getParameter("mine"))) {
@@ -34,7 +36,7 @@ public class MembershipTierServlet extends BaseApiServlet {
                 }
                 if (customerId == null) return dao.getAllMembershipTiers();
                 Map<String, Object> result = dao.getCustomerMembership(customerId);
-                if (result == null) throw new ControllerException(404, "Không tìm thấy khách hàng.");
+                if (result == null) throw new ControllerException(404, "Customer not found.");
                 return result;
             }
         });
@@ -47,21 +49,21 @@ public class MembershipTierServlet extends BaseApiServlet {
             DescriptionInput input = body(request, DescriptionInput.class);
             String description = input == null || input.description == null ? null : input.description.trim();
             if (description != null && description.length() > 500)
-                throw new IllegalArgumentException("Mô tả quyền lợi tối đa 500 ký tự.");
+                throw new IllegalArgumentException("The benefit description can be at most 500 characters.");
             try (MembershipTierDAO dao = new MembershipTierDAO()) {
                 if (!dao.updateDescription(tierId, description == null || description.isEmpty() ? null : description))
-                    throw new ControllerException(404, "Không tìm thấy hạng thành viên.");
-                return message("Đã cập nhật mô tả quyền lợi.");
+                    throw new ControllerException(404, "Membership tier not found.");
+                return message("Benefit description updated.");
             }
         });
     }
 
     @Override protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        handle(request, response, 405, () -> { throw new ControllerException(405, "Hạng thành viên cố định theo BR-15, không thể thêm mới."); });
+        handle(request, response, 405, () -> { throw new ControllerException(405, "Membership tiers are fixed and cannot be added."); });
     }
 
     @Override protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        handle(request, response, 405, () -> { throw new ControllerException(405, "Hạng thành viên cố định theo BR-15, không thể xóa."); });
+        handle(request, response, 405, () -> { throw new ControllerException(405, "Membership tiers are fixed and cannot be deleted."); });
     }
 
     public static class DescriptionInput { public String description; }

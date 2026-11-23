@@ -13,6 +13,7 @@ import {
   Alert,
 } from "react-bootstrap";
 import servicePhoto04 from "../../../assets/figma/service-card-exact-04.png";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 const MyFeedbackList = () => {
   const [feedbacks, setFeedbacks] = useState([]);
@@ -48,12 +49,12 @@ const MyFeedbackList = () => {
           const data = await response.json();
           if (!cancelled) setFeedbacks(Array.isArray(data) ? data : []);
         } else if (!cancelled) {
-          setLoadError("Không tải được danh sách đánh giá.");
+          setLoadError("Could not load the review list.");
         }
       } catch (err) {
         if (!cancelled) {
-          console.error("Lỗi tải feedback:", err);
-          setLoadError("Lỗi kết nối đến máy chủ!");
+          console.error("Error loading feedback:", err);
+          setLoadError("Cannot connect to the server.");
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -67,7 +68,7 @@ const MyFeedbackList = () => {
     };
   }, [user]);
 
-  const getServiceLabel = (fb) => fb.serviceName || `Dịch vụ #${fb.serviceId}`;
+  const getServiceLabel = (fb) => fb.serviceName || `Service #${fb.serviceId}`;
   const getVisitDate = (fb) => formatDateTime(fb.appointmentDate, fb.startTime);
 
   const handleShowDelete = (fb) => {
@@ -98,14 +99,14 @@ const MyFeedbackList = () => {
             setFeedbacks(Array.isArray(data) ? data : []);
           }
         } catch (err) {
-          console.error("Lỗi reload sau khi xóa:", err);
+          console.error("Error reloading after delete:", err);
         }
       } else {
-        alert("Không thể xóa đánh giá này.");
+        alert("This review cannot be deleted.");
       }
     } catch (err) {
-      console.error("Lỗi xóa:", err);
-      alert("Lỗi kết nối đến máy chủ!");
+      console.error("Delete error:", err);
+      alert("Cannot connect to the server.");
     } finally {
       handleCloseDelete();
     }
@@ -171,7 +172,7 @@ const MyFeedbackList = () => {
     return (
       <Container className="mt-4 px-4">
         <Alert variant="warning">
-          Bạn cần đăng nhập để xem đánh giá của mình.
+          You need to log in to see your reviews.
         </Alert>
       </Container>
     );
@@ -181,10 +182,10 @@ const MyFeedbackList = () => {
     return (
       <Container className="mt-4 px-4">
         <Alert variant="warning">
-          Trang này chỉ dành cho khách hàng. Vui lòng truy cập trang quản lý đánh giá dành cho nhân viên.
+          This page is for customers only. Please use the review management page for staff.
         </Alert>
         <Link to="/feedback" className="btn btn-secondary">
-          Xem tất cả đánh giá
+          View all reviews
         </Link>
       </Container>
     );
@@ -194,27 +195,27 @@ const MyFeedbackList = () => {
     <div className="public-service-page customer-my-feedback-page">
       <section className="public-service-hero customer-my-feedback-hero">
         <div className="public-service-hero-copy">
-          <span className="seoul-eyebrow">CHIA SẺ · TRẢI NGHIỆM</span>
-          <h1>Đánh giá của tôi</h1>
+          <span className="seoul-eyebrow">SHARE · EXPERIENCE</span>
+          <h1>My reviews</h1>
           <p>
-            Theo dõi những đánh giá bạn đã gửi và chia sẻ thêm cảm nhận sau mỗi
-            lần trải nghiệm dịch vụ.
+            See the reviews you have posted and share more after each
+            service experiences.
           </p>
           <span className="public-service-hero-note">
-            <i className="bi bi-chat-heart" aria-hidden="true" /> Mỗi chia sẻ giúp Seoul Center chăm sóc tốt hơn
+            <i className="bi bi-chat-heart" aria-hidden="true" /> Every review helps Seoul Center care better
           </span>
         </div>
-        <img src={servicePhoto04} alt="Chăm sóc tại Seoul Center" />
+        <img src={servicePhoto04} alt="Care at Seoul Center" />
       </section>
 
       <section className="public-service-content customer-my-feedback-content">
       <div className="public-service-list-heading customer-my-feedback-heading">
         <div>
-          <h2>Những đánh giá của bạn</h2>
-          <span className="public-service-count">{filteredFeedbacks.length} đánh giá</span>
+          <h2>Your reviews</h2>
+          <span className="public-service-count">{filteredFeedbacks.length} reviews</span>
         </div>
         <Link to="/feedback/new" className="btn btn-danger">
-          <i className="bi bi-plus-circle me-1"></i> Tạo đánh giá mới
+          <i className="bi bi-plus-circle me-1"></i> Write a review
         </Link>
       </div>
 
@@ -226,7 +227,7 @@ const MyFeedbackList = () => {
                 <i className="bi bi-search"></i>
               </InputGroup.Text>
               <Form.Control
-                placeholder="Tìm theo nội dung hoặc dịch vụ..."
+                placeholder="Search by content or service..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -237,7 +238,7 @@ const MyFeedbackList = () => {
               value={ratingFilter}
               onChange={(e) => setRatingFilter(e.target.value)}
             >
-              <option value="all">Tất cả số sao</option>
+              <option value="all">All ratings</option>
               <option value="5">5 sao</option>
               <option value="4">4 sao</option>
               <option value="3">3 sao</option>
@@ -246,32 +247,32 @@ const MyFeedbackList = () => {
             </Form.Select>
 
             <Badge bg="secondary" className="px-3 py-2">
-              Tổng: {feedbacks.length}
+              Total: {feedbacks.length}
             </Badge>
           </div>
         </Card.Body>
       </Card>
 
-      {loadError && <Alert variant="danger">{loadError}</Alert>}
+      <FloatingAlert message={loadError} onClose={() => setLoadError("")} />
 
       <Card className="shadow-sm border-0 customer-my-feedback-table-card">
         <Card.Body className="p-0">
           {isLoading ? (
             <div className="text-center py-5">
               <Spinner animation="border" variant="danger" />
-              <p className="mt-3 text-muted">Đang tải đánh giá...</p>
+              <p className="mt-3 text-muted">Loading reviews...</p>
             </div>
           ) : (
             <Table striped bordered hover responsive className="align-middle mb-0 customer-my-feedback-table">
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Dịch vụ</th>
-                  <th>Ngày sử dụng</th>
-                  <th>Đánh giá</th>
-                  <th>Nội dung</th>
-                  <th>Ngày đánh giá</th>
-                  <th style={{ minWidth: "180px" }}>Hành động</th>
+                  <th>Service</th>
+                  <th>Usage date</th>
+                  <th>Review</th>
+                  <th>Content</th>
+                  <th>Review date</th>
+                  <th style={{ minWidth: "180px" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -283,7 +284,7 @@ const MyFeedbackList = () => {
                         <Link
                           to={`/services/detail/${fb.serviceId}`}
                           className="text-decoration-none"
-                          title="Xem dịch vụ"
+                          title="View services"
                         >
                           <span className="fw-semibold customer-my-feedback-service">
                             <i className="bi bi-stars me-1"></i>
@@ -310,16 +311,16 @@ const MyFeedbackList = () => {
                       <td>
                         <Link
                           to={`/feedback/edit/${fb.feedbackId}`}
-                          className="btn btn-warning btn-sm me-2 text-white"
+                          className="btn btn-outline-primary btn-sm me-2"
                         >
-                          <i className="bi bi-pencil-square"></i> Sửa
+                          <i className="bi bi-pencil-square" aria-hidden="true"></i> Edit
                         </Link>
                         <Button
                           variant="danger"
                           size="sm"
                           onClick={() => handleShowDelete(fb)}
                         >
-                          <i className="bi bi-trash"></i> Xóa
+                          <i className="bi bi-trash"></i> Delete
                         </Button>
                       </td>
                     </tr>
@@ -328,8 +329,8 @@ const MyFeedbackList = () => {
                   <tr>
                     <td colSpan="7" className="text-center text-muted py-4">
                       {feedbacks.length === 0
-                        ? "Bạn chưa có đánh giá nào. Hãy tạo đánh giá mới!"
-                        : "Không tìm thấy đánh giá phù hợp."}
+                        ? "You haven’t posted any reviews yet."
+                        : "No matching reviews."}
                     </td>
                   </tr>
                 )}
@@ -343,22 +344,22 @@ const MyFeedbackList = () => {
         <Modal.Header closeButton>
           <Modal.Title className="text-danger fw-bold">
             <i className="bi bi-exclamation-triangle-fill me-2"></i>
-            Xác nhận xóa đánh giá
+            Confirm review deletion
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có chắc chắn muốn xóa đánh giá cho dịch vụ{" "}
+          Are you sure you want to delete the review for service{" "}
           <span className="fw-bold text-primary">
             {selectedFeedback && getServiceLabel(selectedFeedback)}
           </span>{" "}
-          không? Hành động này không thể hoàn tác.
+          ? This action cannot be undone.
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseDelete}>
-            Hủy bỏ
+            Cancel
           </Button>
           <Button variant="danger" onClick={confirmDelete}>
-            Xóa đánh giá
+            Delete review
           </Button>
         </Modal.Footer>
       </Modal>

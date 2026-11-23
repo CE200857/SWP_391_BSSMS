@@ -15,7 +15,7 @@ import java.nio.file.Files;
 public class TreatmentPhotoServlet extends BaseApiServlet {
     private Account requireUser(HttpServletRequest request) {
         Account user = user(request);
-        if (user == null || user.getAccountId() == null) throw new WorkflowException(401, "Vui lòng đăng nhập lại.");
+        if (user == null || user.getAccountId() == null) throw new WorkflowException(401, "Please log in again.");
         return user;
     }
 
@@ -23,7 +23,7 @@ public class TreatmentPhotoServlet extends BaseApiServlet {
         handle(request, response, 201, () -> {
             Account user = requireUser(request);
             String path = request.getPathInfo();
-            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã dòng dịch vụ.");
+            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Missing service line ID.");
             int appointmentId = Integer.parseInt(path.substring(1));
             JsonObject body = body(request, JsonObject.class);
             try (TreatmentPhotoDAO dao = new TreatmentPhotoDAO()) {
@@ -38,7 +38,7 @@ public class TreatmentPhotoServlet extends BaseApiServlet {
         handle(request, response, 200, () -> {
             Account user = requireUser(request);
             String path = request.getPathInfo();
-            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã ảnh.");
+            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Missing photo ID.");
             try (TreatmentPhotoDAO dao = new TreatmentPhotoDAO()) {
                 dao.setActorAccountId(user.getAccountId());
                 return dao.delete(Integer.parseInt(path.substring(1)));
@@ -51,7 +51,7 @@ public class TreatmentPhotoServlet extends BaseApiServlet {
         if (path != null && path.matches("/file/[0-9]+")) { streamFile(request, response, Integer.parseInt(path.substring(6))); return; }
         handle(request, response, 200, () -> {
             Account user = requireUser(request);
-            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã dòng dịch vụ.");
+            if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Missing service line ID.");
             try (TreatmentPhotoDAO dao = new TreatmentPhotoDAO()) {
                 dao.setActorAccountId(user.getAccountId());
                 return dao.list(Integer.parseInt(path.substring(1)));

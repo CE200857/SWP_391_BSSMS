@@ -41,7 +41,7 @@ public class RoomBedStatusController extends ControllerSupport {
         String[] parts = pathInfo.split("/");
         if (parts.length < 3) {
             resp.status(400);
-            out.print("{\"message\":\"URL khong hop le. Dung cu phap: /api/room-bed-status/room/{id} hoac /api/room-bed-status/bed/{id}\"}");
+            out.print("{\"message\":\"Invalid URL. Use: /api/room-bed-status/room/{id} or /api/room-bed-status/bed/{id}\"}");
             out.flush();
             return;
         }
@@ -58,7 +58,7 @@ public class RoomBedStatusController extends ControllerSupport {
 
             if (newStatus == null || newStatus.trim().isEmpty()) {
                 resp.status(400);
-                out.print("{\"message\":\"Trang thai moi khong duoc de trong\"}");
+                out.print("{\"message\":\"The new status must not be empty\"}");
                 out.flush();
                 return;
             }
@@ -70,26 +70,26 @@ public class RoomBedStatusController extends ControllerSupport {
                 success = dao.updateBedStatus(id, newStatus);
             } else {
                 resp.status(400);
-                out.print("{\"message\":\"Loai (room/bed) khong hop le\"}");
+                out.print("{\"message\":\"Invalid type (room/bed)\"}");
                 out.flush();
                 return;
             }
 
             if (success) {
                 resp.status(200);
-                out.print("{\"message\":\"Cap nhat trang thai " + type + " thanh cong\"}");
+                out.print("{\"message\":\"" + type + " status updated successfully\"}");
             } else {
                 resp.status(404);
-                out.print("{\"message\":\"Khong tim thay " + type + " de cap nhat\"}");
+                out.print("{\"message\":\"" + type + " to update was not found\"}");
             }
         } catch (NumberFormatException e) {
             resp.status(400);
-            out.print("{\"message\":\"ID khong hop le\"}");
+            out.print("{\"message\":\"Invalid ID\"}");
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
             resp.status(500);
-            out.print(gson.toJson(java.util.Map.of("message", "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu.")));
+            out.print(gson.toJson(java.util.Map.of("message", "The action could not be completed. Please check the data.")));
         }
         out.flush();
     }

@@ -30,7 +30,7 @@ public class ServiceDAO extends DBContext implements AutoCloseable {
     public List<Service> getAllServices() throws SQLException {
         requireConnection();
         List<Service> services = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM Service");
+        try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM Service WHERE deleted_at IS NULL");
                 ResultSet rs = ps.executeQuery()) {
             while (rs.next()) services.add(readService(rs));
         }
@@ -59,7 +59,7 @@ public class ServiceDAO extends DBContext implements AutoCloseable {
     }
 
     public static double proposedTours(int duration) {
-        return Math.max(1, (int) Math.ceil(duration / 60.0));
+        return Math.min(3, Math.max(1, (int) Math.ceil(duration / 60.0)));
     }
 
     public void saveTechnicians(int serviceId, java.util.List<Integer> technicianIds) throws SQLException {
@@ -107,7 +107,7 @@ public class ServiceDAO extends DBContext implements AutoCloseable {
 
     public int deleteService(int id) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE Service SET status='Inactive' WHERE service_id=?")) {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE Service SET status='Inactive',deleted_at=SYSDATETIME() WHERE service_id=? AND deleted_at IS NULL")) {
             ps.setInt(1, id);
             return ps.executeUpdate();
         }

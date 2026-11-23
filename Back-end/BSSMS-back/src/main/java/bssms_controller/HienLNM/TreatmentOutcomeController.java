@@ -9,7 +9,7 @@ public class TreatmentOutcomeController extends ControllerSupport {
 
     private int id(ActionRequest req) {
         String path = req.pathInfo();
-        if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã dòng dịch vụ.");
+        if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Missing service line ID.");
         return Integer.parseInt(path.substring(1));
     }
 
@@ -24,6 +24,6 @@ public class TreatmentOutcomeController extends ControllerSupport {
         String notes = data.has("notes") && !data.get("notes").isJsonNull() ? data.get("notes").getAsString() : null;
         String skin = data.has("skinReaction") && !data.get("skinReaction").isJsonNull() ? data.get("skinReaction").getAsString() : null;
         use(new TreatmentOutcomeDAO()).recordOutcome(id(req), notes, skin);
-        resp.writer().print("{\"message\":\"Đã lưu kết quả điều trị.\"}");
+        resp.writer().print("{\"message\":\"Treatment notes saved.\"}");
     }
 }

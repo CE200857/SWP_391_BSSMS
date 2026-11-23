@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Container, Card, Form, Button, Row, Col, Alert, Badge, Modal, Spinner } from "react-bootstrap";
+import { Container, Card, Form, Button, Row, Col, Badge, Modal, Spinner } from "react-bootstrap";
 import axios from "axios";
 import "./StaffAdmin.css";
+import FloatingAlert from "../../../../components/FloatingAlert";
 
 const roleLabels = {
-  Manager: "Quản lý",
-  Receptionist: "Lễ tân",
-  Technician: "Kỹ thuật viên",
+  Manager: "Manager",
+  Receptionist: "Receptionist",
+  Technician: "Technician",
 };
 
 const EditStaffProfile = () => {
@@ -69,11 +70,11 @@ const EditStaffProfile = () => {
             password: "",
           });
         } else {
-          setError("Không tìm thấy thông tin nhân viên này.");
+          setError("This staff member’s information was not found.");
         }
       } catch (fetchError) {
-        console.error("Lỗi tải hồ sơ nhân viên:", fetchError);
-        setError("Không thể tải hồ sơ nhân viên. Vui lòng kiểm tra kết nối và thử lại.");
+        console.error("Error loading staff profile:", fetchError);
+        setError("Could not load the staff profile. Please check your connection and try again.");
       } finally {
         setIsFetching(false);
       }
@@ -93,29 +94,29 @@ const EditStaffProfile = () => {
 
     const nameWords = formData.fullName.trim().split(/\s+/);
     if (nameWords.length < 2) {
-      setError("Họ và tên bắt buộc phải có từ 2 từ trở lên!");
+      setError("Please enter your full name (first and last name).");
       return;
     }
 
     const phoneRegex = /^0[1-9]\d{8}$/;
     if (!phoneRegex.test(formData.phone)) {
-      setError("Số điện thoại không hợp lệ (Phải gồm 10 chữ số và bắt đầu bằng số 0)!");
+      setError("Invalid phone number (must have 10 digits and start with 0)!");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError("Email không đúng định dạng!");
+      setError("Invalid email format!");
       return;
     }
 
     if (formData.username.trim().length < 3 || formData.username.includes(" ")) {
-      setError("Tên đăng nhập phải có ít nhất 3 ký tự và không chứa khoảng trắng!");
+      setError("The username must have at least 3 characters and no spaces!");
       return;
     }
 
     if (formData.password && formData.password.length < 6) {
-      setError("Mật khẩu mới phải có ít nhất 6 ký tự!");
+      setError("The new password must have at least 6 characters!");
       return;
     }
 
@@ -146,11 +147,11 @@ const EditStaffProfile = () => {
         if (formData.role === "Technician") {
           await axios.post("/api/staff", { action: "save-skills", staffId: formData.staffId, serviceIds: skillIds }, { withCredentials: true });
         }
-        setMessage("Lưu thông tin nhân viên thành công!");
+        setMessage("Staff details saved.");
         setTimeout(() => navigate("/staffs"), 2000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Cập nhật thất bại. Vui lòng thử lại!");
+      setError(err.response?.data?.message || "Update failed. Please try again!");
     } finally {
       setIsLoading(false);
     }
@@ -160,16 +161,16 @@ const EditStaffProfile = () => {
     <Container fluid className="staff-admin mt-4 px-3 px-lg-4">
       <div className="staff-page-heading">
         <div>
-          <h2>Chỉnh sửa hồ sơ nhân viên</h2>
-          <p>Cập nhật thông tin tài khoản và công việc của nhân sự.</p>
+          <h2>Edit staff profile</h2>
+          <p>Update the staff member’s account and job information.</p>
         </div>
       </div>
 
-      {message && <Alert variant="success" role="status"><i className="bi bi-check-circle-fill me-2" aria-hidden="true"></i>{message}</Alert>}
-      {error && <Alert variant="danger" role="alert"><i className="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>{error}</Alert>}
+      <FloatingAlert message={message} variant="success" onClose={() => setMessage("")} />
+      <FloatingAlert message={error} onClose={() => setError("")} />
 
       {isFetching ? (
-        <div className="d-flex justify-content-center py-5" role="status" aria-label="Đang tải hồ sơ nhân viên">
+        <div className="d-flex justify-content-center py-5" role="status" aria-label="Loading staff profile">
           <Spinner animation="border" variant="danger" />
         </div>
       ) : formData.staffId ? (
@@ -182,18 +183,18 @@ const EditStaffProfile = () => {
                     <div className="staff-avatar" aria-hidden="true">
                       {formData.fullName ? formData.fullName.trim().charAt(0).toUpperCase() : "N"}
                     </div>
-                    <h3 className="staff-profile-name">{formData.fullName || "Nhân viên"}</h3>
+                    <h3 className="staff-profile-name">{formData.fullName || "Staff"}</h3>
                     <p className="staff-profile-meta">
-                      {roleLabels[formData.role] || formData.role || "Chưa cập nhật"}
+                      {roleLabels[formData.role] || formData.role || "Not provided"}
                     </p>
                     <Badge className={`staff-status-badge${formData.status === "Active" ? "" : " is-inactive"}`}>
-                      {formData.status === "Active" ? "Đang hoạt động" : "Không hoạt động"}
+                      {formData.status === "Active" ? "Active" : "Inactive"}
                     </Badge>
                     <div className="staff-profile-details">
-                      <span>Mã nhân viên</span>
+                      <span>Staff ID</span>
                       <strong>#{formData.staffId}</strong>
-                      <span className="mt-3">Tên đăng nhập</span>
-                      <strong>{formData.username || "Chưa cập nhật"}</strong>
+                      <span className="mt-3">Username</span>
+                      <strong>{formData.username || "Not provided"}</strong>
                     </div>
                   </aside>
                 </Col>
@@ -201,12 +202,12 @@ const EditStaffProfile = () => {
                 <Col md={9}>
                   <h3 className="staff-form-section-title">
                     <i className="bi bi-person-lines-fill" aria-hidden="true"></i>
-                    Thông tin cá nhân
+                    Personal information
                   </h3>
                   <Row>
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Họ và tên <span className="text-danger">*</span></Form.Label>
+                        <Form.Label>Full name <span className="text-danger">*</span></Form.Label>
                         <Form.Control type="text" name="fullName" value={formData.fullName} onChange={handleChange} autoComplete="name" required />
                       </Form.Group>
                     </Col>
@@ -218,13 +219,13 @@ const EditStaffProfile = () => {
                     </Col>
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Số điện thoại <span className="text-danger">*</span></Form.Label>
+                        <Form.Label>Phone number <span className="text-danger">*</span></Form.Label>
                         <Form.Control type="tel" name="phone" value={formData.phone} onChange={handleChange} autoComplete="tel" required />
                       </Form.Group>
                     </Col>
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Tên đăng nhập <span className="text-danger">*</span></Form.Label>
+                        <Form.Label>Username <span className="text-danger">*</span></Form.Label>
                         <Form.Control type="text" name="username" value={formData.username} onChange={handleChange} autoComplete="username" required />
                       </Form.Group>
                     </Col>
@@ -232,26 +233,26 @@ const EditStaffProfile = () => {
 
                   <h3 className="staff-form-section-title mt-3">
                     <i className="bi bi-briefcase" aria-hidden="true"></i>
-                    Thông tin công việc
+                    Job details
                   </h3>
                   <Row>
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Chức vụ <span className="text-danger">*</span></Form.Label>
+                        <Form.Label>Position <span className="text-danger">*</span></Form.Label>
                         <Form.Control value={roleLabels[formData.role] || formData.role} disabled />
-                        <Form.Text>Đổi chức vụ tại danh sách nhân viên (phân quyền).</Form.Text>
+                        <Form.Text>Change positions in the staff list (role assignment).</Form.Text>
                       </Form.Group>
                     </Col>
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Ngày vào làm</Form.Label>
+                        <Form.Label>Start date</Form.Label>
                         <Form.Control type="date" name="hireDate" value={formData.hireDate} onChange={handleChange} />
                       </Form.Group>
                     </Col>
                     {formData.role === "Technician" && (
                       <Col md={12}>
                         <Form.Group className="mb-3">
-                          <Form.Label>Kỹ năng dịch vụ</Form.Label>
+                          <Form.Label>Service skills</Form.Label>
                           <div className="d-flex flex-wrap gap-3 border rounded p-2">
                             {services.map((s) => (
                               <Form.Check key={s.serviceId} id={`edit-skill-${s.serviceId}`} label={s.serviceName}
@@ -264,27 +265,27 @@ const EditStaffProfile = () => {
                     )}
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Mật khẩu mới</Form.Label>
+                        <Form.Label>New password</Form.Label>
                         <Form.Control
                           type="password"
                           name="password"
                           value={formData.password}
                           onChange={handleChange}
-                          placeholder="Để trống nếu không muốn đổi"
+                          placeholder="Leave blank if you do not want to change it"
                           autoComplete="new-password"
                         />
-                        <Form.Text>Để trống để giữ nguyên mật khẩu hiện tại.</Form.Text>
+                        <Form.Text>Leave blank to keep the current password.</Form.Text>
                       </Form.Group>
                     </Col>
                   </Row>
 
                   <div className="staff-form-footer">
                     <Button variant="outline-secondary" onClick={() => setShowCancelModal(true)}>
-                      Hủy bỏ
+                      Cancel
                     </Button>
                     <Button variant="primary" type="submit" disabled={isLoading}>
                       <i className="bi bi-check2 me-1" aria-hidden="true"></i>
-                      {isLoading ? "Đang lưu..." : "Lưu thay đổi"}
+                      {isLoading ? "Saving..." : "Save changes"}
                     </Button>
                   </div>
                 </Col>
@@ -295,30 +296,30 @@ const EditStaffProfile = () => {
       ) : (
         <div className="staff-form-card p-4">
           <Button variant="outline-secondary" onClick={() => navigate("/staffs")}>
-            <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Trở về danh sách
+            <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Back to list
           </Button>
         </div>
       )}
 
       <Modal show={showCancelModal} onHide={() => setShowCancelModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title className="text-danger fw-bold"><i className="bi bi-exclamation-triangle-fill me-2"></i>Xác nhận hủy</Modal.Title>
+          <Modal.Title className="text-danger fw-bold"><i className="bi bi-exclamation-triangle-fill me-2"></i>Confirm cancellation</Modal.Title>
         </Modal.Header>
-        <Modal.Body>Bạn có chắc chắn muốn hủy bỏ? Các thay đổi chưa lưu sẽ bị mất.</Modal.Body>
+        <Modal.Body>Are you sure you want to cancel? Unsaved changes will be lost.</Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowCancelModal(false)}>Không</Button>
-          <Button variant="danger" onClick={() => navigate("/staffs")}>Có, quay lại</Button>
+          <Button variant="secondary" onClick={() => setShowCancelModal(false)}>No</Button>
+          <Button variant="danger" onClick={() => navigate("/staffs")}>Yes, leave</Button>
         </Modal.Footer>
       </Modal>
 
       <Modal show={showSaveModal} onHide={() => setShowSaveModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title className="text-primary fw-bold"><i className="bi bi-question-circle-fill me-2"></i>Xác nhận lưu</Modal.Title>
+          <Modal.Title className="text-primary fw-bold"><i className="bi bi-question-circle-fill me-2"></i>Save changes?</Modal.Title>
         </Modal.Header>
-        <Modal.Body>Bạn có chắc chắn muốn lưu các thay đổi thông tin của nhân viên <span className="fw-bold">{formData.fullName}</span> không?</Modal.Body>
+        <Modal.Body>Are you sure you want to save the changes to staff member <span className="fw-bold">{formData.fullName}</span> ?</Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowSaveModal(false)}>Hủy</Button>
-          <Button variant="primary" onClick={confirmSave}>Đồng ý lưu</Button>
+          <Button variant="secondary" onClick={() => setShowSaveModal(false)}>Cancel</Button>
+          <Button variant="primary" onClick={confirmSave}>Save</Button>
         </Modal.Footer>
       </Modal>
     </Container>

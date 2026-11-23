@@ -8,7 +8,7 @@ import java.io.IOException;
 @WebServlet(urlPatterns="/api/operations/*")
 public class OperationsServlet extends BaseApiServlet {
     private OperationsDAO dao(HttpServletRequest request) {
-        if(user(request)==null)throw new WorkflowException(401,"Vui lòng đăng nhập.");
+        if(user(request)==null)throw new WorkflowException(401,"Please log in.");
         OperationsDAO dao=new OperationsDAO();dao.setActorAccountId(user(request).getAccountId());return dao;
     }
     private String kind(HttpServletRequest request) {return request.getPathInfo()==null?"":request.getPathInfo().substring(1);}

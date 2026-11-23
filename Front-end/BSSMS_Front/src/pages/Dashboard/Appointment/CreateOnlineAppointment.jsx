@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Form, Button, Alert, Spinner } from "react-bootstrap";
-import BookingPaymentNotice from "../../../components/BookingPaymentNotice";
+import { Form, Button, Spinner } from "react-bootstrap";
+import FloatingAlert from "../../../components/FloatingAlert";
 import {
-  ServiceLinesEditor, SlotGrid, PlanPreview, useSlots, emptyLine, toServiceLines, estimateTotal,
+  ServiceLinesEditor, SlotGrid, useSlots, emptyLine, toServiceLines, estimateTotal,
 } from "../../../components/BookingPicker";
 import { api, post, money, today, addDays, viDate } from "../../../services/api";
-import servicePhoto from "../../../assets/figma/service-card-exact-02.png";
 
 const CreateOnlineAppointment = () => {
   const navigate = useNavigate();
@@ -34,6 +33,11 @@ const CreateOnlineAppointment = () => {
   const [result, setResult] = useState(null);
   const [packageId, setPackageId] = useState(prefill.customerPackageId ? String(prefill.customerPackageId) : "");
   const bookedPackage = packages.find((p) => String(p.customerPackageId) === packageId);
+  const [tier, setTier] = useState(null);
+
+  useEffect(() => {
+    api("/api/membership-tiers?mine=1").then(setTier).catch(() => setTier(null));
+  }, []);
 
   useEffect(() => {
     api("/api/service")
@@ -47,7 +51,7 @@ const CreateOnlineAppointment = () => {
         const pkg = list.find((p) => String(p.customerPackageId) === String(prefill.customerPackageId));
         if (!pkg || !pkg.services?.length || Number(pkg.availableSessions) <= 0) {
           setPackageId("");
-          setError("Gói liệu trình đã hết buổi, hết hạn hoặc không còn dịch vụ áp dụng. Vui lòng chọn dịch vụ khác.");
+          setError("The treatment package has no sessions left, has expired or no longer covers this service. Please choose another service.");
           return;
         }
         setLines([{ serviceId: String(pkg.services[0].serviceId), customerPackageId: String(pkg.customerPackageId) }]);
@@ -72,8 +76,14 @@ const CreateOnlineAppointment = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
-    if (!chosen.length) return setError("Vui lòng chọn ít nhất một dịch vụ.");
-    if (!startTime) return setError("Vui lòng chọn khung giờ còn trống.");
+    if (!chosen.length) {
+      document.getElementById("booking-service-0")?.focus();
+      return setError("Please choose at least one service in step 1.");
+    }
+    if (!startTime) {
+      document.getElementById("booking-time-step")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return setError("Please choose an available time in step 3.");
+    }
     setSubmitting(true);
     try {
       const data = await post("/api/booking/online", {
@@ -87,8 +97,13 @@ const CreateOnlineAppointment = () => {
       setResult({ ...data, appointmentDate, startTime, endTime: selectedSlot?.endTime });
       if (!allPackage && paymentChoice === "Online" && data.invoiceId) {
         const pay = await post("/api/payments/vnpay/create", { invoiceId: data.invoiceId });
-        if (pay?.paymentUrl) window.location.assign(pay.paymentUrl);
+        if (pay?.paymentUrl) {
+          window.location.assign(pay.paymentUrl);
+          return;
+        }
       }
+      // Booked: show the confirmation in the summary card, then open the new appointment
+      setTimeout(() => navigate(`/appointments/${data.appointmentId}`, { state: { created: true } }), 1500);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -96,233 +111,225 @@ const CreateOnlineAppointment = () => {
     }
   };
 
+  const days = Array.from({ length: 14 }, (_, i) => addDays(today(), i));
+  const dayDate = new Date(`${appointmentDate}T00:00:00`);
+  const shortDay = dayDate.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "2-digit" });
+  const longDay = dayDate.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" });
+  const technicianName = technicianId
+    ? slots.data?.technicians?.find((t) => String(t.staffId) === String(technicianId))?.fullName || "Selected technician"
+    : "Any available";
+  const tierPercent = Number(tier?.discountPercent || 0);
+  const tierDiscount = Math.round((Number(total) || 0) * tierPercent / 100);
+
   return (
-    <main className="customer-online-booking-page">
+    <div className="sc-page">
       <section className="customer-booking-banner">
         <div className="customer-booking-container">
           <div className="customer-breadcrumb">
-            <button type="button" onClick={() => navigate("/customer/home")}>Trang chủ</button>
+            <button type="button" onClick={() => navigate("/customer/home")}>Home</button>
             <i className="bi bi-chevron-right" aria-hidden="true" />
-            <strong>Đặt lịch hẹn online</strong>
+            <strong>Book an appointment</strong>
           </div>
           <div className="customer-booking-banner-row">
             <div>
-              <span className="home-eyebrow">DÀNH MỘT KHOẢNG THỜI GIAN CHO BẠN</span>
-              <h1>Đặt lịch hẹn online</h1>
+              <span className="home-eyebrow">TAKE SOME TIME FOR YOURSELF</span>
+              <h1>Book an appointment</h1>
               <p>
-                Chọn tối đa 4 dịch vụ làm liên tiếp, dùng buổi trong gói đã mua nếu có.
-                <br />
-                Đặt trước ít nhất 2 tiếng và tối đa 30 ngày; lễ tân sẽ xác nhận lịch của bạn.
+                Choose up to 4 back-to-back services. Book at least 2 hours and at most 30 days ahead —
+                the receptionist will confirm your appointment.
               </p>
             </div>
             <Button variant="light" onClick={() => navigate("/appointments")}>
-              <i className="bi bi-list-ul" aria-hidden="true" /> Lịch hẹn của tôi
+              <i className="bi bi-list-ul" aria-hidden="true" /> My Appointments
             </Button>
           </div>
         </div>
       </section>
 
-      <div className="customer-booking-container customer-booking-body">
-        {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
-        {result && (
-          <Alert variant="success" className="customer-booking-success">
-            <Alert.Heading>Đặt lịch hẹn thành công!</Alert.Heading>
-            <p>
-              Mã lịch hẹn: <strong>#{result.appointmentId}</strong> · Ngày hẹn: <strong>{viDate(result.appointmentDate)}</strong>
-              {" · "}Khung giờ: <strong>{result.startTime}{result.endTime ? ` - ${result.endTime}` : ""}</strong>
-            </p>
-            <p className="mb-2">{result.message}</p>
-            <div className="d-flex flex-wrap gap-2">
-              <Button onClick={() => navigate(`/appointments/${result.appointmentId}`)}>Xem chi tiết lịch hẹn</Button>
-              <Button variant="outline-success" onClick={() => navigate("/appointments")}>Danh sách lịch hẹn</Button>
-            </div>
-          </Alert>
-        )}
+      <div className="sc-container sc-section-tight">
+        <FloatingAlert message={error} onClose={() => setError("")} />
 
-        <BookingPaymentNotice packageBooking={allPackage} />
-        <Form noValidate onSubmit={handleSubmit} className="customer-booking-form">
-          <section className="customer-booking-service-panel">
-            <div className="customer-booking-section-title">
-              <span>01</span>
-              <h2>{packageId ? "Dịch vụ trong gói" : "Chọn dịch vụ"}</h2>
-              <small>{packageId ? "Đã gắn sẵn từ gói liệu trình" : packages.length ? `${packages.length} gói còn buổi` : "* Thông tin bắt buộc"}</small>
-            </div>
-            {packageId && bookedPackage ? (
-              <div className="booking-package-locked">
-                <div className="booking-package-locked-head">
-                  <span><i className="bi bi-box-seam" aria-hidden="true" /> Đặt lịch dùng gói</span>
-                  <strong>{bookedPackage.packageName}</strong>
-                  <small>Còn {bookedPackage.availableSessions} buổi có thể đặt · Hạn dùng {viDate(bookedPackage.expiryDate)} · Buổi này không tính tiền</small>
+        <Form noValidate onSubmit={handleSubmit} className="sc-booking">
+          <div className="sc-booking-steps">
+            <section className="sc-step-card">
+              <span className="sc-step-title">1 · {packageId ? "Service from your package" : "Services"}</span>
+              {packageId && bookedPackage ? (
+                <div className="booking-package-locked">
+                  <div className="booking-package-locked-head">
+                    <span><i className="bi bi-box-seam" aria-hidden="true" /> Book with a package</span>
+                    <strong>{bookedPackage.packageName}</strong>
+                    <small>{bookedPackage.availableSessions} sessions left · Expires {viDate(bookedPackage.expiryDate)} · This session is free of charge</small>
+                  </div>
+                  {bookedPackage.services.length > 1 ? (
+                    <Form.Group className="mt-3">
+                      <Form.Label>Services in the package</Form.Label>
+                      <Form.Select
+                        value={lines[0]?.serviceId || ""}
+                        disabled={submitting || !!result}
+                        onChange={(e) => changeLines([{ serviceId: e.target.value, customerPackageId: packageId }])}
+                      >
+                        {bookedPackage.services.map((s) => (
+                          <option key={s.serviceId} value={s.serviceId}>{s.serviceName} · {s.duration} minutes</option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  ) : (
+                    <p className="mt-3 mb-0">
+                      Service: <strong>{bookedPackage.services[0].serviceName}</strong> · {bookedPackage.services[0].duration} minutes
+                    </p>
+                  )}
+                  <div className="d-flex flex-wrap gap-2 mt-3">
+                    <Button variant="outline-secondary" size="sm" disabled={submitting || !!result} onClick={() => leavePackageMode(true)}>
+                      <i className="bi bi-plus-lg" aria-hidden="true" /> Add another service
+                    </Button>
+                    <Button variant="link" size="sm" className="p-0" disabled={submitting || !!result} onClick={() => leavePackageMode(false)}>
+                      Don’t use a package
+                    </Button>
+                  </div>
                 </div>
-                {bookedPackage.services.length > 1 ? (
-                  <Form.Group className="mt-3">
-                    <Form.Label>Dịch vụ trong gói</Form.Label>
-                    <Form.Select
-                      value={lines[0]?.serviceId || ""}
-                      disabled={submitting || !!result}
-                      onChange={(e) => changeLines([{ serviceId: e.target.value, customerPackageId: packageId }])}
-                    >
-                      {bookedPackage.services.map((s) => (
-                        <option key={s.serviceId} value={s.serviceId}>{s.serviceName} · {s.duration} phút</option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                ) : (
-                  <p className="mt-3 mb-0">
-                    Dịch vụ: <strong>{bookedPackage.services[0].serviceName}</strong> · {bookedPackage.services[0].duration} phút
-                  </p>
-                )}
-                <div className="d-flex flex-wrap gap-2 mt-3">
-                  <Button variant="outline-secondary" size="sm" disabled={submitting || !!result} onClick={() => leavePackageMode(true)}>
-                    <i className="bi bi-plus-lg" aria-hidden="true" /> Thêm dịch vụ khác vào lịch này
-                  </Button>
-                  <Button variant="link" size="sm" className="p-0" disabled={submitting || !!result} onClick={() => leavePackageMode(false)}>
-                    Không dùng gói, chọn dịch vụ khác
-                  </Button>
-                </div>
-              </div>
-            ) : packageId ? (
-              <div className="customer-booking-slots-message"><Spinner size="sm" /> Đang tải gói liệu trình...</div>
-            ) : (
-              <ServiceLinesEditor services={services} packages={packages} lines={lines} onChange={changeLines} disabled={submitting || !!result} />
-            )}
-
-            <div className="customer-booking-divider" />
-            <div className="customer-booking-section-title customer-booking-section-title-small">
-              <span>02</span>
-              <h2>Chọn Ngày &amp; Kỹ thuật viên</h2>
-            </div>
-            <div className="customer-booking-fields customer-booking-date-fields">
-              <Form.Group>
-                <Form.Label>Ngày hẹn *</Form.Label>
-                <Form.Control
-                  type="date"
-                  min={today()}
-                  max={addDays(today(), 30)}
-                  value={appointmentDate}
-                  onChange={(e) => { setAppointmentDate(e.target.value); setStartTime(""); }}
-                  required
-                />
-              </Form.Group>
-              <Form.Group>
-                <Form.Label>Kỹ thuật viên yêu thích (Tùy chọn)</Form.Label>
+              ) : packageId ? (
+                <div className="sc-muted"><Spinner size="sm" /> Loading treatment packages…</div>
+              ) : (
+                <ServiceLinesEditor services={services} packages={packages} lines={lines} onChange={changeLines} disabled={submitting || !!result} />
+              )}
+              <Form.Group className="mt-3" controlId="booking-technician">
+                <Form.Label>Technician</Form.Label>
                 <Form.Select value={technicianId} onChange={(e) => { setTechnicianId(e.target.value); setStartTime(""); }}>
-                  <option value="">Tự động chọn theo lượt tour</option>
+                  <option value="">Any available technician</option>
                   {slots.data?.technicians?.map((t) => (
                     <option key={t.staffId} value={t.staffId}>{t.fullName}</option>
                   ))}
                 </Form.Select>
-                <Form.Text>Kỹ thuật viên được yêu cầu sẽ làm phần dịch vụ đầu tiên.</Form.Text>
               </Form.Group>
-            </div>
-          </section>
+            </section>
 
-          <div className="customer-booking-columns">
-            <div className="customer-booking-main-column">
-              <section className="customer-booking-slot-panel">
-                <div className="customer-booking-section-title">
-                  <span>03</span>
-                  <h2>Chọn khung giờ trống *</h2>
-                  {slots.data?.slots && <small>{slots.data.slots.filter((s) => s.available).length} khung còn trống</small>}
-                </div>
-                <div className="customer-booking-slot-meta">
-                  <span><i className="bi bi-calendar3" aria-hidden="true" /> {viDate(appointmentDate)}</span>
-                  <span><i className="bi bi-hourglass-split" aria-hidden="true" /> Tổng {slots.data?.totalDuration || 0} phút</span>
-                  <span><i className="bi bi-circle-fill" aria-hidden="true" /> Còn trống</span>
-                  <span><i className="bi bi-check-circle-fill" aria-hidden="true" /> Đã chọn</span>
-                </div>
-                <SlotGrid
-                  slots={slots.data?.slots}
-                  loading={slots.loading}
-                  error={slots.error}
-                  value={startTime}
-                  onSelect={setStartTime}
+            <section className="sc-step-card">
+              <span className="sc-step-title">2 · Date</span>
+              <div className="sc-day-chips" role="group" aria-label="Appointment date">
+                {days.map((d) => {
+                  const dt = new Date(`${d}T00:00:00`);
+                  return (
+                    <button
+                      type="button"
+                      key={d}
+                      className={`sc-day-chip${appointmentDate === d ? " is-active" : ""}`}
+                      aria-pressed={appointmentDate === d}
+                      onClick={() => { setAppointmentDate(d); setStartTime(""); }}
+                    >
+                      <small>{d === today() ? "Today" : dt.toLocaleDateString("en-GB", { weekday: "short" })}</small>
+                      <strong>{dt.getDate()}</strong>
+                      <small>{dt.toLocaleDateString("en-GB", { month: "short" })}</small>
+                    </button>
+                  );
+                })}
+              </div>
+              <label className="sc-other-date">
+                Other date
+                <Form.Control
+                  type="date"
+                  size="sm"
+                  min={today()}
+                  max={addDays(today(), 30)}
+                  value={appointmentDate}
+                  onChange={(e) => { if (e.target.value) { setAppointmentDate(e.target.value); setStartTime(""); } }}
                 />
-                <p className="customer-booking-slot-footnote">
-                  Giờ mở cửa 08:30–18:30. Khung giờ chỉ trống khi đủ kỹ thuật viên phù hợp và giường đúng loại phòng.
+              </label>
+            </section>
+
+            <section className="sc-step-card" id="booking-time-step" tabIndex={-1}>
+              <span className="sc-step-title">
+                3 · Time · {shortDay}
+                <small>Crossed out = no free technician or bed</small>
+              </span>
+              <SlotGrid
+                slots={slots.data?.slots}
+                loading={slots.loading}
+                error={slots.error}
+                value={startTime}
+                onSelect={setStartTime}
+              />
+            </section>
+
+            {!allPackage && (
+              <section className="sc-step-card">
+                <span className="sc-step-title">4 · Payment</span>
+                <div className="sc-pay-cards">
+                  <label className={`sc-pay-card${paymentChoice === "Counter" ? " is-active" : ""}`}>
+                    <input type="radio" name="paymentChoice" checked={paymentChoice === "Counter"}
+                      onChange={() => setPaymentChoice("Counter")} disabled={submitting || !!result} />
+                    <span><strong>Pay at the counter</strong><small>Pending until our receptionist confirms</small></span>
+                  </label>
+                  <label className={`sc-pay-card${paymentChoice === "Online" ? " is-active" : ""}`}>
+                    <input type="radio" name="paymentChoice" checked={paymentChoice === "Online"}
+                      onChange={() => setPaymentChoice("Online")} disabled={submitting || !!result} />
+                    <span><strong>Pay now with VNPay</strong><small>Confirmed as soon as payment succeeds</small></span>
+                  </label>
+                </div>
+                <p className="sc-pay-note">
+                  <i className="bi bi-info-circle" aria-hidden="true" />
+                  Booking is free. Your appointment stays <strong>Pending</strong> until the receptionist confirms it
+                  {paymentChoice === "Online" ? " — or is confirmed as soon as your VNPay payment succeeds." : "."}
                 </p>
               </section>
+            )}
 
-              <section className="customer-booking-notes-panel">
-                <div className="customer-booking-section-title">
-                  <span>04</span>
-                  <h2>Ghi chú tình trạng da / Yêu cầu thêm</h2>
-                  <small>Tùy chọn</small>
-                </div>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
-                  maxLength={1000}
-                  placeholder="Nhập lưu ý về làn da, dị ứng mỹ phẩm hoặc yêu cầu đặc biệt..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </section>
-            </div>
+            <section className="sc-step-card">
+              <label className="sc-step-title" htmlFor="booking-notes">{allPackage ? "4" : "5"} · Notes (optional)</label>
+              <Form.Control
+                id="booking-notes"
+                as="textarea"
+                rows={2}
+                maxLength={1000}
+                placeholder="Skin concerns, allergies or special requests…"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </section>
+          </div>
 
-            <aside className="customer-booking-summary">
-              <div className="customer-booking-summary-card">
-                <h2><i className="bi bi-receipt" aria-hidden="true" /> Thông tin đặt hẹn</h2>
-                <div className="customer-booking-summary-service">
-                  <img src={servicePhoto} alt="Dịch vụ chăm sóc da Seoul Center" loading="lazy" decoding="async"
-                    onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
-                    onError={(e) => e.currentTarget.classList.add("is-loaded")} />
+          <aside className="sc-summary">
+            <div className="sc-summary-card">
+              <span className="sc-summary-label">YOUR BOOKING</span>
+              <h2 className="sc-summary-title">
+                {slots.data?.services?.map((s) => s.serviceName).join(" + ") || "Choose a service"}
+              </h2>
+              <dl className="sc-summary-lines">
+                <div><dt>Date</dt><dd>{longDay}</dd></div>
+                <div><dt>Time</dt><dd>{selectedSlot ? `${selectedSlot.startTime} – ${selectedSlot.endTime}` : "—"}</dd></div>
+                <div><dt>Technician</dt><dd>{technicianName}</dd></div>
+                <div><dt>Price</dt><dd>{chosen.length ? money(total) : "—"}</dd></div>
+                {tierPercent > 0 && total > 0 && (
+                  <div className="is-discount"><dt>{tier.tierName} member ({tierPercent}%)</dt><dd>−{money(tierDiscount)}</dd></div>
+                )}
+              </dl>
+              <div className="sc-summary-total">
+                <span>Estimated total</span>
+                <strong>{chosen.length ? money(total - tierDiscount) : "—"}</strong>
+              </div>
+              {result ? (
+                <div className="sc-summary-success" role="status" aria-live="polite">
+                  <span className="sc-success-icon"><i className="bi bi-check-lg" aria-hidden="true" /></span>
                   <div>
-                    <small>{chosen.length ? `${chosen.length} DỊCH VỤ LIÊN TIẾP` : "CHƯA CHỌN DỊCH VỤ"}</small>
-                    <strong>{slots.data?.services?.map((s) => s.serviceName).join(" → ") || "Chưa chọn dịch vụ"}</strong>
+                    <strong>Appointment booked!</strong>
+                    <small>#{result.appointmentId} · {viDate(result.appointmentDate)} · {result.startTime}{result.endTime ? ` – ${result.endTime}` : ""}</small>
+                    <small>{paymentChoice === "Online" && !allPackage ? "Opening VNPay…" : "Opening your appointment…"}</small>
                   </div>
                 </div>
-                <div className="customer-booking-summary-slot">
-                  <small><i className="bi bi-check-circle" aria-hidden="true" /> Khung giờ đã chọn</small>
-                  <strong>{selectedSlot ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : "Chưa chọn khung giờ"}</strong>
-                  <span>
-                    {new Date(`${appointmentDate}T00:00:00`).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}
-                  </span>
-                </div>
-                <PlanPreview services={slots.data?.services} startTime={startTime} />
-                <div className="customer-booking-summary-total">
-                  <span>Chi phí dự kiến (trước ưu đãi hạng)</span>
-                  <strong>{chosen.length ? money(total) : "—"}</strong>
-                </div>
-                {!allPackage && (
-                  <Form.Group className="customer-booking-payment">
-                    <Form.Label>Hình thức thanh toán</Form.Label>
-                    <Form.Check type="radio" id="pay-counter" name="paymentChoice" className="customer-booking-payment-option"
-                      label="Thanh toán tại quầy" checked={paymentChoice === "Counter"}
-                      onChange={() => setPaymentChoice("Counter")} disabled={submitting || !!result} />
-                    <Form.Check type="radio" id="pay-online" name="paymentChoice" className="customer-booking-payment-option"
-                      label="Thanh toán trước qua VNPay" checked={paymentChoice === "Online"}
-                      onChange={() => setPaymentChoice("Online")} disabled={submitting || !!result} />
-                    <Form.Text className="customer-booking-payment-help">
-                      {paymentChoice === "Online"
-                        ? "Liên kết VNPay có hiệu lực 15 phút. Nếu thanh toán không thành công, lịch tự chuyển sang thanh toán tại quầy."
-                        : "Ưu đãi hạng thành viên và voucher được áp dụng khi thanh toán tại quầy."}
-                    </Form.Text>
-                  </Form.Group>
-                )}
-                <Button type="submit" className="customer-booking-confirm" disabled={submitting || slots.loading || !!result}>
-                  {submitting ? <><Spinner size="sm" /> Đang xử lý...</> : <><i className="bi bi-check-lg" aria-hidden="true" /> Xác nhận Đặt lịch Online</>}
-                </Button>
-                <small className="customer-booking-summary-caption">
-                  {!startTime ? "Chọn khung giờ còn trống trước khi xác nhận." : "Lịch ở trạng thái Chờ xác nhận cho đến khi lễ tân duyệt."}
-                </small>
-              </div>
-              <div className="customer-booking-reminder">
-                <strong><i className="bi bi-info-circle" aria-hidden="true" /> Chính sách hủy/đổi lịch</strong>
-                <p>Bạn có thể đổi hoặc hủy lịch trước giờ hẹn ít nhất 2 tiếng. Đến trễ quá 15 phút lịch có thể bị đánh dấu không đến.</p>
-              </div>
-            </aside>
-          </div>
-
-          <div className="customer-booking-bottom-actions">
-            <span>{startTime ? `Đã chọn: ${startTime} · ${viDate(appointmentDate)}` : "Chưa chọn khung giờ"}</span>
-            <Button variant="outline-secondary" onClick={() => navigate("/slots")} disabled={submitting}>
-              <i className="bi bi-calendar3" aria-hidden="true" /> Xem bảng lịch trống
-            </Button>
-          </div>
+              ) : (
+                <>
+                  <button type="submit" className="sc-btn sc-btn-light sc-btn-block" disabled={submitting || slots.loading}>
+                    {submitting ? <><Spinner size="sm" /> Processing…</> : paymentChoice === "Online" && !allPackage ? "Confirm & pay with VNPay" : "Confirm booking"}
+                  </button>
+                  <small className="sc-summary-caption">
+                    {!startTime ? "Choose a time to continue." : "Free reschedule or cancel up to 2 hours before your appointment."}
+                  </small>
+                </>
+              )}
+            </div>
+          </aside>
         </Form>
       </div>
-    </main>
+    </div>
   );
 };
 

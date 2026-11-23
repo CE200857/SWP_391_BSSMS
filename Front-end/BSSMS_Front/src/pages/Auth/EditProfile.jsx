@@ -12,6 +12,7 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { PROVINCES, joinAddress, splitAddress } from "../../utils/provinces";
+import { today, birthDateError, MIN_BIRTH_DATE } from "../../services/api";
 
 const formatDobForInput = (dobString) => {
   if (!dobString) return "";
@@ -95,7 +96,7 @@ const EditProfile = ({ user, setUser }) => {
     const trimmedEmail = formData.email.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
-      setErrorMsg("Email mới không đúng định dạng!");
+      setErrorMsg("Invalid new email format!");
       return;
     }
 
@@ -113,12 +114,12 @@ const EditProfile = ({ user, setUser }) => {
       if (response.status === 200) {
         setIsCodeSent(true);
         setCountdown(60);
-        setSuccessMsg("Mã xác thực đã được gửi đến Email mới của bạn!");
+        setSuccessMsg("A verification code has been sent to your new email!");
       }
     } catch (err) {
       setErrorMsg(
         err.response?.data?.message ||
-          "Không thể gửi mã xác thực. Vui lòng thử lại!"
+          "Could not send the verification code. Please try again!"
       );
     } finally {
       setIsSendingCode(false);
@@ -127,39 +128,41 @@ const EditProfile = ({ user, setUser }) => {
 
   const validateForm = () => {
     if (formData.username.length < 3 || /\s/.test(formData.username)) {
-      return "Tên đăng nhập phải có ít nhất 3 ký tự và không chứa khoảng trắng!";
+      return "The username must have at least 3 characters and no spaces!";
     }
 
     if (!formData.fullName.trim() || !formData.phone.trim()) {
-      return "Các trường có dấu (*) là bắt buộc và không được bỏ trống!";
+      return "Please fill in all required fields (*).";
     }
 
     if (formData.fullName.trim().split(/\s+/).length < 2) {
-      return "Họ và tên bắt buộc phải có từ 2 từ trở lên!";
+      return "Please enter your full name (first and last name).";
     }
 
     if (!/^0[1-9]\d{8}$/.test(formData.phone.trim())) {
-      return "Số điện thoại không hợp lệ (Gồm 10 số, bắt đầu bằng 0, số thứ 2 khác 0)!";
+      return "Invalid phone number (10 digits, starting with 0, second digit not 0)!";
     }
 
     if (isCustomer) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email.trim())) {
-        return "Email không đúng định dạng!";
+        return "Invalid email format!";
       }
 
       if (isEmailChanged) {
         if (!isCodeSent) {
-          return "Bạn đã thay đổi Email, vui lòng bấm 'Gửi mã' để nhận mã xác thực!";
+          return "You have changed your email, please click 'Send code' to receive a verification code!";
         }
         if (verificationCode.trim().length !== 6) {
-          return "Vui lòng nhập đủ 6 chữ số mã xác thực cho Email mới!";
+          return "Please enter all 6 digits of the verification code for the new email!";
         }
       }
 
       if (!formData.dob || !splitAddress(formData.address).province) {
-        return "Vui lòng nhập Ngày sinh và chọn Tỉnh/Thành phố!";
+        return "Please enter your date of birth and select a province/city!";
       }
+      const dobProblem = birthDateError(formData.dob);
+      if (dobProblem) return dobProblem;
     }
 
     return null;
@@ -199,7 +202,7 @@ const EditProfile = ({ user, setUser }) => {
       }
     } catch (err) {
       setErrorMsg(
-        err.response?.data?.message || "Đã xảy ra lỗi khi cập nhật hồ sơ!"
+        err.response?.data?.message || "An error occurred while updating the profile!"
       );
     }
   };
@@ -212,7 +215,7 @@ const EditProfile = ({ user, setUser }) => {
       <Card className="shadow-sm border-0" style={{ borderRadius: "15px" }}>
         <Card.Body className="p-5">
           <h2 className="mb-5 fw-bold text-uppercase text-center">
-            Chỉnh sửa hồ sơ
+            Edit profile
           </h2>
 
           {errorMsg && (
@@ -258,27 +261,27 @@ const EditProfile = ({ user, setUser }) => {
               <Col md={8} className="ps-md-5 d-flex flex-column">
                 <Form.Group className="mb-3">
                   <Form.Label className="text-muted fw-bold mb-1">
-                    Tên đăng nhập (*)
+                    Username (*)
                   </Form.Label>
                   <Form.Control
                     type="text"
                     name="username"
                     value={formData.username}
                     onChange={handleChange}
-                    placeholder="Nhập tên đăng nhập mới"
+                    placeholder="Enter a new username"
                   />
                 </Form.Group>
 
                 <Form.Group className="mb-3">
                   <Form.Label className="text-muted fw-bold mb-1">
-                    Họ và Tên (*)
+                    Full name (*)
                   </Form.Label>
                   <Form.Control
                     type="text"
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleChange}
-                    placeholder="Nhập họ và tên mới"
+                    placeholder="Enter a new full name"
                   />
                 </Form.Group>
 
@@ -294,7 +297,7 @@ const EditProfile = ({ user, setUser }) => {
                           name="email"
                           value={formData.email}
                           onChange={handleChange}
-                          placeholder="Nhập địa chỉ email"
+                          placeholder="Enter email address"
                         />
                         <Button
                           variant={
@@ -309,24 +312,24 @@ const EditProfile = ({ user, setUser }) => {
                           style={{ width: "110px", fontWeight: "bold" }}
                         >
                           {isSendingCode
-                            ? "Đang gửi"
+                            ? "Sending"
                             : countdown > 0
                               ? `${countdown}s`
-                              : "Gửi mã"}
+                              : "Send code"}
                         </Button>
                       </InputGroup>
                     </Form.Group>
 
                     <Form.Group className="mb-3">
                       <Form.Label className="text-muted fw-bold mb-1">
-                        Mã xác thực Email mới
+                        New email verification code
                       </Form.Label>
                       <Form.Control
                         type="text"
                         placeholder={
                           isEmailChanged
-                            ? "Nhập mã 6 chữ số được gửi về email mới"
-                            : "Chỉ cần nhập mã khi bạn thay đổi Email"
+                            ? "Enter the 6-digit code sent to your new email"
+                            : "Enter the code only when you change your email"
                         }
                         value={verificationCode}
                         onChange={(e) => setVerificationCode(e.target.value)}
@@ -354,14 +357,14 @@ const EditProfile = ({ user, setUser }) => {
 
                 <Form.Group className="mb-3">
                   <Form.Label className="text-muted fw-bold mb-1">
-                    Số điện thoại (*)
+                    Phone number (*)
                   </Form.Label>
                   <Form.Control
                     type="text"
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    placeholder="Nhập số điện thoại"
+                    placeholder="Enter phone number"
                   />
                 </Form.Group>
 
@@ -371,11 +374,13 @@ const EditProfile = ({ user, setUser }) => {
                       <Col md={6} className="mb-3">
                         <Form.Group>
                           <Form.Label className="text-muted fw-bold mb-1">
-                            Ngày sinh (*)
+                            Date of birth (*)
                           </Form.Label>
                           <Form.Control
                             type="date"
                             name="dob"
+                            min={MIN_BIRTH_DATE}
+                            max={today()}
                             value={formData.dob}
                             onChange={handleChange}
                           />
@@ -384,16 +389,16 @@ const EditProfile = ({ user, setUser }) => {
                       <Col md={6} className="mb-3">
                         <Form.Group>
                           <Form.Label className="text-muted fw-bold mb-1">
-                            Giới tính (*)
+                            Gender (*)
                           </Form.Label>
                           <Form.Select
                             name="gender"
                             value={formData.gender}
                             onChange={handleChange}
                           >
-                            <option value="Male">Nam</option>
-                            <option value="Female">Nữ</option>
-                            <option value="Other">Khác</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
                           </Form.Select>
                         </Form.Group>
                       </Col>
@@ -404,16 +409,16 @@ const EditProfile = ({ user, setUser }) => {
                       return (
                         <Row>
                           <Col md={5} className="mb-3">
-                            <Form.Label className="text-muted fw-bold mb-1">Tỉnh/Thành phố (*)</Form.Label>
+                            <Form.Label className="text-muted fw-bold mb-1">Province/City (*)</Form.Label>
                             <Form.Select value={province} onChange={(e) => setAddress(detail, e.target.value)}>
-                              <option value="">Chọn tỉnh/thành</option>
+                              <option value="">Select province/city</option>
                               {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
                             </Form.Select>
                           </Col>
                           <Col md={7} className="mb-3">
-                            <Form.Label className="text-muted fw-bold mb-1">Địa chỉ chi tiết</Form.Label>
+                            <Form.Label className="text-muted fw-bold mb-1">Detailed address</Form.Label>
                             <Form.Control type="text" value={detail} maxLength={200}
-                              onChange={(e) => setAddress(e.target.value, province)} placeholder="Số nhà, đường, phường/xã" />
+                              onChange={(e) => setAddress(e.target.value, province)} placeholder="House number, street, ward/commune" />
                           </Col>
                         </Row>
                       );
@@ -423,14 +428,14 @@ const EditProfile = ({ user, setUser }) => {
 
                 <Form.Group className="mb-4">
                   <Form.Label className="text-muted fw-bold mb-1">
-                    Trạng thái tài khoản (Chỉ xem)
+                    Account status (view only)
                   </Form.Label>
                   <Form.Control
                     type="text"
                     value={
                       formData.status === "Active"
-                        ? "Đang hoạt động"
-                        : "Không hoạt động"
+                        ? "Active"
+                        : "Inactive"
                     }
                     disabled
                     className="bg-light fw-bold text-success"
@@ -439,13 +444,13 @@ const EditProfile = ({ user, setUser }) => {
 
                 <div className="d-flex justify-content-end mt-auto pt-3 gap-2">
                   <Button variant="primary" type="submit">
-                    Lưu cập nhật
+                    Save changes
                   </Button>
                   <Button
                     variant="secondary"
                     onClick={() => setShowCancelModal(true)}
                   >
-                    Hủy bỏ
+                    Cancel
                   </Button>
                 </div>
               </Col>
@@ -461,18 +466,18 @@ const EditProfile = ({ user, setUser }) => {
       >
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold text-primary">
-            Xác nhận cập nhật
+            Update
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có chắc chắn muốn lưu các thay đổi thông tin hồ sơ này không?
+          Are you sure you want to save the changes to this profile?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowUpdateModal(false)}>
-            Hủy (Quay lại)
+            Cancel
           </Button>
           <Button variant="primary" onClick={handleConfirmUpdate}>
-            Xác nhận
+            Confirm
           </Button>
         </Modal.Footer>
       </Modal>
@@ -484,19 +489,19 @@ const EditProfile = ({ user, setUser }) => {
       >
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold text-danger">
-            Xác nhận hủy
+            Confirm cancellation
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Những thay đổi của bạn sẽ không được lưu lại. Bạn có chắc chắn muốn
-          quay về trang hồ sơ không?
+          Your changes will not be saved. Are you sure you want to
+          go back to the profile page?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowCancelModal(false)}>
-            Tiếp tục cập nhật (Hủy)
+            Keep editing
           </Button>
           <Button variant="danger" onClick={() => navigate("/profile")}>
-            Xác nhận hủy
+            Confirm cancellation
           </Button>
         </Modal.Footer>
       </Modal>

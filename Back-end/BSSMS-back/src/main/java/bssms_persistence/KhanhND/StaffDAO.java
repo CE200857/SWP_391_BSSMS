@@ -26,7 +26,8 @@ public class StaffDAO extends DBContext implements AutoCloseable {
                 + "a.email, s.position, "
                 + "s.hire_date, a.status "
                 + "FROM " + bssms_persistence.common.SchemaSql.STAFF + " s "
-                + "JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a ON s.account_id = a.account_id";
+                + "JOIN " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a ON s.account_id = a.account_id "
+                + "WHERE NOT EXISTS(SELECT 1 FROM Staff d WHERE d.staff_id=s.staff_id AND d.deleted_at IS NOT NULL)";
 
         try {
             if (conn != null) {
@@ -66,7 +67,7 @@ public class StaffDAO extends DBContext implements AutoCloseable {
     private void requireNotLastManager(bssms_persistence.common.Workflow w, int staffId) throws java.sql.SQLException {
         if (!w.query("SELECT staff_id FROM Staff WHERE staff_id=? AND role='Manager'", staffId).isEmpty()
                 && ((Number) w.one("SELECT COUNT(*) AS n FROM Staff WHERE role='Manager' AND status='Active' AND staff_id<>?", staffId).get("n")).intValue() == 0)
-            throw new bssms_persistence.common.WorkflowException(409, "Phải còn ít nhất một quản lý đang hoạt động.");
+            throw new bssms_persistence.common.WorkflowException(409, "There must be at least one active manager.");
     }
 
     public boolean deactivateStaff(int staffId) {
@@ -81,7 +82,7 @@ public class StaffDAO extends DBContext implements AutoCloseable {
             return w.transaction(() -> {
                 if (!"Active".equals(newStatus)) {
                     requireNotLastManager(w, staffId);
-                    requireNoFutureLines(w, staffId, "Kỹ thuật viên còn lịch hẹn sắp tới. Hãy điều phối lại các lịch này trước (UC-11.9).");
+                    requireNoFutureLines(w, staffId, "The technician still has upcoming appointments. Reassign them first.");
                     w.update("DELETE FROM StaffShift WHERE staff_id=? AND shift_date>CAST(GETDATE() AS date)", staffId);
                 }
                 return w.update("UPDATE Staff SET status=? WHERE staff_id=?", newStatus, staffId) == 1;
@@ -89,20 +90,25 @@ public class StaffDAO extends DBContext implements AutoCloseable {
         } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
 
+    // Xoa mem: chuyen Inactive (don ca tuong lai, kiem tra lich con giao) roi ghi deleted_at
     public boolean deleteStaff(int staffId) {
-        return deactivateStaff(staffId);
+        if (!deactivateStaff(staffId)) return false;
+        requireConnection();
+        try {
+            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Staff SET deleted_at=SYSDATETIME() WHERE staff_id=? AND deleted_at IS NULL", staffId) == 1;
+        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
     }
     
     public boolean assignRole(int accountId, String newRole) {
         requireConnection();
-        if (!java.util.Arrays.asList("Manager","Receptionist","Technician").contains(newRole)) throw new IllegalArgumentException("Vai trò không hợp lệ.");
+        if (!java.util.Arrays.asList("Manager","Receptionist","Technician").contains(newRole)) throw new IllegalArgumentException("Invalid role.");
         try {
             bssms_persistence.common.Workflow w = new bssms_persistence.common.Workflow(conn,0);
             int staffId = bssms_common.LoginIdentity.staffId(accountId);
             return w.transaction(() -> {
                 if (!"Manager".equals(newRole)) requireNotLastManager(w, staffId);
                 if (!"Technician".equals(newRole)) {
-                    requireNoFutureLines(w, staffId, "Kỹ thuật viên còn lịch hẹn sắp tới, cần phân công lại trước khi đổi vai trò.");
+                    requireNoFutureLines(w, staffId, "The technician still has upcoming appointments; reassign them before changing the role.");
                     w.update("DELETE FROM StaffService WHERE staff_id=?", staffId);
                 }
                 return w.update("UPDATE Staff SET role=? WHERE staff_id=?", newRole, staffId) == 1;
@@ -122,7 +128,7 @@ public class StaffDAO extends DBContext implements AutoCloseable {
             bssms_persistence.common.Workflow w = new bssms_persistence.common.Workflow(conn,0);
             w.transaction(() -> {
                 if (w.query("SELECT staff_id FROM Staff WHERE staff_id=? AND role='Technician'", staffId).isEmpty())
-                    throw new IllegalArgumentException("Chỉ gán kỹ năng cho kỹ thuật viên.");
+                    throw new IllegalArgumentException("Skills can only be assigned to technicians.");
                 w.update("DELETE FROM StaffService WHERE staff_id=?", staffId);
                 for (Integer id : serviceIds) w.update("INSERT INTO StaffService(staff_id,service_id) VALUES(?,?)", staffId, id);
                 return null;
@@ -214,7 +220,7 @@ public class StaffDAO extends DBContext implements AutoCloseable {
         if (phone != null && phone.trim().isEmpty()) phone = null;
         
         if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
-            return "Email (Trùng với email hệ thống)";
+            return "Email (same as the system email)";
         }
 
         String sql = "SELECT username, email, phone FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE (username = ? OR email = ? OR phone = ?)";
@@ -242,10 +248,10 @@ public class StaffDAO extends DBContext implements AutoCloseable {
                     String dbPhone = rs.getString("phone");
                     
                     if (username != null && username.equalsIgnoreCase(dbUsername)) {
-                        return "Tên đăng nhập (Username)";
+                        return "Username";
                     }
                     if (phone != null && phone.equals(dbPhone)) {
-                        return "Số điện thoại";
+                        return "Phone number";
                     }
                     if (email != null && email.equalsIgnoreCase(dbEmail)) {
                         return "Email";

@@ -51,13 +51,13 @@ public class AppointmentController extends ControllerSupport {
                 o.has("technicianId") && !o.get("technicianId").isJsonNull() ? o.get("technicianId").getAsInt() : null,
                 text(o, "paymentChoice"), text(o, "notes"));
         response.status(201);
-        response.writer().print(gson.toJson(Map.of("appointmentId", id, "message", "Đã tạo lịch hẹn (Đã xác nhận).")));
+        response.writer().print(gson.toJson(Map.of("appointmentId", id, "message", "Appointment created (Confirmed).")));
     }
 
     public void put(ActionRequest request, ActionResult response) throws Exception {
         bind(request);
         String[] parts = request.pathInfo() == null ? new String[0] : request.pathInfo().split("/");
-        if (parts.length < 3) { response.error(404, "Không tìm thấy thao tác."); return; }
+        if (parts.length < 3) { response.error(404, "Action not found."); return; }
         int id = Integer.parseInt(parts[1]);
         String action = parts[2];
         String body = new java.io.BufferedReader(request.bodyReader()).lines().reduce("", String::concat);
@@ -66,14 +66,14 @@ public class AppointmentController extends ControllerSupport {
         Object result;
         switch (action) {
             case "confirm": use(new AppointmentStatusDAO()).confirm(id);
-                result = Map.of("message", "Đã xác nhận lịch hẹn."); break;
+                result = Map.of("message", "Appointment confirmed."); break;
             case "cancel": result = dao.cancel(id, text(o, "reason")); break;
             case "no-show": use(new AppointmentStatusDAO()).noShow(id);
-                result = Map.of("message", "Đã đánh dấu khách không đến."); break;
+                result = Map.of("message", "Marked as No-show."); break;
             case "reschedule":
                 dao.reschedule(id, lines(o), text(o, "appointmentDate"), text(o, "startTime"), text(o, "reason"));
-                result = Map.of("message", "Đã đổi lịch hẹn."); break;
-            default: response.error(404, "Không tìm thấy thao tác."); return;
+                result = Map.of("message", "Appointment rescheduled."); break;
+            default: response.error(404, "Action not found."); return;
         }
         response.writer().print(gson.toJson(result));
     }

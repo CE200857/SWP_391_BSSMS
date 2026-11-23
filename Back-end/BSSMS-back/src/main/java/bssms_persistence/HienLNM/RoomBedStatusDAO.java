@@ -39,13 +39,14 @@ public class RoomBedStatusDAO extends DBContext implements AutoCloseable {
 
     public boolean updateBedStatus(int bedId, String useState) throws SQLException {
         Workflow w = workflow();
-        w.roles("Receptionist");
-        if (!"Free".equals(useState) && !"InUse".equals(useState)) throw new IllegalArgumentException("Trạng thái sử dụng phải là Free hoặc InUse.");
+        // UC-10.5 is view-only: bed usage changes automatically when a service starts or finishes.
+        if (true) throw new WorkflowException(403, "Bed usage status is updated automatically and cannot be changed by hand.");
+        if (!"Free".equals(useState) && !"InUse".equals(useState)) throw new IllegalArgumentException("Usage status must be Free or InUse.");
         Map<String, Object> bed = w.one("SELECT b.status,r.status AS room_status FROM Bed b JOIN Room r ON r.room_id=b.room_id WHERE b.bed_id=?", bedId);
-        if (!"Active".equals(bed.get("status")) || !"Active".equals(bed.get("roomStatus"))) throw new WorkflowException(409, "Giường đang bảo trì nên không đổi được trạng thái sử dụng.");
+        if (!"Active".equals(bed.get("status")) || !"Active".equals(bed.get("roomStatus"))) throw new WorkflowException(409, "The bed is under maintenance, so its usage status cannot be changed.");
         return w.update("UPDATE Bed SET use_state=?,use_state_updated_at=SYSDATETIME() WHERE bed_id=?", useState, bedId) == 1;
     }
     public boolean updateRoomStatus(int roomId, String status) {
-        throw new WorkflowException(409, "Trạng thái phòng (hoạt động/bảo trì) do quản lý đổi trong Phòng & giường.");
+        throw new WorkflowException(409, "Room status (active/maintenance) is changed by the manager in Rooms & Beds.");
     }
 }

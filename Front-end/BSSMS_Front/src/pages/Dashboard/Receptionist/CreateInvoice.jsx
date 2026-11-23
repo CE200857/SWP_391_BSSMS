@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Alert, Badge, Button, Card, Col, Container, Form, ListGroup, Row, Spinner, Table } from "react-bootstrap";
 import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
 import { api, post, money, viDate, time5 } from "../../../services/api";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 function SellPackage() {
   const navigate = useNavigate();
@@ -50,32 +51,32 @@ function SellPackage() {
 
   return (
     <Container fluid className="mt-4 px-4">
-      <h2 className="manager-page-title fw-bold mb-1">Bán gói liệu trình</h2>
-      <p className="text-muted mb-4">Gói được kích hoạt ngay khi thanh toán thành công; hạn dùng tính từ ngày mua.</p>
-      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      <h2 className="manager-page-title fw-bold mb-1">Sell treatment package</h2>
+      <p className="text-muted mb-4">The package is activated as soon as payment succeeds; the expiry date counts from the purchase date.</p>
+      <FloatingAlert message={error} onClose={() => setError("")} />
       {result && (
         <Alert variant="success">
-          Đã bán gói cho {customer?.fullName}. Hóa đơn #{result.invoiceId} · {money(result.totalAmount)}
-          {result.customerPackage && <> · {result.customerPackage.totalSessions} buổi, hạn đến {viDate(result.customerPackage.expiryDate)}</>}
+          Sold to {customer?.fullName}. Invoice #{result.invoiceId} · {money(result.totalAmount)}
+          {result.customerPackage && <> · {result.customerPackage.totalSessions} sessions, valid until {viDate(result.customerPackage.expiryDate)}</>}
           <div className="mt-2 d-flex gap-2">
-            <Button size="sm" onClick={() => navigate(`/invoices?invoice=${result.invoiceId}`)}>Xem hóa đơn</Button>
-            <Button size="sm" variant="outline-success" onClick={() => { setResult(null); setPackageId(""); setVoucherCode(""); }}>Bán gói khác</Button>
+            <Button size="sm" onClick={() => navigate(`/invoices?invoice=${result.invoiceId}`)}>View invoices</Button>
+            <Button size="sm" variant="outline-success" onClick={() => { setResult(null); setPackageId(""); setVoucherCode(""); }}>Sell another</Button>
           </div>
         </Alert>
       )}
       <Row className="g-4">
         <Col lg={7}>
           <Card className="shadow-sm border-0 mb-4">
-            <Card.Header className="bg-white fw-bold">1. Khách hàng</Card.Header>
+            <Card.Header className="bg-white fw-bold">1. Customer</Card.Header>
             <Card.Body>
               {customer ? (
                 <div className="d-flex justify-content-between align-items-center">
                   <span><strong>{customer.fullName}</strong> · {customer.phone} {customer.membership && <Badge bg="info">{customer.membership.tierName}</Badge>}</span>
-                  <Button variant="link" onClick={() => setCustomer(null)}>Đổi</Button>
+                  <Button variant="link" onClick={() => setCustomer(null)}>Change</Button>
                 </div>
               ) : (
                 <>
-                  <Form.Control placeholder="Tìm theo tên hoặc số điện thoại..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <Form.Control placeholder="Search by name or phone number..." value={search} onChange={(e) => setSearch(e.target.value)} />
                   <ListGroup className="mt-2">
                     {matches.map((c) => <ListGroup.Item action key={c.customerId} onClick={() => setCustomer(c)}>{c.fullName} · {c.phone}</ListGroup.Item>)}
                   </ListGroup>
@@ -84,15 +85,15 @@ function SellPackage() {
             </Card.Body>
           </Card>
           <Card className="shadow-sm border-0">
-            <Card.Header className="bg-white fw-bold">2. Gói liệu trình</Card.Header>
+            <Card.Header className="bg-white fw-bold">2. Treatment package</Card.Header>
             <Card.Body>
               <Form.Select value={packageId} onChange={(e) => setPackageId(e.target.value)}>
-                <option value="">-- Chọn gói --</option>
-                {packages.map((p) => <option key={p.treatmentPackageId} value={p.treatmentPackageId}>{p.packageName} · {p.numberOfSessions} buổi · {money(p.price)}</option>)}
+                <option value="">-- Select package --</option>
+                {packages.map((p) => <option key={p.treatmentPackageId} value={p.treatmentPackageId}>{p.packageName} · {p.numberOfSessions} sessions · {money(p.price)}</option>)}
               </Form.Select>
               {pkg && (
                 <p className="text-muted small mt-2 mb-0">
-                  Dịch vụ áp dụng: {(pkg.services || []).map((s) => s.serviceName).join(", ")} · Hạn dùng {pkg.validityDays} ngày
+                  Applicable services: {(pkg.services || []).map((s) => s.serviceName).join(", ")} · Expires {pkg.validityDays} days
                 </p>
               )}
             </Card.Body>
@@ -100,24 +101,24 @@ function SellPackage() {
         </Col>
         <Col lg={5}>
           <Card className="shadow-sm border-0">
-            <Card.Header className="bg-white fw-bold">3. Thanh toán</Card.Header>
+            <Card.Header className="bg-white fw-bold">3. Payment</Card.Header>
             <Card.Body>
-              <p className="mb-1">Giá gói: <strong>{pkg ? money(pkg.price) : "—"}</strong></p>
-              {tierPercent > 0 && <p className="mb-1 text-muted small">Giảm theo hạng {customer.membership.tierName}: {tierPercent}% (trừ khi lập hóa đơn)</p>}
+              <p className="mb-1">Package price: <strong>{pkg ? money(pkg.price) : "—"}</strong></p>
+              {tierPercent > 0 && <p className="mb-1 text-muted small">Tier discount {customer.membership.tierName}: {tierPercent}% (unless invoiced)</p>}
               <Form.Group className="my-3">
-                <Form.Label>Mã voucher</Form.Label>
+                <Form.Label>Voucher code</Form.Label>
                 <Form.Control value={voucherCode} onChange={(e) => setVoucherCode(e.target.value.toUpperCase())} />
               </Form.Group>
               <Form.Group className="mb-3">
-                <Form.Label>Hình thức thanh toán</Form.Label>
+                <Form.Label>Payment method</Form.Label>
                 <Form.Select value={method} onChange={(e) => setMethod(e.target.value)}>
-                  <option value="Cash">Tiền mặt</option>
-                  <option value="BankTransfer">Chuyển khoản</option>
+                  <option value="Cash">Cash</option>
+                  <option value="BankTransfer">Bank transfer</option>
                   <option value="VNPay">VNPay</option>
                 </Form.Select>
               </Form.Group>
               <Button className="w-100 fw-bold" disabled={saving || !customer || !packageId || !!result} onClick={sell}>
-                {saving ? <Spinner size="sm" /> : "Thanh toán & kích hoạt gói"}
+                {saving ? <Spinner size="sm" /> : "Payment & package activated"}
               </Button>
             </Card.Body>
           </Card>
@@ -148,19 +149,19 @@ function Cashier() {
     <Container fluid className="mt-4 px-4">
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-          <h2 className="manager-page-title fw-bold mb-1">Thu ngân</h2>
-          <p className="text-muted mb-0">Các lịch hẹn còn hóa đơn chưa thanh toán. Mở hóa đơn để áp voucher và thu tiền.</p>
+          <h2 className="manager-page-title fw-bold mb-1">Payments</h2>
+          <p className="text-muted mb-0">These appointments still have unpaid invoices. Open the invoice to apply a voucher and collect payment.</p>
         </div>
         <div className="d-flex gap-2">
-          <Button variant="outline-secondary" onClick={load}><i className="bi bi-arrow-clockwise" /> Làm mới</Button>
-          <Button onClick={() => navigate("/sell-treatment-package")}><i className="bi bi-box-seam" /> Bán gói liệu trình</Button>
+          <Button variant="outline-secondary" onClick={load}><i className="bi bi-arrow-clockwise" /> Refresh</Button>
+          <Button onClick={() => navigate("/sell-treatment-package")}><i className="bi bi-box-seam" /> Sell treatment package</Button>
         </div>
       </div>
-      {error && <Alert variant="danger">{error}</Alert>}
+      <FloatingAlert message={error} onClose={() => setError("")} />
       <Card className="shadow-sm border-0">
         <Card.Body className="p-0">
           <Table hover responsive className="align-middle mb-0 manager-list-table">
-            <thead className="table-dark"><tr><th>Hóa đơn</th><th>Lịch hẹn</th><th>Khách hàng</th><th>Dịch vụ</th><th>Trạng thái lịch</th><th>Phải thu</th><th /></tr></thead>
+            <thead className="table-dark"><tr><th>Invoice</th><th>Appointments</th><th>Customer</th><th>Service</th><th>Appointment status</th><th>Amount due</th><th /></tr></thead>
             <tbody>
               {loading ? <tr><td colSpan={7} className="text-center py-4"><Spinner animation="border" size="sm" /></td></tr> : rows.map((r) => (
                 <tr key={r.invoiceId}>
@@ -173,16 +174,16 @@ function Cashier() {
                   <td>
                     {r.canCollect === false ? (
                       <span className="d-inline-block" title={r.collectNote || ""}>
-                        <Button size="sm" variant="outline-secondary" disabled>Chưa đến lúc thu</Button>
-                        <small className="d-block text-muted mt-1">Thu khi khách đã check-in</small>
+                        <Button size="sm" variant="outline-secondary" disabled>Payment not due yet</Button>
+                        <small className="d-block text-muted mt-1">Take payment after check-in</small>
                       </span>
                     ) : (
-                      <Button size="sm" onClick={() => navigate(`/invoices?invoice=${r.invoiceId}`)}>Thu tiền</Button>
+                      <Button size="sm" onClick={() => navigate(`/invoices?invoice=${r.invoiceId}`)}>Take payment</Button>
                     )}
                   </td>
                 </tr>
               ))}
-              {!loading && !rows.length && <tr><td colSpan={7} className="text-center text-muted py-4">Không có hóa đơn nào chờ thu.</td></tr>}
+              {!loading && !rows.length && <tr><td colSpan={7} className="text-center text-muted py-4">No invoices awaiting payment.</td></tr>}
             </tbody>
           </Table>
         </Card.Body>

@@ -48,7 +48,7 @@ public class ServiceController {
         validateId(id);
         int future = serviceDAO.futureAppointments(id);
         if (serviceDAO.deleteService(id) == 0) throw new NotFoundException();
-        return java.util.Map.of("futureAppointments", future, "message", future == 0 ? "Đã ngừng kinh doanh dịch vụ." : "Đã ngừng kinh doanh. " + future + " lịch hẹn tương lai vẫn được giữ.");
+        return java.util.Map.of("futureAppointments", future, "message", future == 0 ? "Service deleted." : "Service deleted. " + future + " upcoming appointment(s) are kept.");
     }
 
     private void validateId(int id) {
@@ -64,13 +64,13 @@ public class ServiceController {
             throw new IllegalArgumentException("Price must be greater than zero.");
         }
         if (service.getDuration() <= 0 || service.getDuration() % 15 != 0 || service.getDuration() > 600) {
-            throw new IllegalArgumentException("Thời lượng phải là bội số của 15 phút (tối đa 600 phút).");
+            throw new IllegalArgumentException("Duration must be a multiple of 15 minutes (at most 600 minutes).");
         }
         if (!java.util.Arrays.asList("Facial", "Massage", "HairWash", "Body").contains(service.getRequiredRoomType())) {
-            throw new IllegalArgumentException("Loại phòng phải là Facial, Massage, HairWash hoặc Body.");
+            throw new IllegalArgumentException("Room type must be Facial, Massage, HairWash or Body.");
         }
         if (service.getTourCount() != null && (service.getTourCount() < 1 || service.getTourCount() > 10 || service.getTourCount() != Math.floor(service.getTourCount()))) {
-            throw new IllegalArgumentException("Số tour phải là số nguyên từ 1 đến 10.");
+            throw new IllegalArgumentException("Tour count must be an integer from 1 to 10.");
         }
         if (service.getCategory() == null || service.getCategory().isBlank()) service.setCategory("General");
         if (service.getStatus() == null) service.setStatus("Active");

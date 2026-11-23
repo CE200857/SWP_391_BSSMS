@@ -6,10 +6,10 @@ import {
   Form,
   Button,
   Card,
-  Alert,
   InputGroup,
 } from "react-bootstrap";
 import axios from "axios";
+import FloatingAlert from "../../components/FloatingAlert";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -43,7 +43,7 @@ const ForgotPassword = () => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(inputEmail)) {
-      setError("Vui lòng nhập đúng định dạng Email.");
+      setError("Please enter a valid email.");
       return;
     }
 
@@ -63,13 +63,13 @@ const ForgotPassword = () => {
         setIsEmailVerified(true);
         setCountdown(60);
         setSuccessMsg(
-          "Email hợp lệ! Vui lòng nhập mã xác thực được gửi thông qua email",
+          "Valid email! Please enter the verification code sent to your email",
         );
       }
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Không thể gửi mã xác thực. Vui lòng kiểm tra lại!",
+          "Could not send the verification code. Please check again!",
       );
     } finally {
       setIsSendingCode(false);
@@ -85,12 +85,12 @@ const ForgotPassword = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(inputEmail)) {
-      setError("Email không đúng định dạng.");
+      setError("Invalid email format.");
       return;
     }
 
     if (!isEmailVerified) {
-      setError("Vui lòng nhấn nút Gửi mã trước.");
+      setError("Please click Send code first.");
       return;
     }
 
@@ -106,7 +106,7 @@ const ForgotPassword = () => {
       );
 
       if (response.status === 200) {
-        setSuccessMsg("Xác thực thành công! Đang chuyển hướng...");
+        setSuccessMsg("Verification successful! Redirecting...");
         setTimeout(() => {
           navigate(staffPortal ? "/reset-password?portal=staff" : "/reset-password", { state: { email: inputEmail } });
         }, 1000);
@@ -114,7 +114,7 @@ const ForgotPassword = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Mã xác thực không hợp lệ. Vui lòng kiểm tra lại.",
+          "Invalid verification code. Please check again.",
       );
     }
   };
@@ -146,18 +146,18 @@ const ForgotPassword = () => {
                 color: "#6c757d",
               }}
               onClick={() => navigate(staffPortal ? "/dashboard/login" : "/login")}
-              title="Quay lại Đăng nhập"
+              title="Back to login"
             ></i>
             <h4
               className="text-center fw-bold text-uppercase m-0"
               style={{ color: "#3a2a2f" }}
             >
-              Quên Mật Khẩu
+              Forgot password
             </h4>
           </div>
 
-          {error && <Alert variant="danger">{error}</Alert>}
-          {successMsg && <Alert variant="success">{successMsg}</Alert>}
+          <FloatingAlert message={error} onClose={() => setError("")} />
+          <FloatingAlert message={successMsg} variant="success" onClose={() => setSuccessMsg("")} />
 
           <Form onSubmit={handleConfirm}>
             <Form.Group className="mb-3 text-start">
@@ -167,7 +167,7 @@ const ForgotPassword = () => {
               <InputGroup>
                 <Form.Control
                   type="email"
-                  placeholder="Nhập email của bạn"
+                  placeholder="Enter your email"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -182,21 +182,21 @@ const ForgotPassword = () => {
                   style={{ width: "110px", fontWeight: "bold" }}
                 >
                   {isSendingCode
-                    ? "Đang xử lý"
+                    ? "Processing"
                     : countdown > 0
                       ? `${countdown}s`
-                      : "Gửi mã"}
+                      : "Send code"}
                 </Button>
               </InputGroup>
             </Form.Group>
 
             <Form.Group className="mb-4 text-start">
               <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>
-                Mã xác thực*
+                Verification code*
               </Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Nhập mã 6 chữ số"
+                placeholder="Enter the 6-digit code"
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
                 maxLength={6}
@@ -214,7 +214,7 @@ const ForgotPassword = () => {
                 className="w-50 fw-bold"
                 onClick={() => navigate(staffPortal ? "/dashboard/login" : "/login")}
               >
-                Quay lại
+                Back
               </Button>
               <Button
                 variant="danger"
@@ -223,7 +223,7 @@ const ForgotPassword = () => {
                 style={{ backgroundColor: "#a61e4d", border: "none" }}
                 disabled={!isEmailVerified || !verificationCode}
               >
-                Xác nhận
+                Confirm
               </Button>
             </div>
           </Form>

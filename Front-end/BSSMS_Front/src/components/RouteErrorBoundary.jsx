@@ -9,20 +9,20 @@ export default class RouteErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    console.error("Không thể hiển thị trang", error, info.componentStack);
+    console.error("Cannot display the page", error, info.componentStack);
   }
 
   render() {
     if (!this.state.failed) return this.props.children;
     return (
       <section className="app-route-error" role="alert">
-        <h2>Chưa thể hiển thị trang này</h2>
-        <p>Dữ liệu có thể chưa tải đúng. Bạn có thể thử lại hoặc quay về trang chính.</p>
+        <h2>This page cannot be displayed yet</h2>
+        <p>The data may not have loaded correctly. You can try again or go back to the home page.</p>
         <div className="d-flex flex-wrap gap-2">
           <button className="btn btn-primary" onClick={() => this.setState({ failed: false })}>
-            Thử lại
+            Try again
           </button>
-          <Link className="btn btn-outline-primary" to={this.props.home}>Về trang chính</Link>
+          <Link className="btn btn-outline-primary" to={this.props.home}>Back to main page</Link>
         </div>
       </section>
     );

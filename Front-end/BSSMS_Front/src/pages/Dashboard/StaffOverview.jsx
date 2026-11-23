@@ -25,7 +25,7 @@ export default function StaffOverview({ role }) {
     api("/api/appointments")
       .then((items) => {
         if (!Array.isArray(items))
-          throw new Error("Dữ liệu lịch hẹn không hợp lệ.");
+          throw new Error("Invalid appointment data.");
         if (active) setData({ items, loading: false, error: "" });
       })
       .catch((error) => {
@@ -56,23 +56,23 @@ export default function StaffOverview({ role }) {
   const metrics = [
     [
       "calendar2-week",
-      technician ? "Lịch được giao hôm nay" : "Lịch hẹn hôm nay",
+      technician ? "Appointments assigned today" : "Today’s appointments",
       rows.length,
     ],
     [
       technician ? "hourglass-split" : "clock",
-      technician ? "Sẵn sàng thực hiện" : "Chờ xác nhận hôm nay",
+      technician ? "Ready" : "Pending today",
       rows.filter((a) => a.status === (technician ? "Checked-in" : "Pending"))
         .length,
     ],
     [
       "activity",
-      "Đang thực hiện",
+      "In progress",
       rows.filter((a) => a.status === "In-progress").length,
     ],
     [
       "check2-circle",
-      "Đã hoàn thành",
+      "Completed",
       rows.filter((a) => a.status === "Completed").length,
     ],
   ];
@@ -80,17 +80,17 @@ export default function StaffOverview({ role }) {
     <section className="staff-overview">
       <div className="ui-page-heading">
         <div>
-          <h1>{technician ? "Công việc hôm nay" : "Tổng quan lễ tân"}</h1>
+          <h1>{technician ? "Today’s work" : "Receptionist overview"}</h1>
           <p>
             {technician
-              ? "Theo dõi lịch được phân công và tiếp tục buổi điều trị."
-              : "Đón khách, sắp xếp lịch hẹn và theo dõi hoạt động tại quầy."}
+              ? "Track your assigned appointments and continue treatment sessions."
+              : "Receive customers, arrange appointments and track activity at the counter."}
           </p>
         </div>
         <div className="d-flex gap-2">
         <Link className="btn btn-primary" to={technician ? "/treatment-status" : "/receptionist/coordination"}>
           <i className={`bi ${technician ? "bi-play-circle" : "bi-door-open"}`} aria-hidden="true" />{" "}
-          {technician ? "Trạng thái dịch vụ" : "Check-in & điều phối"}
+          {technician ? "Service status" : "Check-in & coordination"}
         </Link>
         <button
           className="btn btn-outline-primary"
@@ -100,18 +100,18 @@ export default function StaffOverview({ role }) {
             setRevision((value) => value + 1);
           }}
         >
-          <i className="bi bi-arrow-clockwise" aria-hidden="true" /> Làm mới
+          <i className="bi bi-arrow-clockwise" aria-hidden="true" /> Refresh
         </button>
         </div>
       </div>
       {data.error && (
         <div className="alert alert-danger" role="alert">
-          {data.error} Bấm Làm mới để thử lại.
+          {data.error} Click Refresh to try again.
         </div>
       )}
       <div
         className="staff-metrics"
-        aria-label="Thống kê hôm nay"
+        aria-label="Today’s statistics"
         aria-busy={data.loading}
       >
         {metrics.map(([icon, label, value]) => (
@@ -125,42 +125,42 @@ export default function StaffOverview({ role }) {
       <section className="staff-schedule card">
         <div className="card-header">
           <div>
-            <h2>Lịch làm việc hôm nay</h2>
+            <h2>Today’s work schedule</h2>
             <span>
               {day.split("-").reverse().join("/")} ·{" "}
               {technician
-                ? "Các lịch hẹn được phân công cho bạn"
-                : "Các lịch hẹn tại salon"}
+                ? "Appointments assigned to you"
+                : "Appointments at the spa"}
             </span>
           </div>
-          <Link to="/appointments">Xem tất cả</Link>
+          <Link to="/appointments">View all</Link>
         </div>
         {data.loading ? (
           <p className="ui-empty" role="status">
-            Đang tải lịch hẹn…
+            Loading appointments…
           </p>
         ) : data.error ? (
-          <p className="ui-empty">Chưa tải được lịch hẹn.</p>
+          <p className="ui-empty">Could not load appointments.</p>
         ) : rows.length === 0 ? (
           <div className="ui-empty">
             <i className="bi bi-calendar2-check" />
             <p>
               {technician
-                ? "Bạn chưa có lịch được phân công hôm nay."
-                : "Chưa có lịch hẹn hôm nay."}
+                ? "You have no assignments today."
+                : "No appointments today."}
             </p>
-            <Link to="/appointments">Xem lịch các ngày khác</Link>
+            <Link to="/appointments">View other days</Link>
           </div>
         ) : (
           <div className="table-responsive">
             <table className="table mb-0">
               <thead>
                 <tr>
-                  <th>Giờ hẹn</th>
-                  <th>Khách hàng</th>
-                  <th>Dịch vụ</th>
-                  <th>Trạng thái</th>
-                  <th className="text-center">Hành động</th>
+                  <th>Appointment time</th>
+                  <th>Customer</th>
+                  <th>Service</th>
+                  <th>Status</th>
+                  <th className="text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -185,17 +185,17 @@ export default function StaffOverview({ role }) {
                           disabled={approvingId === a.appointmentId}
                           onClick={() => approve(a.appointmentId)}
                         >
-                          Duyệt
+                          <i className="bi bi-check2-circle me-1" aria-hidden="true"></i> Confirm
                         </button>
                       )}
                       <Link
                         className="btn btn-sm btn-outline-primary"
                         to={`/appointments/${a.appointmentId}`}
                       >
-                        Chi tiết
+                        Details
                         <span className="visually-hidden">
                           {" "}
-                          lịch #{a.appointmentId}
+                          appointment #{a.appointmentId}
                         </span>
                       </Link>
                     </td>
@@ -210,22 +210,22 @@ export default function StaffOverview({ role }) {
         <section className="staff-schedule card mt-4">
           <div className="card-header">
             <div>
-              <h2>Chờ xác nhận sắp tới</h2>
+              <h2>Upcoming pending appointments</h2>
               <span>
-                {upcomingPending.length} lịch hẹn của các ngày sau hôm nay đang chờ bạn duyệt
+                {upcomingPending.length} appointments after today are waiting to be confirmed
               </span>
             </div>
-            <Link to="/appointments">Xem tất cả</Link>
+            <Link to="/appointments">View all</Link>
           </div>
           <div className="table-responsive">
             <table className="table mb-0">
               <thead>
                 <tr>
-                  <th>Ngày</th>
-                  <th>Giờ hẹn</th>
-                  <th>Khách hàng</th>
-                  <th>Dịch vụ</th>
-                  <th className="text-center">Hành động</th>
+                  <th>Date</th>
+                  <th>Appointment time</th>
+                  <th>Customer</th>
+                  <th>Service</th>
+                  <th className="text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,16 +251,16 @@ export default function StaffOverview({ role }) {
                         disabled={approvingId === a.appointmentId}
                         onClick={() => approve(a.appointmentId)}
                       >
-                        Duyệt
+                        <i className="bi bi-check2-circle me-1" aria-hidden="true"></i> Confirm
                       </button>
                       <Link
                         className="btn btn-sm btn-outline-primary"
                         to={`/appointments/${a.appointmentId}`}
                       >
-                        Chi tiết
+                        Details
                         <span className="visually-hidden">
                           {" "}
-                          lịch #{a.appointmentId}
+                          appointment #{a.appointmentId}
                         </span>
                       </Link>
                     </td>

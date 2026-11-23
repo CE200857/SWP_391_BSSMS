@@ -38,7 +38,7 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
             case "image/jpeg": return "jpg";
             case "image/png": return "png";
             case "image/webp": return "webp";
-            default: throw new IllegalArgumentException("Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.");
+            default: throw new IllegalArgumentException("Only JPEG, PNG or WebP images are accepted.");
         }
     }
 
@@ -70,24 +70,24 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
         workflow().roles("Technician");
         appointmentOf(lineId);
         if (workflow().query("SELECT appointment_service_id FROM AppointmentService WHERE appointment_service_id=? AND technician_id=?", lineId, workflow().staffId()).isEmpty())
-            throw new WorkflowException(403, "Dòng dịch vụ này không được giao cho bạn.");
+            throw new WorkflowException(403, "This service is not assigned to you.");
         if (!"Before".equals(photoType) && !"After".equals(photoType))
-            throw new IllegalArgumentException("Loại ảnh phải là Before hoặc After.");
+            throw new IllegalArgumentException("Photo type must be Before or After.");
         String ext = extensionFor(contentType);
-        if (base64 == null || base64.isBlank()) throw new IllegalArgumentException("Thiếu dữ liệu ảnh.");
-        if (base64.length() > (long) MAX_BYTES * 4 / 3 + 16) throw new IllegalArgumentException("Ảnh tối đa 3 MB.");
+        if (base64 == null || base64.isBlank()) throw new IllegalArgumentException("Missing image data.");
+        if (base64.length() > (long) MAX_BYTES * 4 / 3 + 16) throw new IllegalArgumentException("Images can be at most 3 MB.");
         byte[] bytes;
         try { bytes = Base64.getDecoder().decode(base64.replaceAll("\\s", "")); }
-        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Dữ liệu ảnh không hợp lệ."); }
-        if (bytes.length == 0 || bytes.length > MAX_BYTES) throw new IllegalArgumentException("Ảnh tối đa 3 MB.");
-        if (!magicMatches(ext, bytes)) throw new IllegalArgumentException("Nội dung tệp không phải ảnh " + ext.toUpperCase() + " hợp lệ.");
+        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Invalid image data."); }
+        if (bytes.length == 0 || bytes.length > MAX_BYTES) throw new IllegalArgumentException("Images can be at most 3 MB.");
+        if (!magicMatches(ext, bytes)) throw new IllegalArgumentException("The file content is not a valid " + ext.toUpperCase() + " image.");
 
         String status = String.valueOf(workflow().one("SELECT a.status FROM Appointment a JOIN AppointmentService l ON l.appointment_id=a.appointment_id WHERE l.appointment_service_id=?", lineId).get("status"));
         if (!Arrays.asList("Checked-in", "In-progress", "Completed").contains(status))
-            throw new IllegalStateException("Chỉ được tải ảnh sau khi khách đã check-in.");
+            throw new IllegalStateException("Photos can only be uploaded after the customer has checked in.");
         Number count = (Number) workflow().one("SELECT COUNT(*) AS total FROM TreatmentPhoto WHERE appointment_service_id=?", lineId).get("total");
         if (count.intValue() >= MAX_PHOTOS_PER_APPOINTMENT)
-            throw new IllegalStateException("Mỗi lịch hẹn tối đa " + MAX_PHOTOS_PER_APPOINTMENT + " ảnh.");
+            throw new IllegalStateException("Each appointment can have at most " + MAX_PHOTOS_PER_APPOINTMENT + " photos.");
 
         String key = UUID.randomUUID() + "." + ext;
         Path target = root().resolve(key).normalize();
@@ -109,9 +109,9 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
         int appointmentId = appointmentOf(lineId);
         String status = String.valueOf(workflow().one("SELECT status FROM Appointment WHERE appointment_id=?", appointmentId).get("status"));
         if (!Arrays.asList("Checked-in", "In-progress", "Completed").contains(status))
-            throw new IllegalStateException("Không xóa được ảnh ở trạng thái lịch hẹn hiện tại.");
+            throw new IllegalStateException("Photos cannot be deleted in the current appointment status.");
         if (workflow().update("DELETE FROM TreatmentPhoto WHERE photo_id=?", photoId) != 1)
-            throw new WorkflowException(404, "Không tìm thấy ảnh.");
+            throw new WorkflowException(404, "Photo not found.");
         try {
             Path path = root().resolve(String.valueOf(row.get("storageKey"))).normalize();
             if (path.startsWith(root())) Files.deleteIfExists(path);
@@ -125,7 +125,7 @@ public class TreatmentPhotoDAO extends DBContext implements AutoCloseable {
         appointmentOf(((Number) row.get("appointmentServiceId")).intValue());
         String key = String.valueOf(row.get("storageKey"));
         Path path = root().resolve(key).normalize();
-        if (!path.startsWith(root()) || !Files.isRegularFile(path)) throw new WorkflowException(404, "Không tìm thấy tệp ảnh.");
+        if (!path.startsWith(root()) || !Files.isRegularFile(path)) throw new WorkflowException(404, "Image file not found.");
         String lower = key.toLowerCase();
         String type = lower.endsWith(".png") ? "image/png" : lower.endsWith(".webp") ? "image/webp" : "image/jpeg";
         return new Stored(path, type);

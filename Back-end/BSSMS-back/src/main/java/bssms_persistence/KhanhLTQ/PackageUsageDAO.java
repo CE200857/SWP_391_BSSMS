@@ -13,9 +13,10 @@ public class PackageUsageDAO extends DBContext implements AutoCloseable {
         if ("Customer".equals(w.role())) customerId = w.customerId();
         if (customerId > 0) w.customerAccess(customerId); else w.roles("Manager", "Receptionist");
         List<Map<String, Object>> rows = w.query("SELECT cp.customer_package_id,cp.customer_id,c.full_name AS customer_name,cp.treatment_package_id,tp.package_name,cp.total_sessions,cp.remaining_sessions,"
-                + "cp.total_sessions-cp.remaining_sessions AS used_sessions,cp.purchase_date,cp.expiry_date,cp.purchase_price,cp.status,cp.sold_invoice_id,st.full_name AS sold_by "
+                + "cp.total_sessions-cp.remaining_sessions AS used_sessions,cp.purchase_date,cp.expiry_date,cp.purchase_price,"
+                + "CASE WHEN cp.status='Active' AND cp.expiry_date<CAST(SYSDATETIME() AS date) THEN 'Expired' ELSE cp.status END AS status,cp.sold_invoice_id,st.full_name AS sold_by "
                 + "FROM CustomerPackage cp JOIN Customer c ON c.customer_id=cp.customer_id JOIN TreatmentPackage tp ON tp.treatment_package_id=cp.treatment_package_id LEFT JOIN Staff st ON st.staff_id=cp.sold_by_staff_id "
-                + "WHERE (?=0 OR cp.customer_id=?) ORDER BY CASE cp.status WHEN 'Active' THEN 0 ELSE 1 END,cp.purchase_date DESC", customerId, customerId);
+                + "WHERE (?=0 OR cp.customer_id=?) ORDER BY CASE CASE WHEN cp.status='Active' AND cp.expiry_date<CAST(SYSDATETIME() AS date) THEN 'Expired' ELSE cp.status END WHEN 'Active' THEN 0 ELSE 1 END,cp.purchase_date DESC", customerId, customerId);
         for (Map<String, Object> r : rows)
             r.put("usage", w.query("SELECT l.appointment_service_id,a.appointment_id,a.appointment_date,l.start_time,s.service_name,l.status,st.full_name AS technician_name FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id JOIN Service s ON s.service_id=l.service_id LEFT JOIN Staff st ON st.staff_id=l.technician_id WHERE l.customer_package_id=? AND a.status NOT IN ('Cancelled','No-show') ORDER BY a.appointment_date,l.start_time", r.get("customerPackageId")));
         return rows;

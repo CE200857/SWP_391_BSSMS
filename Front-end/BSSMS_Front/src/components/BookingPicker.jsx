@@ -44,32 +44,32 @@ export function ServiceLinesEditor({ services, packages = [], lines, onChange, d
         const usable = packagesFor(packages, lines, index);
         return (
           <div className="customer-booking-fields booking-service-line" key={index}>
-            <Form.Group className="customer-booking-service-field">
-              <Form.Label>Dịch vụ thứ {index + 1}{index === 0 ? " *" : ""}</Form.Label>
+            <Form.Group className="customer-booking-service-field" controlId={`booking-service-${index}`}>
+              <Form.Label>Service {index + 1}{index === 0 ? " *" : ""}</Form.Label>
               <Form.Select
                 value={line.serviceId}
                 disabled={disabled}
                 onChange={(e) => update(index, { serviceId: e.target.value, customerPackageId: "" })}
               >
-                <option value="">-- Chọn dịch vụ --</option>
+                <option value="">-- Select service --</option>
                 {services.map((s) => (
                   <option key={s.serviceId} value={s.serviceId}>
-                    {s.serviceName} · {s.duration} phút
+                    {s.serviceName} · {s.duration} minutes
                   </option>
                 ))}
               </Form.Select>
             </Form.Group>
-            <Form.Group>
-              <Form.Label>Thanh toán dòng này</Form.Label>
+            <Form.Group controlId={`booking-payline-${index}`}>
+              <Form.Label>Pay this line</Form.Label>
               <Form.Select
                 value={line.customerPackageId}
                 disabled={disabled || !line.serviceId || usable.length === 0}
                 onChange={(e) => update(index, { customerPackageId: e.target.value })}
               >
-                <option value="">{service ? `Trả theo lượt · ${money(service.price)}` : "Trả theo lượt"}</option>
+                <option value="">{service ? `Pay as you go · ${money(service.price)}` : "Pay as you go"}</option>
                 {usable.map((p) => (
                   <option key={p.customerPackageId} value={p.customerPackageId}>
-                    Dùng gói {p.packageName} · còn {p.availableSessions ?? p.remainingSessions} buổi
+                    Use package {p.packageName} · left {p.availableSessions ?? p.remainingSessions} sessions
                   </option>
                 ))}
               </Form.Select>
@@ -81,7 +81,7 @@ export function ServiceLinesEditor({ services, packages = [], lines, onChange, d
                 disabled={disabled || (lines.length === 1 && !line.serviceId)}
                 onClick={() => remove(index)}
               >
-                <i className="bi bi-x-circle" aria-hidden="true" /> Bỏ
+                <i className="bi bi-x-circle" aria-hidden="true" /> Remove
               </Button>
             </div>
           </div>
@@ -94,11 +94,11 @@ export function ServiceLinesEditor({ services, packages = [], lines, onChange, d
           disabled={disabled || !lines[lines.length - 1]?.serviceId}
           onClick={() => onChange([...lines, emptyLine()])}
         >
-          <i className="bi bi-plus-lg" aria-hidden="true" /> Thêm dịch vụ (tối đa {MAX_SERVICES})
+          <i className="bi bi-plus-lg" aria-hidden="true" /> Add service (up to {MAX_SERVICES})
         </Button>
       )}
       <Form.Text className="d-block mt-2">
-        Các dịch vụ được làm liên tiếp theo thứ tự đã chọn. Lịch 3–4 dịch vụ được chia cho 2 kỹ thuật viên.
+        Services are done back to back in the selected order. Appointments with 3–4 services are split between 2 technicians.
       </Form.Text>
     </div>
   );
@@ -132,7 +132,7 @@ export function SlotGrid({ slots, loading, error, value, onSelect, emptyText }) 
     return (
       <div className="customer-booking-slots-message" role="status">
         <Spinner animation="border" size="sm" variant="danger" />
-        <span>Đang kiểm tra lịch trống...</span>
+        <span>Checking availability...</span>
       </div>
     );
   if (error) return <Alert variant="danger">{error}</Alert>;
@@ -140,7 +140,7 @@ export function SlotGrid({ slots, loading, error, value, onSelect, emptyText }) 
     return (
       <div className="customer-booking-slots-message">
         <i className="bi bi-calendar-x" aria-hidden="true" />
-        <span>{emptyText || "Vui lòng chọn dịch vụ để xem khung giờ."}</span>
+        <span>{emptyText || "Please select a service to see time slots."}</span>
       </div>
     );
   return (
@@ -161,9 +161,11 @@ export function SlotGrid({ slots, loading, error, value, onSelect, emptyText }) 
             </strong>
             <span>
               <i className="bi bi-person" aria-hidden="true" />{" "}
-              {slot.available ? `Còn ${slot.availableTechnicianCount} KTV` : "Không khả dụng"}
+              {slot.available
+                ? `${slot.availableTechnicianCount} ${Number(slot.availableTechnicianCount) === 1 ? "therapist" : "therapists"} available`
+                : "Unavailable"}
             </span>
-            <small>{selected ? "Đã chọn" : slot.available ? "Còn trống" : slot.reason}</small>
+            <small>{selected ? "Selected" : slot.available ? "Available" : slot.reason}</small>
           </button>
         );
       })}
@@ -182,7 +184,7 @@ export function PlanPreview({ services, startTime }) {
         <li key={s.lineNo}>
           <strong>{s.serviceName}</strong>
           <span>
-            {fmt(toMin(s.startTime) + shift)} – {fmt(toMin(s.endTime) + shift)} · {s.duration} phút · KTV phần {s.part}
+            {fmt(toMin(s.startTime) + shift)} – {fmt(toMin(s.endTime) + shift)} · {s.duration} minutes · Technician for part {s.part}
           </span>
         </li>
       ))}
