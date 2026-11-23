@@ -13,7 +13,7 @@ public class ServiceHistoryDAO extends DBContext {
 
     private static final String BASE_QUERY
             = "SELECT l.appointment_service_id, a.appointment_id, a.customer_id, c.full_name AS customer_name, "
-            + "l.service_id, s.service_name, COALESCE(st.full_name, N'Chưa phân công') AS staff_name, l.technician_id, "
+            + "l.service_id, s.service_name, COALESCE(st.full_name, N'Unassigned') AS staff_name, l.technician_id, "
             + "a.appointment_date, l.start_time, l.end_time, a.status, a.notes, l.result_notes, l.skin_reaction, "
             + "l.customer_package_id, l.unit_price, f.rating, f.comment "
             + "FROM AppointmentService l "
@@ -21,7 +21,7 @@ public class ServiceHistoryDAO extends DBContext {
             + "INNER JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON c.customer_id = a.customer_id "
             + "INNER JOIN Service s ON s.service_id = l.service_id "
             + "LEFT JOIN " + bssms_persistence.common.SchemaSql.STAFF + " st ON st.staff_id = l.technician_id "
-            + "LEFT JOIN ServiceFeedback f ON f.appointment_service_id = l.appointment_service_id "
+            + "LEFT JOIN ServiceFeedback f ON f.appointment_service_id = l.appointment_service_id AND f.deleted_at IS NULL "
             + "WHERE a.status = 'Completed' AND l.status = 'Done' ";
 
     public List<Map<String, Object>> getHistoryByCustomer(int customerId)

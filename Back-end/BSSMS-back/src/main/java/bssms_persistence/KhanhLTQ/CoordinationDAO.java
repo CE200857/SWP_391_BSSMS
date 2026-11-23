@@ -24,7 +24,7 @@ public class CoordinationDAO extends DBContext implements AutoCloseable {
         return booking().replacementOptions(appointment);
     }
     public void reassign(int appointment, Map<Integer, Integer> technicians, Map<Integer, Integer> beds) throws SQLException {
-        workflow().roles("Receptionist");
+        workflow().roles("Receptionist", "Manager");
         booking().reassign(appointment, technicians, beds);
     }
 }

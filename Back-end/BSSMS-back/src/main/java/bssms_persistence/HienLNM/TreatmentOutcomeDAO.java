@@ -20,13 +20,13 @@ public class TreatmentOutcomeDAO extends DBContext implements AutoCloseable {
     public boolean recordOutcome(int lineId, String notes, String skinReaction) throws SQLException {
         Workflow w = workflow();
         w.roles("Technician");
-        if (notes == null || notes.isBlank()) throw new IllegalArgumentException("Vui lòng nhập kết quả điều trị.");
-        if (notes.length() > 4000 || (skinReaction != null && skinReaction.length() > 1000)) throw new IllegalArgumentException("Nội dung quá dài.");
+        if (notes == null || notes.isBlank()) throw new IllegalArgumentException("Please enter the treatment notes.");
+        if (notes.length() > 4000 || (skinReaction != null && skinReaction.length() > 1000)) throw new IllegalArgumentException("The content is too long.");
         Map<String, Object> l = w.one("SELECT status,technician_id,result_notes,done_at FROM AppointmentService WHERE appointment_service_id=?", lineId);
-        if (l.get("technicianId") == null || Workflow.id(l.get("technicianId")) != w.staffId()) throw new WorkflowException(403, "Dòng dịch vụ này không được giao cho bạn.");
-        if (!"Done".equals(l.get("status"))) throw new WorkflowException(409, "Chỉ ghi nhận kết quả sau khi hoàn thành dịch vụ.");
+        if (l.get("technicianId") == null || Workflow.id(l.get("technicianId")) != w.staffId()) throw new WorkflowException(403, "This service is not assigned to you.");
+        if (!"Done".equals(l.get("status"))) throw new WorkflowException(409, "Treatment notes can only be added after the service is completed.");
         if (l.get("resultNotes") != null && w.query("SELECT appointment_service_id FROM AppointmentService WHERE appointment_service_id=? AND CAST(done_at AS date)=CAST(SYSDATETIME() AS date)", lineId).isEmpty())
-            throw new WorkflowException(409, "Chỉ được sửa kết quả trong ngày thực hiện.");
+            throw new WorkflowException(409, "Treatment notes can only be edited on the day of the service.");
         return w.update("UPDATE AppointmentService SET result_notes=?,skin_reaction=? WHERE appointment_service_id=?", notes.trim(), skinReaction == null || skinReaction.isBlank() ? null : skinReaction.trim(), lineId) == 1;
     }
 }

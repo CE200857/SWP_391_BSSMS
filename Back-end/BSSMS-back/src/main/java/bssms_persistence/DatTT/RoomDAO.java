@@ -12,8 +12,8 @@ public class RoomDAO extends DBContext implements AutoCloseable {
     public List<Room> getAllRooms() throws SQLException {
         requireConnection();
         List<Room> result = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement("SELECT r.*,(SELECT COUNT(*) FROM Bed b WHERE b.room_id=r.room_id) AS bed_count,"
-                + "(SELECT COUNT(*) FROM Bed b WHERE b.room_id=r.room_id AND b.status='Active') AS active_bed_count FROM Room r ORDER BY r.room_name");
+        try (PreparedStatement ps = conn.prepareStatement("SELECT r.*,(SELECT COUNT(*) FROM Bed b WHERE b.room_id=r.room_id AND b.deleted_at IS NULL) AS bed_count,"
+                + "(SELECT COUNT(*) FROM Bed b WHERE b.room_id=r.room_id AND b.deleted_at IS NULL AND b.status='Active') AS active_bed_count FROM Room r WHERE r.deleted_at IS NULL ORDER BY r.room_name");
                 ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Room value = new Room();
@@ -117,7 +117,7 @@ public class RoomDAO extends DBContext implements AutoCloseable {
     }
     public boolean everUsed(int roomId) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("SELECT TOP 1 1 FROM AppointmentService l JOIN Bed b ON b.bed_id=l.bed_id WHERE b.room_id=?")) {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT TOP 1 1 FROM AppointmentService l JOIN Bed b ON b.bed_id=l.bed_id JOIN Appointment a ON a.appointment_id=l.appointment_id WHERE b.room_id=? AND l.status<>'Done' AND a.status IN ('Pending','Confirmed','Checked-in','In-progress')")) {
             ps.setInt(1, roomId);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
         }
@@ -127,9 +127,9 @@ public class RoomDAO extends DBContext implements AutoCloseable {
         boolean auto = conn.getAutoCommit();
         conn.setAutoCommit(false);
         try {
-            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM Bed WHERE room_id = ?")) { ps.setInt(1, id); ps.executeUpdate(); }
+            try (PreparedStatement ps = conn.prepareStatement("UPDATE Bed SET status='Maintenance',use_state='Free',deleted_at=SYSDATETIME() WHERE room_id = ? AND deleted_at IS NULL")) { ps.setInt(1, id); ps.executeUpdate(); }
             int n;
-            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM Room WHERE room_id = ?")) { ps.setInt(1, id); n = ps.executeUpdate(); }
+            try (PreparedStatement ps = conn.prepareStatement("UPDATE Room SET status='Maintenance',deleted_at=SYSDATETIME() WHERE room_id = ? AND deleted_at IS NULL")) { ps.setInt(1, id); n = ps.executeUpdate(); }
             conn.commit();
             return n > 0;
         } catch (SQLException e) { conn.rollback(); throw e; }

@@ -13,7 +13,7 @@ public class TreatmentPackageDAO extends DBContext implements AutoCloseable {
         List<TreatmentPackage> result = new ArrayList<>();
         Map<Integer, TreatmentPackage> byId = new HashMap<>();
         try (PreparedStatement ps = conn.prepareStatement("SELECT tp.*,(SELECT COUNT(*) FROM CustomerPackage cp WHERE cp.treatment_package_id=tp.treatment_package_id AND cp.status='Active') AS customer_count "
-                + "FROM TreatmentPackage tp WHERE (?=0 OR tp.status='Active') ORDER BY tp.treatment_package_id DESC")) {
+                + "FROM TreatmentPackage tp WHERE tp.deleted_at IS NULL AND (?=0 OR tp.status='Active') ORDER BY tp.treatment_package_id DESC")) {
             ps.setInt(1, activeOnly ? 1 : 0);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -126,7 +126,7 @@ public class TreatmentPackageDAO extends DBContext implements AutoCloseable {
     }
     public boolean deleteTreatmentPackage(int id) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE TreatmentPackage SET status='Inactive' WHERE treatment_package_id = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE TreatmentPackage SET status='Inactive',deleted_at=SYSDATETIME() WHERE treatment_package_id = ? AND deleted_at IS NULL")) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         }

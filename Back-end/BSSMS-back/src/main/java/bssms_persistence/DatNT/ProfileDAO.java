@@ -149,7 +149,7 @@ public class ProfileDAO extends DBContext implements AutoCloseable {
             phone = null;
         }
         if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
-            return "Email (Trùng với email hệ thống)";
+            return "Email (same as the system email)";
         }
 
         String sql = "SELECT username, email, phone FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE (username = ? OR email = ? OR phone = ?)";
@@ -177,10 +177,10 @@ public class ProfileDAO extends DBContext implements AutoCloseable {
                     String dbPhone = rs.getString("phone");
 
                     if (username != null && username.equalsIgnoreCase(dbUsername)) {
-                        return "Tên đăng nhập (Username)";
+                        return "Username";
                     }
                     if (phone != null && phone.equals(dbPhone)) {
-                        return "Số điện thoại";
+                        return "Phone number";
                     }
                     if (email != null && email.equalsIgnoreCase(dbEmail)) {
                         return "Email";

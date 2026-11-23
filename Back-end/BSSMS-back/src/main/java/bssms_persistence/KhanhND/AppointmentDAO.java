@@ -58,14 +58,12 @@ public class AppointmentDAO extends DBContext implements AutoCloseable {
         LocalDateTime now = LocalDateTime.now(BookingWorkflow.ZONE);
         boolean open = "Pending".equals(status) || "Confirmed".equals(status);
         Timing.Appt t = new Timing.Appt(a);
-        if ("Receptionist".equals(role)) {
+        if ("Receptionist".equals(role) || "Manager".equals(role)) {
             if (Timing.confirm(t) == null) result.add("confirm");
             if (open) result.add("reschedule");
             if (Timing.staffCancel(t) == null) result.add("cancel");
             if (Timing.checkIn(t) == null) result.add("checkin");
             if (Timing.noShow(t) == null) result.add("noShow");
-        } else if ("Manager".equals(role)) {
-            if (Timing.staffCancel(t) == null) result.add("cancel");
         } else if ("Customer".equals(role)) {
             if (open && now.isBefore(start.minusHours(2))) { result.add("reschedule"); result.add("cancel"); }
         } else if ("Technician".equals(role)) {
@@ -79,14 +77,14 @@ public class AppointmentDAO extends DBContext implements AutoCloseable {
         String role = w.role();
         if (!Arrays.asList("Customer", "Receptionist", "Manager").contains(role)) throw new WorkflowException(403, "Role not permitted.");
         w.appointmentAccess(id);
-        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Vui lòng nhập lý do hủy.");
+        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Please enter a cancellation reason.");
         return w.transaction(() -> {
             Map<String, Object> a = w.one("SELECT status,appointment_date,start_time FROM Appointment WHERE appointment_id=?", id);
             String status = String.valueOf(a.get("status"));
-            if (!"Pending".equals(status) && !"Confirmed".equals(status)) throw new WorkflowException(409, "Lịch đã check-in hoặc đã kết thúc nên không thể hủy.");
+            if (!"Pending".equals(status) && !"Confirmed".equals(status)) throw new WorkflowException(409, "The appointment has checked in or ended, so it cannot be cancelled.");
             LocalDateTime start = LocalDateTime.of(LocalDate.parse(String.valueOf(a.get("appointmentDate")).substring(0, 10)), BookingWorkflowTime.parse(a.get("startTime")));
             if ("Customer".equals(role) && start.isBefore(LocalDateTime.now(BookingWorkflow.ZONE).plusHours(2)))
-                throw new WorkflowException(409, "Chỉ được hủy trước giờ hẹn ít nhất 2 tiếng. Vui lòng gọi cho spa.");
+                throw new WorkflowException(409, "Appointments can only be cancelled at least 2 hours in advance. Please call the spa.");
             if (!"Customer".equals(role)) {
                 String block = Timing.staffCancel(new Timing.Appt(a));
                 if (block != null) throw new WorkflowException(409, block);
@@ -95,7 +93,7 @@ public class AppointmentDAO extends DBContext implements AutoCloseable {
             w.history(id, status, "Cancelled", reason.trim());
             boolean refund = false;
             for (Map<String, Object> i : w.query("SELECT invoice_id,status FROM Invoice WHERE appointment_id=? AND status IN ('Unpaid','Paid')", id)) {
-                if ("Unpaid".equals(i.get("status"))) new BillingWorkflow(w).cancel(Workflow.id(i.get("invoiceId")), "Lịch hẹn bị hủy", null);
+                if ("Unpaid".equals(i.get("status"))) new BillingWorkflow(w).cancel(Workflow.id(i.get("invoiceId")), "Appointment cancelled", null);
                 else refund = true;
             }
             return Collections.singletonMap("refundRequired", refund);
@@ -105,14 +103,14 @@ public class AppointmentDAO extends DBContext implements AutoCloseable {
     public void reschedule(int id, List<BookingWorkflow.LineInput> lines, String date, String start, String reason) throws SQLException {
         Workflow w = workflow();
         String role = w.role();
-        if (!"Customer".equals(role) && !"Receptionist".equals(role)) throw new WorkflowException(403, "Role not permitted.");
+        if (!"Customer".equals(role) && !"Receptionist".equals(role) && !"Manager".equals(role)) throw new WorkflowException(403, "Role not permitted.");
         w.appointmentAccess(id);
         new BookingWorkflow(w).reschedule(id, lines, date, start, "Customer".equals(role), reason);
     }
 
     public int createAtCounter(int customer, List<BookingWorkflow.LineInput> lines, String date, String start, Integer technician, String paymentChoice, String notes) throws SQLException {
         Workflow w = workflow();
-        w.roles("Receptionist");
+        w.roles("Receptionist", "Manager");
         return new BookingWorkflow(w).create(customer, lines, date, start, technician, paymentChoice, notes, w.staffId());
     }
 

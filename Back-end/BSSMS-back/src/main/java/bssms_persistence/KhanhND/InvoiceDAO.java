@@ -28,7 +28,7 @@ public class InvoiceDAO extends DBContext implements AutoCloseable {
                 + "FROM Invoice i JOIN Customer c ON c.customer_id=i.customer_id JOIN MembershipTier t ON t.membership_tier_id=c.membership_tier_id "
                 + "LEFT JOIN Voucher v ON v.voucher_id=i.voucher_id LEFT JOIN Appointment a ON a.appointment_id=i.appointment_id LEFT JOIN Staff st ON st.staff_id=i.created_by_staff_id "
                 + "WHERE i.invoice_id=? AND " + SCOPE, invoiceId, w.actor);
-        if (rows.isEmpty()) throw new WorkflowException(404, "Không tìm thấy hóa đơn.");
+        if (rows.isEmpty()) throw new WorkflowException(404, "Invoice not found.");
         Map<String, Object> invoice = new LinkedHashMap<>(rows.get(0));
         invoice.put("services", w.query("SELECT x.invoice_service_id,x.appointment_service_id,x.service_name,x.unit_price,x.is_package_session,x.discount_amount,l.start_time,l.end_time,st.full_name AS technician_name "
                 + "FROM InvoiceService x JOIN AppointmentService l ON l.appointment_service_id=x.appointment_service_id LEFT JOIN Staff st ON st.staff_id=l.technician_id WHERE x.invoice_id=? ORDER BY l.line_no", invoiceId));
@@ -39,7 +39,7 @@ public class InvoiceDAO extends DBContext implements AutoCloseable {
     }
 
     public List<Map<String, Object>> unpaidAppointments() throws SQLException {
-        workflow().roles("Receptionist");
+        workflow().roles("Receptionist", "Manager");
         List<Map<String, Object>> rows = workflow().query("SELECT i.invoice_id,i.appointment_id,i.total_amount,a.appointment_date,a.start_time,a.status AS appointment_status,c.full_name AS customer_name,c.phone AS customer_phone,"
                 + "(SELECT STRING_AGG(s.service_name,N', ') WITHIN GROUP (ORDER BY l.line_no) FROM AppointmentService l JOIN Service s ON s.service_id=l.service_id WHERE l.appointment_id=a.appointment_id) AS service_names "
                 + "FROM Invoice i JOIN Appointment a ON a.appointment_id=i.appointment_id JOIN Customer c ON c.customer_id=i.customer_id "
@@ -55,14 +55,14 @@ public class InvoiceDAO extends DBContext implements AutoCloseable {
 
     public Map<String, Object> applyVoucher(int invoiceId, String code) throws SQLException {
         Workflow w = workflow();
-        w.roles("Receptionist");
+        w.roles("Receptionist", "Manager");
         return w.transaction(() -> new BillingWorkflow(w).applyVoucher(invoiceId, code));
     }
 
     public Map<String, Object> pay(int invoiceId, String method, String voucherCode, String transactionCode) throws SQLException {
         Workflow w = workflow();
-        w.roles("Receptionist");
-        if ("VNPay".equals(method)) throw new IllegalArgumentException("Thanh toán VNPay được xác nhận qua cổng VNPay.");
+        w.roles("Receptionist", "Manager");
+        if ("VNPay".equals(method)) throw new IllegalArgumentException("VNPay payment confirmed through the VNPay gateway.");
         return w.transaction(() -> {
             BillingWorkflow billing = new BillingWorkflow(w);
             billing.requireCollectible(invoiceId);
@@ -77,21 +77,21 @@ public class InvoiceDAO extends DBContext implements AutoCloseable {
     public void cancelInvoice(int invoiceId, String reason) throws SQLException {
         Workflow w = workflow();
         w.roles("Manager");
-        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Vui lòng nhập lý do hủy.");
+        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Please enter a cancellation reason.");
         w.transaction(() -> { new BillingWorkflow(w).cancel(invoiceId, reason.trim(), w.staffId()); return null; });
     }
 
     public Map<String, Object> refundInvoice(int invoiceId, String reason) throws SQLException {
         Workflow w = workflow();
         w.roles("Manager");
-        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Vui lòng nhập lý do hoàn tiền.");
+        if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Please enter a refund reason.");
         return w.transaction(() -> {
             boolean online = !w.query("SELECT payment_id FROM Payment WHERE invoice_id=? AND payment_method='VNPay' AND status='Success'", invoiceId).isEmpty();
             int refund = new BillingWorkflow(w).refund(invoiceId, reason.trim(), w.staffId(), !online);
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("refundId", refund);
             result.put("status", online ? "Pending" : "Completed");
-            result.put("message", online ? "Đã tạo yêu cầu hoàn tiền VNPay." : "Đã hoàn tiền.");
+            result.put("message", online ? "VNPay refund request created." : "Refunded.");
             return result;
         });
     }

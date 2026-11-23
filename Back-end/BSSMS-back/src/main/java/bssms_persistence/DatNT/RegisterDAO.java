@@ -34,7 +34,7 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
         }
 
         if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
-            return "Email (Trùng với email hệ thống)";
+            return "Email (same as the system email)";
         }
 
         String sql = "SELECT username, email, phone FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE (username = ? OR email = ? OR phone = ?)";
@@ -59,10 +59,10 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
                     String dbPhone = rs.getString("phone");
 
                     if (username != null && username.equalsIgnoreCase(dbUsername)) {
-                        return "Tên đăng nhập (Username)";
+                        return "Username";
                     }
                     if (phone != null && phone.equals(dbPhone)) {
-                        return "Số điện thoại";
+                        return "Phone number";
                     }
                     if (email != null && email.equalsIgnoreCase(dbEmail)) {
                         return "Email";
@@ -109,7 +109,7 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
 
     private static void requireResendAllowed(bssms_persistence.common.Workflow w, String table, String keyCol, Object key) throws java.sql.SQLException {
         if (!w.query(rs -> rs.getInt(1), "SELECT 1 FROM " + table + " WHERE " + keyCol + "=? AND otp_created_at>DATEADD(second,-" + OTP_RESEND_SECONDS + ",GETDATE())", key).isEmpty()) {
-            throw new bssms_persistence.common.WorkflowException(429, "Vui lòng chờ 60 giây trước khi gửi lại OTP.");
+            throw new bssms_persistence.common.WorkflowException(429, "Please wait 60 seconds before resending the OTP.");
         }
     }
 
@@ -149,9 +149,13 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
                 String sex = gender == null || gender.isBlank() ? null : gender.trim();
                 String addr = address == null || address.isBlank() ? null : address.trim();
                 if (found.isEmpty()) {
-                    if (phone == null || phone.isBlank()) throw new IllegalArgumentException("Số điện thoại là bắt buộc.");
+                    // The profile is entered after the email is verified, so a pending row may not have a phone yet.
+                    // Customer.phone is NOT NULL and UNIQUE, so keep a temporary unique placeholder until sign-up completes.
+                    String pendingPhone = phone == null || phone.isBlank()
+                            ? "PENDING-" + Long.toString(System.nanoTime() % 1_000_000_000_000L, 36).toUpperCase()
+                            : phone.trim();
                     return w.update("INSERT Customer(email,full_name,phone,date_of_birth,gender,address,membership_tier_id,lifetime_spending,status,created_at,otp_code,otp_purpose,otp_attempts,otp_expiry_time,otp_created_at) "
-                            + "VALUES(?,?,?,?,?,?,1,0,'Pending',GETDATE(),?,'Registration',0,DATEADD(minute," + OTP_MINUTES + ",GETDATE()),GETDATE())", email, name, phone.trim(), dob, sex, addr, otp) == 1;
+                            + "VALUES(?,?,?,?,?,?,1,0,'Pending',GETDATE(),?,'Registration',0,DATEADD(minute," + OTP_MINUTES + ",GETDATE()),GETDATE())", email, name, pendingPhone, dob, sex, addr, otp) == 1;
                 }
                 int id = (Integer) found.get(0)[0];
                 if (!"Pending".equals(found.get(0)[1])) {
@@ -186,6 +190,26 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
                     + "WHERE email=? AND status='Pending' AND otp_purpose='Registration' "
                     + "AND otp_consumed_at IS NOT NULL AND otp_consumed_at>DATEADD(minute,-10,GETDATE())",
                     username, hashedPassword, email) == 1);
+        } catch (java.sql.SQLException e) {
+            throw new DataAccessException(e);
+        }
+    }
+
+    /** Activates a pending account whose email was verified in the last 30 minutes and saves the profile. */
+    public boolean completeRegistration(String username, String hashedPassword, String email,
+            String fullName, String phone, String dateOfBirth, String gender, String address) {
+        requireConnection();
+        try {
+            bssms_persistence.common.Workflow w = new bssms_persistence.common.Workflow(conn, 0);
+            return w.transaction(() -> {
+                w.update("DELETE FROM Customer WHERE status='Pending' AND email<>? AND phone=?", email, phone);
+                java.sql.Date dob = dateOfBirth == null || dateOfBirth.isBlank() ? null : java.sql.Date.valueOf(dateOfBirth);
+                return w.update("UPDATE Customer SET username=?,password=?,status='Active',full_name=?,phone=?,date_of_birth=?,gender=?,address=?,otp_email=NULL," + CLEAR_OTP + " "
+                        + "WHERE email=? AND status='Pending' AND otp_purpose='Registration' "
+                        + "AND otp_consumed_at IS NOT NULL AND otp_consumed_at>DATEADD(minute,-30,GETDATE())",
+                        username, hashedPassword, fullName, phone, dob,
+                        gender == null || gender.isBlank() ? null : gender, address, email) == 1;
+            });
         } catch (java.sql.SQLException e) {
             throw new DataAccessException(e);
         }

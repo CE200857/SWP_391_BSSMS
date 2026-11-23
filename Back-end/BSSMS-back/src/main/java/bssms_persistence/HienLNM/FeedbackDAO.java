@@ -12,7 +12,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
     private static final String BASE = "SELECT f.feedback_id,f.customer_id,c.full_name AS customer_name,l.appointment_id,f.appointment_service_id,l.service_id,s.service_name,"
             + "f.rating,f.comment,f.created_at,f.updated_at,f.is_hidden,f.moderation_reason,a.appointment_date "
             + "FROM ServiceFeedback f JOIN AppointmentService l ON l.appointment_service_id=f.appointment_service_id JOIN Appointment a ON a.appointment_id=l.appointment_id "
-            + "JOIN Service s ON s.service_id=l.service_id JOIN Customer c ON c.customer_id=f.customer_id ";
+            + "JOIN Service s ON s.service_id=l.service_id JOIN Customer c ON c.customer_id=f.customer_id WHERE f.deleted_at IS NULL ";
 
     static String shortName(Object name) {
         String[] parts = String.valueOf(name).trim().split("\\s+");
@@ -25,7 +25,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
     public boolean moderate(int id, boolean hidden, String reason) throws SQLException {
         Workflow w = workflow();
         w.roles("Manager");
-        if (hidden && (reason == null || reason.isBlank())) throw new IllegalArgumentException("Vui lòng nhập lý do ẩn đánh giá.");
+        if (hidden && (reason == null || reason.isBlank())) throw new IllegalArgumentException("Please enter a reason for hiding the review.");
         return w.update("UPDATE ServiceFeedback SET is_hidden=?,moderation_reason=?,moderated_by_staff_id=? WHERE feedback_id=?",
                 hidden, hidden ? reason.trim() : null, hidden ? w.staffId() : null, id) > 0;
     }
@@ -48,7 +48,7 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
         Workflow w = new Workflow(conn, 0);
         List<Map<String, Object>> rows = w.query("SELECT f.feedback_id,l.service_id,s.service_name,f.rating,f.comment,f.created_at,c.full_name AS customer_name "
                 + "FROM ServiceFeedback f JOIN AppointmentService l ON l.appointment_service_id=f.appointment_service_id JOIN Service s ON s.service_id=l.service_id JOIN Customer c ON c.customer_id=f.customer_id "
-                + "WHERE f.is_hidden=0 AND (? IS NULL OR l.service_id=?) ORDER BY f.created_at DESC", serviceId, serviceId);
+                + "WHERE f.is_hidden=0 AND f.deleted_at IS NULL AND (? IS NULL OR l.service_id=?) ORDER BY f.created_at DESC", serviceId, serviceId);
         for (Map<String, Object> r : rows) r.put("customerName", shortName(r.get("customerName")));
         return rows;
     }
@@ -56,13 +56,13 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
 
     public List<Map<String, Object>> getServiceRatings() throws SQLException {
         return new Workflow(conn, 0).query("SELECT l.service_id,COUNT(*) AS review_count,CAST(AVG(CAST(f.rating AS decimal(5,2))) AS decimal(3,1)) AS avg_rating "
-                + "FROM ServiceFeedback f JOIN AppointmentService l ON l.appointment_service_id=f.appointment_service_id WHERE f.is_hidden=0 GROUP BY l.service_id");
+                + "FROM ServiceFeedback f JOIN AppointmentService l ON l.appointment_service_id=f.appointment_service_id WHERE f.is_hidden=0 AND f.deleted_at IS NULL GROUP BY l.service_id");
     }
 
     public List<Map<String, Object>> getFeedbackByCustomerId(int customerId) throws SQLException {
         Workflow w = workflow();
         if ("Customer".equals(w.role())) customerId = w.customerId(); else w.roles("Manager", "Receptionist");
-        List<Map<String, Object>> rows = w.query(BASE + "WHERE f.customer_id=? ORDER BY f.created_at DESC", customerId);
+        List<Map<String, Object>> rows = w.query(BASE + "AND f.customer_id=? ORDER BY f.created_at DESC", customerId);
         for (Map<String, Object> r : rows)
             r.put("editable", !w.query("SELECT feedback_id FROM ServiceFeedback WHERE feedback_id=? AND created_at>=DATEADD(day,-7,SYSDATETIME()) AND is_hidden=0", r.get("feedbackId")).isEmpty());
         return rows;
@@ -70,8 +70,8 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
 
     public Map<String, Object> getFeedbackDetails(int id) throws SQLException {
         Workflow w = workflow();
-        Map<String, Object> r = w.one(BASE + "WHERE f.feedback_id=?", id);
-        if ("Customer".equals(w.role()) && Workflow.id(r.get("customerId")) != w.customerId()) throw new WorkflowException(404, "Không tìm thấy đánh giá.");
+        Map<String, Object> r = w.one(BASE + "AND f.feedback_id=?", id);
+        if ("Customer".equals(w.role()) && Workflow.id(r.get("customerId")) != w.customerId()) throw new WorkflowException(404, "Review not found.");
         return r;
     }
 
@@ -87,9 +87,9 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
         Workflow w = workflow();
         w.roles("Customer");
         int customer = w.customerId();
-        if (fb.getRating() < 1 || fb.getRating() > 5) throw new IllegalArgumentException("Vui lòng chọn từ 1 đến 5 sao.");
+        if (fb.getRating() < 1 || fb.getRating() > 5) throw new IllegalArgumentException("Please choose 1 to 5 stars.");
         String comment = fb.getComment() == null || fb.getComment().isBlank() ? null : fb.getComment().trim();
-        if (comment != null && comment.length() > 1000) throw new IllegalArgumentException("Nhận xét tối đa 1000 ký tự.");
+        if (comment != null && comment.length() > 1000) throw new IllegalArgumentException("Comments can be at most 1000 characters.");
         int line = fb.getAppointmentServiceId();
         if (line <= 0) line = w.query("SELECT TOP 1 appointment_service_id FROM AppointmentService WHERE appointment_id=? AND service_id=? ORDER BY line_no", fb.getAppointmentId(), fb.getServiceId())
                 .stream().map(r -> Workflow.id(r.get("appointmentServiceId"))).findFirst().orElse(0);
@@ -97,25 +97,25 @@ public class FeedbackDAO extends DBContext implements AutoCloseable {
                 + "SELECT a.customer_id,l.appointment_service_id,?,?,SYSDATETIME(),0 FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id "
                 + "WHERE l.appointment_service_id=? AND a.customer_id=? AND l.status='Done' AND NOT EXISTS(SELECT 1 FROM ServiceFeedback f WHERE f.appointment_service_id=l.appointment_service_id)",
                 fb.getRating(), comment, line, customer);
-        if (changed != 1) throw new WorkflowException(409, "Chỉ đánh giá được dịch vụ đã hoàn thành của bạn, mỗi dịch vụ một lần.");
+        if (changed != 1) throw new WorkflowException(409, "You can only review your own completed services, once per service.");
         return changed;
     }
 
     public int updateFeedback(Feedback fb) throws Exception {
         Workflow w = workflow();
         w.roles("Customer");
-        if (fb.getRating() < 1 || fb.getRating() > 5) throw new IllegalArgumentException("Vui lòng chọn từ 1 đến 5 sao.");
+        if (fb.getRating() < 1 || fb.getRating() > 5) throw new IllegalArgumentException("Please choose 1 to 5 stars.");
         String comment = fb.getComment() == null || fb.getComment().isBlank() ? null : fb.getComment().trim();
-        if (comment != null && comment.length() > 1000) throw new IllegalArgumentException("Nhận xét tối đa 1000 ký tự.");
+        if (comment != null && comment.length() > 1000) throw new IllegalArgumentException("Comments can be at most 1000 characters.");
         int changed = w.update("UPDATE ServiceFeedback SET rating=?,comment=?,updated_at=SYSDATETIME() WHERE feedback_id=? AND customer_id=? AND is_hidden=0 AND created_at>=DATEADD(day,-7,SYSDATETIME())",
                 fb.getRating(), comment, fb.getFeedbackId(), w.customerId());
-        if (changed != 1) throw new WorkflowException(409, "Chỉ sửa được đánh giá của bạn trong vòng 7 ngày.");
+        if (changed != 1) throw new WorkflowException(409, "You can only edit your own review within 7 days.");
         return changed;
     }
 
     public boolean deleteFeedback(int id) throws SQLException {
         Workflow w = workflow();
         w.roles("Customer");
-        return w.update("DELETE FROM ServiceFeedback WHERE feedback_id=? AND customer_id=?", id, w.customerId()) > 0;
+        return w.update("UPDATE ServiceFeedback SET deleted_at=SYSDATETIME() WHERE feedback_id=? AND customer_id=? AND deleted_at IS NULL", id, w.customerId()) > 0;
     }
 }

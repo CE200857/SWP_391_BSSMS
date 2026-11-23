@@ -12,4 +12,11 @@ public class PackagePurchaseDAO extends DBContext implements AutoCloseable {
         w.roles("Customer");
         return w.transaction(() -> new BillingWorkflow(w).packageInvoice(w.customerId(), treatmentPackageId, voucherCode, null));
     }
+
+    // Xem trước hóa đơn (không tạo hóa đơn)
+    public java.util.Map<String, Object> quote(int treatmentPackageId, String voucherCode) throws SQLException {
+        Workflow w = workflow();
+        w.roles("Customer");
+        return new BillingWorkflow(w).packageQuote(w.customerId(), treatmentPackageId, voucherCode);
+    }
 }

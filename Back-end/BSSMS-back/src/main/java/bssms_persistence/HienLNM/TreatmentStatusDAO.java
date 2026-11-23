@@ -39,7 +39,7 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
         boolean partStart = before.isEmpty() || !String.valueOf(before.get(before.size() - 1).get("technicianId")).equals(String.valueOf(l.get("technicianId")));
         String block = Timing.startLine(String.valueOf(l.get("appointmentStatus")), l.get("appointmentDate"), l.get("startTime"), partStart);
         if (block != null) return block;
-        for (Map<String, Object> b : before) if (!"Done".equals(b.get("status"))) return "Dịch vụ trước chưa hoàn thành.";
+        for (Map<String, Object> b : before) if (!"Done".equals(b.get("status"))) return "The previous service is not completed yet.";
         return null;
     }
 
@@ -53,7 +53,7 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
     private Map<String, Object> line(Workflow w, int id) throws SQLException {
         Map<String, Object> l = w.one("SELECT l.*,a.status AS appointment_status,a.appointment_date FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id WHERE l.appointment_service_id=?", id);
         if (l.get("technicianId") == null || Workflow.id(l.get("technicianId")) != w.staffId())
-            throw new WorkflowException(403, "Dòng dịch vụ này không được giao cho bạn.");
+            throw new WorkflowException(403, "This service is not assigned to you.");
         return l;
     }
 
@@ -63,7 +63,7 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
         w.transaction(() -> {
             Map<String, Object> l = line(w, id);
             String appointmentStatus = String.valueOf(l.get("appointmentStatus"));
-            if (!"Waiting".equals(l.get("status"))) throw new WorkflowException(409, "Dịch vụ đã bắt đầu hoặc đã hoàn thành.");
+            if (!"Waiting".equals(l.get("status"))) throw new WorkflowException(409, "The service has already started or been completed.");
             int appointment = Workflow.id(l.get("appointmentId"));
             String block = startBlock(w, l);
             if (block != null) throw new WorkflowException(409, block);
@@ -71,7 +71,7 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
             if (l.get("bedId") != null) w.update("UPDATE Bed SET use_state='InUse',use_state_updated_at=SYSDATETIME() WHERE bed_id=? AND status='Active'", l.get("bedId"));
             if ("Checked-in".equals(appointmentStatus)) {
                 w.update("UPDATE Appointment SET status='In-progress' WHERE appointment_id=?", appointment);
-                w.history(appointment, "Checked-in", "In-progress", "Bắt đầu dịch vụ đầu tiên");
+                w.history(appointment, "Checked-in", "In-progress", "Start the first service");
             }
             return null;
         });
@@ -82,7 +82,7 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
         w.roles("Technician");
         return w.transaction(() -> {
             Map<String, Object> l = line(w, id);
-            if (!"InProgress".equals(l.get("status"))) throw new WorkflowException(409, "Dịch vụ chưa bắt đầu hoặc đã hoàn thành.");
+            if (!"InProgress".equals(l.get("status"))) throw new WorkflowException(409, "The service has not started or is already completed.");
             int appointment = Workflow.id(l.get("appointmentId"));
             w.update("UPDATE AppointmentService SET status='Done',done_at=SYSDATETIME() WHERE appointment_service_id=?", id);
             if (l.get("bedId") != null) w.update("UPDATE Bed SET use_state='Free',use_state_updated_at=SYSDATETIME() WHERE bed_id=?", l.get("bedId"));
@@ -90,13 +90,13 @@ public class TreatmentStatusDAO extends DBContext implements AutoCloseable {
             w.update("UPDATE TechnicianDailyTour SET actual_tours=actual_tours+? WHERE staff_id=? AND work_date=?", l.get("tourCount"), l.get("technicianId"), java.sql.Date.valueOf(date));
             if (l.get("customerPackageId") != null) {
                 if (w.update("UPDATE CustomerPackage SET remaining_sessions=remaining_sessions-1 WHERE customer_package_id=? AND remaining_sessions>0", l.get("customerPackageId")) != 1)
-                    throw new WorkflowException(409, "Gói liệu trình đã hết buổi.");
+                    throw new WorkflowException(409, "The treatment package has no sessions left.");
                 w.update("UPDATE CustomerPackage SET status='Completed' WHERE customer_package_id=? AND remaining_sessions=0", l.get("customerPackageId"));
             }
             boolean completed = w.query("SELECT appointment_service_id FROM AppointmentService WHERE appointment_id=? AND status<>'Done'", appointment).isEmpty();
             if (completed) {
                 w.update("UPDATE Appointment SET status='Completed',completed_at=SYSDATETIME() WHERE appointment_id=?", appointment);
-                w.history(appointment, "In-progress", "Completed", "Hoàn thành tất cả dịch vụ");
+                w.history(appointment, "In-progress", "Completed", "Complete all services");
             }
             return Collections.singletonMap("appointmentCompleted", completed);
         });

@@ -22,7 +22,7 @@ public class ServiceImageDAO extends DBContext implements AutoCloseable {
         if ("image/jpeg".equals(contentType)) return "jpg";
         if ("image/png".equals(contentType)) return "png";
         if ("image/webp".equals(contentType)) return "webp";
-        throw new IllegalArgumentException("Chỉ nhận ảnh JPEG, PNG hoặc WebP.");
+        throw new IllegalArgumentException("Only JPEG, PNG or WebP images are accepted.");
     }
 
     private static boolean magicMatches(String ext, byte[] b) {
@@ -49,25 +49,25 @@ public class ServiceImageDAO extends DBContext implements AutoCloseable {
     private void requireService(int serviceId) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM Service WHERE service_id=?")) {
             ps.setInt(1, serviceId);
-            try (ResultSet rs = ps.executeQuery()) { if (!rs.next()) throw new WorkflowException(404, "Không tìm thấy dịch vụ."); }
+            try (ResultSet rs = ps.executeQuery()) { if (!rs.next()) throw new WorkflowException(404, "Service not found."); }
         }
     }
 
     public String save(int serviceId, String contentType, String base64) throws Exception {
         if (conn == null) throw new SQLException("Database connection unavailable");
         requireService(serviceId);
-        if (contentType == null || base64 == null || base64.isBlank()) throw new IllegalArgumentException("Thiếu dữ liệu ảnh.");
+        if (contentType == null || base64 == null || base64.isBlank()) throw new IllegalArgumentException("Missing image data.");
         String ext = extensionFor(contentType);
-        if (base64.length() > (long) MAX_BYTES * 4 / 3 + 16) throw new IllegalArgumentException("Ảnh tối đa 3 MB.");
+        if (base64.length() > (long) MAX_BYTES * 4 / 3 + 16) throw new IllegalArgumentException("Images can be at most 3 MB.");
         byte[] bytes;
         try { bytes = Base64.getDecoder().decode(base64.replaceAll("\\s", "")); }
-        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Dữ liệu ảnh không hợp lệ."); }
-        if (bytes.length == 0 || bytes.length > MAX_BYTES) throw new IllegalArgumentException("Ảnh tối đa 3 MB.");
-        if (!magicMatches(ext, bytes)) throw new IllegalArgumentException("Nội dung tệp không phải ảnh " + ext.toUpperCase() + " hợp lệ.");
+        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Invalid image data."); }
+        if (bytes.length == 0 || bytes.length > MAX_BYTES) throw new IllegalArgumentException("Images can be at most 3 MB.");
+        if (!magicMatches(ext, bytes)) throw new IllegalArgumentException("The file content is not a valid " + ext.toUpperCase() + " image.");
         Files.createDirectories(dir());
         String key = "service-" + serviceId + "-" + UUID.randomUUID() + "." + ext;
         Path target = dir().resolve(key).normalize();
-        if (!target.startsWith(dir())) throw new IllegalArgumentException("Tên tệp không hợp lệ.");
+        if (!target.startsWith(dir())) throw new IllegalArgumentException("Invalid file name.");
         deleteFiles(serviceId);
         Files.write(target, bytes);
         try (PreparedStatement ps = conn.prepareStatement("UPDATE Service SET image_key=? WHERE service_id=?")) {

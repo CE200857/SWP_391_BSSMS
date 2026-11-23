@@ -10,8 +10,8 @@ public class CustomerPackageDAO extends DBContext implements AutoCloseable {
 
     public Map<String, Object> sellTreatmentPackage(int customerId, int treatmentPackageId, String voucherCode, String paymentMethod) throws SQLException {
         Workflow w = workflow();
-        w.roles("Receptionist");
-        if (!Arrays.asList("Cash", "BankTransfer", "VNPay").contains(paymentMethod)) throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ.");
+        w.roles("Receptionist", "Manager");
+        if (!Arrays.asList("Cash", "BankTransfer", "VNPay").contains(paymentMethod)) throw new IllegalArgumentException("Invalid payment method.");
         return w.transaction(() -> {
             BillingWorkflow billing = new BillingWorkflow(w);
             int invoice = billing.packageInvoice(customerId, treatmentPackageId, voucherCode, w.staffId());

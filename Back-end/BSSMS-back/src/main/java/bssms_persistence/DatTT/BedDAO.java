@@ -12,7 +12,7 @@ public class BedDAO extends DBContext implements AutoCloseable {
         requireConnection();
         List<Bed> result = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement("SELECT b.*,r.room_name,r.room_type FROM Bed b JOIN Room r ON r.room_id=b.room_id "
-                + "WHERE (? IS NULL OR b.room_id=?) ORDER BY r.room_name,b.bed_number")) {
+                + "WHERE b.deleted_at IS NULL AND (? IS NULL OR b.room_id=?) ORDER BY r.room_name,b.bed_number")) {
             ps.setObject(1, roomId); ps.setObject(2, roomId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -53,7 +53,7 @@ public class BedDAO extends DBContext implements AutoCloseable {
     }
     public boolean everUsed(int bedId) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("SELECT TOP 1 1 FROM AppointmentService WHERE bed_id=?")) {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT TOP 1 1 FROM AppointmentService l JOIN Appointment a ON a.appointment_id=l.appointment_id WHERE l.bed_id=? AND l.status<>'Done' AND a.status IN ('Pending','Confirmed','Checked-in','In-progress')")) {
             ps.setInt(1, bedId);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
         }
@@ -79,7 +79,7 @@ public class BedDAO extends DBContext implements AutoCloseable {
     }
     public boolean deleteBed(int id) throws SQLException {
         requireConnection();
-        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM Bed WHERE bed_id = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE Bed SET status='Maintenance',use_state='Free',deleted_at=SYSDATETIME() WHERE bed_id = ? AND deleted_at IS NULL AND use_state='Free'")) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         }

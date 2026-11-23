@@ -28,7 +28,7 @@ public class PaymentGatewayServlet extends BaseApiServlet {
  protected void doPost(HttpServletRequest req,HttpServletResponse res)throws IOException {
     handle(req,res,200,()->{
         if(!req.getServletPath().endsWith("/create"))return unsupported();
-        if(user(req)==null)throw new WorkflowException(401,"Vui lòng đăng nhập.");
+        if(user(req)==null)throw new WorkflowException(401,"Please log in.");
         int id=body(req,JsonObject.class).get("invoiceId").getAsBigDecimal().intValueExact();
         try(PaymentGatewayDAO dao=new PaymentGatewayDAO()){dao.setActorAccountId(user(req).getAccountId());return dao.create(id,clientIp(req),defaultReturnUrl(req));}
     });
