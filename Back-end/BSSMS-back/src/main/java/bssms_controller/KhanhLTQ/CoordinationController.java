@@ -13,7 +13,7 @@ import java.util.*;
 public class CoordinationController {
     private static void bind(Account user, bssms_persistence.DBContext dao) {
         if (user == null || user.getAccountId() == null || user.getAccountId() <= 0)
-            throw new ControllerException(401, "Vui lòng đăng nhập lại.");
+            throw new ControllerException(401, "Please log in again.");
         dao.setActorAccountId(user.getAccountId());
     }
 
@@ -34,14 +34,14 @@ public class CoordinationController {
         if (value.appointmentId == null || value.appointmentId <= 0) throw new IllegalArgumentException("appointmentId is required.");
         Map<Integer, Integer>[] maps = BookingManagementController.assignments(value);
         dao.reassign(value.appointmentId, maps[0], maps[1]);
-        return Collections.singletonMap("message", "Đã cập nhật phân công cho lịch hẹn.");
+        return Collections.singletonMap("message", "Appointment assignment updated.");
     }
 
     public List<Map<String, Object>> myPackages(Account user, PackageUsageDAO dao, Integer customerId) throws Exception {
         bind(user, dao);
         if ("Customer".equals(user.getRole())) customerId = null;
         else if (!"Receptionist".equals(user.getRole()) && !"Manager".equals(user.getRole())) throw new ControllerException(403, "Role not permitted.");
-        if (customerId != null && customerId <= 0) throw new IllegalArgumentException("customerId không hợp lệ.");
+        if (customerId != null && customerId <= 0) throw new IllegalArgumentException("Invalid customerId.");
         return dao.activePackages(customerId);
     }
 }

@@ -61,18 +61,18 @@ public abstract class ControllerServlet extends HttpServlet {
             log("Database operation failed",e);
             int code=0;
             for(Throwable cause=e;cause!=null;cause=cause.getCause()) if(cause instanceof SQLException) {code=((SQLException)cause).getErrorCode();break;}
-            result.error(code==547 || code==2601 || code==2627 ? 409 : 500,"Không thể lưu hoặc đọc dữ liệu (mã lỗi SQL "+code+"). Xem log máy chủ để biết chi tiết.");
+            result.error(code==547 || code==2601 || code==2627 ? 409 : 500,"Could not save or read data (SQL error code "+code+"). See the server log for details.");
         } catch(JsonParseException | NullPointerException | ClassCastException | IllegalStateException e) {
-            result.error(400,"Dữ liệu đầu vào thiếu hoặc không hợp lệ.");
+            result.error(400,"Input data is missing or invalid.");
         } catch(IllegalArgumentException e) {
             String message=e.getMessage();
             if("Invalid request data".equals(message) && e.getCause()!=null) message=e.getCause().getMessage();
             boolean technical=message==null || message.isBlank() || message.startsWith("For input string") || e instanceof NumberFormatException
                     || e.getCause() instanceof JsonParseException || e.getCause() instanceof java.time.format.DateTimeParseException;
-            result.error(400,technical?"Dữ liệu đầu vào thiếu hoặc không hợp lệ.":message);
+            result.error(400,technical?"Input data is missing or invalid.":message);
         } catch(Exception e) {
             log("Controller operation failed",e);
-            result.error(500,"Không thể thực hiện thao tác. Vui lòng thử lại.");
+            result.error(500,"The action could not be completed. Please try again.");
         }
         response.setStatus(result.status());
         response.getWriter().write(result.json());

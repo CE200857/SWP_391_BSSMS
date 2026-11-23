@@ -50,11 +50,11 @@ public class EmailUtil {
             message.setSubject(subjectTitle);
             
             String htmlContent = "<div style='font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 8px;'>"
-                    + "<h3 style='color: #a61e4d;'>Xác thực tài khoản BSSMS</h3>"
-                    + "<p>Mã xác thực (OTP) của bạn là:</p>"
+                    + "<h3 style='color: #a61e4d;'>BSSMS account verification</h3>"
+                    + "<p>Your verification code (OTP) is:</p>"
                     + "<h2 style='color: #3a2a2f; letter-spacing: 4px; background: #fdf6f7; padding: 10px 20px; display: inline-block; border-radius: 6px;'>" 
                     + otpCode + "</h2>"
-                    + "<p>Mã này có hiệu lực trong vòng <b>5 phút</b>. Vui lòng không chia sẻ mã này cho bất kỳ ai.</p>"
+                    + "<p>This code is valid for <b>5 minutes</b>. Please do not share it with anyone.</p>"
                     + "</div>";
 
             message.setContent(htmlContent, "text/html; charset=UTF-8");

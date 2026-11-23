@@ -17,14 +17,16 @@ public class PackagePurchaseServlet extends BaseApiServlet {
         handle(request, response, 201, () -> {
             Account user = user(request);
             if (user == null || user.getAccountId() == null || !"Customer".equals(user.getRole()))
-                throw new WorkflowException(403, "Chỉ khách hàng mới tự mua gói trên web.");
+                throw new WorkflowException(403, "Only customers can buy packages online.");
             JsonObject body = body(request, JsonObject.class);
             if (!body.has("treatmentPackageId") || body.get("treatmentPackageId").isJsonNull())
-                throw new IllegalArgumentException("Thiếu mã gói liệu trình.");
+                throw new IllegalArgumentException("Missing treatment package ID.");
             int packageId = body.get("treatmentPackageId").getAsInt();
             try (PackagePurchaseDAO dao = new PackagePurchaseDAO()) {
                 dao.setActorAccountId(user.getAccountId());
                 String voucher = body.has("voucherCode") && !body.get("voucherCode").isJsonNull() ? body.get("voucherCode").getAsString() : null;
+                // preview = true: chỉ trả về hóa đơn tạm để khách xác nhận, chưa tạo hóa đơn
+                if (body.has("preview") && body.get("preview").getAsBoolean()) return dao.quote(packageId, voucher);
                 return Map.of("invoiceId", dao.purchase(packageId, voucher));
             }
         });

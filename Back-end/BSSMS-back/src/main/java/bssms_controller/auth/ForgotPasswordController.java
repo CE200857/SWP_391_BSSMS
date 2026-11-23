@@ -32,7 +32,7 @@ public class ForgotPasswordController extends ControllerSupport {
                 Object expiry=verified==null?null:verified.get("passwordResetExpires");
                 if(verified==null || !email.equalsIgnoreCase(String.valueOf(verified.get("passwordResetEmail")))
                         || !(expiry instanceof Long) || ((Long)expiry) < System.currentTimeMillis()) {
-                    response.error(403,"Vui lòng xác thực OTP của email này trước khi đặt lại mật khẩu.");
+                    response.error(403,"Please verify the OTP for this email before resetting the password.");
                     return;
                 }
 
@@ -40,7 +40,7 @@ public class ForgotPasswordController extends ControllerSupport {
 
                 if (newPassword == null || newPassword.length() < 6) {
                     response.status(400);
-                    out.print("{\"message\": \"Mật khẩu phải có ít nhất 6 ký tự!\"}");
+                    out.print("{\"message\": \"The password must have at least 6 characters!\"}");
                     out.flush();
                     return;
                 }
@@ -49,7 +49,7 @@ public class ForgotPasswordController extends ControllerSupport {
 
                 if (dao.isSameOldPasswordByEmail(email, newPasswordHashed)) {
                     response.status(400);
-                    out.print("{\"message\": \"Mật khẩu mới không được trùng với mật khẩu cũ!\"}");
+                    out.print("{\"message\": \"The new password must be different from the old password!\"}");
                     out.flush();
                     return;
                 }
@@ -58,10 +58,10 @@ public class ForgotPasswordController extends ControllerSupport {
                     verified.remove("passwordResetEmail");
                     verified.remove("passwordResetExpires");
                     response.status(200);
-                    out.print("{\"message\": \"Đặt lại mật khẩu thành công.\"}");
+                    out.print("{\"message\": \"Password reset successfully.\"}");
                 } else {
                     response.status(500);
-                    out.print("{\"message\": \"Không thể đặt lại mật khẩu do lỗi hệ thống!\"}");
+                    out.print("{\"message\": \"Could not reset the password due to a system error!\"}");
                 }
                 out.flush();
                 return;
@@ -71,7 +71,7 @@ public class ForgotPasswordController extends ControllerSupport {
 
             if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
                 response.status(400);
-                out.print("{\"message\": \"Email không đúng định dạng!\"}");
+                out.print("{\"message\": \"Invalid email format!\"}");
                 out.flush();
                 return;
             }
@@ -85,10 +85,10 @@ public class ForgotPasswordController extends ControllerSupport {
                     verified.set("passwordResetEmail",email);
                     verified.set("passwordResetExpires",System.currentTimeMillis()+5*60*1000L);
                     response.status(200);
-                    out.print("{\"message\": \"Xác thực thành công!\"}");
+                    out.print("{\"message\": \"Verification successful!\"}");
                 } else {
                     response.status(400);
-                    out.print("{\"message\": \"Mã xác thực không chính xác hoặc đã hết hạn!\"}");
+                    out.print("{\"message\": \"The verification code is incorrect or has expired!\"}");
                 }
                 out.flush();
                 return;
@@ -99,24 +99,24 @@ public class ForgotPasswordController extends ControllerSupport {
                 String otp = EmailUtil.generateOTP();
                 if (!dao.savePasswordResetCode(email, otp)) {
                     response.status(500);
-                    out.print("{\"message\": \"Không thể lưu mã OTP. Vui lòng thử lại!\"}");
+                    out.print("{\"message\": \"Could not save the OTP. Please try again!\"}");
                     out.flush();
                     return;
                 }
 
-                if (!EmailUtil.sendOTP(email, otp, "[BSSMS] Mã xác thực khôi phục mật khẩu")) { response.error(503,"Không gửi được email. Vui lòng thử lại sau."); return; }
+                if (!EmailUtil.sendOTP(email, otp, "[BSSMS] Password recovery verification code")) { response.error(503,"Could not send the email. Please try again later."); return; }
                 response.status(200);
-                out.print("{\"message\": \"Mã xác thực đã được gửi đến email của bạn.\"}");
+                out.print("{\"message\": \"A verification code has been sent to your email.\"}");
             } else {
                 response.status(404);
-                out.print("{\"message\": \"Email này không tồn tại trong hệ thống!\"}");
+                out.print("{\"message\": \"This email does not exist in the system!\"}");
             }
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
             
             response.status(500);
-            out.print("{\"message\": \"Lỗi xử lý tại máy chủ: " + e.getClass().getSimpleName() + "\"}");
+            out.print("{\"message\": \"Server error: " + e.getClass().getSimpleName() + "\"}");
         }
         out.flush();
     }

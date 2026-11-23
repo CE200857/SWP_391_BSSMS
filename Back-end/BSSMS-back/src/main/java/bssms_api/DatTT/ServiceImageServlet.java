@@ -15,7 +15,7 @@ import java.util.Map;
 public class ServiceImageServlet extends BaseApiServlet {
     private static int serviceId(HttpServletRequest request) {
         String path = request.getPathInfo();
-        if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Thiếu mã dịch vụ.");
+        if (path == null || !path.matches("/[0-9]+")) throw new IllegalArgumentException("Missing service ID.");
         return Integer.parseInt(path.substring(1));
     }
 
@@ -42,7 +42,7 @@ public class ServiceImageServlet extends BaseApiServlet {
             JsonObject body = body(request, JsonObject.class);
             try (ServiceImageDAO dao = new ServiceImageDAO()) {
                 dao.save(id, text(body, "contentType"), text(body, "data"));
-                return Map.of("message", "Đã lưu ảnh dịch vụ.");
+                return Map.of("message", "Service image saved.");
             }
         });
     }
@@ -51,7 +51,7 @@ public class ServiceImageServlet extends BaseApiServlet {
         handle(request, response, 200, () -> {
             try (ServiceImageDAO dao = new ServiceImageDAO()) {
                 dao.remove(serviceId(request));
-                return Map.of("message", "Đã xóa ảnh dịch vụ.");
+                return Map.of("message", "Service image deleted.");
             }
         });
     }

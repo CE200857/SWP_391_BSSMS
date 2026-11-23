@@ -35,13 +35,13 @@ public class StaffController extends ControllerSupport {
 
                 if (staff.getStaffId() == null) {
                     response.status(404);
-                    out.print("{\"message\": \"Không tìm thấy nhân viên này\"}");
+                    out.print("{\"message\": \"Staff member not found\"}");
                 } else {
                     out.print(gson.toJson(staff));
                 }
             } catch (NumberFormatException e) {
                 response.status(400);
-                out.print("{\"message\": \"ID nhân viên không hợp lệ\"}");
+                out.print("{\"message\": \"Invalid staff ID\"}");
             }
         } else {
             List<Staff> staffList = dao.getAllStaffDetails();
@@ -59,15 +59,15 @@ public class StaffController extends ControllerSupport {
 
             StaffDAO dao = use(new StaffDAO());
 
-            boolean isSuccess = dao.deactivateStaff(staffId);
+            boolean isSuccess = dao.deleteStaff(staffId);
 
             PrintWriter out = response.writer();
 
             if (isSuccess) {
-                out.print("{\"message\":\"Vô hiệu hóa tài khoản nhân viên thành công\",\"status\":200}");
+                out.print("{\"message\":\"Staff member deleted. Their history is kept.\",\"status\":200}");
             } else {
                 response.status(400);
-                out.print("{\"message\":\"Không tìm thấy nhân viên để xóa\",\"status\":400}");
+                out.print("{\"message\":\"Staff member to delete not found\",\"status\":400}");
             }
 
             out.flush();
@@ -77,7 +77,7 @@ public class StaffController extends ControllerSupport {
             response.status(400);
 
             response.writer().print(
-                    "{\"message\":\"Thiếu hoặc sai định dạng Staff ID\"}"
+                    "{\"message\":\"Missing or invalid Staff ID\"}"
             );
         }
     }
@@ -96,7 +96,7 @@ public class StaffController extends ControllerSupport {
 
                 if (accountIdStr == null || role == null) {
                     response.status(400);
-                    out.print("{\"message\": \"Dữ liệu không đầy đủ!\"}");
+                    out.print("{\"message\": \"Incomplete data!\"}");
                     out.flush();
                     return;
                 }
@@ -107,16 +107,16 @@ public class StaffController extends ControllerSupport {
 
                 if (isAssigned) {
                     response.status(200);
-                    out.print("{\"message\": \"Phân quyền thành công!\"}");
+                    out.print("{\"message\": \"Role assigned successfully!\"}");
                 } else {
                     response.status(500);
-                    out.print("{\"message\": \"Lỗi: Không thể phân quyền!\"}");
+                    out.print("{\"message\": \"Error: Could not assign the role!\"}");
                 }
             } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
                 response.status(400);
-                out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+                out.print("{\"message\": \"Invalid input data!\"}");
                 
             }
             out.flush();
@@ -130,7 +130,7 @@ public class StaffController extends ControllerSupport {
                     java.util.List<Integer> serviceIds = new java.util.ArrayList<>();
                     jsonObject.getAsJsonArray("serviceIds").forEach(e -> serviceIds.add(e.getAsInt()));
                     use(new StaffDAO()).saveSkills(staffId, serviceIds);
-                    out.print("{\"message\": \"Đã lưu kỹ năng của kỹ thuật viên.\"}");
+                    out.print("{\"message\": \"Technician skills saved.\"}");
                     out.flush();
                     return;
                 }
@@ -144,10 +144,10 @@ public class StaffController extends ControllerSupport {
 
                     if (isUpdated) {
                         response.status(200);
-                        out.print("{\"message\": \"Cập nhật trạng thái thành công!\"}");
+                        out.print("{\"message\": \"Status updated successfully!\"}");
                     } else {
                         response.status(400);
-                        out.print("{\"message\": \"Không thể cập nhật trạng thái nhân viên!\"}");
+                        out.print("{\"message\": \"Could not update the staff status!\"}");
                     }
                     out.flush();
                     return;
@@ -173,7 +173,7 @@ public class StaffController extends ControllerSupport {
                     String duplicateField = dao.checkDuplicate(username, email, phone, accountId);
                     if (duplicateField != null) {
                         response.status(409);
-                        out.print("{\"message\": \"" + duplicateField + " này đã tồn tại trên hệ thống. Vui lòng chọn thông tin khác!\"}");
+                        out.print("{\"message\": \"" + duplicateField + " already exists in the system. Please choose different information!\"}");
                         out.flush();
                         return;
                     }
@@ -182,10 +182,10 @@ public class StaffController extends ControllerSupport {
                     
                     if (success) {
                         response.status(200);
-                        out.print("{\"message\": \"Cập nhật nhân viên thành công!\"}");
+                        out.print("{\"message\": \"Staff updated successfully!\"}");
                     } else {
                         response.status(500);
-                        out.print("{\"message\": \"Lỗi: Không thể lưu cập nhật vào cơ sở dữ liệu.\"}");
+                        out.print("{\"message\": \"Error: Could not save the update to the database.\"}");
                     }
                 }
 
@@ -207,7 +207,7 @@ public class StaffController extends ControllerSupport {
                     
                     if (duplicateField != null) {
                         response.status(409);
-                        out.print("{\"message\": \"" + duplicateField + " này đã tồn tại trên hệ thống. Vui lòng chọn thông tin khác!\"}");
+                        out.print("{\"message\": \"" + duplicateField + " already exists in the system. Please choose different information!\"}");
                         out.flush();
                         return;
                     }
@@ -216,17 +216,17 @@ public class StaffController extends ControllerSupport {
                     
                     if (finalUsername != null) {
                         response.status(201);
-                        out.print("{\"message\": \"Tạo tài khoản nhân viên thành công!\", \"username\": \"" + finalUsername + "\"}");
+                        out.print("{\"message\": \"Staff account created successfully!\", \"username\": \"" + finalUsername + "\"}");
                     } else {
                         response.status(500);
-                        out.print("{\"message\": \"Lỗi: Không thể lưu vào cơ sở dữ liệu.\"}");
+                        out.print("{\"message\": \"Error: Could not save to the database.\"}");
                     }
                 }
             } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
                 response.status(400);
-                out.print("{\"message\": \"Dữ liệu đầu vào không hợp lệ!\"}");
+                out.print("{\"message\": \"Invalid input data!\"}");
                 
             }
             out.flush();

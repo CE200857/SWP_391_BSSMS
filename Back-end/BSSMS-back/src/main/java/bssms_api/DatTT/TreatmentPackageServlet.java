@@ -22,7 +22,7 @@ public class TreatmentPackageServlet extends BaseApiServlet {
             try (TreatmentPackageDAO dao = new TreatmentPackageDAO()) {
                 TreatmentPackageController controller = new TreatmentPackageController(dao);
                 controller.create(body(request, TreatmentPackage.class));
-                return message("Đã thêm gói liệu trình.");
+                return message("Treatment package added.");
             }
         });
     }
@@ -31,7 +31,7 @@ public class TreatmentPackageServlet extends BaseApiServlet {
             try (TreatmentPackageDAO dao = new TreatmentPackageDAO()) {
                 TreatmentPackageController controller = new TreatmentPackageController(dao);
                 controller.update(body(request, TreatmentPackage.class));
-                return message("Đã cập nhật gói liệu trình.");
+                return message("Treatment package updated.");
             }
         });
     }
@@ -40,7 +40,7 @@ public class TreatmentPackageServlet extends BaseApiServlet {
             try (TreatmentPackageDAO dao = new TreatmentPackageDAO()) {
                 TreatmentPackageController controller = new TreatmentPackageController(dao);
                 controller.delete(id(request, "id"));
-                return message("Đã ngừng kinh doanh gói liệu trình. Khách đã mua vẫn dùng được đến hết hạn.");
+                return message("Treatment package deleted. Customers who bought it can still use it until it expires.");
             }
         });
     }

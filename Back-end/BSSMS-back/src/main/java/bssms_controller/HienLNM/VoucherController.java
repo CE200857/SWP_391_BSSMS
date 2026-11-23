@@ -26,23 +26,23 @@ public class VoucherController extends ControllerSupport {
         String action = o.has("action") ? o.get("action").getAsString() : "create";
         if ("setStatus".equals(action)) {
             dao.setVoucherStatus(o.get("voucherId").getAsInt(), o.get("status").getAsString());
-            response.writer().print("{\"message\": \"Đã cập nhật trạng thái voucher.\"}");
+            response.writer().print("{\"message\": \"Voucher status updated.\"}");
             return;
         }
         VoucherDAO.Data d = gson.fromJson(o, VoucherDAO.Data.class);
         if ("update".equals(action)) {
             dao.updateVoucher(o.get("voucherId").getAsInt(), d);
-            response.writer().print("{\"message\": \"Cập nhật voucher thành công!\"}");
+            response.writer().print("{\"message\": \"Voucher updated successfully!\"}");
         } else {
             int id = dao.createVoucher(d);
             response.status(201);
-            response.writer().print("{\"message\": \"Tạo voucher thành công!\",\"voucherId\":" + id + "}");
+            response.writer().print("{\"message\": \"Voucher created successfully!\",\"voucherId\":" + id + "}");
         }
     }
 
     public void delete(ActionRequest request, ActionResult response) throws Exception {
         bind(request);
         use(new VoucherDAO()).deleteVoucher(Integer.parseInt(request.parameter("id")));
-        response.writer().print("{\"message\": \"Đã ngừng áp dụng voucher.\"}");
+        response.writer().print("{\"message\": \"Voucher deleted.\"}");
     }
 }

@@ -22,10 +22,10 @@ public class TreatmentProfileController extends ControllerSupport {
     public void post(ActionRequest request, ActionResult response) throws Exception {
         bind(request);
         JsonObject o = JsonParser.parseReader(request.bodyReader()).getAsJsonObject();
-        if (!"update-health".equals(o.has("action") ? o.get("action").getAsString() : null)) { response.error(400, "Action không hợp lệ!"); return; }
+        if (!"update-health".equals(o.has("action") ? o.get("action").getAsString() : null)) { response.error(400, "Invalid action!"); return; }
         boolean ok = use(new TreatmentProfileDAO()).updateHealthProfile(o.get("customerId").getAsInt(), text(o, "skinCondition"), text(o, "allergies"), text(o, "notes"));
-        if (!ok) { response.error(404, "Không tìm thấy khách hàng."); return; }
-        response.writer().print("{\"message\": \"Đã cập nhật hồ sơ sức khỏe.\"}");
+        if (!ok) { response.error(404, "Customer not found."); return; }
+        response.writer().print("{\"message\": \"Health profile updated.\"}");
     }
     private static String text(JsonObject o, String k) { return o.has(k) && !o.get(k).isJsonNull() ? o.get(k).getAsString() : null; }
 }

@@ -16,29 +16,29 @@ public class BookingManagementController {
     }
     private void bind(Account user) {
         if (user == null || user.getAccountId() == null || user.getAccountId() <= 0)
-            throw new ControllerException(401, "Vui lòng đăng nhập lại.");
+            throw new ControllerException(401, "Please log in again.");
         dao.setActorAccountId(user.getAccountId());
     }
     static List<Integer> serviceIds(String list, String single) {
         List<Integer> ids = new ArrayList<>();
         String source = list != null && !list.isBlank() ? list : single;
-        if (source == null || source.isBlank()) throw new IllegalArgumentException("Vui lòng chọn dịch vụ.");
+        if (source == null || source.isBlank()) throw new IllegalArgumentException("Please select a service.");
         for (String part : source.split(",")) {
             int id = Integer.parseInt(part.trim());
             Validation.id(id, "serviceId");
             ids.add(id);
         }
-        if (ids.size() > 4) throw new IllegalArgumentException("Một lịch hẹn tối đa 4 dịch vụ (BR-02).");
+        if (ids.size() > 4) throw new IllegalArgumentException("An appointment can have at most 4 services.");
         return ids;
     }
     static List<BookingWorkflow.LineInput> lines(BookingRequest value) {
         List<BookingWorkflow.LineInput> result = new ArrayList<>();
         if (value.services != null) for (BookingRequest.Line l : value.services) {
-            if (l == null || l.serviceId == null) throw new IllegalArgumentException("Thiếu dịch vụ.");
+            if (l == null || l.serviceId == null) throw new IllegalArgumentException("Missing service.");
             Validation.optionalId(l.customerPackageId, "customerPackageId");
             result.add(new BookingWorkflow.LineInput(l.serviceId, l.customerPackageId));
         } else if (value.serviceId != null) result.add(new BookingWorkflow.LineInput(value.serviceId, value.customerPackageId));
-        if (result.isEmpty() || result.size() > 4) throw new IllegalArgumentException("Một lịch hẹn gồm từ 1 đến 4 dịch vụ (BR-02).");
+        if (result.isEmpty() || result.size() > 4) throw new IllegalArgumentException("An appointment has 1 to 4 services.");
         return result;
     }
     public static Map<Integer, Integer>[] assignments(BookingRequest value) {
@@ -69,7 +69,7 @@ public class BookingManagementController {
         Map<String, Object> invoice = dao.openInvoice(id);
         result.put("invoiceId", invoice == null ? null : invoice.get("invoiceId"));
         result.put("totalAmount", invoice == null ? 0 : invoice.get("totalAmount"));
-        result.put("message", "Đặt lịch thành công. Lịch đang chờ lễ tân xác nhận.");
+        result.put("message", "Booking successful. The appointment is waiting for receptionist confirmation.");
         return result;
     }
     public Object checkInPlan(Account user, int appointmentId) throws Exception {
@@ -82,6 +82,6 @@ public class BookingManagementController {
         if (value.appointmentId == null) throw new IllegalArgumentException("appointmentId is required.");
         Map<Integer, Integer>[] maps = assignments(value);
         dao.checkIn(value.appointmentId, maps[0], maps[1]);
-        return Collections.singletonMap("message", "Đã check-in và phân công kỹ thuật viên, giường.");
+        return Collections.singletonMap("message", "Checked in and assigned technician and bed.");
     }
 }

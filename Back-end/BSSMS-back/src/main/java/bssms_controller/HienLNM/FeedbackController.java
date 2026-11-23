@@ -53,7 +53,7 @@ public class FeedbackController extends ControllerSupport {
                 out.print(gson.toJson(list));
             } catch (NumberFormatException e) {
                 resp.status(400);
-                out.print("{\"message\":\"Customer ID khong hop le\"}");
+                out.print("{\"message\":\"Invalid customer ID\"}");
             }
             out.flush();
             return;
@@ -67,7 +67,7 @@ public class FeedbackController extends ControllerSupport {
                 out.print(gson.toJson(list));
             } catch (NumberFormatException e) {
                 resp.status(400);
-                out.print("{\"message\":\"Customer ID khong hop le\"}");
+                out.print("{\"message\":\"Invalid customer ID\"}");
             }
             out.flush();
             return;
@@ -81,11 +81,11 @@ public class FeedbackController extends ControllerSupport {
                     out.print(gson.toJson(fb));
                 } else {
                     resp.status(404);
-                    out.print("{\"message\":\"Khong tim thay feedback voi id = " + id + "\"}");
+                    out.print("{\"message\":\"Feedback not found with id = " + id + "\"}");
                 }
             } catch (NumberFormatException e) {
                 resp.status(400);
-                out.print("{\"message\":\"Feedback ID khong hop le\"}");
+                out.print("{\"message\":\"Invalid feedback ID\"}");
             }
             out.flush();
             return;
@@ -97,7 +97,7 @@ public class FeedbackController extends ControllerSupport {
                 out.print(gson.toJson(feedbackDAO.getFeedbackByCustomerId(Integer.parseInt(customerParam.trim()))));
             } catch (NumberFormatException e) {
                 resp.status(400);
-                out.print("{\"message\":\"Customer ID khong hop le\"}");
+                out.print("{\"message\":\"Invalid customer ID\"}");
             }
             out.flush();
             return;
@@ -107,7 +107,7 @@ public class FeedbackController extends ControllerSupport {
         String serviceParam = req.parameter("serviceId");
         if (serviceParam != null && !serviceParam.isBlank()) {
             try { serviceFilter = Integer.parseInt(serviceParam.trim()); }
-            catch (NumberFormatException e) { resp.status(400); out.print("{\"message\":\"Service ID khong hop le\"}"); out.flush(); return; }
+            catch (NumberFormatException e) { resp.status(400); out.print("{\"message\":\"Invalid service ID\"}"); out.flush(); return; }
         }
         List<Map<String, Object>> list = feedbackDAO.getAllFeedbackDetails(serviceFilter);
         out.print(gson.toJson(list));
@@ -124,32 +124,32 @@ public class FeedbackController extends ControllerSupport {
 
         if (newFeedback == null) {
             resp.status(400);
-            out.print("{\"message\":\"Body JSON khong hop le\"}");
+            out.print("{\"message\":\"Invalid JSON body\"}");
             out.flush();
             return;
         }
 
         if (newFeedback.getCustomerId() <= 0) {
             resp.status(400);
-            out.print("{\"message\":\"customerId la bat buoc\"}");
+            out.print("{\"message\":\"customerId is required\"}");
             out.flush();
             return;
         }
         if (newFeedback.getAppointmentId() <= 0) {
             resp.status(400);
-            out.print("{\"message\":\"appointmentId la bat buoc\"}");
+            out.print("{\"message\":\"appointmentId is required\"}");
             out.flush();
             return;
         }
         if (newFeedback.getServiceId() <= 0) {
             resp.status(400);
-            out.print("{\"message\":\"serviceId la bat buoc\"}");
+            out.print("{\"message\":\"serviceId is required\"}");
             out.flush();
             return;
         }
         if (newFeedback.getRating() <= 0 || newFeedback.getRating() > 5) {
             resp.status(400);
-            out.print("{\"message\":\"rating la bat buoc (1-5)\"}");
+            out.print("{\"message\":\"rating is required (1-5)\"}");
             out.flush();
             return;
         }
@@ -157,13 +157,13 @@ public class FeedbackController extends ControllerSupport {
         try {
             feedbackDAO.addFeedback(newFeedback);
             resp.status(201);
-            out.print("{\"message\":\"Tao feedback thanh cong\",\"status\":201}");
+            out.print("{\"message\":\"Feedback created successfully\",\"status\":201}");
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
             
             resp.status(400);
-            out.print(gson.toJson(java.util.Map.of("message", "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu.")));
+            out.print(gson.toJson(java.util.Map.of("message", "The action could not be completed. Please check the data.")));
         }
         out.flush();
     }
@@ -196,19 +196,19 @@ public class FeedbackController extends ControllerSupport {
 
             if(updatedFeedback.getRating()<1 || updatedFeedback.getRating()>5) throw new IllegalArgumentException("Rating must be 1-5");
             if(feedbackDAO.updateFeedback(updatedFeedback)==0) {
-                resp.error(404,"Không tìm thấy đánh giá."); return;
+                resp.error(404,"Review not found."); return;
             }
             resp.status(200);
-            out.print("{\"message\":\"Cap nhat feedback thanh cong\",\"status\":200}");
+            out.print("{\"message\":\"Feedback updated successfully\",\"status\":200}");
         } catch (NumberFormatException e) {
             resp.status(400);
-            out.print("{\"message\":\"Feedback ID khong hop le\"}");
+            out.print("{\"message\":\"Invalid feedback ID\"}");
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
             
             resp.status(500);
-            out.print(gson.toJson(java.util.Map.of("message", "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu.")));
+            out.print(gson.toJson(java.util.Map.of("message", "The action could not be completed. Please check the data.")));
         }
         out.flush();
     }
@@ -231,20 +231,20 @@ public class FeedbackController extends ControllerSupport {
             boolean isSuccess = feedbackDAO.deleteFeedback(id);
             if (isSuccess) {
                 resp.status(200);
-                out.print("{\"message\":\"Xoa feedback thanh cong\",\"status\":200}");
+                out.print("{\"message\":\"Feedback deleted successfully\",\"status\":200}");
             } else {
                 resp.status(404);
-                out.print("{\"message\":\"Khong tim thay feedback de xoa\"}");
+                out.print("{\"message\":\"Feedback to delete not found\"}");
             }
         } catch (NumberFormatException e) {
             resp.status(400);
-            out.print("{\"message\":\"Feedback ID khong hop le\"}");
+            out.print("{\"message\":\"Invalid feedback ID\"}");
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
             
             resp.status(500);
-            out.print(gson.toJson(java.util.Map.of("message", "Không thể thực hiện thao tác. Vui lòng kiểm tra dữ liệu.")));
+            out.print(gson.toJson(java.util.Map.of("message", "The action could not be completed. Please check the data.")));
         }
         out.flush();
     }
