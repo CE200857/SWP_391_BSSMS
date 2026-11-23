@@ -1,195 +1,158 @@
 package bssms_persistence.DatNT;
 
+import bssms_account.MembershipTier;
+import bssms_account.Profile;
+import bssms_common.LoginIdentity;
 import bssms_persistence.DBContext;
 import bssms_persistence.common.DataAccessException;
+import bssms_persistence.common.SchemaSql;
+import bssms_persistence.common.Workflow;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import bssms_account.*;
-
 
 public class ProfileDAO extends DBContext implements AutoCloseable {
 
-    private void requireConnection() {
-        if (conn == null) throw new DataAccessException("Database connection unavailable");
+    private final Workflow workflow = new Workflow(conn, 0);
+
+    @Override
+    public void close() throws SQLException {
+        conn.close();
     }
-    @Override public void close() throws java.sql.SQLException { if (conn != null) conn.close(); }
 
+    // Get current account status in database (Active / Inactive / Locked), null if not found
+    public String getStatus(int accountId) {
+        String sql = "SELECT status FROM " + SchemaSql.ACCOUNTS + " Account WHERE account_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, accountId);
+            ResultSet rs = ps.executeQuery();
+            if (!rs.next()) {
+                return null;
+            }
+            return rs.getString("status");
+        } catch (SQLException e) {
+            throw new DataAccessException(e);
+        }
+    }
+
+    // View profile by account (customer and staff are in 2 different tables)
     public Profile getProfileByAccountId(int accountId, String role) {
-        requireConnection();
-        Profile value = new Profile();
-        String query;
+        boolean isCustomer = "Customer".equals(role);
 
-        if ("Customer".equals(role)) {
-            query = "SELECT c.customer_id, a.username, a.email, a.phone, a.status, "
+        String sql;
+        if (isCustomer) {
+            sql = "SELECT c.customer_id, a.username, a.email, a.phone, a.status, "
                     + "c.full_name, c.date_of_birth, c.gender, c.address, "
                     + "c.membership_tier_id AS customer_membership_tier_id, "
                     + "mt.membership_tier_id AS tier_id, "
                     + "mt.tier_name, mt.description, "
                     + "mt.discount_percent, mt.min_spending "
-                    + "FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a "
-                    + "JOIN " + bssms_persistence.common.SchemaSql.CUSTOMERS + " c ON a.account_id = c.account_id "
-                    + "LEFT JOIN MembershipTier mt "
-                    + "ON c.membership_tier_id = mt.membership_tier_id "
+                    + "FROM " + SchemaSql.ACCOUNTS + " a "
+                    + "JOIN " + SchemaSql.CUSTOMERS + " c ON a.account_id = c.account_id "
+                    + "LEFT JOIN MembershipTier mt ON c.membership_tier_id = mt.membership_tier_id "
                     + "WHERE a.account_id = ?";
         } else {
-            query = "SELECT a.username, a.email, a.status, "
+            sql = "SELECT a.username, a.email, a.status, "
                     + "s.full_name, s.phone, s.position AS role "
-                    + "FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " a "
-                    + "JOIN " + bssms_persistence.common.SchemaSql.STAFF + " s ON a.account_id = s.account_id "
+                    + "FROM " + SchemaSql.ACCOUNTS + " a "
+                    + "JOIN " + SchemaSql.STAFF + " s ON a.account_id = s.account_id "
                     + "WHERE a.account_id = ?";
         }
 
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, accountId);
+        Profile profile = new Profile();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, accountId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                profile.setUsername(rs.getString("username"));
+                profile.setEmail(rs.getString("email"));
+                profile.setPhone(rs.getString("phone"));
+                profile.setStatus(rs.getString("status"));
+                profile.setFullName(rs.getString("full_name"));
 
-                ResultSet rs = ps.executeQuery();
+                if (isCustomer) {
+                    profile.setCustomerId(rs.getInt("customer_id"));
+                    profile.setDob(rs.getDate("date_of_birth"));
+                    profile.setGender(rs.getString("gender"));
+                    profile.setAddress(rs.getString("address"));
+                    profile.setRole("Customer");
+                    profile.setMembershipTierId(rs.getObject("customer_membership_tier_id", Integer.class));
 
-                if (rs.next()) {
-                    value.setUsername(rs.getString("username"));
-                    value.setEmail(rs.getString("email"));
-                    value.setPhone(rs.getString("phone"));
-                    value.setStatus(rs.getString("status"));
-                    value.setFullName(rs.getString("full_name"));
-
-                    if ("Customer".equals(role)) {
-                        value.setCustomerId(rs.getInt("customer_id"));
-                        value.setDob(rs.getDate("date_of_birth"));
-                        value.setGender(rs.getString("gender"));
-                        value.setAddress(rs.getString("address"));
-                        value.setRole("Customer");
-
-                        Integer customerTierId
-                                = rs.getObject("customer_membership_tier_id", Integer.class);
-
-                        value.setMembershipTierId(customerTierId);
-
-                        MembershipTier membership = null;
-
-                        if (rs.getObject("tier_id") != null) {
-                            membership = new MembershipTier();
-
-                            membership.setMembershipTierId(rs.getInt("tier_id")
-                            );
-                            membership.setTierName(rs.getString("tier_name")
-                            );
-                            membership.setDescription(rs.getString("description")
-                            );
-                            membership.setDiscountPercent(rs.getBigDecimal("discount_percent")
-                            );
-                            membership.setMinSpending(rs.getBigDecimal("min_spending")
-                            );
-                        }
-
-                        value.setMembership(membership);
-                    } else {
-                        value.setRole(rs.getString("role"));
+                    MembershipTier membership = null;
+                    if (rs.getObject("tier_id") != null) {
+                        membership = new MembershipTier();
+                        membership.setMembershipTierId(rs.getInt("tier_id"));
+                        membership.setTierName(rs.getString("tier_name"));
+                        membership.setDescription(rs.getString("description"));
+                        membership.setDiscountPercent(rs.getBigDecimal("discount_percent"));
+                        membership.setMinSpending(rs.getBigDecimal("min_spending"));
                     }
+                    profile.setMembership(membership);
+                } else {
+                    profile.setRole(rs.getString("role"));
                 }
             }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
+        } catch (SQLException e) {
+            throw new DataAccessException(e);
         }
-
-        return value;
+        return profile;
     }
 
-    public boolean isUsernameTaken(String username, int currentAccountId) {
-        requireConnection();
-        String sql = "SELECT account_id FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE username = ? AND account_id != ?";
+    // Create profile: customer fills profile for the first time
+    public boolean createCustomerProfile(int accountId, String fullName, String dob, String gender,
+            String phone, String address) {
         try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ps.setString(1, username);
-                ps.setInt(2, currentAccountId);
-                ResultSet rs = ps.executeQuery();
-                return rs.next();
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
+            int customerId = LoginIdentity.customerId(accountId);
+            String sql = "UPDATE Customer SET full_name = ?, date_of_birth = ?, gender = ?, phone = ?, address = ? "
+                    + "WHERE customer_id = ?";
+            int rows = workflow.update(sql, fullName, toDate(dob), emptyToNull(gender), phone, address, customerId);
+            return rows == 1;
+        } catch (SQLException e) {
+            throw new DataAccessException(e);
         }
-        return false;
     }
 
-    public boolean createCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address) {
-        requireConnection();
+    // Update profile: customer
+    public boolean updateCustomerProfile(int accountId, String fullName, String dob, String gender,
+            String phone, String address, String username, String email) {
         try {
-            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Customer SET full_name=?,date_of_birth=?,gender=?,phone=?,address=? WHERE customer_id=?", fullName,dob,gender,phone,address,bssms_common.LoginIdentity.customerId(accountId)) == 1;
-        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
+            int customerId = LoginIdentity.customerId(accountId);
+            String sql = "UPDATE Customer SET full_name = ?, date_of_birth = ?, gender = ?, phone = ?, "
+                    + "address = ?, username = ?, email = ? WHERE customer_id = ?";
+            int rows = workflow.update(sql, fullName, toDate(dob), emptyToNull(gender), phone, address,
+                    username, emptyToNull(email), customerId);
+            return rows == 1;
+        } catch (SQLException e) {
+            throw new DataAccessException(e);
+        }
     }
 
-    public boolean updateCustomerProfile(int accountId, String fullName, String dob, String gender, String phone, String address, String username, String email) {
-        requireConnection();
-        try {
-            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Customer SET full_name=?,date_of_birth=?,gender=?,phone=?,address=?,username=?,email=? WHERE customer_id=?", fullName,dob,gender,phone,address,username,email,bssms_common.LoginIdentity.customerId(accountId)) == 1;
-        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
-    }
-
+    // Update profile: staff
     public boolean updateStaffProfile(int accountId, String fullName, String phone, String username) {
-        requireConnection();
         try {
-            return new bssms_persistence.common.Workflow(conn,0).update("UPDATE Staff SET full_name=?,phone=?,username=? WHERE staff_id=?", fullName,phone,username,bssms_common.LoginIdentity.staffId(accountId)) == 1;
-        } catch (java.sql.SQLException e) { throw new DataAccessException(e); }
+            int staffId = LoginIdentity.staffId(accountId);
+            String sql = "UPDATE Staff SET full_name = ?, phone = ?, username = ? WHERE staff_id = ?";
+            int rows = workflow.update(sql, fullName, phone, username, staffId);
+            return rows == 1;
+        } catch (SQLException e) {
+            throw new DataAccessException(e);
+        }
     }
 
-    public String checkDuplicate(String username, String email, String phone, Integer excludeAccountId) {
-        requireConnection();
-
-        if (username != null && username.trim().isEmpty()) {
-            username = null;
+    // Empty text is saved as NULL (database does not accept "" for email and gender)
+    private String emptyToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
         }
+        return value.trim();
+    }
 
-        if (email != null && email.trim().isEmpty()) {
-            email = null;
+    // Convert "yyyy-MM-dd" text to SQL date, empty text becomes NULL
+    private Date toDate(String value) {
+        if (value == null || value.isBlank() || value.equals("null")) {
+            return null;
         }
-
-        if (phone != null && phone.trim().isEmpty()) {
-            phone = null;
-        }
-        if (email != null && email.equalsIgnoreCase(bssms_security.EmailUtil.FROM_EMAIL)) {
-            return "Email (same as the system email)";
-        }
-
-        String sql = "SELECT username, email, phone FROM " + bssms_persistence.common.SchemaSql.ACCOUNTS + " Account WHERE (username = ? OR email = ? OR phone = ?)";
-
-        if (excludeAccountId != null) {
-            sql += " AND account_id != ?";
-        }
-
-        try {
-            if (conn != null) {
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ps.setString(1, username);
-                ps.setString(2, email);
-                ps.setString(3, phone);
-
-                if (excludeAccountId != null) {
-                    ps.setInt(4, excludeAccountId);
-                }
-
-                ResultSet rs = ps.executeQuery();
-
-                while (rs.next()) {
-                    String dbUsername = rs.getString("username");
-                    String dbEmail = rs.getString("email");
-                    String dbPhone = rs.getString("phone");
-
-                    if (username != null && username.equalsIgnoreCase(dbUsername)) {
-                        return "Username";
-                    }
-                    if (phone != null && phone.equals(dbPhone)) {
-                        return "Phone number";
-                    }
-                    if (email != null && email.equalsIgnoreCase(dbEmail)) {
-                        return "Email";
-                    }
-                }
-            }
-        } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-        }
-        return null;
+        return Date.valueOf(value.trim());
     }
 }

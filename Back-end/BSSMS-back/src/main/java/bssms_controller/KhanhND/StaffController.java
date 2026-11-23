@@ -1,235 +1,250 @@
 package bssms_controller.KhanhND;
 
 import bssms_account.Staff;
-import bssms_controller.common.*;
-import bssms_persistence.common.DataAccessException;
-
+import bssms_controller.common.ActionRequest;
+import bssms_controller.common.ActionResult;
+import bssms_controller.common.ControllerSupport;
+import bssms_controller.common.InputValidation;
 import bssms_persistence.KhanhND.StaffDAO;
+import bssms_persistence.common.DataAccessException;
+import bssms_security.PasswordUtil;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.List;
+
+// Manage Staff Accounts (view, create, update, delete, assign role)
 public class StaffController extends ControllerSupport {
 
     private final Gson gson = new Gson();
 
-    public void get(ActionRequest request, ActionResult response)
-            throws IOException {
+    // View Staff Account
+    public void get(ActionRequest request, ActionResult response) throws IOException {
         bind(request);
-
         StaffDAO dao = use(new StaffDAO());
-        PrintWriter out = response.writer();
 
-        String idParam = request.parameter("id");
+        // ?skillsOf=<id>: get services the technician can do
         String skillsOf = request.parameter("skillsOf");
         if (skillsOf != null && !skillsOf.isBlank()) {
-            out.print(gson.toJson(dao.getSkills(Integer.parseInt(skillsOf.trim()))));
-            out.flush();
+            int staffId = Integer.parseInt(skillsOf.trim());
+            response.writer().print(gson.toJson(dao.getSkills(staffId)));
             return;
         }
 
-        if (idParam != null && !idParam.trim().isEmpty()) {
-            try {
-                int staffId = Integer.parseInt(idParam);
-                Staff staff = dao.getStaffById(staffId);
-
-                if (staff.getStaffId() == null) {
-                    response.status(404);
-                    out.print("{\"message\": \"Staff member not found\"}");
-                } else {
-                    out.print(gson.toJson(staff));
-                }
-            } catch (NumberFormatException e) {
-                response.status(400);
-                out.print("{\"message\": \"Invalid staff ID\"}");
-            }
-        } else {
+        // No ?id= then return all staff
+        String idParam = request.parameter("id");
+        if (idParam == null || idParam.trim().isEmpty()) {
             List<Staff> staffList = dao.getAllStaffDetails();
-            out.print(gson.toJson(staffList));
+            response.writer().print(gson.toJson(staffList));
+            return;
         }
-        out.flush();
+
+        try {
+            int staffId = Integer.parseInt(idParam);
+            Staff staff = dao.getStaffById(staffId);
+            if (staff.getStaffId() == null) {
+                sendMessage(response, 404, "Staff member not found");
+                return;
+            }
+            response.writer().print(gson.toJson(staff));
+        } catch (NumberFormatException e) {
+            sendMessage(response, 400, "Invalid staff ID");
+        }
     }
 
-    public void delete(ActionRequest request, ActionResult response)
-            throws IOException {
+    // Delete Staff Account (soft delete, history is kept)
+    public void delete(ActionRequest request, ActionResult response) throws IOException {
         bind(request);
 
         try {
             int staffId = Integer.parseInt(request.parameter("id"));
-
             StaffDAO dao = use(new StaffDAO());
 
-            boolean isSuccess = dao.deleteStaff(staffId);
-
-            PrintWriter out = response.writer();
-
-            if (isSuccess) {
-                out.print("{\"message\":\"Staff member deleted. Their history is kept.\",\"status\":200}");
-            } else {
+            JsonObject result = new JsonObject();
+            if (!dao.deleteStaff(staffId)) {
+                result.addProperty("message", "Staff member to delete not found");
+                result.addProperty("status", 400);
                 response.status(400);
-                out.print("{\"message\":\"Staff member to delete not found\",\"status\":400}");
+                response.writer().print(result.toString());
+                return;
             }
 
-            out.flush();
-
+            result.addProperty("message", "Staff member deleted. Their history is kept.");
+            result.addProperty("status", 200);
+            response.writer().print(result.toString());
         } catch (NumberFormatException e) {
-
-            response.status(400);
-
-            response.writer().print(
-                    "{\"message\":\"Missing or invalid Staff ID\"}"
-            );
+            sendMessage(response, 400, "Missing or invalid Staff ID");
         }
     }
 
-    public void post(ActionRequest request, ActionResult response)
-            throws IOException {
+    // Create / update staff based on "action", or assign role (/assign-role)
+    public void post(ActionRequest request, ActionResult response) throws IOException {
         bind(request);
 
-        String pathInfo = request.uri();
-        PrintWriter out = response.writer();
+        try {
+            StaffDAO dao = use(new StaffDAO());
 
-        if (pathInfo != null && pathInfo.contains("/assign-role")) {
-            try {
-                String accountIdStr = request.parameter("accountId");
-                String role = request.parameter("role");
+            if (request.uri().contains("/assign-role")) {
+                assignRole(request, dao, response);
+                return;
+            }
 
-                if (accountIdStr == null || role == null) {
-                    response.status(400);
-                    out.print("{\"message\": \"Incomplete data!\"}");
-                    out.flush();
-                    return;
-                }
+            JsonObject json = gson.fromJson(request.bodyReader(), JsonObject.class);
+            String action = "";
+            if (json.has("action")) {
+                action = json.get("action").getAsString();
+            }
 
-                int accountId = Integer.parseInt(accountIdStr);
-                StaffDAO dao = use(new StaffDAO());
-                boolean isAssigned = dao.assignRole(accountId, role);
-
-                if (isAssigned) {
-                    response.status(200);
-                    out.print("{\"message\": \"Role assigned successfully!\"}");
-                } else {
-                    response.status(500);
-                    out.print("{\"message\": \"Error: Could not assign the role!\"}");
-                }
-            } catch (Exception e) {
+            if (action.equals("save-skills")) {
+                saveSkills(json, dao, response);
+            } else if (action.equals("update-status")) {
+                updateStatus(json, dao, response);
+            } else if (action.equals("update")) {
+                updateStaff(json, dao, response);
+            } else if (action.equals("create")) {
+                createStaff(json, dao, response);
+            }
+        } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
-                response.status(400);
-                out.print("{\"message\": \"Invalid input data!\"}");
-                
-            }
-            out.flush();
-        } else {
-            try {
-                com.google.gson.JsonObject jsonObject = gson.fromJson(request.bodyReader(), com.google.gson.JsonObject.class);
-                String action = jsonObject.has("action") ? jsonObject.get("action").getAsString() : null;
-                
-                if ("save-skills".equals(action)) {
-                    int staffId = jsonObject.get("staffId").getAsInt();
-                    java.util.List<Integer> serviceIds = new java.util.ArrayList<>();
-                    jsonObject.getAsJsonArray("serviceIds").forEach(e -> serviceIds.add(e.getAsInt()));
-                    use(new StaffDAO()).saveSkills(staffId, serviceIds);
-                    out.print("{\"message\": \"Technician skills saved.\"}");
-                    out.flush();
-                    return;
-                }
-
-                if ("update-status".equals(action)) {
-                    int accountId = jsonObject.get("accountId").getAsInt();
-                    String status = jsonObject.get("status").getAsString();
-
-                    StaffDAO dao = use(new StaffDAO());
-                    boolean isUpdated = dao.updateStaffStatus(accountId, status);
-
-                    if (isUpdated) {
-                        response.status(200);
-                        out.print("{\"message\": \"Status updated successfully!\"}");
-                    } else {
-                        response.status(400);
-                        out.print("{\"message\": \"Could not update the staff status!\"}");
-                    }
-                    out.flush();
-                    return;
-                }
-
-                if ("update".equals(action)) {
-                    int accountId = jsonObject.get("accountId").getAsInt();
-                    String fullName = jsonObject.get("fullName").getAsString().trim();
-                    String email = jsonObject.get("email").getAsString().trim();
-                    String phone = jsonObject.get("phone").getAsString().trim();
-                    String role = jsonObject.get("role").getAsString();
-                    String username = jsonObject.get("username").getAsString().trim();
-                    String hireDate = jsonObject.has("hireDate") ? jsonObject.get("hireDate").getAsString() : null;
-                    
-                    String rawPassword = jsonObject.has("password") ? jsonObject.get("password").getAsString() : "";
-                    String hashedPassword = null;
-                    if (!rawPassword.isEmpty()) {
-                         hashedPassword = bssms_security.PasswordUtil.hashMD5(rawPassword);
-                    }
-                    
-                    StaffDAO dao = use(new StaffDAO());
-                    
-                    String duplicateField = dao.checkDuplicate(username, email, phone, accountId);
-                    if (duplicateField != null) {
-                        response.status(409);
-                        out.print("{\"message\": \"" + duplicateField + " already exists in the system. Please choose different information!\"}");
-                        out.flush();
-                        return;
-                    }
-                    
-                    boolean success = dao.updateStaff(accountId, fullName, phone, email, role, hireDate, username, hashedPassword);
-                    
-                    if (success) {
-                        response.status(200);
-                        out.print("{\"message\": \"Staff updated successfully!\"}");
-                    } else {
-                        response.status(500);
-                        out.print("{\"message\": \"Error: Could not save the update to the database.\"}");
-                    }
-                }
-
-                if ("create".equals(action)) {
-                    String fullName = jsonObject.get("fullName").getAsString().trim();
-                    String email = jsonObject.get("email").getAsString().trim();
-                    String phone = jsonObject.get("phone").getAsString().trim();
-                    String role = jsonObject.get("role").getAsString();
-                    String username = jsonObject.get("username").getAsString();
-                    String password = jsonObject.get("password").getAsString();
-                    String hireDate = jsonObject.has("hireDate") && !jsonObject.get("hireDate").isJsonNull() ? jsonObject.get("hireDate").getAsString() : null;
-                    java.util.List<Integer> serviceIds = new java.util.ArrayList<>();
-                    if (jsonObject.has("serviceIds") && jsonObject.get("serviceIds").isJsonArray())
-                        jsonObject.getAsJsonArray("serviceIds").forEach(e -> serviceIds.add(e.getAsInt()));
-                    
-                    StaffDAO dao = use(new StaffDAO());
-                    
-                    String duplicateField = dao.checkDuplicate(null, email, phone, null);
-                    
-                    if (duplicateField != null) {
-                        response.status(409);
-                        out.print("{\"message\": \"" + duplicateField + " already exists in the system. Please choose different information!\"}");
-                        out.flush();
-                        return;
-                    }
-                    
-                    String finalUsername = dao.createStaff(username, password, email, phone, fullName, role, hireDate, serviceIds);
-                    
-                    if (finalUsername != null) {
-                        response.status(201);
-                        out.print("{\"message\": \"Staff account created successfully!\", \"username\": \"" + finalUsername + "\"}");
-                    } else {
-                        response.status(500);
-                        out.print("{\"message\": \"Error: Could not save to the database.\"}");
-                    }
-                }
-            } catch (Exception e) {
-            DataAccessException.rethrowIfDatabase(e);
-            InputValidation.rethrowIfInvalid(e);
-                response.status(400);
-                out.print("{\"message\": \"Invalid input data!\"}");
-                
-            }
-            out.flush();
+            sendMessage(response, 400, "Invalid input data!");
         }
+    }
+
+    // Assign Role (accountId and role are sent as URL parameters)
+    private void assignRole(ActionRequest request, StaffDAO dao, ActionResult response) {
+        String accountIdText = request.parameter("accountId");
+        String role = request.parameter("role");
+        if (accountIdText == null || role == null) {
+            sendMessage(response, 400, "Incomplete data!");
+            return;
+        }
+
+        int accountId = Integer.parseInt(accountIdText);
+        if (!dao.assignRole(accountId, role)) {
+            sendMessage(response, 500, "Error: Could not assign the role!");
+            return;
+        }
+
+        sendMessage(response, 200, "Role assigned successfully!");
+    }
+
+    // Save services the technician can do
+    private void saveSkills(JsonObject json, StaffDAO dao, ActionResult response) {
+        int staffId = json.get("staffId").getAsInt();
+        List<Integer> serviceIds = new ArrayList<>();
+        JsonArray array = json.getAsJsonArray("serviceIds");
+        for (JsonElement item : array) {
+            serviceIds.add(item.getAsInt());
+        }
+
+        dao.saveSkills(staffId, serviceIds);
+        sendMessage(response, 200, "Technician skills saved.");
+    }
+
+    // Change staff status Active / Inactive
+    private void updateStatus(JsonObject json, StaffDAO dao, ActionResult response) {
+        int accountId = json.get("accountId").getAsInt();
+        String status = json.get("status").getAsString();
+
+        if (!isValidStatus(status)) {
+            sendMessage(response, 400, "Invalid status.");
+            return;
+        }
+        if (!dao.updateStaffStatus(accountId, status)) {
+            sendMessage(response, 400, "Could not update the staff status!");
+            return;
+        }
+
+        sendMessage(response, 200, "Status updated successfully!");
+    }
+
+    // Update Staff Account
+    private void updateStaff(JsonObject json, StaffDAO dao, ActionResult response) {
+        int accountId = json.get("accountId").getAsInt();
+        String fullName = json.get("fullName").getAsString().trim();
+        String email = json.get("email").getAsString().trim();
+        String phone = json.get("phone").getAsString().trim();
+        String username = json.get("username").getAsString().trim();
+        String hireDate = getText(json, "hireDate");
+
+        // Password is not trimmed. Empty password means keep old password
+        String password = "";
+        if (json.has("password")) {
+            password = json.get("password").getAsString();
+        }
+        String hashedPassword = null;
+        if (!password.isEmpty()) {
+            hashedPassword = PasswordUtil.hashMD5(password);
+        }
+
+        String duplicateField = dao.checkDuplicate(username, email, phone, accountId);
+        if (duplicateField != null) {
+            sendMessage(response, 409, duplicateField + " already exists in the system. Please choose different information!");
+            return;
+        }
+
+        if (!dao.updateStaff(accountId, fullName, phone, email, hireDate, username, hashedPassword)) {
+            sendMessage(response, 500, "Error: Could not save the update to the database.");
+            return;
+        }
+
+        sendMessage(response, 200, "Staff updated successfully!");
+    }
+
+    // Create Staff Account
+    private void createStaff(JsonObject json, StaffDAO dao, ActionResult response) {
+        String fullName = json.get("fullName").getAsString().trim();
+        String email = json.get("email").getAsString().trim();
+        String phone = json.get("phone").getAsString().trim();
+        String role = json.get("role").getAsString();
+        String username = json.get("username").getAsString();
+        String password = json.get("password").getAsString();
+        String hireDate = getText(json, "hireDate");
+
+        List<Integer> serviceIds = new ArrayList<>();
+        if (json.has("serviceIds") && json.get("serviceIds").isJsonArray()) {
+            JsonArray array = json.getAsJsonArray("serviceIds");
+            for (JsonElement item : array) {
+                serviceIds.add(item.getAsInt());
+            }
+        }
+
+        String duplicateField = dao.checkDuplicate(null, email, phone, null);
+        if (duplicateField != null) {
+            sendMessage(response, 409, duplicateField + " already exists in the system. Please choose different information!");
+            return;
+        }
+
+        String finalUsername = dao.createStaff(username, password, email, phone, fullName, role, hireDate, serviceIds);
+
+        JsonObject result = new JsonObject();
+        result.addProperty("message", "Staff account created successfully!");
+        result.addProperty("username", finalUsername);
+        response.status(201);
+        response.writer().print(result.toString());
+    }
+
+    private boolean isValidStatus(String status) {
+        return status.equals("Active") || status.equals("Inactive");
+    }
+
+    // Retrieve string from JSON
+    private String getText(JsonObject json, String key) {
+        if (!json.has(key) || json.get(key).isJsonNull()) {
+            return null;
+        }
+        return json.get(key).getAsString().trim();
+    }
+
+    // Send message back to frontend JSON
+    private void sendMessage(ActionResult response, int status, String message) {
+        JsonObject json = new JsonObject();
+        json.addProperty("message", message);
+        response.status(status);
+        response.writer().print(json.toString());
     }
 }
