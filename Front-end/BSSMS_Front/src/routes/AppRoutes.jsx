@@ -33,7 +33,6 @@ import StaffList from "../pages/Dashboard/Manager/StaffAdmin/StaffList";
 import ServiceList from "../pages/Shared/ServiceList/ServiceList";
 import ServiceForm from "../pages/Shared/ServiceList/ServiceForm";
 import PublicTreatmentPackages from "../pages/Shared/ServiceList/PublicTreatmentPackages";
-import MyFeedbackList from "../pages/Shared/Feedback/MyFeedbackList";
 import PublicFeedbackList from "../pages/Shared/Feedback/PublicFeedbackList";
 import FeedbackForm from "../pages/Shared/Feedback/FeedbackForm";
 
@@ -54,16 +53,14 @@ import MembershipBenefits from "../pages/Shared/Membership/MembershipBenefits";
 import MembershipManagementPage from "../pages/Dashboard/Manager/MembershipAdmin/MembershipManagementPage";
 
 import UpdateRoomBedStatus from "../pages/Dashboard/Technician/UpdateRoomBedStatus";
-import RecordTreatmentOutcome from "../pages/Dashboard/Technician/RecordTreatmentOutcome";
 import TreatmentStatus from "../pages/Dashboard/Technician/TreatmentStatus";
 import SellTreatmentPackage from "../pages/Dashboard/Receptionist/SellTreatmentPackage";
 
-import CheckSlotAvailability from "../pages/Dashboard/Appointment/CheckSlotAvailability";
 import CreateOnlineAppointment from "../pages/Dashboard/Appointment/CreateOnlineAppointment";
-import ReceptionistBookingDesk from "../pages/Dashboard/Receptionist/ReceptionistBookingDesk";
 
 import VoucherList from "../pages/Dashboard/Manager/VoucherManagement/VoucherList";
 import CustomerTreatmentProfile from "../pages/Dashboard/Manager/CustomerTreatmentProfile/CustomerTreatmentProfile";
+import useMotion from "../utils/useMotion";
 
 const ProtectedRoute = ({ user, allowedRoles, children }) => {
   const location = useLocation();
@@ -93,6 +90,16 @@ const ProtectedRoute = ({ user, allowedRoles, children }) => {
   return children;
 };
 
+// Tra cứu lịch trống đã nằm trong bước đặt lịch: /slots chuyển thẳng sang trang đặt lịch
+const SlotsRedirect = ({ user }) => {
+  const location = useLocation();
+  const serviceId = new URLSearchParams(location.search).get("serviceId");
+  if (!user) return <Navigate to="/login" state={{ from: "/slots" + location.search }} replace />;
+  if (user.role === "Customer") return <Navigate to="/appointments/online" state={serviceId ? { serviceId } : undefined} replace />;
+  if (user.role === "Receptionist" || user.role === "Manager") return <Navigate to="/appointments/create" state={serviceId ? { serviceIds: [serviceId] } : undefined} replace />;
+  return <Navigate to="/appointments" replace />;
+};
+
 const LegacySlotsRedirect = () => {
   const location = useLocation();
   return (
@@ -100,8 +107,18 @@ const LegacySlotsRedirect = () => {
   );
 };
 
+// Guest & customer pages use the brand theme (guest-theme.css). A body class also reaches modals.
+const useGuestTheme = (on) => {
+  useLayoutEffect(() => {
+    if (!on) return undefined;
+    document.body.classList.add("guest-theme");
+    return () => document.body.classList.remove("guest-theme");
+  }, [on]);
+};
+
 const GuestLayout = ({ user, setUser }) => {
   const location = useLocation();
+  useGuestTheme(true);
   return (
     <div className="app-guest-layout">
       <Header user={user} setUser={setUser} />
@@ -126,6 +143,7 @@ const DashboardLayout = ({ user, setUser }) => {
   useLayoutEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [location.pathname]);
+  useGuestTheme(user?.role === "Customer");
   if (!user) return <Outlet />;
 
   if (user.role === "Customer") {
@@ -168,7 +186,7 @@ const DashboardLayout = ({ user, setUser }) => {
       {mobileMenuOpen && (
         <button
           className="dashboard-menu-backdrop"
-          aria-label="Đóng menu chức năng"
+          aria-label="Close menu"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
@@ -196,7 +214,14 @@ const DashboardLayout = ({ user, setUser }) => {
 const ALL_STAFF = ["Manager", "Receptionist", "Technician"];
 const EVERYONE = ["Customer", ...ALL_STAFF];
 
+// Old "Check-in & coordination" links (with ?appointmentId=) now open the receptionist overview
+function RedirectKeepSearch({ to }) {
+  const { search } = useLocation();
+  return <Navigate to={`${to}${search}`} replace />;
+}
+
 export default function AppRoutes({ user, setUser }) {
+  useMotion();
   const guard = (roles, element) => (
     <ProtectedRoute user={user} allowedRoles={roles}>{element}</ProtectedRoute>
   );
@@ -229,10 +254,10 @@ export default function AppRoutes({ user, setUser }) {
 
         <Route path="/customer/home" element={guard(["Customer"], <CustomerHome user={user} />)} />
         <Route path="/manager/dashboard" element={guard(["Manager"], <ManagerDashboard />)} />
-        <Route path="/receptionist/dashboard" element={guard(["Receptionist"], <ReceptionistDashboard />)} />
+        <Route path="/receptionist/dashboard" element={guard(["Receptionist", "Manager"], <ReceptionistDashboard user={user} />)} />
         <Route path="/technician/dashboard" element={guard(["Technician"], <TechnicianDashboard />)} />
 
-        <Route path="/receptionist/create-walkin" element={guard(["Receptionist"], <CreateWalkInCustomer />)} />
+        <Route path="/receptionist/create-walkin" element={guard(["Receptionist", "Manager"], <CreateWalkInCustomer />)} />
         <Route path="/customers" element={guard(["Receptionist", "Manager"], <CustomerList user={user} />)} />
         <Route path="/customers/edit/:id" element={guard(["Receptionist", "Manager"], <EditCustomerProfile user={user} />)} />
         <Route path="/my-treatment-profile" element={guard(EVERYONE, <CustomerTreatmentProfile />)} />
@@ -248,7 +273,8 @@ export default function AppRoutes({ user, setUser }) {
         <Route path="/manager/scheduling" element={guard(["Manager"], <OperationsWorkspace kind="scheduling" />)} />
         <Route path="/manager/leaves" element={guard(["Manager"], <OperationsWorkspace kind="leaves" />)} />
         <Route path="/manager/tour-report" element={guard(["Manager"], <OperationsWorkspace kind="tour-report" />)} />
-        <Route path="/my-schedule" element={guard(["Technician", "Receptionist"], <OperationsWorkspace kind="my-schedule" />)} />
+        <Route path="/tour-report" element={guard(["Receptionist", "Manager"], <OperationsWorkspace kind="tour-report" />)} />
+        <Route path="/my-schedule" element={guard(["Technician", "Receptionist", "Manager"], <OperationsWorkspace kind="my-schedule" />)} />
 
         <Route path="/services" element={guard(EVERYONE, <ServiceList user={user} />)} />
         <Route path="/services/detail/:id" element={guard(EVERYONE, <ServiceForm isReadOnly={true} />)} />
@@ -263,21 +289,23 @@ export default function AppRoutes({ user, setUser }) {
         <Route path="/room-bed-board" element={guard(ALL_STAFF, <UpdateRoomBedStatus user={user} />)} />
 
         <Route path="/appointments" element={guard(EVERYONE, <AppointmentList user={user} setUser={setUser} />)} />
-        <Route path="/appointments/create" element={guard(["Receptionist"], <CreateWalkInAppointment />)} />
+        <Route path="/appointments/create" element={guard(["Receptionist", "Manager"], <CreateWalkInAppointment />)} />
         <Route path="/appointments/online" element={guard(["Customer"], <CreateOnlineAppointment />)} />
         <Route path="/appointments/:id" element={guard(EVERYONE, <AppointmentDetails user={user} />)} />
-        <Route path="/appointments/:id/reschedule" element={guard(["Customer", "Receptionist"], <RescheduleAppointment />)} />
-        <Route path="/slots" element={guard(["Customer", "Receptionist", "Manager"], <CheckSlotAvailability user={user} setUser={setUser} />)} />
-        <Route path="/receptionist/coordination" element={guard(["Receptionist", "Manager"], <ReceptionistBookingDesk user={user} />)} />
+        <Route path="/appointments/:id/reschedule" element={guard(["Customer", "Receptionist", "Manager"], <RescheduleAppointment />)} />
+        <Route path="/slots" element={<SlotsRedirect user={user} />} />
+        <Route path="/receptionist/coordination" element={guard(["Receptionist", "Manager"],
+          <RedirectKeepSearch to="/receptionist/dashboard" />)} />
 
-        <Route path="/treatment-status" element={guard(ALL_STAFF, <TreatmentStatus />)} />
-        <Route path="/record-treatment-outcome" element={guard(["Technician"], <RecordTreatmentOutcome />)} />
-        <Route path="/service-history" element={guard(EVERYONE, <ServiceHistory user={user} />)} />
+        <Route path="/treatment-status" element={guard(ALL_STAFF, <TreatmentStatus user={user} />)} />
+        {/* "Add notes" was merged into Assigned services: completed lines have a Notes button there */}
+        <Route path="/record-treatment-outcome" element={<Navigate to="/treatment-status" replace />} />
+        <Route path="/service-history" element={guard(ALL_STAFF, <ServiceHistory user={user} />)} />
 
         <Route path="/invoices" element={guard(["Customer", "Receptionist", "Manager"], <InvoiceManagement user={user} />)} />
         <Route path="/manager/invoices" element={guard(["Manager"], <InvoiceManagement user={user} />)} />
-        <Route path="/invoices/create" element={guard(["Receptionist"], <CreateInvoice />)} />
-        <Route path="/sell-treatment-package" element={guard(["Receptionist"], <SellTreatmentPackage />)} />
+        <Route path="/invoices/create" element={guard(["Receptionist", "Manager"], <CreateInvoice />)} />
+        <Route path="/sell-treatment-package" element={guard(["Receptionist", "Manager"], <SellTreatmentPackage />)} />
         <Route path="/vouchers" element={guard(["Manager", "Receptionist"], <VoucherList />)} />
 
         <Route path="/feedback" element={guard(["Customer", "Receptionist", "Manager"],
@@ -285,7 +313,8 @@ export default function AppRoutes({ user, setUser }) {
             ? <ManagerFeedbackWorkspace user={user} />
             : <PublicFeedbackList user={user} managerCompact={user?.role === "Receptionist"} />)} />
         <Route path="/manager/feedback-moderation" element={guard(["Manager"], <ManagerFeedbackWorkspace user={user} />)} />
-        <Route path="/my-feedback" element={guard(["Customer"], <MyFeedbackList />)} />
+        {/* "My reviews" was merged into the Reviews page (own reviews have a ⋯ menu there) */}
+        <Route path="/my-feedback" element={<Navigate to="/feedback" replace />} />
         <Route path="/feedback/new" element={guard(["Customer"], <FeedbackForm />)} />
         <Route path="/feedback/edit/:id" element={guard(["Customer"], <FeedbackForm />)} />
 

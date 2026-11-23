@@ -14,12 +14,12 @@ const Footer = ({ user }) => (
       <div className="app-footer-brand">
         <SeoulBrand inverse />
         <p>
-          Chăm chút vẻ đẹp. Trân trọng cảm xúc. Đồng hành cùng những phút giây
-          bạn dành cho chính mình.
+          Caring for beauty. Valuing feelings. Accompanying you through moments
+          you give to yourself.
         </p>
-        <div className="app-footer-socials" aria-label="Mạng xã hội">
+        <div className="app-footer-socials" aria-label="Social media">
           {SOCIALS.map((item) => (
-            <a key={item.key} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={`${item.label} của ${SITE.name}`}>
+            <a key={item.key} href={item.url} target="_blank" rel="noopener noreferrer" aria-label={`${item.label} of ${SITE.name}`}>
               {item.icon ? <i className={item.icon} aria-hidden="true" /> : item.text}
             </a>
           ))}
@@ -27,23 +27,23 @@ const Footer = ({ user }) => (
       </div>
 
       <div className="app-footer-column">
-        <h2>Khám phá</h2>
-        <Link to={user?.role === "Customer" ? "/services" : "/guest/services"}>Dịch vụ</Link>
-        <Link to={user?.role === "Customer" ? "/customer/home" : "/bssms-guest"}>Về Seoul Center</Link>
-        <Link to={user?.role === "Customer" ? "/feedback" : "/guest/feedback"}>Phản hồi khách hàng</Link>
-        <Link to="/slots">Đặt lịch chăm sóc</Link>
+        <h2>Explore</h2>
+        <Link to={user?.role === "Customer" ? "/services" : "/guest/services"}>Services</Link>
+        <Link to={user?.role === "Customer" ? "/customer/home" : "/bssms-guest"}>About Seoul Center</Link>
+        <Link to={user?.role === "Customer" ? "/feedback" : "/guest/feedback"}>Reviews</Link>
+        <Link to="/slots">Book an appointment</Link>
       </div>
 
       <div className="app-footer-column">
-        <h2>Hỗ trợ khách hàng</h2>
-        <Link to="/faq">Câu hỏi thường gặp</Link>
-        <Link to="/privacy">Chính sách bảo mật</Link>
-        <Link to="/terms">Điều khoản sử dụng</Link>
-        {!user && <Link to="/login">Đăng nhập</Link>}
+        <h2>Customer support</h2>
+        <Link to="/faq">Frequently asked questions</Link>
+        <Link to="/privacy">Privacy policy</Link>
+        <Link to="/terms">Terms of use</Link>
+        {!user && <Link to="/login">Log in</Link>}
       </div>
 
       <div className="app-footer-column app-footer-location">
-        <h2>Seoul Center · Cần Thơ</h2>
+        <h2>Seoul Center · Can Tho</h2>
         <p>{SITE.address}</p>
         <a href={`tel:${SITE.phoneLink}`}>{SITE.phoneDisplay}</a>
         <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
@@ -51,8 +51,8 @@ const Footer = ({ user }) => (
       </div>
     </div>
     <div className="app-footer-bottom">
-      <span>© {new Date().getFullYear()} Seoul Center. Bản quyền thuộc về Seoul Center.</span>
-      <span>Một chút chăm sóc, thật nhiều yêu thương.</span>
+      <span>© {new Date().getFullYear()} Seoul Center. All rights reserved.</span>
+      <span>A little care goes a long way.</span>
     </div>
   </footer>
 );

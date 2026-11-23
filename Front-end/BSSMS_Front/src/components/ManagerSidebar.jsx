@@ -43,7 +43,7 @@ export default function ManagerSidebar({
         <NavLink
           className="app-sidebar-brand"
           to={config.home}
-          aria-label="Về tổng quan"
+          aria-label="Back to overview"
         >
           <SeoulBrand />
         </NavLink>
@@ -51,13 +51,13 @@ export default function ManagerSidebar({
           className="manager-menu-toggle"
           type="button"
           onClick={onToggle}
-          aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <i className="bi bi-list" aria-hidden="true" />
         </button>
       </div>
       <div className="staff-sidebar-role">{config.label}</div>
-      <nav aria-label={`Chức năng ${config.label}`}>
+      <nav aria-label={`Function ${config.label}`}>
         <NavLink
           to={config.home}
           className="manager-home-link"
@@ -104,7 +104,7 @@ export default function ManagerSidebar({
                 <div
                   className="manager-submenu"
                   id={`manager-submenu-${id}`}
-                  aria-label={`Chức năng ${label}`}
+                  aria-label={`Function ${label}`}
                 >
                   {links.map(([path, title]) => (
                     <Link

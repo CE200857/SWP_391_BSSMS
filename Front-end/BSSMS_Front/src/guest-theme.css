@@ -1,0 +1,363 @@
+/* =====================================================================
+   Seoul Center – Guest & Customer theme
+   Applies only inside .guest-theme (guest + customer pages).
+   Staff dashboards are not affected.
+   Fonts are bundled locally via @fontsource (works offline).
+   ===================================================================== */
+
+body.guest-theme {
+  /* Brand palette (crimson-pink, as on seoulcenter.vn) */
+  --brand: #a71953;
+  --brand-hover: #851343;
+  --brand-deep: #741541;
+  --blush: #fdf4f7;
+  --blush-2: #fbe3ec;
+  --rose-line: #f2d3df;
+  --plum: #3d1a2a;
+  --plum-muted: #7d5568;
+
+  /* Re-map the existing design tokens so every page follows the brand */
+  --seoul-50: #fff7fa;
+  --seoul-100: var(--blush-2);
+  --seoul-200: #f6cfdd;
+  --seoul-300: #e9a9c1;
+  --seoul-500: var(--brand);
+  --seoul-600: #961849;
+  --seoul-700: var(--brand-hover);
+  --seoul-800: var(--brand-deep);
+  --seoul-900: #4f0f2c;
+  --seoul-ink: var(--plum);
+  --seoul-muted: var(--plum-muted);
+  --seoul-border: var(--rose-line);
+  --seoul-shadow: 0 12px 30px rgba(167, 25, 83, 0.08);
+
+  --ui-ground: var(--blush);
+  --ui-ink: var(--plum);
+  --ui-muted: var(--plum-muted);
+  --ui-line: var(--rose-line);
+  --ui-border: var(--rose-line);
+  --ui-text: var(--plum);
+  --ui-primary: var(--brand);
+  --ui-accent: var(--brand);
+  --ui-accent-hover: var(--brand-hover);
+  --ui-tint: var(--blush-2);
+
+  --app-font-sans: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
+  --app-font-heading: "Cormorant Garamond", Georgia, serif;
+  --bs-primary: #a71953;
+  --bs-primary-rgb: 167, 25, 83;
+  --bs-link-color: #a71953;
+  --bs-link-color-rgb: 167, 25, 83;
+  --bs-link-hover-color: #851343;
+  --bs-link-hover-color-rgb: 133, 19, 67;
+
+  font-family: var(--app-font-sans);
+  font-variant-numeric: lining-nums;
+  color: var(--plum);
+  background: var(--blush);
+}
+
+.guest-theme .app-guest-main {
+  background: var(--blush);
+}
+
+/* ---------- Typography ---------- */
+.guest-theme h1,
+.guest-theme h2,
+.guest-theme h3,
+.guest-theme .h1,
+.guest-theme .h2,
+.guest-theme .h3 {
+  font-family: var(--app-font-heading);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--plum);
+}
+
+.guest-theme h1,
+.guest-theme .h1 { line-height: 1.08; }
+
+.guest-theme h4,
+.guest-theme h5,
+.guest-theme h6 {
+  font-family: var(--app-font-sans);
+  letter-spacing: 0;
+  color: var(--plum);
+}
+
+/* Cards, small labels and form text stay in the sans font for readability */
+.guest-theme .home-service-content h3,
+.guest-theme .card-title,
+.guest-theme .modal-title,
+.guest-theme label,
+.guest-theme .form-label {
+  font-family: var(--app-font-sans);
+}
+
+.guest-theme .modal-title { font-weight: 700; }
+
+.guest-theme .home-eyebrow {
+  color: var(--brand);
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}
+
+.guest-theme ::selection { background: var(--blush-2); color: var(--plum); }
+
+/* ---------- Header ---------- */
+.guest-theme .app-public-header {
+  background: #fff !important;
+  border-top: 4px solid var(--brand);
+  border-bottom: 1px solid var(--rose-line);
+  box-shadow: 0 6px 20px rgba(167, 25, 83, 0.06);
+}
+
+.guest-theme .app-public-header .seoul-brand-image {
+  width: 150px;
+}
+
+.guest-theme .app-public-nav-link {
+  color: var(--plum);
+  font-weight: 500;
+}
+
+.guest-theme .app-public-nav-link:hover,
+.guest-theme .app-public-nav-link.active {
+  color: var(--brand);
+}
+
+.guest-theme .app-public-nav-link::after {
+  background: var(--brand);
+}
+
+.guest-theme .app-public-auth-primary,
+.guest-theme .customer-booking-link {
+  background: var(--brand);
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 8px 18px rgba(167, 25, 83, 0.2);
+}
+
+.guest-theme .app-public-auth-primary:hover,
+.guest-theme .customer-booking-link:hover {
+  background: var(--brand-hover);
+  color: #fff;
+}
+
+/* ---------- Footer ---------- */
+.guest-theme .app-footer {
+  background: linear-gradient(115deg, #a71953 0%, #8f174b 48%, #741541 100%);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.guest-theme .app-footer-column h2 {
+  font-family: var(--app-font-heading);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.guest-theme .app-footer a { color: rgba(255, 255, 255, 0.82); }
+.guest-theme .app-footer a:hover { color: #fff; }
+
+.guest-theme .app-footer-bottom span:last-child {
+  font-family: var(--app-font-heading);
+  font-style: italic;
+  font-size: 1.05rem;
+}
+
+/* ---------- Buttons ---------- */
+.guest-theme .home-button,
+.guest-theme .btn {
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.guest-theme .home-button-primary,
+.guest-theme .btn-primary,
+.guest-theme .btn-danger:not(.btn-sm) {
+  --bs-btn-bg: var(--brand);
+  --bs-btn-border-color: var(--brand);
+  --bs-btn-hover-bg: var(--brand-hover);
+  --bs-btn-hover-border-color: var(--brand-hover);
+  --bs-btn-active-bg: var(--brand-deep);
+  --bs-btn-active-border-color: var(--brand-deep);
+  --bs-btn-disabled-bg: #d996b1;
+  --bs-btn-disabled-border-color: #d996b1;
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(167, 25, 83, 0.18);
+}
+
+.guest-theme .home-button-primary:hover,
+.guest-theme .btn-primary:hover,
+.guest-theme .btn-danger:not(.btn-sm):hover {
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
+  color: #fff;
+}
+
+.guest-theme .btn-outline-primary,
+.guest-theme .home-button-white {
+  --bs-btn-color: var(--brand);
+  --bs-btn-border-color: var(--rose-line);
+  --bs-btn-hover-bg: var(--brand);
+  --bs-btn-hover-border-color: var(--brand);
+  --bs-btn-hover-color: #fff;
+  color: var(--brand);
+  border: 1px solid var(--rose-line);
+  background: #fff;
+}
+
+.guest-theme .home-button-white:hover {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.guest-theme .btn-link,
+.guest-theme .home-text-link { color: var(--brand); }
+
+/* ---------- Surfaces ---------- */
+.guest-theme .card,
+.guest-theme .home-feature-card,
+.guest-theme .home-service-card,
+.guest-theme .home-testimonial-card,
+.guest-theme .home-contact-card,
+.guest-theme .home-step {
+  border: 1px solid var(--rose-line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(167, 25, 83, 0.06);
+}
+
+.guest-theme .home-service-card {
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.guest-theme .home-service-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px rgba(167, 25, 83, 0.12);
+}
+
+.guest-theme .home-feature-icon,
+.guest-theme .home-note-icon {
+  background: var(--blush-2);
+  color: var(--brand);
+}
+
+.guest-theme .modal-content {
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(61, 26, 42, 0.2);
+}
+
+.guest-theme .modal-header { border-bottom-color: var(--rose-line); }
+.guest-theme .modal-footer { border-top-color: var(--rose-line); }
+
+/* ---------- Home page sections ---------- */
+.guest-theme .home-hero {
+  background:
+    radial-gradient(circle at 85% 20%, rgba(167, 25, 83, 0.08), transparent 45%),
+    linear-gradient(180deg, #fff 0%, var(--blush) 100%);
+}
+
+.guest-theme .home-hero h1 {
+  font-size: clamp(2.6rem, 4.6vw, 4.2rem);
+  font-weight: 600;
+}
+
+.guest-theme .home-hero-visual img,
+.guest-theme .home-welcome-image img {
+  border-radius: 28px;
+}
+
+.guest-theme .home-section-heading h2,
+.guest-theme .home-welcome-copy h2,
+.guest-theme .home-faq-intro h2 {
+  font-size: clamp(2rem, 3.2vw, 2.8rem);
+}
+
+.guest-theme .home-services,
+.guest-theme .home-testimonials { background: #fff; }
+
+.guest-theme .home-steps,
+.guest-theme .home-welcome,
+.guest-theme .home-faq { background: var(--blush); }
+
+.guest-theme .home-quote-icon { color: var(--seoul-300); }
+
+/* ---------- Forms ---------- */
+.guest-theme .form-control,
+.guest-theme .form-select {
+  border-color: var(--rose-line);
+  border-radius: 12px;
+  color: var(--plum);
+}
+
+.guest-theme .input-group > .form-control,
+.guest-theme .input-group > .form-select { border-radius: 12px 0 0 12px; }
+.guest-theme .input-group > .btn { border-radius: 0 12px 12px 0; }
+
+.guest-theme .form-control:focus,
+.guest-theme .form-select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 0.2rem rgba(167, 25, 83, 0.14);
+}
+
+.guest-theme .form-check-input:checked {
+  background-color: var(--brand);
+  border-color: var(--brand);
+}
+
+/* ---------- Tabs, pills, badges ---------- */
+.guest-theme .nav-pills .nav-link.active,
+.guest-theme .nav-pills .show > .nav-link {
+  background: var(--brand);
+}
+
+.guest-theme .nav-tabs .nav-link.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+
+.guest-theme .badge.bg-primary,
+.guest-theme .text-bg-primary { background-color: var(--brand) !important; }
+
+.guest-theme .text-primary { color: var(--brand) !important; }
+
+.guest-theme .alert-info {
+  background: var(--blush-2);
+  border-color: var(--rose-line);
+  color: var(--plum);
+}
+
+/* ---------- Prices: elegant serif numbers ---------- */
+.guest-theme .package-price-member { font-family: var(--app-font-sans); font-weight: 800; color: var(--brand); }
+.guest-theme .package-price-member del { font-family: var(--app-font-sans); font-weight: 400; }
+.guest-theme .package-tier-badge { background: var(--blush-2); color: var(--brand); }
+.guest-theme .package-quote-total td { color: var(--brand); }
+
+/* ---------- Auth pages (login / register) ---------- */
+.guest-theme .app-registration-card {
+  border: 1px solid var(--rose-line, #f2d3df);
+  border-radius: 22px;
+  box-shadow: 0 18px 44px rgba(167, 25, 83, 0.1);
+}
+
+.guest-theme .app-registration-page h3 {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 2.2rem;
+  letter-spacing: 0.04em;
+}
+
+/* Footer links: comfortable 24px+ pointer targets */
+.guest-theme .app-footer a { display: inline-block; padding: 3px 0; }
+/* Log in card title is now an h2 (the intro already has the page h1) */
+.guest-theme .app-login-card h2 {
+  font-family: var(--app-font-heading);
+  font-size: 1.75rem;
+  letter-spacing: 0.04em;
+}

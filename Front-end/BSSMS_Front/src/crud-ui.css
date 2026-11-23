@@ -666,7 +666,7 @@
 
 .modal .modal-title {
   color: var(--crud-ink, #302b30);
-  font-family: var(--app-font-sans, "Be Vietnam Pro", "Segoe UI", Arial, sans-serif);
+  font-family: var(--app-font-heading, "Lora", Georgia, serif);
   font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.4;

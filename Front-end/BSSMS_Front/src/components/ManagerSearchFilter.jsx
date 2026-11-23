@@ -42,7 +42,7 @@ export function filterListRows(rows, fields, query, appliedFilters) {
     });
 }
 
-export function useManagerSearchFilter(rows, fields, placeholder = "Tìm kiếm...") {
+export function useManagerSearchFilter(rows, fields, placeholder = "Search...") {
     const filterTitleId = useId();
     const [query, setQuery] = useState("");
     const [showFilters, setShowFilters] = useState(false);
@@ -106,7 +106,7 @@ export function useManagerSearchFilter(rows, fields, placeholder = "Tìm kiếm.
                 </InputGroup.Text>
                 <Form.Control
                     type="search"
-                    aria-label="Tìm trong danh sách"
+                    aria-label="Search"
                     placeholder={placeholder}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
@@ -114,12 +114,12 @@ export function useManagerSearchFilter(rows, fields, placeholder = "Tìm kiếm.
                 <Button
                     variant="outline-secondary"
                     className={`manager-search-filter-trigger${activeFilterCount ? " is-active" : ""}`}
-                    aria-label="Mở bộ lọc"
+                    aria-label="Open filters"
                     aria-haspopup="dialog"
                     onClick={openFilters}
                 >
                     <i className="bi bi-sliders" aria-hidden="true" />
-                    <span className="d-none d-sm-inline">Lọc</span>
+                    <span className="d-none d-sm-inline">Filter</span>
                     {activeFilterCount > 0 && (
                         <span className="manager-search-filter-count">{activeFilterCount}</span>
                     )}
@@ -134,7 +134,7 @@ export function useManagerSearchFilter(rows, fields, placeholder = "Tìm kiếm.
                 aria-labelledby={filterTitleId}
             >
                 <Modal.Header closeButton>
-                    <Modal.Title id={filterTitleId}>Tùy chọn lọc</Modal.Title>
+                    <Modal.Title id={filterTitleId}>Filter options</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     {filterFields.map((field) => {
@@ -145,7 +145,7 @@ export function useManagerSearchFilter(rows, fields, placeholder = "Tìm kiếm.
                                     <h3>{field.label}</h3>
                                     <div className="manager-search-filter-date-range">
                                         <Form.Group>
-                                            <Form.Label>Từ ngày</Form.Label>
+                                            <Form.Label>From date</Form.Label>
                                             <Form.Control
                                                 type="date"
                                                 value={range.from}
@@ -160,7 +160,7 @@ export function useManagerSearchFilter(rows, fields, placeholder = "Tìm kiếm.
                                             />
                                         </Form.Group>
                                         <Form.Group>
-                                            <Form.Label>Đến ngày</Form.Label>
+                                            <Form.Label>To date</Form.Label>
                                             <Form.Control
                                                 type="date"
                                                 value={range.to}
@@ -191,8 +191,8 @@ export function useManagerSearchFilter(rows, fields, placeholder = "Tìm kiếm.
                                     <Form.Control
                                         className="manager-search-filter-options-search"
                                         type="search"
-                                        aria-label={`Tìm ${field.label.toLocaleLowerCase("vi-VN")}`}
-                                        placeholder={`Tìm ${field.label.toLocaleLowerCase("vi-VN")}...`}
+                                        aria-label={`Search ${field.label.toLocaleLowerCase("vi-VN")}`}
+                                        placeholder={`Search ${field.label.toLocaleLowerCase("vi-VN")}...`}
                                         value={optionQueries[field.key] ?? ""}
                                         onChange={(event) => setOptionQueries((current) => ({
                                             ...current,
@@ -214,20 +214,20 @@ export function useManagerSearchFilter(rows, fields, placeholder = "Tìm kiếm.
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="manager-search-filter-empty">Không có lựa chọn phù hợp.</p>
+                                    <p className="manager-search-filter-empty">No options available.</p>
                                 )}
                             </section>
                         );
                     })}
                     {!filterFields.length && (
                         <p className="manager-search-filter-empty mb-0">
-                            Trang này chưa có trường lọc bổ sung.
+                            This page has no extra filter fields yet.
                         </p>
                     )}
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="outline-secondary" onClick={clearDraftFilters}>
-                        Đặt lại
+                        Reset
                     </Button>
                     <Button
                         onClick={() => {
@@ -235,7 +235,7 @@ export function useManagerSearchFilter(rows, fields, placeholder = "Tìm kiếm.
                             setShowFilters(false);
                         }}
                     >
-                        Áp dụng bộ lọc
+                        Apply
                     </Button>
                 </Modal.Footer>
             </Modal>

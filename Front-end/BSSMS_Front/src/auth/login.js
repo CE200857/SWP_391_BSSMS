@@ -21,15 +21,15 @@ export async function loginAccount(email, password, portal) {
     body: JSON.stringify({ email: email.trim(), password }),
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.message || 'Đăng nhập thất bại.');
+  if (!response.ok) throw new Error(data.message || 'Login failed.');
   const allowed = portal === 'staff' ? staffRoles.includes(data.role) : data.role === 'Customer';
   if (!allowed) {
     localStorage.removeItem('user');
     const logout = await fetch('/api/logout', { method: 'POST', credentials: 'include' });
-    if (!logout.ok) throw new Error('Không thể kết thúc phiên đăng nhập. Vui lòng thử lại.');
+    if (!logout.ok) throw new Error('Could not end the session. Please try again.');
     throw new Error(portal === 'staff'
-      ? 'Tài khoản không có quyền truy cập hệ thống quản lý. Vui lòng dùng trang đăng nhập khách hàng.'
-      : 'Tài khoản nhân viên vui lòng đăng nhập tại trang Dashboard.');
+      ? 'This account cannot access the management system. Please use the customer login page.'
+      : 'Staff accounts please log in at the Dashboard page.');
   }
   return data;
 }
