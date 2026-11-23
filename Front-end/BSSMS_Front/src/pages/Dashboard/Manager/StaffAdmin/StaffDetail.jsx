@@ -11,9 +11,9 @@ import {
 import "./StaffAdmin.css";
 
 const roleLabels = {
-  Manager: "Quản lý",
-  Receptionist: "Lễ tân",
-  Technician: "Kỹ thuật viên",
+  Manager: "Manager",
+  Receptionist: "Receptionist",
+  Technician: "Technician",
 };
 
 const StaffDetail = () => {
@@ -33,11 +33,11 @@ const StaffDetail = () => {
           const data = await response.json();
           setStaff(data);
         } else {
-          setError("Không tìm thấy thông tin nhân viên.");
+          setError("Staff information not found.");
         }
       } catch (error) {
-        console.error("Lỗi tải chi tiết nhân viên:", error);
-        setError("Không thể tải hồ sơ nhân viên. Vui lòng kiểm tra kết nối và thử lại.");
+        console.error("Error loading staff details:", error);
+        setError("Could not load the staff profile. Please check your connection and try again.");
       } finally {
         setLoading(false);
       }
@@ -58,10 +58,10 @@ const StaffDetail = () => {
     return (
       <Container fluid className="staff-admin mt-4 px-3 px-lg-4">
         <Alert variant="danger" role="alert">
-          {error || "Không tìm thấy thông tin nhân viên."}
+          {error || "Staff information not found."}
         </Alert>
         <Button variant="outline-secondary" onClick={() => navigate("/staffs")}>
-          <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Trở về danh sách
+          <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Back to list
         </Button>
       </Container>
     );
@@ -70,14 +70,14 @@ const StaffDetail = () => {
   const role = staff.role || staff.position;
   const hireDate = staff.hireDate
     ? staff.hireDate.substring(0, 10).split("-").reverse().join("/")
-    : "Chưa cập nhật";
+    : "Not provided";
 
   return (
     <Container fluid className="staff-admin mt-4 px-3 px-lg-4">
       <div className="staff-page-heading">
         <div>
-          <h2>Hồ sơ nhân viên</h2>
-          <p>Thông tin liên hệ và công việc của nhân sự.</p>
+          <h2>Staff profile</h2>
+          <p>The staff member’s contact and job information.</p>
         </div>
       </div>
 
@@ -88,13 +88,13 @@ const StaffDetail = () => {
               {staff.fullName?.trim()?.charAt(0)?.toUpperCase() || "N"}
             </div>
             <div>
-              <h3>{staff.fullName || "Nhân viên"}</h3>
-              <p>{roleLabels[role] || role || "Chưa cập nhật"} · Mã nhân viên #{staff.staffId}</p>
+              <h3>{staff.fullName || "Staff"}</h3>
+              <p>{roleLabels[role] || role || "Not provided"} · Staff ID #{staff.staffId}</p>
             </div>
           </div>
           {staff.status && (
             <Badge className={`staff-status-badge${staff.status !== "Active" ? " is-inactive" : ""}`}>
-              {staff.status === "Active" ? "Đang hoạt động" : "Không hoạt động"}
+              {staff.status === "Active" ? "Active" : "Inactive"}
             </Badge>
           )}
         </div>
@@ -102,42 +102,42 @@ const StaffDetail = () => {
         <Card.Body className="staff-detail-content">
           <h3 className="staff-detail-section-title">
             <i className="bi bi-person-lines-fill me-2" aria-hidden="true"></i>
-            Thông tin chi tiết
+            Detailed information
           </h3>
           <div className="staff-detail-grid">
             <div className="staff-detail-item">
-              <span>Mã nhân viên</span>
+              <span>Staff ID</span>
               <strong>#{staff.staffId}</strong>
             </div>
             <div className="staff-detail-item">
-              <span>Tên đăng nhập</span>
-              <strong>{staff.username || "Chưa cập nhật"}</strong>
+              <span>Username</span>
+              <strong>{staff.username || "Not provided"}</strong>
             </div>
             <div className="staff-detail-item">
               <span>Email</span>
-              <strong>{staff.email || "Chưa cập nhật"}</strong>
+              <strong>{staff.email || "Not provided"}</strong>
             </div>
             <div className="staff-detail-item">
-              <span>Số điện thoại</span>
-              <strong>{staff.phone || "Chưa cập nhật"}</strong>
+              <span>Phone number</span>
+              <strong>{staff.phone || "Not provided"}</strong>
             </div>
             <div className="staff-detail-item">
-              <span>Chức vụ</span>
-              <strong>{roleLabels[role] || role || "Chưa cập nhật"}</strong>
+              <span>Position</span>
+              <strong>{roleLabels[role] || role || "Not provided"}</strong>
             </div>
             <div className="staff-detail-item">
-              <span>Ngày vào làm</span>
+              <span>Start date</span>
               <strong>{hireDate}</strong>
             </div>
             <div className="staff-detail-item">
-              <span>Trạng thái</span>
-              <strong>{staff.status === "Active" ? "Đang làm việc" : staff.status === "Locked" ? "Bị khóa" : "Ngừng làm việc"}</strong>
+              <span>Status</span>
+              <strong>{staff.status === "Active" ? "Working" : staff.status === "Locked" ? "Locked" : "Inactive"}</strong>
             </div>
           </div>
 
           <div className="staff-detail-footer">
             <Button variant="outline-secondary" onClick={() => navigate("/staffs")}>
-              <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Trở về danh sách
+              <i className="bi bi-arrow-left me-1" aria-hidden="true"></i>Back to list
             </Button>
           </div>
         </Card.Body>

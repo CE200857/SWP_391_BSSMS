@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Badge, Button, Card, Container, Form, Modal, Spinner, Table } from "react-bootstrap";
+import { Badge, Button, Card, Container, Form, Modal, Spinner, Table } from "react-bootstrap";
 import { api, post, put, del, today, time5, viDate, label } from "../../../services/api";
 import { imageFileToUpload } from "../../../utils/imageUpload";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 const lineBadge = { Waiting: "secondary", InProgress: "primary", Done: "success" };
+const realAllergy = (value) => value && !/^(none|no|không|khong|n\/a|-)$/i.test(String(value).trim());
+
+// One block per appointment so the customer is shown once, not on every service line
+const groupByAppointment = (rows) => {
+  const groups = new Map();
+  rows.forEach((l) => {
+    if (!groups.has(l.appointmentId)) groups.set(l.appointmentId, []);
+    groups.get(l.appointmentId).push(l);
+  });
+  return [...groups.values()];
+};
 
 function OutcomeModal({ line, canEdit, onClose, onSaved }) {
   const [data, setData] = useState(null);
@@ -30,7 +42,7 @@ function OutcomeModal({ line, canEdit, onClose, onSaved }) {
     setError("");
     try {
       await put(`/api/treatment-outcomes/${line.appointmentServiceId}`, { notes, skinReaction });
-      onSaved("Đã lưu kết quả điều trị.");
+      onSaved("Treatment notes saved.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -60,40 +72,40 @@ function OutcomeModal({ line, canEdit, onClose, onSaved }) {
   return (
     <Modal show={!!line} onHide={() => !saving && onClose()} size="lg" centered>
       <Modal.Header closeButton={!saving}>
-        <Modal.Title>Kết quả điều trị · {line?.serviceName}</Modal.Title>
+        <Modal.Title>Treatment notes · {line?.serviceName}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {error && <Alert variant="danger">{error}</Alert>}
+        <FloatingAlert message={error} onClose={() => setError("")} />
         {!data && !error && <div className="text-center py-4"><Spinner animation="border" variant="danger" /></div>}
         {data && (
           <>
-            <p className="text-muted">Khách hàng: <strong>{data.customerName}</strong> · Lịch #{data.appointmentId}</p>
+            <p className="text-muted">Customer: <strong>{data.customerName}</strong> · Appointment #{data.appointmentId}</p>
             <Form.Group className="mb-3">
-              <Form.Label>Kết quả điều trị *</Form.Label>
+              <Form.Label>Treatment notes *</Form.Label>
               <Form.Control as="textarea" rows={4} maxLength={4000} value={notes} disabled={!canEdit} onChange={(e) => setNotes(e.target.value)} />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Phản ứng da</Form.Label>
+              <Form.Label>Skin reaction</Form.Label>
               <Form.Control as="textarea" rows={2} maxLength={1000} value={skinReaction} disabled={!canEdit} onChange={(e) => setSkinReaction(e.target.value)} />
-              <Form.Text>Kết quả chỉ được sửa trong ngày thực hiện dịch vụ.</Form.Text>
+              <Form.Text>Treatment notes can only be edited on the day of the service.</Form.Text>
             </Form.Group>
-            <h6 className="fw-bold">Ảnh trước / sau ({(data.photos || []).length}/10)</h6>
+            <h6 className="fw-bold">Before / after photos ({(data.photos || []).length}/10)</h6>
             <div className="d-flex flex-wrap gap-3 mb-2">
               {(data.photos || []).map((p) => (
                 <figure key={p.photoId} className="text-center mb-0">
                   <img src={`/api/treatment-photos/file/${p.photoId}`} alt={p.photoType} style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8 }} />
                   <figcaption className="small">
-                    {p.photoType === "Before" ? "Trước" : "Sau"}
-                    {canEdit && <Button variant="link" size="sm" className="text-danger p-0 ms-2" onClick={() => removePhoto(p.photoId)}>Xóa</Button>}
+                    {p.photoType === "Before" ? "Before" : "Sau"}
+                    {canEdit && <Button variant="link" size="sm" className="text-danger p-0 ms-2" onClick={() => removePhoto(p.photoId)}>Delete</Button>}
                   </figcaption>
                 </figure>
               ))}
             </div>
             {canEdit && (
               <div className="d-flex gap-3 flex-wrap">
-                <Form.Group><Form.Label className="small">Thêm ảnh trước</Form.Label>
+                <Form.Group><Form.Label className="small">Add before photo</Form.Label>
                   <Form.Control type="file" size="sm" accept="image/jpeg,image/png,image/webp" onChange={(e) => { upload("Before", e.target.files[0]); e.target.value = ""; }} /></Form.Group>
-                <Form.Group><Form.Label className="small">Thêm ảnh sau</Form.Label>
+                <Form.Group><Form.Label className="small">Add after photo</Form.Label>
                   <Form.Control type="file" size="sm" accept="image/jpeg,image/png,image/webp" onChange={(e) => { upload("After", e.target.files[0]); e.target.value = ""; }} /></Form.Group>
               </div>
             )}
@@ -101,15 +113,21 @@ function OutcomeModal({ line, canEdit, onClose, onSaved }) {
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline-secondary" onClick={onClose} disabled={saving}>Đóng</Button>
-        {canEdit && <Button onClick={save} disabled={saving || !notes.trim()}>{saving ? "Đang lưu..." : "Lưu kết quả"}</Button>}
+        <Button variant="outline-secondary" onClick={onClose} disabled={saving}>Close</Button>
+        {canEdit && <Button onClick={save} disabled={saving || !notes.trim()}>{saving ? "Saving..." : "Save notes"}</Button>}
       </Modal.Footer>
     </Modal>
   );
 }
 
-export default function TreatmentStatus({ outcomeOnly = false }) {
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+function AppointmentLineBadge({ status }) {
+  const icon = { Waiting: "pause-circle", InProgress: "play-circle", Done: "check-circle-fill" }[status] || "circle";
+  return <span className={`ts-status ts-status--${status}`}><i className={`bi bi-${icon}`} aria-hidden="true" /> {label(status)}</span>;
+}
+
+export default function TreatmentStatus({ outcomeOnly = false, user: signedIn }) {
+  // Prefer the signed-in user from the app; localStorage can hold another tab's account
+  const user = signedIn || JSON.parse(localStorage.getItem("user") || "null");
   const isTechnician = user?.role === "Technician";
   const [date, setDate] = useState(today());
   const [status, setStatus] = useState(outcomeOnly ? "Done" : "");
@@ -141,9 +159,9 @@ export default function TreatmentStatus({ outcomeOnly = false }) {
     setError("");
     try {
       const r = await put(`/api/treatment-status/${line.appointmentServiceId}/${action}`, {});
-      setNotice(action === "start" ? `Đã bắt đầu ${line.serviceName}.` : r?.appointmentCompleted
-        ? `Đã hoàn thành ${line.serviceName}. Lịch hẹn #${line.appointmentId} đã hoàn tất.`
-        : `Đã hoàn thành ${line.serviceName}.`);
+      setNotice(action === "start" ? `Started ${line.serviceName}.` : r?.appointmentCompleted
+        ? `Completed ${line.serviceName}. Appointment #${line.appointmentId} completed.`
+        : `Completed ${line.serviceName}.`);
       await load();
       if (action === "done") setOutcome(line);
     } catch (e) {
@@ -155,76 +173,86 @@ export default function TreatmentStatus({ outcomeOnly = false }) {
 
   return (
     <Container fluid className="mt-4 px-4">
-      <h2 className="manager-page-title fw-bold mb-1">{outcomeOnly ? "Ghi nhận kết quả điều trị" : "Trạng thái dịch vụ"}</h2>
+      <h2 className="manager-page-title fw-bold mb-1">{outcomeOnly ? "Record treatment notes" : "Service status"}</h2>
       <p className="text-muted mb-4">
         {isTechnician
-          ? "Bắt đầu và hoàn thành từng dịch vụ được giao theo đúng thứ tự. Hoàn thành dịch vụ dùng gói sẽ trừ 1 buổi."
-          : "Theo dõi tiến độ thực hiện từng dịch vụ trong ngày."}
+          ? "Start and complete each assigned service in order, then add treatment notes. Completing a service that uses a package deducts 1 session."
+          : "Track the progress of each service on the selected day."}
       </p>
-      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
-      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+      <FloatingAlert message={error} onClose={() => setError("")} />
+      <FloatingAlert message={notice} variant="success" onClose={() => setNotice("")} />
 
       <Card className="shadow-sm border-0 mb-4">
         <Card.Body className="d-flex flex-wrap gap-3 align-items-center">
           <Form.Control type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 180 }} />
           <Form.Select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 200 }}>
-            <option value="">Tất cả trạng thái</option>
-            <option value="Waiting">Chờ thực hiện</option>
-            <option value="InProgress">Đang làm</option>
-            <option value="Done">Hoàn thành</option>
+            <option value="">All statuses</option>
+            <option value="Waiting">Waiting</option>
+            <option value="InProgress">In progress</option>
+            <option value="Done">Complete</option>
           </Form.Select>
-          <Button variant="outline-secondary" onClick={load}><i className="bi bi-arrow-clockwise" /> Làm mới</Button>
+          <Button variant="outline-secondary" onClick={load}><i className="bi bi-arrow-clockwise" /> Refresh</Button>
         </Card.Body>
       </Card>
 
       <Card className="shadow-sm border-0">
         <Card.Body className="p-0">
-          <Table hover responsive className="align-middle mb-0 manager-list-table">
+          <Table responsive className="align-middle mb-0 manager-list-table ts-table">
             <thead className="table-dark">
-              <tr><th>Giờ</th><th>Khách hàng</th><th>Dịch vụ</th><th>Phòng / giường</th>{!isTechnician && <th>KTV</th>}<th>Trạng thái</th><th className="text-center">Thao tác</th></tr>
+              <tr><th>Customer</th><th>Time</th><th>Service</th><th>{isTechnician ? "Bed" : "Bed · technician"}</th><th>Status</th><th className="text-center">Actions</th></tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="text-center py-4"><Spinner animation="border" size="sm" /> Đang tải...</td></tr>
-              ) : rows.length ? rows.map((l) => (
-                <tr key={l.appointmentServiceId}>
-                  <td className="fw-bold">{time5(l.startTime)}–{time5(l.endTime)}<small className="d-block text-muted">{viDate(l.appointmentDate)}</small></td>
+                <tr><td colSpan={6} className="text-center py-4"><Spinner animation="border" size="sm" /> Loading...</td></tr>
+              ) : rows.length ? groupByAppointment(rows).map((lines) => lines.map((l, i) => (
+                <tr key={l.appointmentServiceId} className={i === 0 ? "ts-group-start" : undefined}>
+                  {i === 0 && (
+                    <td rowSpan={lines.length} className="ts-customer">
+                      <strong>{l.customerName}</strong>
+                      {realAllergy(l.allergies) && (
+                        <span className="ts-flag ts-flag--danger"><i className="bi bi-exclamation-triangle" aria-hidden="true" /> Allergy: {l.allergies}</span>
+                      )}
+                      {l.skinCondition && (
+                        <span className="ts-flag" title={l.skinCondition}><i className="bi bi-info-circle" aria-hidden="true" /> {l.skinCondition}</span>
+                      )}
+                    </td>
+                  )}
+                  <td className="ts-time">{time5(l.startTime)}–{time5(l.endTime)}</td>
                   <td>
-                    {l.customerName}
-                    {(l.allergies || l.skinCondition) && (
-                      <small className="d-block text-danger"><i className="bi bi-exclamation-triangle" /> {[l.skinCondition, l.allergies && `Dị ứng: ${l.allergies}`].filter(Boolean).join(" · ")}</small>
-                    )}
+                    {l.serviceName}
+                    {l.customerPackageId ? <span className="ts-package">Package</span> : null}
                   </td>
-                  <td>{l.serviceName}{l.customerPackageId ? <Badge bg="success" className="ms-1">Gói</Badge> : null}<small className="d-block text-muted">Lịch #{l.appointmentId} · dịch vụ {l.lineNo}</small></td>
-                  <td>{l.roomName ? `${l.roomName} · ${l.bedNumber}` : "—"}</td>
-                  {!isTechnician && <td>{l.technicianName || "—"}</td>}
-                  <td><Badge bg={lineBadge[l.status]}>{label(l.status)}</Badge></td>
+                  <td>
+                    {l.roomName ? <span className="ts-bed" title={l.roomName}>{l.bedNumber}</span> : <span className="text-muted">—</span>}
+                    {!isTechnician && l.technicianName && <small className="d-block text-muted">{l.technicianName}</small>}
+                  </td>
+                  <td><AppointmentLineBadge status={l.status} /></td>
                   <td className="text-center">
-                    <div className="manager-list-actions">
+                    <div className="manager-list-actions justify-content-center">
                       {isTechnician && l.status === "Waiting" && (l.canStart === false ? (
                         <small className="text-muted d-inline-block text-start" style={{ maxWidth: 220 }}>
                           <i className="bi bi-hourglass-split me-1" />{l.startNote}
                         </small>
                       ) : (
                         <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" disabled={busy === l.appointmentServiceId} onClick={() => act(l, "start")}>
-                          <i className="bi bi-play-circle" /> Bắt đầu
+                          <i className="bi bi-play-circle" /> Start
                         </Button>
                       ))}
                       {isTechnician && l.status === "InProgress" && (
                         <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" disabled={busy === l.appointmentServiceId} onClick={() => act(l, "done")}>
-                          <i className="bi bi-check2-circle" /> Hoàn thành
+                          <i className="bi bi-check2-circle" /> Complete
                         </Button>
                       )}
                       {l.status === "Done" && (
                         <Button variant="link" size="sm" className="manager-list-action manager-list-action--view" onClick={() => setOutcome(l)}>
-                          <i className="bi bi-journal-medical" /> {isTechnician ? "Kết quả" : "Xem kết quả"}
+                          <i className="bi bi-journal-medical" /> Notes
                         </Button>
                       )}
                     </div>
                   </td>
                 </tr>
-              )) : (
-                <tr><td colSpan={7} className="text-center text-muted py-4">Không có dịch vụ nào trong ngày đã chọn.</td></tr>
+              ))) : (
+                <tr><td colSpan={6} className="text-center text-muted py-4">There are no services on the selected day.</td></tr>
               )}
             </tbody>
           </Table>

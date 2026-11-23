@@ -13,9 +13,9 @@ import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilt
 import "./StaffAdmin.css";
 
 const roleLabels = {
-  Manager: "Quản lý",
-  Receptionist: "Lễ tân",
-  Technician: "Kỹ thuật viên",
+  Manager: "Manager",
+  Receptionist: "Receptionist",
+  Technician: "Technician",
 };
 
 const StaffList = ({ user }) => {
@@ -60,7 +60,7 @@ const StaffList = ({ user }) => {
           setStaffs(data);
         }
       } catch (error) {
-        console.error("Lỗi kết nối đến Backend:", error);
+        console.error("Back-end connection error:", error);
       }
     };
 
@@ -90,14 +90,14 @@ const StaffList = ({ user }) => {
         setStaffs((prevStaffs) =>
           prevStaffs.filter((staff) => staff.staffId !== selectedStaff.staffId)
         );
-        setMessage(`Đã xóa vĩnh viễn nhân viên ${selectedStaff.fullName}!`);
+        setMessage(`Permanently deleted staff member ${selectedStaff.fullName}!`);
         setTimeout(() => setMessage(""), 3000);
       } else {
-        alert("Lỗi: Không thể xóa tài khoản nhân viên.");
+        alert("Error: Could not delete the staff account.");
       }
     } catch (error) {
-      console.error("Lỗi khi xóa nhân viên:", error);
-      alert("Không thể kết nối đến Backend.");
+      console.error("Error deleting staff:", error);
+      alert("Could not connect to the back-end.");
     } finally {
       handleCloseModal();
     }
@@ -126,12 +126,12 @@ const StaffList = ({ user }) => {
 
       if (response.status === 200) {
         setRefresh((prev) => prev + 1);
-        setMessage(`Đã cấp quyền ${newRole} thành công!`);
+        setMessage(`Role changed to ${newRole} successful!`);
         setTimeout(() => setMessage(""), 3000);
       }
     } catch (error) {
-      console.error("Lỗi khi đổi quyền:", error);
-      alert("Đổi quyền thất bại. Vui lòng thử lại!");
+      console.error("Error changing role:", error);
+      alert("Failed to change the role. Please try again!");
     } finally {
       handleCloseRoleModal();
     }
@@ -172,15 +172,15 @@ const StaffList = ({ user }) => {
           )
         );
         const statusText =
-          newStatus === "Active" ? "Đang hoạt động" : "Không hoạt động";
+          newStatus === "Active" ? "Active" : "Inactive";
         setMessage(
-          `Đã chuyển trạng thái của ${staffName} sang "${statusText}"!`
+          `Changed the status of ${staffName} to "${statusText}"!`
         );
         setTimeout(() => setMessage(""), 3000);
       }
     } catch (error) {
-      console.error("Lỗi khi đổi trạng thái:", error);
-      alert("Đổi trạng thái thất bại. Vui lòng thử lại!");
+      console.error("Error changing status:", error);
+      alert("Failed to change the status. Please try again!");
     } finally {
       handleCloseStatusModal();
     }
@@ -189,26 +189,26 @@ const StaffList = ({ user }) => {
   const { filteredRows: filteredStaffs, toolbar } = useManagerSearchFilter(
     staffs,
     [
-      { key: "fullName", label: "Nhân viên", filterable: false },
-      { key: "username", label: "Tên đăng nhập", filterable: false },
-      { key: "phone", label: "Số điện thoại", filterable: false },
+      { key: "fullName", label: "Staff", filterable: false },
+      { key: "username", label: "Username", filterable: false },
+      { key: "phone", label: "Phone number", filterable: false },
       { key: "email", label: "Email", filterable: false },
-      { key: "position", label: "Chức vụ", formatValue: (value) => ({
-        Manager: "Quản lý",
-        Receptionist: "Lễ tân",
-        Technician: "Kỹ thuật viên",
+      { key: "position", label: "Position", formatValue: (value) => ({
+        Manager: "Manager",
+        Receptionist: "Receptionist",
+        Technician: "Technician",
       }[value] || value) },
-      { key: "status", label: "Trạng thái", formatValue: (value) => value === "Active" ? "Đang hoạt động" : "Không hoạt động" },
+      { key: "status", label: "Status", formatValue: (value) => value === "Active" ? "Active" : "Inactive" },
     ],
-    "Tìm theo tên, username, email, số điện thoại...",
+    "Search by name, username, email, phone number...",
   );
 
   return (
     <Container fluid className="staff-admin staff-list-page mt-4 px-3 px-lg-4">
       <div className="staff-page-heading">
         <div>
-          <h2>Danh sách nhân viên</h2>
-          <p>Quản lý hồ sơ, chức vụ và trạng thái hoạt động của nhân sự.</p>
+          <h2>Staff list</h2>
+          <p>Manage staff profiles, positions and active status.</p>
         </div>
         {user?.role === "Manager" && (
           <Button
@@ -216,31 +216,31 @@ const StaffList = ({ user }) => {
             onClick={() => navigate("/manager/create-staff")}
           >
             <i className="bi bi-person-plus-fill" aria-hidden="true"></i>
-            Thêm nhân viên
+            Add staff
           </Button>
         )}
       </div>
 
-      <div className="staff-summary-grid" aria-label="Thống kê nhân sự">
+      <div className="staff-summary-grid" aria-label="Staff statistics">
         <div className="staff-summary-card">
           <span className="staff-summary-icon"><i className="bi bi-people-fill" aria-hidden="true"></i></span>
           <div>
             <div className="staff-summary-value">{staffs.length}</div>
-            <div className="staff-summary-label">Tổng nhân sự</div>
+            <div className="staff-summary-label">Total staff</div>
           </div>
         </div>
         <div className="staff-summary-card">
           <span className="staff-summary-icon"><i className="bi bi-person-check-fill" aria-hidden="true"></i></span>
           <div>
             <div className="staff-summary-value">{activeStaffCount}</div>
-            <div className="staff-summary-label">Đang hoạt động</div>
+            <div className="staff-summary-label">Active</div>
           </div>
         </div>
         <div className="staff-summary-card">
           <span className="staff-summary-icon"><i className="bi bi-person-dash-fill" aria-hidden="true"></i></span>
           <div>
             <div className="staff-summary-value">{inactiveStaffCount}</div>
-            <div className="staff-summary-label">Không hoạt động</div>
+            <div className="staff-summary-label">Inactive</div>
           </div>
         </div>
       </div>
@@ -259,10 +259,10 @@ const StaffList = ({ user }) => {
         <Table hover responsive className="align-middle manager-list-table staff-list-table">
         <thead>
           <tr>
-            <th>Họ và Tên</th>
-            <th>Chức vụ</th>
-            <th>Trạng thái</th>
-            <th>Hành động</th>
+            <th>Full name</th>
+            <th>Position</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
 
@@ -270,9 +270,8 @@ const StaffList = ({ user }) => {
           {filteredStaffs.length > 0 ? (
             filteredStaffs.map((s) => (
               <tr key={s.staffId}>
-                <td>
+                <td title={`Staff ID #${s.staffId}`}>
                   <div className="staff-list-name">{s.fullName}</div>
-                  <div className="staff-list-id">Mã nhân viên #{s.staffId}</div>
                 </td>
                 <td>
                   {user?.role === "Manager" ? (
@@ -313,17 +312,17 @@ const StaffList = ({ user }) => {
                         s.position === "Manager" ||
                         s.accountId === currentUserAccountId
                       }
-                      title="Bấm để đổi trạng thái"
+                      title="Click to change status"
                     >
                       {s.status === "Active"
-                        ? <><i className="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Đang hoạt động</>
-                        : <><i className="bi bi-pause-circle-fill me-1" aria-hidden="true"></i>Không hoạt động</>}
+                        ? <><i className="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Active</>
+                        : <><i className="bi bi-pause-circle-fill me-1" aria-hidden="true"></i>Inactive</>}
                     </Button>
                   ) : (
                     <Badge className={`staff-status-badge${s.status !== "Active" ? " is-inactive" : ""}`}>
                       {s.status === "Active"
-                        ? "Đang hoạt động"
-                        : "Không hoạt động"}
+                        ? "Active"
+                        : "Inactive"}
                     </Badge>
                   )}
                 </td>
@@ -337,7 +336,7 @@ const StaffList = ({ user }) => {
                       onClick={() => navigate(`/staffs/detail/${s.staffId}`)}
                       disabled={s.accountId === currentUserAccountId}
                     >
-                      <i className="bi bi-eye" aria-hidden="true"></i> Xem
+                      <i className="bi bi-eye" aria-hidden="true"></i> View
                     </Button>
 
                     <Button
@@ -347,7 +346,7 @@ const StaffList = ({ user }) => {
                       onClick={() => navigate(`/staffs/edit/${s.staffId}`)}
                       disabled={s.accountId === currentUserAccountId}
                     >
-                      <i className="bi bi-pencil-square" aria-hidden="true"></i> Sửa
+                      <i className="bi bi-pencil-square" aria-hidden="true"></i> Edit
                     </Button>
 
                     <Button
@@ -360,7 +359,7 @@ const StaffList = ({ user }) => {
                         s.accountId === currentUserAccountId
                       }
                     >
-                      <i className="bi bi-trash" aria-hidden="true"></i> Xóa
+                      <i className="bi bi-trash" aria-hidden="true"></i> Delete
                     </Button>
                   </div>
                 </td>
@@ -369,7 +368,7 @@ const StaffList = ({ user }) => {
           ) : (
             <tr>
               <td colSpan="4" className="staff-empty-state">
-                Không tìm thấy nhân viên nào.
+                No staff found.
               </td>
             </tr>
           )}
@@ -381,26 +380,26 @@ const StaffList = ({ user }) => {
         <Modal.Header closeButton>
           <Modal.Title className="text-danger fw-bold">
             <i className="bi bi-exclamation-triangle-fill me-2"></i>
-            Xác nhận xóa vĩnh viễn nhân viên
+            Confirm staff deletion
           </Modal.Title>
         </Modal.Header>
 
         <Modal.Body>
-          Bạn có chắc chắn muốn <strong>xóa vĩnh viễn</strong> hồ sơ và tài khoản
-          của nhân viên{" "}
+          Delete staff member{" "}
           <span className="fw-bold text-primary">
             {selectedStaff?.fullName}
-          </span>{" "}
-          khỏi cơ sở dữ liệu không? Hành động này không thể hoàn tác.
+          </span>
+          ? The account can no longer log in and is removed from the staff list. Their work history
+          (appointments, invoices) is kept in the database.
         </Modal.Body>
 
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>
-            Hủy bỏ
+            Cancel
           </Button>
 
           <Button variant="danger" onClick={confirmDelete}>
-            Xóa vĩnh viễn
+            Delete
           </Button>
         </Modal.Footer>
       </Modal>
@@ -408,15 +407,15 @@ const StaffList = ({ user }) => {
       <Modal show={showStatusModal} onHide={handleCloseStatusModal} centered>
         <Modal.Header closeButton>
           <Modal.Title className="text-warning fw-bold">
-            <i className="bi bi-arrow-repeat me-2"></i> Xác nhận đổi trạng thái
+            <i className="bi bi-arrow-repeat me-2"></i> Confirm status change
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có chắc chắn muốn chuyển trạng thái của nhân viên{" "}
+          Are you sure you want to change the status of staff member{" "}
           <span className="fw-bold text-primary">
             {statusChangeData.staffName}
           </span>{" "}
-          sang{" "}
+          to{" "}
           <span
             className={`fw-bold ${
               statusChangeData.newStatus === "Active"
@@ -425,17 +424,17 @@ const StaffList = ({ user }) => {
             }`}
           >
             {statusChangeData.newStatus === "Active"
-              ? "Đang hoạt động"
-              : "Không hoạt động"}
+              ? "Active"
+              : "Inactive"}
           </span>{" "}
-          không?
+          ?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseStatusModal}>
-            Hủy bỏ
+            Cancel
           </Button>
           <Button variant="primary" onClick={confirmStatusChange}>
-            Xác nhận
+            Confirm
           </Button>
         </Modal.Footer>
       </Modal>
@@ -443,24 +442,24 @@ const StaffList = ({ user }) => {
       <Modal show={showRoleModal} onHide={handleCloseRoleModal} centered>
         <Modal.Header closeButton>
           <Modal.Title className="text-primary fw-bold">
-            <i className="bi bi-person-gear me-2"></i> Xác nhận phân quyền
+            <i className="bi bi-person-gear me-2"></i> Confirm role change
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có muốn đổi quyền của nhân viên{" "}
+          Do you want to change the role of staff member{" "}
           <span className="fw-bold text-danger">
             {roleChangeData.staffName}
           </span>{" "}
-          sang chức vụ{" "}
+          to the position{" "}
           <span className="fw-bold text-success">{roleChangeData.newRole}</span>{" "}
-          không?
+          ?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseRoleModal}>
-            Hủy bỏ
+            Cancel
           </Button>
           <Button variant="primary" onClick={confirmRoleChange}>
-            Xác nhận
+            Confirm
           </Button>
         </Modal.Footer>
       </Modal>

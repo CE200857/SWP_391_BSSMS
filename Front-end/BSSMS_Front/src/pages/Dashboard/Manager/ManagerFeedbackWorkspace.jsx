@@ -5,8 +5,8 @@ export default function ManagerFeedbackWorkspace() {
     <section className="manager-feedback-workspace">
       <div className="ui-page-heading">
         <div>
-          <h1>Quản lý đánh giá khách hàng</h1>
-          <p>Tổng quan phản hồi và kiểm duyệt đánh giá tại cùng một nơi.</p>
+          <h1>Customer review management</h1>
+          <p>Feedback overview and review moderation in one place.</p>
         </div>
       </div>
       <FeedbackModeration managerCompact />

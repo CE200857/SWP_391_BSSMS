@@ -6,7 +6,6 @@ import {
     Card,
     Container,
     Spinner,
-    Table,
 } from "react-bootstrap";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 import "./ServiceHistory.css";
@@ -56,18 +55,18 @@ export default function ServiceHistory({ user }) {
 
             if (!response.ok) {
                 throw new Error(
-                    responseData?.message || "Không thể tải lịch sử dịch vụ."
+                    responseData?.message || "Could not load the service history."
                 );
             }
 
             if (!Array.isArray(responseData)) {
-                throw new Error("Dữ liệu lịch sử dịch vụ không đúng định dạng.");
+                throw new Error("Service history data has an unexpected format.");
             }
 
             setHistory(responseData);
         } catch (requestError) {
             setHistory([]);
-            setError(requestError.message || "Đã xảy ra lỗi khi tải dữ liệu.");
+            setError(requestError.message || "Something went wrong while loading data.");
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -80,46 +79,44 @@ export default function ServiceHistory({ user }) {
     }, [loadHistory]);
 
     const searchFields = useMemo(() => [
-        { key: "appointmentId", label: "Mã lịch hẹn" },
-        { key: "customerName", label: "Khách hàng", filterable: canFilterByCustomer },
-        { key: "customerPhone", label: "Số điện thoại", filterable: false },
-        { key: "serviceName", label: "Dịch vụ" },
-        { key: "staffName", label: "Nhân viên phụ trách" },
-        { key: "notes", label: "Ghi chú", filterable: false },
-        { key: "appointmentDate", label: "Ngày thực hiện", type: "date" },
+        { key: "appointmentId", label: "Appointment ID" },
+        { key: "customerName", label: "Customer", filterable: canFilterByCustomer },
+        { key: "customerPhone", label: "Phone number", filterable: false },
+        { key: "serviceName", label: "Service" },
+        { key: "staffName", label: "Staff in charge" },
+        { key: "notes", label: "Notes", filterable: false },
+        { key: "appointmentDate", label: "Service date", type: "date" },
     ], [canFilterByCustomer]);
     const { filteredRows: filteredHistory, toolbar: searchFilterToolbar } =
-        useManagerSearchFilter(history, searchFields, "Tìm theo mã lịch, khách hàng, dịch vụ, nhân viên...");
+        useManagerSearchFilter(history, searchFields, "Search by appointment ID, customer, service, staff...");
 
     return (
-        <Container fluid className="service-history-page py-3 py-lg-4">
-            <div className="service-history-heading mb-4">
+        <Container fluid className="mt-4 px-4">
+            <div className="d-flex justify-content-between align-items-center mb-4">
                 <div>
-                    <div className="service-history-eyebrow">BSSMS / SERVICE HISTORY</div>
-                    <h1 className="service-history-title">Lịch sử dịch vụ</h1>
-                    <p className="service-history-subtitle mb-0">
-                        Các dịch vụ đã hoàn thành được ghi nhận trong hệ thống.
-                    </p>
+                    <h2 className="manager-page-title fw-bold mb-1">Service history</h2>
+                    <p className="text-muted mb-0">Completed services are recorded in the system.</p>
                 </div>
                 <Button
                     variant="outline-secondary"
-                    className="service-history-refresh"
                     onClick={() => loadHistory(true)}
                     disabled={loading || refreshing}
                 >
                     {refreshing ? (
                         <>
-                            <Spinner size="sm" className="me-2" /> Đang tải
+                            <Spinner size="sm" className="me-2" /> Loading
                         </>
                     ) : (
-                        "Làm mới"
+                        <>
+                            <i className="bi bi-arrow-clockwise me-1" aria-hidden="true" /> Refresh
+                        </>
                     )}
                 </Button>
             </div>
 
             {error && (
                 <Alert variant="danger" className="mb-3">
-                    <div className="fw-semibold">Không tải được lịch sử dịch vụ</div>
+                    <div className="fw-semibold">Could not load the service history</div>
                     <div>{error}</div>
                     <Button
                         size="sm"
@@ -128,95 +125,71 @@ export default function ServiceHistory({ user }) {
                         onClick={() => loadHistory(true)}
                         disabled={refreshing}
                     >
-                        Thử lại
+                        Try again
                     </Button>
                 </Alert>
             )}
 
-            <Card className="service-history-search-card border-0 mb-4">
+            <Card className="shadow-sm border-0 mb-4">
                 <Card.Body>
-                    {searchFilterToolbar}
+                    <div className="manager-list-toolbar">{searchFilterToolbar}</div>
                 </Card.Body>
             </Card>
 
-            <Card className="service-history-results-card border-0">
-                <Card.Header className="service-history-results-header bg-white">
-                    <div>
-                        <h2 className="service-history-section-title mb-1">
-                            Các lần sử dụng dịch vụ
-                        </h2>
-                        <div className="service-history-muted">
-                            {loading
-                                ? "Đang tải dữ liệu..."
-                                : `${filteredHistory.length} bản ghi`}
+            <Card className="shadow-sm border-0">
+                <Card.Body className="p-0">
+                    {loading ? (
+                        <div className="text-center text-muted py-5">
+                            <Spinner animation="border" size="sm" className="me-2" role="status" />
+                            Loading service history...
                         </div>
-                    </div>
-                    <Badge bg="success" className="service-history-completed-badge">
-                        Đã hoàn thành
-                    </Badge>
-                </Card.Header>
-
-                {loading ? (
-                    <div className="service-history-loading py-5">
-                        <Spinner animation="border" role="status" />
-                        <span className="ms-3">Đang tải lịch sử dịch vụ...</span>
-                    </div>
-                ) : filteredHistory.length === 0 ? (
-                    <div className="service-history-empty py-5 px-3">
-                        <div className="service-history-empty-icon" aria-hidden="true">◷</div>
-                        <h3 className="h5 mt-3 mb-2">
+                    ) : filteredHistory.length === 0 ? (
+                        <div className="text-center text-muted py-5 px-3">
+                            <strong className="d-block mb-1">
+                                {history.length === 0 ? "No service history yet" : "No results found"}
+                            </strong>
                             {history.length === 0
-                                ? "Chưa có lịch sử dịch vụ"
-                                : "Không tìm thấy kết quả phù hợp"}
-                        </h3>
-                        <p className="text-secondary mb-0">
-                            {history.length === 0
-                                ? "Các lịch hẹn hoàn thành sẽ xuất hiện ở đây khi đã được ghi nhận trong hệ thống."
-                                : "Hãy thử từ khóa khác."}
-                        </p>
-                    </div>
-                ) : (
-                    <Table responsive hover className="service-history-table mb-0 align-middle">
-                        <thead>
-                            <tr>
-                                <th>Mã lịch hẹn</th>
-                                <th>Ngày &amp; giờ</th>
-                                {!isCustomer && <th>Khách hàng</th>}
-                                <th>Dịch vụ</th>
-                                <th>Nhân viên phụ trách</th>
-                                <th>Ghi chú</th>
-                                <th>Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredHistory.map((item) => (
-                                <tr key={item.appointmentId}>
-                                    <td className="service-history-id">#{item.appointmentId}</td>
-                                    <td className="service-history-date-time">
-                                        <div className="fw-semibold">{formatDate(item.appointmentDate)}</div>
-                                        <small className="text-muted">
-                                            {formatTime(item.startTime)}
-                                            {item.endTime ? `–${formatTime(item.endTime)}` : ""}
-                                        </small>
-                                    </td>
-                                    {!isCustomer && <td>{item.customerName || "—"}</td>}
-                                    <td className="service-history-service-name">
-                                        {item.serviceName || "—"}
-                                    </td>
-                                    <td>{item.staffName || "—"}</td>
-                                    <td className="service-history-notes">
-                                        {item.notes?.trim() || "—"}
-                                    </td>
-                                    <td>
-                                        <Badge bg="success">Hoàn thành</Badge>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </Table>
-                )}
+                                ? "Completed appointments will appear here once they are recorded in the system."
+                                : "Try another keyword."}
+                        </div>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="table table-hover align-middle mb-0 manager-list-table">
+                                <thead>
+                                    <tr>
+                                        <th>Appointment</th>
+                                        <th>Date &amp; time</th>
+                                        {!isCustomer && <th>Customer</th>}
+                                        <th>Service</th>
+                                        <th>Technician</th>
+                                        <th>Notes</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredHistory.map((item, index) => (
+                                        <tr key={`${item.appointmentId}-${index}`}>
+                                            <td className="fw-bold">#{item.appointmentId}</td>
+                                            <td>
+                                                <div className="fw-semibold">{formatDate(item.appointmentDate)}</div>
+                                                <small className="text-muted">
+                                                    {formatTime(item.startTime)}
+                                                    {item.endTime ? `–${formatTime(item.endTime)}` : ""}
+                                                </small>
+                                            </td>
+                                            {!isCustomer && <td>{item.customerName || "—"}</td>}
+                                            <td className="fw-semibold">{item.serviceName || "—"}</td>
+                                            <td>{item.staffName || "—"}</td>
+                                            <td className="text-muted" style={{ maxWidth: 280 }}>{item.notes?.trim() || "—"}</td>
+                                            <td><Badge bg="success">Completed</Badge></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </Card.Body>
             </Card>
-
         </Container>
     );
 }

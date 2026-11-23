@@ -1,5 +1,6 @@
-import StaffOverview from "../StaffOverview";
+import ReceptionistBookingDesk from "./ReceptionistBookingDesk";
 
-export default function ReceptionistDashboard() {
-  return <StaffOverview role="Receptionist" />;
+// Receptionist home = overview + check-in & coordination in one page
+export default function ReceptionistDashboard({ user }) {
+  return <ReceptionistBookingDesk user={user || { role: "Receptionist" }} />;
 }

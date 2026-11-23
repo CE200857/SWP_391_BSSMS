@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Container, Form, Modal, Nav, Row, Spinner, Table } from "react-bootstrap";
 import { api, post, today, addDays, viDate, time5, label } from "../../../services/api";
+import FloatingAlert from "../../../components/FloatingAlert";
 
 const SHIFT_TYPES = ["Morning", "Afternoon", "FullDay"];
-const WEEKDAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const leaveBg = { Pending: "warning", Approved: "success", Rejected: "danger", Cancelled: "secondary" };
 const mondayOf = (iso) => {
   const d = new Date(iso + "T00:00:00Z");
   const offset = (d.getUTCDay() + 6) % 7;
   return addDays(iso, -offset);
 };
-const shiftShort = { Morning: "Sáng", Afternoon: "Chiều", FullDay: "Cả ngày" };
+const shiftShort = { Morning: "Morning", Afternoon: "Afternoon", FullDay: "Full day" };
 
 function useOperations(kind, date) {
   const [data, setData] = useState(null);
@@ -37,7 +38,7 @@ function WeekPicker({ week, setWeek }) {
       <Button variant="outline-secondary" onClick={() => setWeek(addDays(week, -7))}><i className="bi bi-chevron-left" /></Button>
       <strong>{viDate(week)} – {viDate(addDays(week, 6))}</strong>
       <Button variant="outline-secondary" onClick={() => setWeek(addDays(week, 7))}><i className="bi bi-chevron-right" /></Button>
-      <Button variant="link" onClick={() => setWeek(mondayOf(today()))}>Tuần này</Button>
+      <Button variant="link" onClick={() => setWeek(mondayOf(today()))}>This week</Button>
     </div>
   );
 }
@@ -71,127 +72,190 @@ function Scheduling() {
   const skillIds = (staffId) => (data?.skills || []).filter((s) => s.staffId === staffId).map((s) => s.serviceId);
   const technicians = (data?.staff || []).filter((s) => s.role === "Technician");
 
+  const staff = data?.staff || [];
+  const groups = [
+    ["Technicians", staff.filter((x) => x.role === "Technician")],
+    ["Receptionists", staff.filter((x) => x.role === "Receptionist")],
+    ["Managers", staff.filter((x) => x.role === "Manager")],
+  ].filter(([, list]) => list.length);
+  const onDuty = (d) => staff.filter((x) => shiftOf(x.staffId, d) && !onLeave(x.staffId, d)).length;
+  const initial = (name = "") => name.trim().split(/\s+/).slice(-1)[0]?.[0]?.toUpperCase() || "?";
+  const isThisWeek = week === mondayOf(today());
+
   return (
-    <>
-      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <Nav variant="tabs" activeKey={tab} onSelect={setTab}>
-          <Nav.Item><Nav.Link eventKey="shifts">Ca làm theo tuần</Nav.Link></Nav.Item>
-          <Nav.Item><Nav.Link eventKey="skills">Kỹ năng kỹ thuật viên</Nav.Link></Nav.Item>
-        </Nav>
+    <div className="ss-page">
+      <section className="ms-card ss-toolbar">
+        <div className="desk-filter mb-0" role="tablist" aria-label="View">
+          <button type="button" role="tab" aria-selected={tab === "shifts"} className={tab === "shifts" ? "active" : ""} onClick={() => setTab("shifts")}>
+            <i className="bi bi-calendar-week me-1" aria-hidden="true" /> Weekly shifts
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "skills"} className={tab === "skills" ? "active" : ""} onClick={() => setTab("skills")}>
+            <i className="bi bi-stars me-1" aria-hidden="true" /> Technician skills
+          </button>
+        </div>
         {tab === "shifts" && (
-          <div className="d-flex gap-2 flex-wrap">
-            <WeekPicker week={week} setWeek={setWeek} />
-            <Button variant="outline-primary" disabled={busy} onClick={() => write({ action: "copyWeek", fromDate: week, toDate: addDays(week, 7) })}>
-              <i className="bi bi-files" /> Sao chép sang tuần sau
-            </Button>
-            <Button onClick={() => setCreate({ staffIds: [], dates: [], shiftType: "FullDay" })}><i className="bi bi-plus-lg" /> Phân ca</Button>
-          </div>
+          <>
+            <div className="ms-week-nav">
+              <button type="button" className="ms-icon-btn" aria-label="Previous week" onClick={() => setWeek(addDays(week, -7))}><i className="bi bi-chevron-left" aria-hidden="true" /></button>
+              <strong>{viDate(week).slice(0, 5)} – {viDate(addDays(week, 6))}</strong>
+              <button type="button" className="ms-icon-btn" aria-label="Next week" onClick={() => setWeek(addDays(week, 7))}><i className="bi bi-chevron-right" aria-hidden="true" /></button>
+              {!isThisWeek && <button type="button" className="ms-pill-btn" onClick={() => setWeek(mondayOf(today()))}>This week</button>}
+            </div>
+            <div className="ss-actions">
+              <Button variant="outline-primary" className="desk-btn" disabled={busy} onClick={() => write({ action: "copyWeek", fromDate: week, toDate: addDays(week, 7) })}>
+                <i className="bi bi-files" aria-hidden="true" /> Copy to next week
+              </Button>
+              <Button className="desk-btn" onClick={() => setCreate({ staffIds: [], dates: [], shiftType: "FullDay" })}>
+                <i className="bi bi-plus-lg" aria-hidden="true" /> Assign shifts
+              </Button>
+            </div>
+          </>
         )}
-      </div>
-      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
-      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+      </section>
+      <FloatingAlert message={error} onClose={() => setError("")} />
+      <FloatingAlert message={notice} variant="success" onClose={() => setNotice("")} />
+
       {loading && !data ? <div className="text-center py-5"><Spinner animation="border" variant="danger" /></div> : tab === "shifts" ? (
-        <Card className="shadow-sm border-0">
-          <Card.Body className="p-0">
-            <Table bordered responsive className="align-middle mb-0 manager-list-table text-center">
-              <thead className="table-dark">
-                <tr><th className="text-start">Nhân viên</th>{days.map((d, i) => <th key={d}>{WEEKDAYS[i]}<small className="d-block fw-normal">{viDate(d).slice(0, 5)}</small></th>)}</tr>
+        <section className="ms-card p-0 overflow-hidden">
+          <div className="ss-legend">
+            <span className="ss-chip ss-chip--FullDay">Full day</span>
+            <span className="ss-chip ss-chip--Morning">Morning</span>
+            <span className="ss-chip ss-chip--Afternoon">Afternoon</span>
+            <span className="ss-chip ss-chip--leave">On leave</span>
+            <small>Click a shift to change it, or an empty cell to add one.</small>
+          </div>
+          <div className="table-responsive">
+            <table className="ss-table">
+              <thead>
+                <tr>
+                  <th className="ss-staff-col">Staff</th>
+                  {days.map((d, i) => (
+                    <th key={d} className={d === today() ? "is-today" : undefined}>
+                      <span>{WEEKDAYS[i].slice(0, 3)}</span>
+                      <strong>{viDate(d).slice(0, 5)}</strong>
+                    </th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
-                {(data?.staff || []).map((s) => (
-                  <tr key={s.staffId}>
-                    <td className="text-start fw-semibold">{s.fullName}<small className="d-block text-muted fw-normal">{s.role === "Technician" ? "Kỹ thuật viên" : "Lễ tân"}</small></td>
-                    {days.map((d) => {
-                      const shift = shiftOf(s.staffId, d);
-                      const past = d < today();
-                      if (past) return <td key={d} className="text-muted">{shift ? <Badge bg="light" text="dark">{shiftShort[shift.shiftType]}</Badge> : "—"}</td>;
-                      if (onLeave(s.staffId, d)) return <td key={d}><Badge bg="warning" text="dark">Nghỉ phép</Badge></td>;
-                      return (
-                        <td key={d}>
-                          {shift ? (
-                            <Button size="sm" variant={shift.shiftType === "FullDay" ? "primary" : "outline-primary"} onClick={() => setEdit({ ...shift, shiftType: shift.shiftType })}>
-                              {shiftShort[shift.shiftType]}
-                            </Button>
-                          ) : (
-                            <Button size="sm" variant="link" className="text-muted" onClick={() => setCreate({ staffIds: [s.staffId], dates: [d], shiftType: "FullDay" })}>+</Button>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
+                {groups.map(([title, list]) => (
+                  <Fragment key={title}>
+                    <tr className="ss-group"><td colSpan={8}>{title} <span>{list.length}</span></td></tr>
+                    {list.map((x) => (
+                      <tr key={x.staffId}>
+                        <td className="ss-staff-col"><div className="ss-staff">
+                          <span className="ctp-avatar" aria-hidden="true">{initial(x.fullName)}</span>
+                          <strong>{x.fullName}</strong>
+                        </div></td>
+                        {days.map((d) => {
+                          const shift = shiftOf(x.staffId, d);
+                          const past = d < today();
+                          const cls = d === today() ? "is-today" : undefined;
+                          if (onLeave(x.staffId, d)) return <td key={d} className={cls}><span className="ss-chip ss-chip--leave">On leave</span></td>;
+                          if (past) return <td key={d} className={cls}>{shift ? <span className={`ss-chip ss-chip--${shift.shiftType} is-past`}>{shiftShort[shift.shiftType]}</span> : <span className="ss-none">—</span>}</td>;
+                          return (
+                            <td key={d} className={cls}>
+                              {shift ? (
+                                <button type="button" className={`ss-chip ss-chip--${shift.shiftType}`} onClick={() => setEdit({ ...shift, shiftType: shift.shiftType })} aria-label={`${x.fullName}, ${viDate(d)}: ${shiftShort[shift.shiftType]}. Change`}>
+                                  {shiftShort[shift.shiftType]}
+                                  {shift.startTime && <small>{time5(shift.startTime)}–{time5(shift.endTime)}</small>}
+                                </button>
+                              ) : (
+                                <button type="button" className="ss-add" aria-label={`Add a shift for ${x.fullName} on ${viDate(d)}`} onClick={() => setCreate({ staffIds: [x.staffId], dates: [d], shiftType: "FullDay" })}>
+                                  <i className="bi bi-plus-lg" aria-hidden="true" />
+                                </button>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
-            </Table>
-          </Card.Body>
-        </Card>
+              <tfoot>
+                <tr>
+                  <td className="ss-staff-col">On duty</td>
+                  {days.map((d) => <td key={d} className={d === today() ? "is-today" : undefined}><strong>{onDuty(d)}</strong> / {staff.length}</td>)}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
       ) : (
-        <Card className="shadow-sm border-0">
-          <Card.Body className="p-0">
-            <Table hover responsive className="align-middle mb-0 manager-list-table">
-              <thead className="table-dark"><tr><th>Kỹ thuật viên</th><th>Dịch vụ thực hiện được</th><th /></tr></thead>
-              <tbody>
-                {technicians.map((t) => (
-                  <tr key={t.staffId}>
-                    <td className="fw-semibold">{t.fullName}</td>
-                    <td>{(data?.skills || []).filter((x) => x.staffId === t.staffId).map((x) => <Badge key={x.serviceId} bg="info" className="me-1 mb-1">{x.serviceName}</Badge>)}</td>
-                    <td><Button size="sm" variant="outline-primary" onClick={() => setSkills({ staffId: t.staffId, fullName: t.fullName, serviceIds: skillIds(t.staffId) })}>Cập nhật</Button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </Card.Body>
-        </Card>
+        <section className="ms-card">
+          <header className="ms-card-head"><h4>Technician skills</h4><span>{technicians.length}</span></header>
+          <div className="ss-skills">
+            {technicians.map((t) => {
+              const mine = (data?.skills || []).filter((x) => x.staffId === t.staffId);
+              return (
+                <article key={t.staffId} className="ss-skill">
+                  <div className="ss-skill-head">
+                    <span className="ctp-avatar" aria-hidden="true">{initial(t.fullName)}</span>
+                    <div><strong>{t.fullName}</strong><small>{mine.length} service{mine.length === 1 ? "" : "s"}</small></div>
+                    <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit ms-auto" onClick={() => setSkills({ staffId: t.staffId, fullName: t.fullName, serviceIds: skillIds(t.staffId) })}>
+                      <i className="bi bi-pencil-square" aria-hidden="true" /> Edit
+                    </Button>
+                  </div>
+                  <div className="ss-skill-tags">
+                    {mine.length ? mine.map((x) => <span key={x.serviceId}>{x.serviceName}</span>) : <em>No skills yet</em>}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       <Modal show={!!create} onHide={() => setCreate(null)} centered size="lg">
-        <Modal.Header closeButton><Modal.Title>Phân ca làm</Modal.Title></Modal.Header>
+        <Modal.Header closeButton><Modal.Title>Assign shifts</Modal.Title></Modal.Header>
         {create && (
           <Modal.Body>
-            <Form.Label className="fw-bold">Loại ca</Form.Label>
+            <Form.Label className="fw-bold">Shift type</Form.Label>
             <div className="d-flex gap-3 mb-3">
               {SHIFT_TYPES.map((t) => <Form.Check key={t} type="radio" id={`st-${t}`} label={label(t)} checked={create.shiftType === t} onChange={() => setCreate({ ...create, shiftType: t })} />)}
             </div>
             <Row>
               <Col md={6}>
-                <Form.Label className="fw-bold">Nhân viên</Form.Label>
+                <Form.Label className="fw-bold">Staff</Form.Label>
                 {(data?.staff || []).map((s) => (
                   <Form.Check key={s.staffId} id={`cs-${s.staffId}`} label={s.fullName} checked={create.staffIds.includes(s.staffId)}
                     onChange={() => setCreate({ ...create, staffIds: create.staffIds.includes(s.staffId) ? create.staffIds.filter((x) => x !== s.staffId) : [...create.staffIds, s.staffId] })} />
                 ))}
               </Col>
               <Col md={6}>
-                <Form.Label className="fw-bold">Ngày trong tuần</Form.Label>
+                <Form.Label className="fw-bold">Day of week</Form.Label>
                 {days.map((d, i) => (
-                  <Form.Check key={d} id={`cd-${d}`} label={`${WEEKDAYS[i]} ${viDate(d)}${d < today() ? " (đã qua)" : ""}`} disabled={d < today()} checked={create.dates.includes(d)}
+                  <Form.Check key={d} id={`cd-${d}`} label={`${WEEKDAYS[i]} ${viDate(d)}${d < today() ? " (past)" : ""}`} disabled={d < today()} checked={create.dates.includes(d)}
                     onChange={() => setCreate({ ...create, dates: create.dates.includes(d) ? create.dates.filter((x) => x !== d) : [...create.dates, d] })} />
                 ))}
               </Col>
             </Row>
-            <small className="text-muted">Ngày đã có ca hoặc đang nghỉ phép sẽ được bỏ qua. Mỗi nhân viên tối đa 1 ca/ngày.</small>
+            <small className="text-muted">Days that already have a shift or approved leave are skipped. Each staff member has at most 1 shift per day.</small>
           </Modal.Body>
         )}
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setCreate(null)}>Hủy</Button>
-          <Button disabled={busy || !create?.staffIds.length || !create?.dates.length} onClick={() => write({ action: "createShifts", ...create }, () => setCreate(null))}>Tạo ca</Button>
+          <Button variant="outline-secondary" onClick={() => setCreate(null)}>Cancel</Button>
+          <Button disabled={busy || !create?.staffIds.length || !create?.dates.length} onClick={() => write({ action: "createShifts", ...create }, () => setCreate(null))}>Create shift</Button>
         </Modal.Footer>
       </Modal>
 
       <Modal show={!!edit} onHide={() => setEdit(null)} centered>
-        <Modal.Header closeButton><Modal.Title>Ca làm · {edit?.fullName} · {viDate(edit?.shiftDate)}</Modal.Title></Modal.Header>
+        <Modal.Header closeButton><Modal.Title>Shifts · {edit?.fullName} · {viDate(edit?.shiftDate)}</Modal.Title></Modal.Header>
         {edit && (
           <Modal.Body>
             {SHIFT_TYPES.map((t) => <Form.Check key={t} type="radio" id={`et-${t}`} label={label(t)} checked={edit.shiftType === t} onChange={() => setEdit({ ...edit, shiftType: t })} />)}
-            <small className="text-muted d-block mt-2">Nếu có dịch vụ đã giao nằm ngoài ca mới, lịch sẽ xuất hiện trong mục "Lịch bị ảnh hưởng" để lễ tân điều phối.</small>
+            <small className="text-muted d-block mt-2">If an assigned service falls outside the new shift, the appointment will appear under "Affected appointments" for the receptionist to reassign.</small>
           </Modal.Body>
         )}
         <Modal.Footer>
-          <Button variant="outline-danger" disabled={busy} onClick={() => write({ action: "deleteShift", id: edit.staffShiftId }, () => setEdit(null))}>Xóa ca</Button>
-          <Button disabled={busy} onClick={() => write({ action: "updateShift", id: edit.staffShiftId, shiftType: edit.shiftType }, () => setEdit(null))}>Lưu</Button>
+          <Button variant="outline-danger" disabled={busy} onClick={() => write({ action: "deleteShift", id: edit.staffShiftId }, () => setEdit(null))}>Delete shift</Button>
+          <Button disabled={busy} onClick={() => write({ action: "updateShift", id: edit.staffShiftId, shiftType: edit.shiftType }, () => setEdit(null))}>Save</Button>
         </Modal.Footer>
       </Modal>
 
       <Modal show={!!skills} onHide={() => setSkills(null)} centered>
-        <Modal.Header closeButton><Modal.Title>Kỹ năng · {skills?.fullName}</Modal.Title></Modal.Header>
+        <Modal.Header closeButton><Modal.Title>Skills · {skills?.fullName}</Modal.Title></Modal.Header>
         {skills && (
           <Modal.Body style={{ maxHeight: 400, overflowY: "auto" }}>
             {(data?.services || []).map((s) => (
@@ -201,11 +265,11 @@ function Scheduling() {
           </Modal.Body>
         )}
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setSkills(null)}>Hủy</Button>
-          <Button disabled={busy} onClick={() => write({ action: "saveSkills", staffId: skills.staffId, serviceIds: skills.serviceIds }, () => setSkills(null))}>Lưu kỹ năng</Button>
+          <Button variant="outline-secondary" onClick={() => setSkills(null)}>Cancel</Button>
+          <Button disabled={busy} onClick={() => write({ action: "saveSkills", staffId: skills.staffId, serviceIds: skills.serviceIds }, () => setSkills(null))}>Save skills</Button>
         </Modal.Footer>
       </Modal>
-    </>
+    </div>
   );
 }
 
@@ -243,52 +307,69 @@ function LeaveApprovals() {
 
   return (
     <>
-      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
-      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+      <FloatingAlert message={error} onClose={() => setError("")} />
+      <FloatingAlert message={notice} variant="success" onClose={() => setNotice("")} />
+      <p className="small text-muted mb-3" title="Approving a request automatically rejects other pending requests on the same days. Suggested = no affected appointments and the day is still free.">
+        <i className="bi bi-info-circle me-1" aria-hidden="true" />
+        Approve on <strong>Fridays</strong> · Max <strong>1 staff</strong> on leave per day · <Badge bg="success">Suggested</Badge> = no appointment conflict
+        {new Date().getDay() !== 5 && <span className="text-danger"> · Today is not Friday: reject only</span>}
+      </p>
       <Card className="shadow-sm border-0">
         <Card.Body className="p-0">
           <Table hover responsive className="align-middle mb-0 manager-list-table">
-            <thead className="table-dark"><tr><th>Nhân viên</th><th>Thời gian nghỉ</th><th>Lý do</th><th>Lịch đã giao</th><th>Trạng thái</th><th /></tr></thead>
+            <thead className="table-dark"><tr><th>Staff</th><th>Leave period</th><th>Reason</th><th>Conflicts</th><th>Status</th><th /></tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={6} className="text-center py-4"><Spinner size="sm" animation="border" /></td></tr> : (data || []).map((l) => (
+              {loading ? <tr><td colSpan={7} className="text-center py-4"><Spinner size="sm" animation="border" /></td></tr> : (data || []).map((l) => (
                 <tr key={l.leaveId}>
-                  <td className="fw-semibold">{l.fullName}</td>
-                  <td>{viDate(l.startDate)} – {viDate(l.endDate)}<small className="d-block text-muted">Gửi {String(l.requestedAt).slice(0, 10)}</small></td>
-                  <td>{l.reason || "—"}</td>
-                  <td>{Number(l.affectedAppointments) > 0 ? <Badge bg="danger">{l.affectedAppointments} lịch</Badge> : "0"}</td>
-                  <td><Badge bg={leaveBg[l.status]}>{label(l.status)}</Badge>{l.decisionNote && <small className="d-block text-muted">{l.decisionNote}</small>}</td>
-                  <td>{l.status === "Pending" && <Button size="sm" onClick={() => openDetail(l)}>Xem & duyệt</Button>}</td>
+                  {/* Mỗi ô 1 dòng; vai trò, ngày gửi và ghi chú quyết định hiện khi rê chuột vào */}
+                  <td className="fw-semibold text-nowrap" title={label(l.role)}>{l.fullName}{l.mine && <Badge bg="secondary" className="ms-2">Your request</Badge>}{l.suggested && <Badge bg="success" className="ms-2">Suggested</Badge>}</td>
+                  <td className="text-nowrap" title={`Sent ${String(l.requestedAt).slice(0, 10)}`}>{viDate(l.startDate)} – {viDate(l.endDate)}</td>
+                  <td className="text-truncate" style={{ maxWidth: 220 }} title={l.reason || undefined}>{l.reason || "—"}</td>
+                  <td className="text-nowrap">
+                    {l.status === "Pending" && l.approvedStaffName ? <Badge bg="danger" title={`Day already taken by ${l.approvedStaffName}`}>Day taken</Badge>
+                      : Number(l.affectedAppointments) > 0 ? <Badge bg="danger">{l.affectedAppointments} appointment(s)</Badge>
+                      : Number(l.sameDayRequests) > 0 ? <Badge bg="warning" text="dark" title="Other pending requests on the same days">{l.sameDayRequests} same-day</Badge>
+                      : <span className="text-muted">—</span>}
+                  </td>
+                  <td title={l.decisionNote || undefined}><Badge bg={leaveBg[l.status]}>{label(l.status)}</Badge></td>
+                  <td>{l.status === "Pending" && <Button size="sm" onClick={() => openDetail(l)}>{l.mine ? "View" : "View & approve"}</Button>}</td>
                 </tr>
               ))}
-              {!loading && !(data || []).length && <tr><td colSpan={6} className="text-center text-muted py-4">Chưa có đơn xin nghỉ.</td></tr>}
+              {!loading && !(data || []).length && <tr><td colSpan={7} className="text-center text-muted py-4">No leave requests yet.</td></tr>}
             </tbody>
           </Table>
         </Card.Body>
       </Card>
 
       <Modal show={!!detail} onHide={() => !busy && setDetail(null)} centered size="lg">
-        <Modal.Header closeButton><Modal.Title>Đơn nghỉ · {detail?.leave.fullName}</Modal.Title></Modal.Header>
+        <Modal.Header closeButton><Modal.Title>Leave request · {detail?.leave.fullName}</Modal.Title></Modal.Header>
         {detail && (
           <Modal.Body>
-            <p>{viDate(detail.leave.startDate)} – {viDate(detail.leave.endDate)} · {detail.leave.reason || "Không ghi lý do"}</p>
-            <h6 className="fw-bold">Lịch hẹn đã giao trong thời gian nghỉ</h6>
+            <p>{viDate(detail.leave.startDate)} – {viDate(detail.leave.endDate)} · {detail.leave.reason || "No reason given"}</p>
+            <h6 className="fw-bold">Appointments assigned during the leave</h6>
             {!detail.appointments ? <Spinner size="sm" animation="border" /> : detail.appointments.length ? (
               <ul>
                 {detail.appointments.map((a, i) => <li key={i}>#{a.appointmentId} · {viDate(a.appointmentDate)} {time5(a.startTime)} · {a.customerName} · {a.serviceName}</li>)}
               </ul>
-            ) : <p className="text-muted">Không có lịch hẹn nào.</p>}
-            <Alert variant="info" className="small">Đơn chỉ được duyệt khi mọi lịch trên đều có KTV thay thế. Sau khi duyệt, ca làm trong thời gian nghỉ bị xóa và lễ tân điều phối lại các lịch.</Alert>
+            ) : <p className="text-muted">No appointments.</p>}
+            <Alert variant="info" className="small">A request can be approved only when every appointment above has a replacement technician. After approval, shifts during the leave are removed and the receptionist reassigns the appointments.</Alert>
             <Form.Group>
-              <Form.Label>Ghi chú quyết định</Form.Label>
+              <Form.Label>Decision note</Form.Label>
               <Form.Control value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
             </Form.Group>
           </Modal.Body>
         )}
         <Modal.Footer>
-          <Button variant="outline-danger" disabled={busy} onClick={() => decide("Rejected")}>Từ chối</Button>
-          {detail?.leave && String(detail.leave.endDate).slice(0, 10) < today()
-            ? <small className="text-muted me-auto">Đơn đã qua ngày nghỉ, chỉ có thể từ chối.</small>
-            : <Button variant="success" disabled={busy} onClick={() => decide("Approved")}>Duyệt</Button>}
+          {detail?.leave.mine ? (
+            <small className="text-muted me-auto">This is your own request. Another manager must approve or reject it.</small>
+          ) : (
+            <>
+              <Button variant="outline-danger" disabled={busy} onClick={() => decide("Rejected")}>Reject</Button>
+              {detail?.leave && String(detail.leave.endDate).slice(0, 10) < today()
+                ? <small className="text-muted me-auto">The leave dates have passed; the request can only be rejected.</small>
+                : <Button variant="success" disabled={busy} onClick={() => decide("Approved")}>Approve</Button>}
+            </>
+          )}
         </Modal.Footer>
       </Modal>
     </>
@@ -297,20 +378,20 @@ function LeaveApprovals() {
 
 function TourReport() {
   const [date, setDate] = useState(today());
-  const { data, error, loading } = useOperations("tour-report", date);
+  const { data, error, loading, setError } = useOperations("tour-report", date);
   return (
     <>
       <div className="d-flex gap-3 align-items-center mb-3">
         <Form.Control type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 180 }} />
-        <span>Chênh lệch tour (đã tính) giữa KTV: <strong>{data?.gap?.gap ?? 0}</strong></span>
+        <span>Tour difference (counted) between technicians: <strong>{data?.gap?.gap ?? 0}</strong></span>
       </div>
-      {error && <Alert variant="danger">{error}</Alert>}
+      <FloatingAlert message={error} onClose={() => setError("")} />
       <Card className="shadow-sm border-0">
         <Card.Body className="p-0">
           <Table hover responsive className="align-middle mb-0 manager-list-table">
-            <thead className="table-dark"><tr><th>Kỹ thuật viên</th><th>Tour bù đầu ngày</th><th>Tour đã tính</th><th>Tour thực làm</th><th>Tour được yêu cầu</th><th>Lần giao gần nhất</th></tr></thead>
+            <thead className="table-dark"><tr><th>Technician</th><th>Start-of-day compensation tours</th><th>Counted tours</th><th>Tours done</th><th>Requested tours</th><th>Last assigned</th></tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={6} className="text-center py-4"><Spinner size="sm" animation="border" /></td></tr> : (data?.rows || []).map((r) => (
+              {loading ? <tr><td colSpan={7} className="text-center py-4"><Spinner size="sm" animation="border" /></td></tr> : (data?.rows || []).map((r) => (
                 <tr key={r.staffId}>
                   <td className="fw-semibold">{r.fullName}</td>
                   <td>{Number(r.startOffsetTours)}</td>
@@ -320,12 +401,12 @@ function TourReport() {
                   <td>{r.lastAssignedAt ? String(r.lastAssignedAt).slice(11, 16) : "—"}</td>
                 </tr>
               ))}
-              {!loading && !(data?.rows || []).length && <tr><td colSpan={6} className="text-center text-muted py-4">Chưa có dữ liệu tour trong ngày.</td></tr>}
+              {!loading && !(data?.rows || []).length && <tr><td colSpan={6} className="text-center text-muted py-4">No tour data for this day yet.</td></tr>}
             </tbody>
           </Table>
         </Card.Body>
       </Card>
-      <small className="text-muted d-block mt-2">Tour đã tính dùng để xoay vòng giao khách (KTV vào ca muộn được bù bằng tour thấp nhất hiện tại); tour được yêu cầu không làm thay đổi lượt.</small>
+      <small className="text-muted d-block mt-2">Counted tours are used to rotate customer assignments (technicians starting their shift late are compensated with the current lowest tour count); requested tours do not change the rotation.</small>
     </>
   );
 }
@@ -334,7 +415,11 @@ function MySchedule() {
   const [week, setWeek] = useState(mondayOf(today()));
   const { data, error, loading, load, setError } = useOperations("my-schedule", week);
   const [notice, setNotice] = useState("");
-  const [form, setForm] = useState({ startDate: addDays(today(), 1), endDate: addDays(today(), 1), reason: "" });
+  const [form, setForm] = useState({ startDate: "", endDate: "", reason: "" });
+  // Ngày nghỉ sớm nhất do back-end tính: thứ 2 ngay sau thứ 6 gần nhất (thứ 6 + 3 ngày)
+  const earliest = data?.leaveRule?.earliestStartDate || addDays(today(), 1);
+  const startDate = form.startDate || earliest;
+  const endDate = form.endDate && form.endDate >= startDate ? form.endDate : startDate;
   const [busy, setBusy] = useState(false);
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
 
@@ -351,74 +436,120 @@ function MySchedule() {
     }
   };
 
+  const leaves = data?.leaves || [];
+  const onLeave = (d) => leaves.some((l) => l.status === "Approved" && String(l.startDate).slice(0, 10) <= d && String(l.endDate).slice(0, 10) >= d);
+  const shiftOf = (d) => (data?.shifts || []).find((s) => String(s.shiftDate).slice(0, 10) === d);
+  const workDays = days.filter((d) => shiftOf(d) && !onLeave(d)).length;
+  const dayCount = (a, b) => Math.round((new Date(`${String(b).slice(0, 10)}T00:00:00Z`) - new Date(`${String(a).slice(0, 10)}T00:00:00Z`)) / 86400000) + 1;
+  const isThisWeek = week === mondayOf(today());
+
   return (
-    <>
-      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
-      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
-      <div className="mb-3"><WeekPicker week={week} setWeek={setWeek} /></div>
-      <Row className="g-2 mb-4">
-        {days.map((d, i) => {
-          const shift = (data?.shifts || []).find((s) => String(s.shiftDate).slice(0, 10) === d);
-          return (
-            <Col key={d} xs={6} md>
-              <Card className={`shadow-sm border-0 h-100 ${d === today() ? "border border-primary" : ""}`}>
-                <Card.Body className="text-center">
-                  <small className="text-muted">{WEEKDAYS[i]} · {viDate(d).slice(0, 5)}</small>
-                  <div className="fw-bold mt-1">{shift ? shiftShort[shift.shiftType] : "Nghỉ"}</div>
-                  {shift && <small>{time5(shift.startTime)}–{time5(shift.endTime)}</small>}
-                </Card.Body>
-              </Card>
-            </Col>
-          );
-        })}
-      </Row>
-      {loading && <Spinner size="sm" animation="border" />}
-      <Row className="g-4">
-        <Col lg={5}>
-          <Card className="shadow-sm border-0">
-            <Card.Header className="bg-white fw-bold">Xin nghỉ phép</Card.Header>
-            <Card.Body>
-              <Row className="g-2">
-                <Col><Form.Label>Từ ngày</Form.Label><Form.Control type="date" min={today()} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></Col>
-                <Col><Form.Label>Đến ngày</Form.Label><Form.Control type="date" min={form.startDate} value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></Col>
-              </Row>
-              <Form.Label className="mt-2">Lý do</Form.Label>
-              <Form.Control as="textarea" rows={2} maxLength={500} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
-              <Button className="mt-3 w-100" disabled={busy} onClick={() => send({ action: "request", ...form, reason: form.reason.trim() || null })}>Gửi đơn</Button>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col lg={7}>
-          <Card className="shadow-sm border-0">
-            <Card.Header className="bg-white fw-bold">Đơn nghỉ của tôi</Card.Header>
-            <Card.Body className="p-0">
-              <Table responsive className="align-middle mb-0 manager-list-table">
-                <thead className="table-light"><tr><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th><th /></tr></thead>
-                <tbody>
-                  {(data?.leaves || []).map((l) => (
-                    <tr key={l.leaveId}>
-                      <td>{viDate(l.startDate)} – {viDate(l.endDate)}</td>
-                      <td>{l.reason || "—"}{l.decisionNote && <small className="d-block text-muted">Quản lý: {l.decisionNote}</small>}</td>
-                      <td><Badge bg={leaveBg[l.status]}>{label(l.status)}</Badge></td>
-                      <td>{l.status === "Pending" && <Button size="sm" variant="link" className="text-danger" disabled={busy} onClick={() => send({ action: "cancel", id: l.leaveId })}>Hủy</Button>}</td>
-                    </tr>
-                  ))}
-                  {!(data?.leaves || []).length && <tr><td colSpan={4} className="text-center text-muted py-3">Chưa có đơn.</td></tr>}
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </>
+    <div className="ms-page">
+      <FloatingAlert message={error} onClose={() => setError("")} />
+      <FloatingAlert message={notice} variant="success" onClose={() => setNotice("")} />
+
+      <section className="ms-card">
+        <div className="ms-week-bar">
+          <div className="ms-week-nav">
+            <button type="button" className="ms-icon-btn" aria-label="Previous week" onClick={() => setWeek(addDays(week, -7))}><i className="bi bi-chevron-left" aria-hidden="true" /></button>
+            <strong>{viDate(week).slice(0, 5)} – {viDate(addDays(week, 6))}</strong>
+            <button type="button" className="ms-icon-btn" aria-label="Next week" onClick={() => setWeek(addDays(week, 7))}><i className="bi bi-chevron-right" aria-hidden="true" /></button>
+            {!isThisWeek && <button type="button" className="ms-pill-btn" onClick={() => setWeek(mondayOf(today()))}>This week</button>}
+          </div>
+          <span className="ms-week-sum">
+            {loading ? <Spinner size="sm" animation="border" /> : <><strong>{workDays}</strong> working day{workDays === 1 ? "" : "s"} · {7 - workDays} off</>}
+          </span>
+        </div>
+
+        <div className="ms-days">
+          {days.map((d, i) => {
+            const shift = shiftOf(d);
+            const leave = onLeave(d);
+            const state = leave ? "leave" : shift ? shift.shiftType : "off";
+            return (
+              <div key={d} className={`ms-day ms-day--${state}${d === today() ? " is-today" : ""}`}>
+                <div className="ms-day-head">
+                  <span>{WEEKDAYS[i].slice(0, 3)}</span>
+                  <strong>{viDate(d).slice(0, 5)}</strong>
+                  {d === today() && <em>Today</em>}
+                </div>
+                <div className="ms-day-body">
+                  <b>{leave ? "On leave" : shift ? shiftShort[shift.shiftType] : "Day off"}</b>
+                  {shift && !leave && <small>{time5(shift.startTime)}–{time5(shift.endTime)}</small>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="ms-grid">
+        <section className="ms-card">
+          <header className="ms-card-head"><h4>Request leave</h4></header>
+          <div className="ms-dates">
+            <Form.Group controlId="leave-from">
+              <Form.Label>From</Form.Label>
+              <Form.Control type="date" min={earliest} value={startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+            </Form.Group>
+            <Form.Group controlId="leave-to">
+              <Form.Label>To</Form.Label>
+              <Form.Control type="date" min={startDate} value={endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+            </Form.Group>
+          </div>
+          <p className="ms-rule">
+            <i className="bi bi-info-circle" aria-hidden="true" />
+            <span>Leave can start from <strong>{viDate(earliest)}</strong>. Requests are reviewed on Fridays, and only one person can be off per day.</span>
+          </p>
+          <Form.Group controlId="leave-reason">
+            <Form.Label>Reason *</Form.Label>
+            <Form.Control as="textarea" rows={3} maxLength={500} placeholder="e.g. Family event" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+            <Form.Text className="d-flex justify-content-between">
+              <span>At least 5 characters.</span>
+              <span>{form.reason.length}/500</span>
+            </Form.Text>
+          </Form.Group>
+          <Button className="ms-submit" disabled={busy || form.reason.trim().length < 5} onClick={() => send({ action: "request", startDate, endDate, reason: form.reason.trim() || null })}>
+            <i className="bi bi-send" aria-hidden="true" /> {busy ? "Sending…" : `Send request · ${dayCount(startDate, endDate)} day${dayCount(startDate, endDate) === 1 ? "" : "s"}`}
+          </Button>
+        </section>
+
+        <section className="ms-card">
+          <header className="ms-card-head"><h4>My leave requests</h4><span>{leaves.length}</span></header>
+          {leaves.length ? (
+            <ul className="ms-leaves">
+              {leaves.map((l) => (
+                <li key={l.leaveId}>
+                  <div className="ms-leave-date">
+                    <strong>{viDate(l.startDate)}{String(l.endDate).slice(0, 10) !== String(l.startDate).slice(0, 10) ? ` – ${viDate(l.endDate)}` : ""}</strong>
+                    <small>{dayCount(l.startDate, l.endDate)} day{dayCount(l.startDate, l.endDate) === 1 ? "" : "s"}</small>
+                  </div>
+                  <div className="ms-leave-reason">
+                    {l.reason || "—"}
+                    {l.decisionNote && <small>Manager: {l.decisionNote}</small>}
+                  </div>
+                  <div className="ms-leave-side">
+                    <span className={`ms-status ms-status--${l.status}`}>{label(l.status)}</span>
+                    {l.status === "Pending" && (
+                      <button type="button" className="ms-cancel" disabled={busy} onClick={() => send({ action: "cancel", id: l.leaveId })}>Cancel</button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="ms-empty"><i className="bi bi-calendar2-heart" aria-hidden="true" /><p>No leave requests yet.</p></div>
+          )}
+        </section>
+      </div>
+    </div>
   );
 }
 
 const TITLES = {
-  scheduling: ["Ca làm & kỹ năng", "Phân ca theo tuần và cập nhật dịch vụ mỗi kỹ thuật viên thực hiện được."],
-  leaves: ["Duyệt nghỉ phép", "Xem các lịch hẹn bị ảnh hưởng trước khi duyệt đơn nghỉ."],
-  "tour-report": ["Báo cáo tour", "Số tour của từng kỹ thuật viên trong ngày theo quy tắc xoay vòng."],
-  "my-schedule": ["Lịch làm việc của tôi", "Xem ca làm trong tuần và gửi đơn xin nghỉ phép."],
+  scheduling: ["Shifts & skills", "Assign weekly shifts and update the services each technician can perform."],
+  leaves: ["Leave approval", "View the affected appointments before approving a leave request."],
+  "tour-report": ["Tour report", "Each technician’s tours for the day under the rotation rule."],
+  "my-schedule": ["My work schedule", "View this week’s shifts and submit leave requests."],
 };
 
 export default function OperationsWorkspace({ kind = "scheduling" }) {

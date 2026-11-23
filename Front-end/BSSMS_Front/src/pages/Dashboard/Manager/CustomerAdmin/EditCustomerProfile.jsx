@@ -8,11 +8,12 @@ import {
   Button,
   Row,
   Col,
-  Alert,
   Badge,
   Modal,
 } from "react-bootstrap";
 import axios from "axios";
+import { today, birthDateError, MIN_BIRTH_DATE } from "../../../../services/api";
+import FloatingAlert from "../../../../components/FloatingAlert";
 
 const EditCustomerProfile = ({ user }) => {
   const { id } = useParams();
@@ -67,10 +68,10 @@ const EditCustomerProfile = ({ user }) => {
             username: data.username || "",
           });
         } else {
-          setError("Không tìm thấy thông tin khách hàng này.");
+          setError("This customer’s information was not found.");
         }
       } catch (err) {
-        setError("Lỗi kết nối máy chủ!");
+        setError("Cannot connect to the server.");
       }
     };
     fetchCustomerData();
@@ -88,15 +89,21 @@ const EditCustomerProfile = ({ user }) => {
 
     const nameWords = formData.fullName.trim().split(/\s+/);
     if (nameWords.length < 2) {
-      setError("Họ và tên bắt buộc phải có từ 2 từ trở lên!");
+      setError("Please enter your full name (first and last name).");
       return;
     }
 
     const phoneRegex = /^0[1-9]\d{8}$/;
     if (!phoneRegex.test(formData.phone)) {
       setError(
-        "Số điện thoại không hợp lệ (Phải gồm 10 chữ số và bắt đầu bằng số 0)!",
+        "Invalid phone number (must have 10 digits and start with 0)!",
       );
+      return;
+    }
+
+    const dobProblem = birthDateError(formData.dob);
+    if (dobProblem) {
+      setError(dobProblem);
       return;
     }
 
@@ -104,7 +111,7 @@ const EditCustomerProfile = ({ user }) => {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         setError(
-          "Email không đúng định dạng (Ví dụ chuẩn: nguyenvanA@gmail.com)!",
+          "Invalid email format (example: nguyenvanA@gmail.com)!",
         );
         return;
       }
@@ -124,12 +131,12 @@ const EditCustomerProfile = ({ user }) => {
         { withCredentials: true },
       );
       if (response.status === 200) {
-        setMessage("Lưu thông tin khách hàng thành công!");
+        setMessage("Customer details saved.");
         setTimeout(() => navigate("/customers"), 2000);
       }
     } catch (err) {
       setError(
-        err.response?.data?.message || "Cập nhật thất bại. Vui lòng thử lại!",
+        err.response?.data?.message || "Update failed. Please try again!",
       );
     } finally {
       setIsLoading(false);
@@ -144,29 +151,19 @@ const EditCustomerProfile = ({ user }) => {
             variant="outline-secondary"
             className="customer-profile-back"
             onClick={() => navigate("/customers")}
-            aria-label="Quay lại danh sách khách hàng"
+            aria-label="Back to customer list"
           >
             <i className="bi bi-arrow-left" aria-hidden="true" />
           </Button>
           <div>
-            <h1>Chỉnh sửa hồ sơ khách hàng</h1>
-            <p>Cập nhật thông tin tài khoản và hồ sơ khách hàng.</p>
+            <h1>Edit customer profile</h1>
+            <p>Update the customer’s account and profile information.</p>
           </div>
         </div>
       </div>
 
-      {message && (
-        <Alert variant="success">
-          <i className="bi bi-check-circle-fill me-2"></i>
-          {message}
-        </Alert>
-      )}
-      {error && (
-        <Alert variant="danger">
-          <i className="bi bi-exclamation-triangle-fill me-2"></i>
-          {error}
-        </Alert>
-      )}
+      <FloatingAlert message={message} variant="success" onClose={() => setMessage("")} />
+      <FloatingAlert message={error} onClose={() => setError("")} />
 
       <Card className="customer-profile-card">
         <Card.Body>
@@ -175,7 +172,7 @@ const EditCustomerProfile = ({ user }) => {
               <Col md={3} className="customer-profile-summary">
                 <div
                   className="customer-profile-avatar"
-                  aria-label={`Ảnh đại diện ${formData.fullName || "khách hàng"}`}
+                  aria-label={`Profile picture ${formData.fullName || "customers"}`}
                 >
                   {formData.fullName
                     ? formData.fullName.charAt(0).toUpperCase()
@@ -187,14 +184,14 @@ const EditCustomerProfile = ({ user }) => {
                     className="px-3 py-2 fs-6"
                   >
                     {formData.status === "Active"
-                      ? "Đang hoạt động"
-                      : "Không hoạt động"}
+                      ? "Active"
+                      : "Inactive"}
                   </Badge>
                 </div>
                 <div className="customer-membership-summary">
                   <div className="customer-membership-title">
                     <i className="bi bi-award" aria-hidden="true" />
-                    Hạng thành viên
+                    Membership tier
                   </div>
 
                   {membership ? (
@@ -209,14 +206,14 @@ const EditCustomerProfile = ({ user }) => {
 
                       <div className="customer-membership-discount">
                         <i className="bi bi-percent" aria-hidden="true" />
-                        Giảm giá:{" "}
+                        Discount:{" "}
                         {Number(
                           membership.discountPercent ?? 0
                         ).toLocaleString("vi-VN")}%
                       </div>
 
                       <div className="customer-membership-spending">
-                        <span>Mức chi tiêu yêu cầu</span>
+                        <span>Required spending</span>
                         <strong>
                           {Number(
                             membership.minSpending ?? 0
@@ -232,12 +229,12 @@ const EditCustomerProfile = ({ user }) => {
                     </>
                   ) : (
                     <div className="text-muted small">
-                      Chưa có thông tin hạng thành viên.
+                      No membership tier information yet.
                     </div>
                   )}
                 </div>
                 <div className="customer-profile-id">
-                  ID Khách hàng: #{formData.customerId}
+                  Customer ID: #{formData.customerId}
                 </div>
               </Col>
 
@@ -246,7 +243,7 @@ const EditCustomerProfile = ({ user }) => {
                   <Col md={12}>
                     <Form.Group className="mb-3">
                       <Form.Label className="fw-bold text-secondary">
-                        Tên đăng nhập (Username)
+                        Username
                       </Form.Label>
                       <Form.Control
                         type="text"
@@ -254,14 +251,14 @@ const EditCustomerProfile = ({ user }) => {
                         disabled
                       />
                       <Form.Text className="text-muted">
-                        Tên đăng nhập không thể thay đổi.
+                        The username cannot be changed.
                       </Form.Text>
                     </Form.Group>
                   </Col>
 
                   <Col md={6}>
                     <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Họ và Tên*</Form.Label>
+                      <Form.Label className="fw-bold">Full name*</Form.Label>
                       <Form.Control
                         type="text"
                         name="fullName"
@@ -274,7 +271,7 @@ const EditCustomerProfile = ({ user }) => {
                   <Col md={6}>
                     <Form.Group className="mb-3">
                       <Form.Label className="fw-bold">
-                        Số điện thoại*
+                        Phone number*
                       </Form.Label>
                       <Form.Control
                         type="text"
@@ -301,10 +298,12 @@ const EditCustomerProfile = ({ user }) => {
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Ngày sinh</Form.Label>
+                      <Form.Label className="fw-bold">Date of birth</Form.Label>
                       <Form.Control
                         type="date"
                         name="dob"
+                        min={MIN_BIRTH_DATE}
+                        max={today()}
                         value={formData.dob}
                         onChange={handleChange}
                       />
@@ -315,25 +314,25 @@ const EditCustomerProfile = ({ user }) => {
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-3">
-                      <Form.Label className="fw-bold">Giới tính</Form.Label>
+                      <Form.Label className="fw-bold">Gender</Form.Label>
                       <Form.Select
                         name="gender"
                         value={formData.gender || ""}
                         onChange={handleChange}
                       >
                         <option value="" disabled>
-                          Chọn giới tính
+                          Select gender
                         </option>
-                        <option value="Nam">Nam</option>
-                        <option value="Nữ">Nữ</option>
-                        <option value="Khác">Khác</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
                       </Form.Select>
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-3">
                       <Form.Label className="fw-bold text-danger">
-                        Trạng thái hệ thống
+                        System status
                       </Form.Label>
                       <Form.Select
                         name="status"
@@ -344,15 +343,15 @@ const EditCustomerProfile = ({ user }) => {
                           user?.role !== "Receptionist"
                         }
                       >
-                        <option value="Active">Đang hoạt động</option>
+                        <option value="Active">Active</option>
                         <option value="Inactive">
-                          Không hoạt động (Khóa tài khoản)
+                          Inactive (Account locked)
                         </option>
                       </Form.Select>
                       {user?.role !== "Manager" &&
                         user?.role !== "Receptionist" && (
                           <Form.Text className="text-muted">
-                            Chỉ Quản lý và Lễ tân mới được đổi trạng thái.
+                            Only the Manager and Receptionist can change the status.
                           </Form.Text>
                         )}
                     </Form.Group>
@@ -360,7 +359,7 @@ const EditCustomerProfile = ({ user }) => {
                 </Row>
 
                 <Form.Group className="mb-4">
-                  <Form.Label className="fw-bold">Địa chỉ</Form.Label>
+                  <Form.Label className="fw-bold">Address</Form.Label>
                   <Form.Control
                     as="textarea"
                     rows={2}
@@ -375,14 +374,14 @@ const EditCustomerProfile = ({ user }) => {
                     variant="outline-secondary"
                     onClick={() => setShowCancelModal(true)}
                   >
-                    Hủy bỏ
+                    Cancel
                   </Button>
                   <Button
                     variant="danger"
                     type="submit"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Đang lưu..." : "Lưu Thay Đổi"}
+                    {isLoading ? "Saving..." : "Save changes"}
                   </Button>
                 </div>
               </Col>
@@ -398,18 +397,18 @@ const EditCustomerProfile = ({ user }) => {
       >
         <Modal.Header closeButton>
           <Modal.Title className="text-danger fw-bold">
-            <i className="bi bi-exclamation-triangle-fill me-2"></i>Xác nhận hủy
+            <i className="bi bi-exclamation-triangle-fill me-2"></i>Confirm cancellation
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có chắc chắn muốn hủy bỏ? Các thay đổi chưa lưu sẽ bị mất.
+          Are you sure you want to cancel? Unsaved changes will be lost.
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowCancelModal(false)}>
-            Không
+            No
           </Button>
           <Button variant="danger" onClick={() => navigate("/customers")}>
-            Có, quay lại
+            Yes, leave
           </Button>
         </Modal.Footer>
       </Modal>
@@ -421,19 +420,19 @@ const EditCustomerProfile = ({ user }) => {
       >
         <Modal.Header closeButton>
           <Modal.Title className="text-primary fw-bold">
-            <i className="bi bi-question-circle-fill me-2"></i>Xác nhận lưu
+            <i className="bi bi-question-circle-fill me-2"></i>Save
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có chắc chắn muốn lưu các thay đổi thông tin của khách hàng{" "}
-          <span className="fw-bold">{formData.fullName}</span> không?
+          Are you sure you want to save the changes to customer{" "}
+          <span className="fw-bold">{formData.fullName}</span> ?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowSaveModal(false)}>
-            Hủy
+            Cancel
           </Button>
           <Button variant="primary" onClick={confirmSave}>
-            Đồng ý lưu
+            Save
           </Button>
         </Modal.Footer>
       </Modal>

@@ -8,6 +8,7 @@ import {
 } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
+import { StatusToggleButton, StatusChangeModal } from "../../../../components/StatusToggle";
 
 const CustomerList = ({ user }) => {
   const navigate = useNavigate();
@@ -17,6 +18,31 @@ const CustomerList = ({ user }) => {
   const [showModal, setShowModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [detailCustomer, setDetailCustomer] = useState(null);
+  const [statusTarget, setStatusTarget] = useState(null);
+  const [statusBusy, setStatusBusy] = useState(false);
+
+  // Bấm nhãn trạng thái: đổi Active <-> Inactive
+  const confirmStatusChange = async () => {
+    if (!statusTarget) return;
+    const next = statusTarget.status === "Active" ? "Inactive" : "Active";
+    setStatusBusy(true);
+    try {
+      const response = await fetch("/api/customers", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update-status", customerId: statusTarget.customerId, status: next }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.message || "Could not change the status.");
+      setCustomers((list) => list.map((c) => (c.customerId === statusTarget.customerId ? { ...c, status: next } : c)));
+      setStatusTarget(null);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setStatusBusy(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,7 +59,7 @@ const CustomerList = ({ user }) => {
           setCustomers(data);
         }
       } catch (error) {
-        console.error("Lỗi kết nối đến Backend:", error);
+        console.error("Back-end connection error:", error);
       }
     };
     fetchData();
@@ -65,7 +91,7 @@ const CustomerList = ({ user }) => {
         setRefresh((prev) => prev + 1);
       } else {
         const data = await response.json().catch(() => null);
-        alert(data?.message || "Lỗi: Không thể xóa khách hàng này.");
+        alert(data?.message || "Error: Could not delete this customer.");
       }
     } finally {
       handleCloseModal();
@@ -75,31 +101,31 @@ const CustomerList = ({ user }) => {
   const { filteredRows: filteredCustomers, toolbar } = useManagerSearchFilter(
     customers,
     [
-      { key: "fullName", label: "Khách hàng" },
-      { key: "customerId", label: "Mã khách hàng", filterable: false },
-      { key: "phone", label: "Số điện thoại", filterable: false },
+      { key: "fullName", label: "Customer" },
+      { key: "customerId", label: "Customer ID", filterable: false },
+      { key: "phone", label: "Phone number", filterable: false },
       { key: "email", label: "Email", filterable: false },
       {
         key: "status",
-        label: "Trạng thái",
-        formatValue: (value) => value === "Active" ? "Đang hoạt động" : "Không hoạt động",
+        label: "Status",
+        formatValue: (value) => value === "Active" ? "Active" : "Inactive",
       },
     ],
-    "Tìm theo tên, email, số điện thoại...",
+    "Search by name, email, phone number...",
   );
 
   return (
     <Container fluid className="mt-4 px-4">
-        <h2 className="manager-page-title fw-bold mb-4">Danh sách khách hàng</h2>
+        <h2 className="manager-page-title fw-bold mb-4">Customer list</h2>
 
       <div className="d-flex justify-content-between align-items-center gap-3 mb-4">
         <div className="manager-list-toolbar">{toolbar}</div>
-        {user?.role === "Receptionist" && (
+        {(user?.role === "Receptionist" || user?.role === "Manager") && (
             <Button
               variant="danger"
               onClick={() => navigate("/receptionist/create-walkin")}
             >
-              <i className="bi bi-person-plus-fill me-1"></i> Tạo tài khoản khách hàng
+              <i className="bi bi-person-plus-fill me-1"></i> Create customer account
             </Button>
         )}
       </div>
@@ -107,26 +133,25 @@ const CustomerList = ({ user }) => {
       <Table hover responsive className="align-middle manager-list-table customer-admin-list">
         <thead className="table-dark">
           <tr>
-            <th>Họ và Tên</th>
-            <th>Số điện thoại</th>
-            <th>Trạng thái</th>
-            <th className="text-center">Hành động</th>
+            <th>Full name</th>
+            <th>Phone number</th>
+            <th>Status</th>
+            <th className="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
           {filteredCustomers.length > 0 ? (
             filteredCustomers.map((c) => (
               <tr key={c.customerId}>
-                <td>
-                  <strong>{c.fullName}</strong>
-                  <div className="small text-muted">#{c.customerId}</div>
-                </td>
+                <td className="fw-semibold text-dark" title={`Customer #${c.customerId}`}>{c.fullName}</td>
                 <td>{c.phone}</td>
                 <td>
-                  {c.status === "Active" ? (
-                    <Badge bg="success">Đang hoạt động</Badge>
+                  {user?.role === "Manager" ? (
+                    <StatusToggleButton active={c.status === "Active"} onClick={() => setStatusTarget(c)} />
+                  ) : c.status === "Active" ? (
+                    <Badge bg="success">Active</Badge>
                   ) : (
-                    <Badge bg="danger">Không hoạt động</Badge>
+                    <Badge bg="secondary">Inactive</Badge>
                   )}
                 </td>
                 <td className="text-center">
@@ -136,10 +161,10 @@ const CustomerList = ({ user }) => {
                     size="sm"
                     className="manager-list-action manager-list-action--view"
                     onClick={() => setDetailCustomer(c)}
-                    aria-label={`Xem khách hàng ${c.fullName}`}
+                    aria-label={`View customer ${c.fullName}`}
                   >
                     <i className="bi bi-eye-fill me-1" aria-hidden="true" />
-                    Xem
+                    View
                   </Button>
                   {(user?.role === "Manager" ||
                     user?.role === "Receptionist") && (
@@ -148,9 +173,9 @@ const CustomerList = ({ user }) => {
                       size="sm"
                       className="manager-list-action manager-list-action--view"
                       onClick={() => navigate(`/treatment-profile/${c.customerId}`)}
-                      aria-label={`Xem gói liệu trình và số buổi của ${c.fullName}`}
+                      aria-label={`View treatment packages and sessions of ${c.fullName}`}
                     >
-                      <i className="bi bi-box-seam" aria-hidden="true" /> Liệu trình
+                      <i className="bi bi-box-seam" aria-hidden="true" /> Treatment plan
                     </Button>
                   )}
                   {(user?.role === "Manager" ||
@@ -160,9 +185,9 @@ const CustomerList = ({ user }) => {
                       size="sm"
                       className="manager-list-action manager-list-action--edit"
                       onClick={() => navigate(`/customers/edit/${c.customerId}`)}
-                      aria-label={`Sửa khách hàng ${c.fullName}`}
+                      aria-label={`Edit customer ${c.fullName}`}
                     >
-                      <i className="bi bi-pencil-square" aria-hidden="true" /> Sửa
+                      <i className="bi bi-pencil-square" aria-hidden="true" /> Edit
                     </Button>
                   )}
                   {user?.role === "Manager" && (
@@ -171,9 +196,9 @@ const CustomerList = ({ user }) => {
                       size="sm"
                       className="manager-list-action manager-list-action--delete"
                       onClick={() => handleShowModal(c)}
-                      aria-label={`Xóa khách hàng ${c.fullName}`}
+                      aria-label={`Delete customer ${c.fullName}`}
                     >
-                      <i className="bi bi-trash" aria-hidden="true" /> Xóa
+                      <i className="bi bi-trash" aria-hidden="true" /> Delete
                     </Button>
                   )}
                   </div>
@@ -183,7 +208,7 @@ const CustomerList = ({ user }) => {
           ) : (
             <tr>
               <td colSpan="4" className="text-center text-muted">
-                Không tìm thấy khách hàng nào.
+                No customers found.
               </td>
             </tr>
           )}
@@ -199,24 +224,24 @@ const CustomerList = ({ user }) => {
         <Modal.Header closeButton>
           <Modal.Title>
             <i className="bi bi-person-vcard" aria-hidden="true" />
-            Thông tin khách hàng
+            Customer information
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <dl className="customer-detail-grid">
-            <dt>Mã khách hàng</dt>
+            <dt>Customer ID</dt>
             <dd>#{detailCustomer?.customerId || "—"}</dd>
-            <dt>Họ và tên</dt>
+            <dt>Full name</dt>
             <dd>{detailCustomer?.fullName || "—"}</dd>
-            <dt>Số điện thoại</dt>
+            <dt>Phone number</dt>
             <dd>{detailCustomer?.phone || "—"}</dd>
             <dt>Email</dt>
             <dd>{detailCustomer?.email || "—"}</dd>
-            <dt>Trạng thái</dt>
+            <dt>Status</dt>
             <dd>
               {detailCustomer?.status ? (
                 <Badge bg={detailCustomer.status === "Active" ? "success" : "secondary"}>
-                  {detailCustomer.status === "Active" ? "Đang hoạt động" : "Không hoạt động"}
+                  {detailCustomer.status === "Active" ? "Active" : "Inactive"}
                 </Badge>
               ) : "—"}
             </dd>
@@ -224,7 +249,7 @@ const CustomerList = ({ user }) => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={() => setDetailCustomer(null)}>
-            Đóng
+            Close
           </Button>
         </Modal.Footer>
       </Modal>
@@ -233,27 +258,37 @@ const CustomerList = ({ user }) => {
         <Modal.Header closeButton>
           <Modal.Title className="text-danger fw-bold">
             <i className="bi bi-exclamation-triangle-fill me-2"></i>
-            Xác nhận xóa tài khoản
+            Confirm account deletion
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Bạn có chắc chắn muốn <strong>xóa vĩnh viễn</strong> khách hàng{" "}
+          Delete customer{" "}
           <span className="fw-bold text-primary">
             {selectedCustomer?.fullName}
-          </span>{" "}
-          không? Thao tác này không thể hoàn tác. Khách đã có lịch hẹn, hóa đơn
-          hoặc gói liệu trình thì không xóa được; khi đó hãy bấm <strong>Sửa</strong> và
-          đổi trạng thái sang "Không hoạt động".
+          </span>
+          ? The account can no longer log in and is removed from the customer list. Their appointments,
+          invoices and packages are kept in the database. Customers with upcoming appointments or unpaid
+          invoices cannot be deleted.
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>
-            Hủy bỏ
+            Cancel
           </Button>
           <Button variant="danger" onClick={confirmDelete}>
-            Xóa vĩnh viễn
+            Delete
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <StatusChangeModal
+        show={!!statusTarget}
+        entity="customer"
+        name={statusTarget?.fullName}
+        nextActive={statusTarget?.status !== "Active"}
+        busy={statusBusy}
+        onCancel={() => setStatusTarget(null)}
+        onConfirm={confirmStatusChange}
+      />
     </Container>
   );
 };

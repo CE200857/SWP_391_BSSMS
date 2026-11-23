@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Badge, Button, Card, Col, Container, Row, Spinner } from "react-bootstrap";
-import { api, put, time5, label } from "../../../services/api";
+import { Button, Container, Spinner } from "react-bootstrap";
+import { api, time5, label } from "../../../services/api";
 import "./UpdateRoomBedStatus.css";
+import FloatingAlert from "../../../components/FloatingAlert";
 
-const bedVariant = (bed, roomMaintenance) =>
-  roomMaintenance || bed.status !== "Active" ? "secondary" : bed.useState === "InUse" ? "danger" : "success";
-const roomBg = { Free: "success", Full: "danger", Maintenance: "secondary" };
+// Read-only board: beds are assigned by the system and freed when technicians start/complete services
+const bedState = (bed, roomMaintenance) =>
+  roomMaintenance || bed.status !== "Active" ? "maintenance" : bed.useState === "InUse" ? "busy" : "free";
+const stateText = { free: "Available", busy: "In use", maintenance: "Maintenance" };
 
-export default function UpdateRoomBedStatus({ user }) {
-  const canEdit = user?.role === "Receptionist";
+export default function UpdateRoomBedStatus() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
 
   const load = useCallback(async () => {
     try {
       setData(await api("/api/room-bed-status"));
+      setUpdatedAt(new Date());
       setError("");
     } catch (e) {
       setError(e.message);
@@ -28,81 +29,71 @@ export default function UpdateRoomBedStatus({ user }) {
     return () => clearInterval(timer);
   }, [load]);
 
-  const toggle = async (bed) => {
-    const next = bed.useState === "InUse" ? "Free" : "InUse";
-    setBusy(bed.bedId);
-    try {
-      await put(`/api/room-bed-status/bed/${bed.bedId}`, { status: next });
-      setNotice(`Giường ${bed.bedNumber}: ${label(next)}.`);
-      await load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const s = data?.summary;
   return (
     <Container fluid className="mt-4 px-4 room-bed-page">
       <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
-          <h2 className="manager-page-title fw-bold mb-1">Trạng thái phòng & giường</h2>
-          <p className="text-muted mb-0">Cập nhật tự động khi kỹ thuật viên bắt đầu và hoàn thành dịch vụ.</p>
+          <h2 className="manager-page-title fw-bold mb-1">Room status & beds</h2>
+          <p className="text-muted mb-0">
+            Beds are assigned automatically and update when a service starts or finishes.
+            {updatedAt && <> Last updated {updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}.</>}
+          </p>
         </div>
-        <Button variant="outline-secondary" onClick={load}><i className="bi bi-arrow-clockwise" /> Làm mới</Button>
+        <Button variant="outline-primary" className="desk-btn" onClick={load}>
+          <i className="bi bi-arrow-clockwise" aria-hidden="true" /> Refresh
+        </Button>
       </div>
-      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
-      {notice && <Alert variant="success" dismissible onClose={() => setNotice("")}>{notice}</Alert>}
+      <FloatingAlert message={error} onClose={() => setError("")} />
+
       {s && (
-        <div className="d-flex gap-3 mb-4 flex-wrap">
-          <Badge bg="success" className="p-2 fs-6">Trống: {s.free}</Badge>
-          <Badge bg="danger" className="p-2 fs-6">Đang dùng: {s.inUse}</Badge>
-          <Badge bg="secondary" className="p-2 fs-6">Bảo trì: {s.maintenance}</Badge>
+        <div className="rb-summary" aria-label="Bed summary">
+          <span className="rb-chip rb-chip--free"><i className="rb-dot" aria-hidden="true" /> Available <strong>{s.free}</strong></span>
+          <span className="rb-chip rb-chip--busy"><i className="rb-dot" aria-hidden="true" /> In use <strong>{s.inUse}</strong></span>
+          <span className="rb-chip rb-chip--maintenance"><i className="rb-dot" aria-hidden="true" /> Maintenance <strong>{s.maintenance}</strong></span>
         </div>
       )}
       {!data && !error && <div className="text-center py-5"><Spinner animation="border" variant="danger" /></div>}
-      <Row className="g-4">
+
+      <div className="rb-rooms">
         {(data?.rooms || []).map((room) => {
           const roomMaintenance = room.status === "Maintenance";
           return (
-            <Col key={room.roomId} md={6} xl={4}>
-              <Card className="shadow-sm border-0 h-100 room-bed-list-card">
-                <Card.Header className="room-bed-list-card-header d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>{room.roomName}</strong>
-                    <small className="d-block text-muted">{label(room.roomType)}</small>
-                  </div>
-                  <Badge bg={roomBg[room.state]}>{label(room.state)}</Badge>
-                </Card.Header>
-                <Card.Body>
-                  {room.beds.length === 0 && <p className="text-muted mb-0">Phòng chưa có giường.</p>}
-                  {room.beds.map((bed) => (
-                    <div key={bed.bedId} className="d-flex justify-content-between align-items-start border-bottom py-2 gap-2">
-                      <div>
-                        <Badge bg={bedVariant(bed, roomMaintenance)} className="me-2">Giường {bed.bedNumber}</Badge>
-                        {roomMaintenance || bed.status !== "Active" ? <small className="text-muted">Bảo trì</small> : (
-                          <small>{label(bed.useState)}</small>
-                        )}
-                        {bed.appointmentId && (
-                          <small className="d-block text-muted mt-1">
-                            #{bed.appointmentId} · {bed.customerName} · {bed.serviceName} · {time5(bed.startTime)}–{time5(bed.endTime)}{bed.technicianName ? ` · ${bed.technicianName}` : ""}
-                          </small>
+            <section key={room.roomId} className={`rb-room${roomMaintenance ? " rb-room--off" : ""}`}>
+              <header className="rb-room-head">
+                <div>
+                  <h3>{room.roomName}</h3>
+                  <span>{label(room.roomType)}</span>
+                </div>
+                {roomMaintenance && <span className="rb-room-tag">Maintenance</span>}
+              </header>
+              {room.beds.length === 0 ? (
+                <p className="text-muted mb-0">This room has no beds yet.</p>
+              ) : (
+                <div className="rb-beds">
+                  {room.beds.map((bed) => {
+                    const st = bedState(bed, roomMaintenance);
+                    return (
+                      <div key={bed.bedId} className={`rb-bed rb-bed--${st}`}>
+                        <div className="rb-bed-top">
+                          <strong>{bed.bedNumber}</strong>
+                          <span><i className="rb-dot" aria-hidden="true" /> {stateText[st]}</span>
+                        </div>
+                        {st === "busy" && bed.appointmentId && (
+                          <div className="rb-bed-who">
+                            {bed.customerName}
+                            <small>{time5(bed.startTime)}–{time5(bed.endTime)}{bed.technicianName ? ` · ${bed.technicianName}` : ""}</small>
+                          </div>
                         )}
                       </div>
-                      {canEdit && !roomMaintenance && bed.status === "Active" && (
-                        <Button size="sm" variant="outline-secondary" disabled={busy === bed.bedId} onClick={() => toggle(bed)}>
-                          {bed.useState === "InUse" ? "Đặt trống" : "Đặt đang dùng"}
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </Card.Body>
-              </Card>
-            </Col>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           );
         })}
-      </Row>
+      </div>
     </Container>
   );
 }
