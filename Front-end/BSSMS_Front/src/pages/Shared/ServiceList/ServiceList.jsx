@@ -36,6 +36,7 @@ const ServiceList = ({ user }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [priceFilter, setPriceFilter] = useState("all");
   const [durationFilter, setDurationFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [serviceToDelete, setServiceToDelete] = useState(null);
@@ -57,39 +58,39 @@ const ServiceList = ({ user }) => {
   const { filteredRows: staffServices, toolbar } = useManagerSearchFilter(
     services,
     [
-      { key: "serviceId", label: "Mã dịch vụ", filterable: false },
-      { key: "serviceName", label: "Dịch vụ", filterable: false },
+      { key: "serviceId", label: "Service ID", filterable: false },
+      { key: "serviceName", label: "Service", filterable: false },
       {
         key: "status",
-        label: "Trạng thái",
-        formatValue: (value) => value === "Active" ? "Đang hoạt động" : "Ngừng hoạt động",
+        label: "Status",
+        formatValue: (value) => value === "Active" ? "Active" : "Inactive",
       },
       {
         key: "priceRange",
-        label: "Mức giá",
+        label: "Price range",
         getValue: (service) => Number(service.price) < 500000
           ? "under500"
           : Number(service.price) <= 1000000 ? "500to1m" : "over1m",
         formatValue: (value) => ({
-          under500: "Dưới 500.000 đ",
-          "500to1m": "500.000 – 1.000.000 đ",
-          over1m: "Trên 1.000.000 đ",
+          under500: "Under 500,000 VND",
+          "500to1m": "500,000 – 1,000,000 VND",
+          over1m: "Over 1,000,000 VND",
         }[value]),
       },
       {
         key: "durationRange",
-        label: "Thời lượng",
+        label: "Duration",
         getValue: (service) => Number(service.duration) < 60
           ? "under60"
           : Number(service.duration) <= 90 ? "60to90" : "over90",
         formatValue: (value) => ({
-          under60: "Dưới 60 phút",
-          "60to90": "60 – 90 phút",
-          over90: "Trên 90 phút",
+          under60: "Under 60 minutes",
+          "60to90": "60 – 90 minutes",
+          over90: "Over 90 minutes",
         }[value]),
       },
     ],
-    "Tìm theo tên hoặc mã dịch vụ...",
+    "Search by service name or code...",
   );
 
   const filteredServices = services.filter((service) => {
@@ -120,13 +121,13 @@ const ServiceList = ({ user }) => {
       setLoadError(false);
       try {
         const response = await axios.get("/api/service", { signal: controller.signal });
-        if (!Array.isArray(response.data)) throw new Error("Dữ liệu dịch vụ không hợp lệ.");
+        if (!Array.isArray(response.data)) throw new Error("Invalid service data.");
         if (controller.signal.aborted) return;
         setServices(response.data);
         setLoadError(false);
       } catch (error) {
         if (controller.signal.aborted) return;
-        console.error("Lỗi tải danh sách:", error);
+        console.error("Error loading list:", error);
         setLoadError(true);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -138,196 +139,119 @@ const ServiceList = ({ user }) => {
   }, [refresh]);
 
   if (!isStaff) {
+    const activeServices = services.filter((service) => service.status === "Active");
+    const categories = [...new Set(activeServices.map((service) => service.category).filter(Boolean))];
     const publicServices = filteredServices.filter(
-      (service) => service.status === "Active",
+      (service) => service.status === "Active" && (categoryFilter === "all" || service.category === categoryFilter),
     );
+    const detailPath = (id) => (isGuest ? `/guest/services/${id}` : `/services/detail/${id}`);
+    const photoFor = (service) =>
+      servicePhotos[Math.max(0, services.findIndex((item) => item.serviceId === service.serviceId)) % servicePhotos.length];
 
     return (
-      <main className="public-service-page">
+      <div className="sc-page">
         <section className="public-service-hero">
           <div className="public-service-hero-copy">
-            <span className="seoul-eyebrow">TRẢI NGHIỆM · DỊCH VỤ</span>
-            <h1>Dành thời gian cho chính mình.</h1>
+            <span className="seoul-eyebrow">OUR SERVICES</span>
+            <h1>Find your treatment</h1>
             <p>
-              Từ buổi thư giãn đến chăm sóc sắc đẹp, tìm dịch vụ phù hợp với bạn
-              tại Seoul Center.
+              Every visit starts with a short consultation. Prices are per visit — members get their
+              tier discount automatically.
             </p>
             <span className="public-service-hero-note">
-              <i className="bi bi-heart" aria-hidden="true" /> Tư vấn tận tâm ·
-              Không cần đăng nhập
+              <i className="bi bi-heart" aria-hidden="true" /> Browse freely · Log in to book
             </span>
           </div>
-          <img src={servicePhoto01} alt="Chăm sóc da tại Seoul Center" />
+          <img src={servicePhoto01} alt="Skin care at Seoul Center" />
         </section>
 
-        <section className="public-service-content">
-          <div className="public-service-filter-card">
-            <div className="public-service-filter-title">
-              <strong>
-                <i className="bi bi-sliders" aria-hidden="true" /> Tìm dịch vụ
-                dành cho bạn
-              </strong>
-              <span>Được tư vấn theo nhu cầu của bạn</span>
-            </div>
-            <label className="public-service-search">
-              <span className="visually-hidden">Tìm kiếm dịch vụ</span>
-              <i className="bi bi-search" aria-hidden="true" />
-              <input
-                type="search"
-                placeholder="Tìm theo tên hoặc ID dịch vụ..."
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Giá tiền</span>
-              <select
-                value={priceFilter}
-                onChange={(event) => setPriceFilter(event.target.value)}
-              >
-                <option value="all">Tất cả mức giá</option>
-                <option value="under500">Dưới 500.000 đ</option>
-                <option value="500to1m">500.000 – 1.000.000 đ</option>
-                <option value="over1m">Trên 1.000.000 đ</option>
-              </select>
-            </label>
-            <label>
-              <span>Thời lượng</span>
-              <select
-                value={durationFilter}
-                onChange={(event) => setDurationFilter(event.target.value)}
-              >
-                <option value="all">Tất cả thời lượng</option>
-                <option value="under60">Dưới 60 phút</option>
-                <option value="60to90">60 – 90 phút</option>
-                <option value="over90">Trên 90 phút</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="public-service-list-heading">
-            <div>
-              <h2>Khám phá dịch vụ</h2>
-              <span className="public-service-count">
-                {loading ? "Đang tải…" : `${publicServices.length} dịch vụ`}
-              </span>
-            </div>
-            <span className="public-service-updated">
-              Hiển thị dịch vụ đang hoạt động
-            </span>
-          </div>
-
-          {loading && services.length === 0 ? <div className="public-service-state" role="status">Đang tải danh sách dịch vụ…</div> : loadError ? (
-            <div className="public-service-state" role="alert">
-              <i className="bi bi-wifi-off" aria-hidden="true" />
-              <strong>Không tải được danh sách dịch vụ</strong>
-              <span>Hãy kiểm tra kết nối rồi thử lại.</span>
+        <section className="sc-container sc-toolbar" aria-label="Filter services">
+          <div className="sc-chips" role="group" aria-label="Category">
+            {["all", ...categories].map((category) => (
               <button
                 type="button"
-                onClick={() => setRefresh((value) => value + 1)}
+                key={category}
+                className={`sc-chip${categoryFilter === category ? " is-active" : ""}`}
+                aria-pressed={categoryFilter === category}
+                onClick={() => setCategoryFilter(category)}
               >
-                Thử lại
+                {category === "all" ? "All" : category}
               </button>
-            </div>
-          ) : services.length === 0 ? (
-            <div className="public-service-state">
-              <i className="bi bi-flower1" aria-hidden="true" />
-              <strong>Chưa có dịch vụ để hiển thị</strong>
-              <span>Vui lòng quay lại sau.</span>
-            </div>
-          ) : publicServices.length === 0 ? (
-            <div className="public-service-state">
+            ))}
+          </div>
+          <div className="sc-toolbar-right">
+            <select className="sc-select" aria-label="Price" value={priceFilter} onChange={(event) => setPriceFilter(event.target.value)}>
+              <option value="all">Any price</option>
+              <option value="under500">Under 500.000 VND</option>
+              <option value="500to1m">500.000 – 1.000.000 VND</option>
+              <option value="over1m">Over 1.000.000 VND</option>
+            </select>
+            <select className="sc-select" aria-label="Duration" value={durationFilter} onChange={(event) => setDurationFilter(event.target.value)}>
+              <option value="all">Any duration</option>
+              <option value="under60">Under 60 min</option>
+              <option value="60to90">60 – 90 min</option>
+              <option value="over90">Over 90 min</option>
+            </select>
+            <label className="sc-search">
               <i className="bi bi-search" aria-hidden="true" />
-              <strong>Không tìm thấy dịch vụ phù hợp</strong>
-              <span>Thử thay đổi từ khóa hoặc bộ lọc.</span>
-            </div>
-          ) : (
-            <div className="public-service-grid">
-              {publicServices.map((service) => {
-                const imageIndex =
-                  Math.max(
-                    0,
-                    services.findIndex(
-                      (item) => item.serviceId === service.serviceId,
-                    ),
-                  ) % servicePhotos.length;
-
-                return (
-                  <article
-                    className="public-service-card"
-                    key={service.serviceId}
-                  >
-                    <Link
-                      to={
-                        isGuest
-                          ? `/guest/services/${service.serviceId}`
-                          : `/services/detail/${service.serviceId}`
-                      }
-                      className="public-service-card-image"
-                      aria-label={`Xem dịch vụ ${service.serviceName}`}
-                    >
-                      <img src={service.imageUrl || servicePhotos[imageIndex]} alt="" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => { const img = event.currentTarget; if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = servicePhotos[imageIndex]; return; } img.classList.add("is-loaded"); }} />
-                    </Link>
-                    <div className="public-service-card-body">
-                      <span className="public-service-code">
-                        ID {service.serviceId}
-                      </span>
-                      <h3>{service.serviceName}</h3>
-                      <div className="public-service-card-meta">
-                        <strong>
-                          {Number(service.price).toLocaleString("vi-VN")}{" "}
-                          <small>VNĐ</small>
-                        </strong>
-                        <span>
-                          <i className="bi bi-clock" aria-hidden="true" />{" "}
-                          {service.duration} phút
-                        </span>
-                      </div>
-                      <Link
-                        to={
-                          isGuest
-                            ? `/guest/services/${service.serviceId}`
-                            : `/services/detail/${service.serviceId}`
-                        }
-                        className="public-service-detail-link"
-                      >
-                        Xem chi tiết{" "}
-                        <i
-                          className="bi bi-arrow-up-right"
-                          aria-hidden="true"
-                        />
-                      </Link>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-
-          <p className="public-service-footnote">
-            Giá niêm yết bằng VNĐ · Thời lượng tính bằng phút · Thông tin được
-            xác nhận trước khi đặt lịch.
-          </p>
-          <div className="public-service-cta">
-            <span>
-              <i className="bi bi-stars" aria-hidden="true" /> BẠN MUỐN ĐƯỢC TƯ
-              VẤN?
-            </span>
-            <h2>Bạn chưa biết bắt đầu từ đâu?</h2>
-            <p>
-              Chia sẻ nhu cầu của bạn, đội ngũ Seoul Center sẽ giúp bạn lựa chọn
-              trải nghiệm phù hợp.
-            </p>
-            <a
-              href="tel:+84914269346"
-              className="home-button home-button-white"
-            >
-              Liên hệ tư vấn{" "}
-              <i className="bi bi-arrow-up-right" aria-hidden="true" />
-            </a>
+              <span className="visually-hidden">Search services</span>
+              <input type="search" placeholder="Search services" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+            </label>
           </div>
         </section>
-      </main>
+
+        <section className="sc-container sc-section-tight">
+          {loading && services.length === 0 ? (
+            <div className="sc-empty" role="status"><Spinner animation="border" size="sm" /> Loading services…</div>
+          ) : loadError ? (
+            <div className="sc-empty" role="alert">
+              <i className="bi bi-wifi-off" aria-hidden="true" />
+              <strong>Could not load the service list</strong>
+              <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setRefresh((value) => value + 1)}>Try again</button>
+            </div>
+          ) : publicServices.length === 0 ? (
+            <div className="sc-empty">
+              <i className="bi bi-search" aria-hidden="true" />
+              <strong>No matching services</strong>
+              <span>Try another category, keyword or filter.</span>
+            </div>
+          ) : (
+            <div className="sc-card-grid">
+              {publicServices.map((service) => (
+                <Link className="sc-service-card" to={detailPath(service.serviceId)} key={service.serviceId}>
+                  <span className="sc-service-image">
+                    <img
+                      src={service.imageUrl || photoFor(service)}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      onError={(event) => { const img = event.currentTarget; if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = photoFor(service); } }}
+                    />
+                  </span>
+                  <span className="sc-service-body">
+                    <span className="sc-meta">{(service.category || "Service").toUpperCase()} · {service.duration} MIN</span>
+                    <span className="sc-service-name">{service.serviceName}</span>
+                    <span className="sc-service-foot">
+                      <span className="sc-price">{Number(service.price).toLocaleString("vi-VN")} <small>VND</small></span>
+                      <span className="sc-link">View <i className="bi bi-arrow-right" aria-hidden="true" /></span>
+                    </span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="sc-cta">
+          <div className="sc-container sc-cta-inner">
+            <div>
+              <h2>Not sure where to start?</h2>
+              <p>Call us and our team will suggest a treatment that suits you.</p>
+            </div>
+            <a className="sc-btn sc-btn-light" href="tel:+84914269346">Call (+84) 914 269 346</a>
+          </div>
+        </section>
+      </div>
     );
   }
 
@@ -343,13 +267,13 @@ const ServiceList = ({ user }) => {
     try {
       await axios.put(`/api/service?id=${statusTarget.serviceId}`, { ...statusTarget, status: next });
       setActionNotice(
-        `Dịch vụ "${statusTarget.serviceName}" ${next === "Active" ? "đã được kích hoạt lại" : "đã chuyển sang ngừng hoạt động"}.`,
+        `Service "${statusTarget.serviceName}" ${next === "Active" ? "has been reactivated" : "has been deactivated"}.`,
       );
       setRefresh((prev) => prev + 1);
       setStatusTarget(null);
     } catch (error) {
       const message = error.response?.data?.message;
-      alert(typeof message === "string" ? message : "Không đổi được trạng thái dịch vụ.");
+      alert(typeof message === "string" ? message : "Could not change the service status.");
     } finally {
       setStatusBusy(false);
     }
@@ -363,16 +287,16 @@ const ServiceList = ({ user }) => {
       const response = await axios.delete(`/api/service?id=${serviceToDelete.serviceId}`);
       setServiceToDelete(null);
       setActionNotice(
-        `Dịch vụ "${serviceToDelete.serviceName}": ${response.data?.message || "đã ngừng kinh doanh."}`,
+        `Service "${serviceToDelete.serviceName}": ${response.data?.message || "has been deleted."}`,
       );
       setRefresh((prev) => prev + 1);
     } catch (error) {
-      console.error("Lỗi xóa dịch vụ:", error);
+      console.error("Error deleting service:", error);
       const message = error.response?.data?.message;
       setDeleteError(
         typeof message === "string"
           ? message
-          : "Không thể xóa dịch vụ. Vui lòng thử lại.",
+          : "Could not delete the service. Please try again.",
       );
     } finally {
       setDeleting(false);
@@ -381,40 +305,40 @@ const ServiceList = ({ user }) => {
 
   return (
     <div className="container mt-4">
-      <h2 className="mb-3">Danh sách dịch vụ</h2>
+      <h2 className="mb-3">Service list</h2>
       {actionNotice && (
         <div className="alert alert-success alert-dismissible" role="status">
           {actionNotice}
           <button
             type="button"
             className="btn-close"
-            aria-label="Đóng thông báo"
+            aria-label="Close notification"
             onClick={() => setActionNotice("")}
           />
         </div>
       )}
-      {loadError && <div className="alert alert-danger" role="alert">Không tải được danh sách dịch vụ. <button className="btn btn-sm btn-outline-danger" onClick={() => setRefresh(n => n + 1)}>Thử lại</button></div>}
+      {loadError && <div className="alert alert-danger" role="alert">Could not load the service list. <button className="btn btn-sm btn-outline-danger" onClick={() => setRefresh(n => n + 1)}>Try again</button></div>}
 
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
         <div className="manager-list-toolbar">{toolbar}</div>
 
         {isManager && (
           <Link to="/services/new" className="btn btn-primary ms-auto">
-            Thêm dịch vụ mới
+            Add new service
           </Link>
         )}
       </div>
 
-      <p className="d-md-none small text-muted">Kéo ngang bảng để xem đầy đủ thông tin và thao tác.</p>
-      <div className="table-responsive" tabIndex={0} aria-label="Danh sách dịch vụ, có thể cuộn ngang">
-        <table className="table table-hover align-middle mb-0 manager-list-table">
+      <p className="d-md-none small text-muted">Scroll the table horizontally to see all information and actions.</p>
+      <div className="table-responsive" tabIndex={0} aria-label="Service list, scrolls horizontally">
+        <table className="table table-hover align-middle mb-0 manager-list-table service-list-table">
           <thead className="table-dark">
             <tr>
-              <th>Tên dịch vụ</th>
-              <th>Giá (VNĐ)</th>
-              <th>Thời lượng</th>
-              <th>Trạng thái</th>
-              <th>Hành động</th>
+              <th>Service name</th>
+              <th>Price (VND)</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -430,14 +354,14 @@ const ServiceList = ({ user }) => {
                     ) : (
                       <span className={`badge ${s.status === "Active" ? "bg-success" : "bg-secondary"}`}>
                         {s.status === "Active"
-                          ? "Đang hoạt động"
+                          ? "Active"
                           : s.status === "Inactive"
-                            ? "Ngừng hoạt động"
+                            ? "Inactive"
                             : s.status}
                       </span>
                     )}
                   </td>
-                  <td><div className="manager-list-actions">
+                  <td><div className="manager-list-actions service-list-actions">
                     <Link
                       to={
                         isGuest
@@ -446,7 +370,7 @@ const ServiceList = ({ user }) => {
                       }
                       className="manager-list-action manager-list-action--view"
                     >
-                      <i className="bi bi-eye-fill" aria-hidden="true" /> Xem
+                      <i className="bi bi-eye-fill" aria-hidden="true" /> View
                     </Link>
 
                     {isManager && (
@@ -456,15 +380,15 @@ const ServiceList = ({ user }) => {
                           className="manager-list-action manager-list-action--edit"
                         >
                           <i className="bi bi-pencil-square" aria-hidden="true" />
-                          Sửa
+                          Edit
                         </Link>
                         <button
                           onClick={() => handleDelete(s)}
                           className="manager-list-action manager-list-action--delete"
-                          aria-label={`Xóa dịch vụ ${s.serviceName}`}
+                          aria-label={`Delete service ${s.serviceName}`}
                         >
                           <i className="bi bi-trash" aria-hidden="true" />
-                          Xóa
+                          Delete
                         </button>
                       </>
                     )}
@@ -474,11 +398,11 @@ const ServiceList = ({ user }) => {
             ) : (
               <tr>
                 <td colSpan="5" className="text-center text-muted py-4">
-                  {loading ? "Đang tải danh sách dịch vụ…" : loadError
-                    ? "Không tải được danh sách dịch vụ. Hãy kiểm tra backend và thử tải lại."
+                  {loading ? "Loading service list…" : loadError
+                    ? "Could not load the service list. Check the backend and try reloading."
                     : services.length === 0
-                      ? "Chưa có dịch vụ nào."
-                      : "Không tìm thấy dịch vụ phù hợp."}
+                      ? "No services yet."
+                      : "No matching services."}
                 </td>
               </tr>
             )}
@@ -495,7 +419,7 @@ const ServiceList = ({ user }) => {
       >
         <Modal.Header closeButton={!deleting}>
           <Modal.Title id="delete-service-title">
-            Ngừng kinh doanh dịch vụ
+            Delete service
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -505,12 +429,12 @@ const ServiceList = ({ user }) => {
             </div>
           )}
           <p className="mb-2">
-            Ngừng kinh doanh dịch vụ{" "}
+            Delete service{" "}
             <strong>{serviceToDelete?.serviceName}</strong>?
           </p>
           <p className="text-muted small mb-0">
-            Dịch vụ được giữ lại để bảo toàn lịch sử (lịch hẹn, hóa đơn, đánh giá) và không
-            còn hiển thị khi đặt lịch. Các lịch hẹn tương lai đã đặt vẫn được giữ nguyên.
+            The service is removed from all lists and can no longer be booked. Its data is kept in the
+            database so past appointments, invoices and reviews still show it. Upcoming appointments already booked are kept.
           </p>
         </Modal.Body>
         <Modal.Footer>
@@ -519,7 +443,7 @@ const ServiceList = ({ user }) => {
             onClick={() => setServiceToDelete(null)}
             disabled={deleting}
           >
-            Hủy
+            Cancel
           </Button>
           <Button
             variant="danger"
@@ -529,12 +453,12 @@ const ServiceList = ({ user }) => {
             {deleting ? (
               <>
                 <Spinner size="sm" animation="border" className="me-2" />
-                Đang xử lý
+                Processing
               </>
             ) : (
               <>
                 <i className="bi bi-trash me-2" aria-hidden="true" />
-                Xóa vĩnh viễn
+                Delete
               </>
             )}
           </Button>
@@ -542,7 +466,7 @@ const ServiceList = ({ user }) => {
       </Modal>
       <StatusChangeModal
         show={Boolean(statusTarget)}
-        entity="dịch vụ"
+        entity="services"
         name={statusTarget?.serviceName}
         nextActive={statusTarget?.status !== "Active"}
         busy={statusBusy}

@@ -1,353 +1,219 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import treatmentPhoto from "../../../assets/figma/login-spa-original.jpeg";
-import facialPhoto from "../../../assets/figma/service-card-exact-01.png";
-import massagePhoto from "../../../assets/figma/service-card-exact-03.png";
-import hairPhoto from "../../../assets/figma/service-card-exact-05.png";
-import carePhoto from "../../../assets/figma/service-card-exact-08.png";
-import spaPhoto from "../../../assets/figma/service-card-19.png";
-import relaxPhoto from "../../../assets/figma/service-card-20.png";
+import axios from "axios";
+import heroPhoto from "../../../assets/figma/login-spa-original.jpeg";
+import photo01 from "../../../assets/figma/service-card-exact-01.png";
+import photo02 from "../../../assets/figma/service-card-exact-02.png";
+import photo03 from "../../../assets/figma/service-card-exact-03.png";
+import photo04 from "../../../assets/figma/service-card-exact-04.png";
+import photo05 from "../../../assets/figma/service-card-exact-05.png";
+import photo06 from "../../../assets/figma/service-card-exact-06.png";
+import photo07 from "../../../assets/figma/service-card-exact-07.png";
+import photo08 from "../../../assets/figma/service-card-exact-08.png";
+import photo09 from "../../../assets/figma/service-card-exact-09.png";
+import photo10 from "../../../assets/figma/service-card-exact-10.png";
+import photo11 from "../../../assets/figma/service-card-exact-11.png";
 
-const services = [
-  {
-    category: "CHĂM SÓC DA",
-    title: "Chăm sóc da mặt",
-    description: "Liệu trình chăm sóc làn da theo nhu cầu, bắt đầu từ bước tư vấn.",
-    image: facialPhoto,
-  },
-  {
-    category: "THƯ GIÃN CƠ THỂ",
-    title: "Massage thư giãn",
-    description: "Tạm gác nhịp sống vội vàng, tận hưởng khoảng thời gian thư thái.",
-    image: massagePhoto,
-  },
-  {
-    category: "CHĂM SÓC TÓC",
-    title: "Gội đầu dưỡng sinh",
-    description: "Chăm sóc tóc và da đầu kết hợp những động tác massage nhẹ nhàng.",
-    image: hairPhoto,
-  },
-  {
-    category: "SALON",
-    title: "Tạo kiểu & chăm sóc tóc",
-    description: "Khám phá kiểu tóc phù hợp để tự tin thể hiện phong cách riêng.",
-    image: carePhoto,
-  },
-];
-
-const features = [
-  {
-    icon: "bi-chat-heart",
-    title: "Lắng nghe nhu cầu",
-    text: "Cùng tìm lựa chọn chăm sóc phù hợp với mong muốn của bạn.",
-  },
-  {
-    icon: "bi-flower1",
-    title: "Không gian thư giãn",
-    text: "Một nhịp chậm giữa ngày bận rộn, để bạn thoải mái tận hưởng.",
-  },
-  {
-    icon: "bi-calendar-heart",
-    title: "Chủ động lịch hẹn",
-    text: "Chọn thời gian thuận tiện và nhận xác nhận trước khi đến.",
-  },
-];
+// Same illustration per service as the Services page, used when a service has no uploaded image
+const PHOTOS = [photo01, photo02, photo03, photo04, photo05, photo06, photo07, photo08, photo09, photo10, photo11];
+const photoFor = (service) => PHOTOS[Math.max(0, Number(service.serviceId) - 1) % PHOTOS.length];
 
 const steps = [
   {
     number: "01",
-    icon: "bi-stars",
-    title: "Chọn dịch vụ",
-    text: "Khám phá dịch vụ, tìm hiểu để được tư vấn và lựa chọn.",
+    title: "Choose a service & time",
+    text: "Only available time slots are shown. Book at least 2 hours ahead, up to 30 days.",
   },
   {
     number: "02",
-    icon: "bi-calendar2-week",
-    title: "Gửi lịch hẹn",
-    text: "Đặt lịch trong khung giờ bạn muốn đến.",
+    title: "We confirm",
+    text: "Our receptionist confirms your appointment. Pay at the counter or online with VNPay.",
   },
   {
     number: "03",
-    icon: "bi-heart",
-    title: "Xác nhận & tận hưởng",
-    text: "Nhận xác nhận từ Seoul Center, rồi dành thời gian cho mình.",
+    title: "Relax & enjoy",
+    text: "Arrive a few minutes early. Members get a discount on every visit.",
   },
 ];
 
-const testimonials = [
-  {
-    initials: "MA",
-    name: "Minh Anh",
-    service: "Chăm sóc da mặt",
-    quote: "Mình thích cách được lắng nghe trước khi chọn dịch vụ. Buổi chăm sóc nhẹ nhàng, đúng là một khoảng nghỉ cho bản thân.",
-  },
-  {
-    initials: "TV",
-    name: "Thảo Vy",
-    service: "Gội đầu dưỡng sinh",
-    quote: "Sau một tuần bận rộn, được chăm sóc tận tình khiến mình thấy dễ chịu hơn nhiều. Mình muốn dành thời gian này thường xuyên hơn.",
-  },
-  {
-    initials: "NL",
-    name: "Ngọc Linh",
-    service: "Massage thư giãn",
-    quote: "Từ lúc đặt lịch đến khi đến nơi đều thuận tiện. Không gian nhẹ nhàng giúp mình có thể thật sự thư giãn.",
-  },
-];
-
-const questions = [
-  {
-    question: "Có cần đăng nhập để xem dịch vụ và đặt lịch không?",
-    answer: "Bạn có thể xem thông tin dịch vụ mà không cần đăng nhập. Để xem lịch trống, đặt lịch và theo dõi lịch hẹn, bạn cần đăng nhập tài khoản khách hàng.",
-  },
-  {
-    question: "Tôi nên chọn dịch vụ nào cho lần đầu tiên?",
-    answer: "Bạn có thể xem mô tả dịch vụ trước, sau đó liên hệ Seoul Center để được tư vấn theo nhu cầu của mình.",
-  },
-  {
-    question: "Chi phí và thời gian chăm sóc được tính như thế nào?",
-    answer: "Chi phí và thời lượng được hiển thị tại trang chi tiết từng dịch vụ. Nhân viên sẽ xác nhận thông tin trước khi bạn đến.",
-  },
-  {
-    question: "Tôi có thể thay đổi lịch hẹn không?",
-    answer: "Bạn có thể liên hệ trực tiếp với Seoul Center để được hỗ trợ thay đổi lịch hẹn.",
-  },
-  {
-    question: "Tôi cần chuẩn bị gì trước khi đến?",
-    answer: "Bạn chỉ cần đến đúng giờ đã hẹn. Nếu có lưu ý riêng về sức khỏe hoặc nhu cầu chăm sóc, hãy chia sẻ với nhân viên khi được tư vấn.",
-  },
-];
+const money = (value) => Number(value || 0).toLocaleString("vi-VN");
 
 const GuestHome = ({ user }) => {
-  const servicesPath = user?.role === "Customer" ? "/services" : "/guest/services";
-  const [activeQuestion, setActiveQuestion] = useState(0);
+  const isCustomer = user?.role === "Customer";
+  const servicesPath = isCustomer ? "/services" : "/guest/services";
+  const reviewsPath = isCustomer ? "/feedback" : "/guest/feedback";
+  const detailPath = (id) => (isCustomer ? `/services/detail/${id}` : `/guest/services/${id}`);
+
+  const [services, setServices] = useState([]);
+  const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    axios.get("/api/service", { signal: controller.signal })
+      .then((res) => Array.isArray(res.data) && setServices(res.data.filter((s) => s.status === "Active")))
+      .catch(() => {});
+    axios.get("/api/feedback", { signal: controller.signal })
+      .then((res) => Array.isArray(res.data) && setReviews(res.data))
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+
+  const featured = services.slice(0, 3);
+  const rated = reviews.filter((r) => Number(r.rating) > 0);
+  const average = rated.length ? (rated.reduce((sum, r) => sum + Number(r.rating), 0) / rated.length).toFixed(1) : null;
+  const latestReview = [...rated]
+    .filter((r) => r.comment && String(r.comment).trim().length > 20 && Number(r.rating) >= 4)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0];
 
   return (
-  <div className="seoul-home">
-    <section className="home-hero">
-      <div className="home-container home-hero-grid">
-        <div className="home-hero-copy">
-          <span className="home-eyebrow">
-            <i className="bi bi-stars" aria-hidden="true" />
-            SEOUL CENTER · SALON &amp; SPA
-          </span>
-          <h1>
-            Một khoảng nghỉ.
-            <br />
-            Một phiên bản
-            <br />
-            <span>rạng rỡ hơn.</span>
-          </h1>
-          <p>
-            Dành một chút thời gian chăm sóc bản thân. Khám phá dịch vụ chăm
-            sóc sắc đẹp và thư giãn trong không gian nhẹ nhàng tại Seoul Center.
-          </p>
-          <div className="home-hero-actions">
-            <Link className="home-button home-button-primary" to="/slots">
-              Đặt lịch chăm sóc <i className="bi bi-calendar2-check" aria-hidden="true" />
-            </Link>
-            <Link className="home-button home-button-white" to={servicesPath}>
-              Khám phá dịch vụ <i className="bi bi-arrow-up-right" aria-hidden="true" />
-            </Link>
-          </div>
-          <span className="home-hero-note">
-            <i className="bi bi-heart" aria-hidden="true" /> Xem dịch vụ tự do · Đăng nhập để đặt lịch
-          </span>
-        </div>
-        <div className="home-hero-visual">
-          <img src={treatmentPhoto} alt="Chuyên viên chăm sóc da tại Seoul Center" />
-          <div className="home-image-note">
-            <span className="home-note-icon"><i className="bi bi-flower1" aria-hidden="true" /></span>
-            <span>
-              <strong>Chăm sóc từ sự lắng nghe</strong>
-              <small>Một trải nghiệm dành riêng cho bạn.</small>
-            </span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section className="home-features home-container" aria-label="Điểm nổi bật">
-      {features.map((feature) => (
-        <article className="home-feature-card" key={feature.title}>
-          <span className="home-feature-icon">
-            <i className={`bi ${feature.icon}`} aria-hidden="true" />
-          </span>
-          <span>
-            <strong>{feature.title}</strong>
-            <small>{feature.text}</small>
-          </span>
-        </article>
-      ))}
-    </section>
-
-    <section className="home-services">
-      <div className="home-container">
-        <div className="home-section-heading home-section-heading-left">
-          <div>
-            <span className="home-eyebrow">CHỌN ĐIỀU BẠN CẦN</span>
-            <h2>Chăm chút vẻ đẹp, nuôi dưỡng cảm xúc</h2>
-            <p>Từ làn da đến mái tóc, mỗi trải nghiệm chăm sóc đều dành cho mình.</p>
-          </div>
-          <Link className="home-text-link" to={servicesPath}>
-            Tất cả dịch vụ <i className="bi bi-arrow-right" aria-hidden="true" />
-          </Link>
-        </div>
-        <div className="home-service-grid">
-          {services.map((service) => (
-            <article className="home-service-card" key={service.title}>
-              <img src={service.image} alt="" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
-              <div className="home-service-content">
-                <span className="home-eyebrow">{service.category}</span>
-                <h3>{service.title}</h3>
-                <p>{service.description}</p>
-                <Link to={servicesPath} aria-label={`Tìm hiểu ${service.title}`}>
-                  Tìm hiểu dịch vụ <i className="bi bi-arrow-right" aria-hidden="true" />
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
-        <p className="home-caption">
-          Chi phí và thời lượng được tư vấn theo dịch vụ bạn chọn trước khi xác
-          nhận lịch hẹn.
-        </p>
-      </div>
-    </section>
-
-    <section className="home-welcome">
-      <div className="home-container home-welcome-grid">
-        <div className="home-welcome-image">
-          <img src={spaPhoto} alt="Không gian thư giãn tại Seoul Center" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
-          <span><i className="bi bi-flower1" aria-hidden="true" /> Không gian thư giãn · Hình ảnh minh họa</span>
-        </div>
-        <div className="home-welcome-copy">
-          <span className="home-eyebrow">CHÀO MỪNG ĐẾN SEOUL CENTER</span>
-          <h2>Bước vào nhẹ nhàng.<br />Rời đi với một nụ cười.</h2>
-          <p>
-            Không chỉ là một buổi chăm sóc, đây còn là thời gian để bạn nghỉ
-            ngơi và kết nối lại với chính mình.
-          </p>
-          <ul>
-            <li><i className="bi bi-check-circle" aria-hidden="true" /> Trao đổi mong muốn trước khi bắt đầu</li>
-            <li><i className="bi bi-check-circle" aria-hidden="true" /> Lựa chọn dịch vụ theo nhu cầu của bạn</li>
-            <li><i className="bi bi-check-circle" aria-hidden="true" /> Hướng dẫn chăm sóc sau buổi trải nghiệm</li>
-          </ul>
-          <Link className="home-button home-button-white" to={servicesPath}>
-            Khám phá dịch vụ <i className="bi bi-arrow-up-right" aria-hidden="true" />
-          </Link>
-        </div>
-      </div>
-    </section>
-
-    <section className="home-steps">
-      <div className="home-container">
-        <div className="home-section-heading home-section-heading-center">
-          <span className="home-eyebrow">ĐẶT LỊCH THẬT DỄ</span>
-          <h2>Một lịch hẹn, chỉ ba bước</h2>
-          <p>Khám phá dịch vụ, đăng nhập và chọn thời gian phù hợp.</p>
-        </div>
-        <div className="home-step-grid">
-          {steps.map((step) => (
-            <article className="home-step" key={step.number}>
-              <div className="home-step-top">
-                <span>{step.number}</span>
-                <i className={`bi ${step.icon}`} aria-hidden="true" />
-              </div>
-              <h3>{step.title}</h3>
-              <p>{step.text}</p>
-            </article>
-          ))}
-        </div>
-        <Link className="home-button home-button-primary home-steps-cta" to="/slots">
-          Đặt lịch ngay <i className="bi bi-calendar2-check" aria-hidden="true" />
-        </Link>
-      </div>
-    </section>
-
-    <section className="home-testimonials">
-      <div className="home-container">
-        <div className="home-section-heading home-section-heading-center">
-          <span className="home-eyebrow">NHỮNG CÂU CHUYỆN NHỎ</span>
-          <h2>Điều đọng lại sau mỗi lần chăm sóc</h2>
-        </div>
-        <div className="home-testimonial-grid">
-          {testimonials.map((testimonial) => (
-            <article className="home-testimonial-card" key={testimonial.initials}>
-              <i className="bi bi-quote home-quote-icon" aria-hidden="true" />
-              <p>{testimonial.quote}</p>
-              <div className="home-reviewer">
-                <span>{testimonial.initials}</span>
-                <span><strong>{testimonial.name}</strong><small>{testimonial.service}</small></span>
-              </div>
-            </article>
-          ))}
-        </div>
-        <p className="home-caption text-center">Phản hồi minh họa · Nội dung thực tế phụ thuộc trải nghiệm của khách hàng.</p>
-        <div className="text-center"><Link className="home-text-link" to={user?.role === "Customer" ? "/feedback" : "/guest/feedback"}>Xem đánh giá khách hàng <i className="bi bi-arrow-right" aria-hidden="true" /></Link></div>
-      </div>
-    </section>
-
-    <section className="home-faq">
-      <div className="home-container home-faq-grid">
-        <div className="home-faq-intro">
-          <span className="home-eyebrow">GIẢI ĐÁP CÙNG BẠN</span>
-          <h2>Một vài điều<br />bạn muốn biết</h2>
-          <p>Để bạn nhẹ nhàng bắt đầu trên nền thoải mái và dễ dàng hơn.</p>
-          <div className="home-contact-card">
-            <strong>Bạn vẫn còn băn khoăn?</strong>
-            <span>Chúng tôi sẵn sàng lắng nghe và tư vấn.</span>
-            <a href="tel:+84914269346"><i className="bi bi-telephone" aria-hidden="true" /> (+84) 914 269 346</a>
-          </div>
-        </div>
-        <div className="home-faq-list">
-          {questions.map((item, index) => (
-            <div className={`home-faq-item${activeQuestion === index ? " is-open" : ""}`} key={item.question}>
-              <h3>
-                <button
-                  type="button"
-                  aria-expanded={activeQuestion === index}
-                  onClick={() => setActiveQuestion(activeQuestion === index ? -1 : index)}
-                >
-                  {item.question}
-                  <i className={`bi bi-${activeQuestion === index ? "dash" : "plus"}`} aria-hidden="true" />
-                </button>
-              </h3>
-              {activeQuestion === index && <p>{item.answer}</p>}
+    <div className="sc-page">
+      {/* Hero */}
+      <section className="sc-hero">
+        <div className="sc-container sc-hero-grid">
+          <div className="sc-hero-copy">
+            <span className="sc-eyebrow">KOREAN BEAUTY &amp; SPA · CAN THO</span>
+            <h1>
+              Slow down.
+              <br />
+              <em>Feel like yourself again.</em>
+            </h1>
+            <p className="sc-lead">
+              Facials, massages and herbal head spa by trained therapists. Book online in a minute
+              and we will confirm your appointment.
+            </p>
+            <div className="sc-actions">
+              <Link className="sc-btn sc-btn-primary" to="/slots">Book an appointment</Link>
+              <Link className="sc-btn sc-btn-ghost" to={servicesPath}>See services</Link>
             </div>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <section className="home-contact">
-      <div className="home-container home-contact-grid">
-        <div>
-          <span className="home-eyebrow">HẸN GẶP BẠN TẠI CẦN THƠ</span>
-          <h2>Một nơi để bạn chăm sóc mình</h2>
-          <div className="home-contact-details">
-            <span><i className="bi bi-geo-alt" aria-hidden="true" /><span><small>Địa chỉ</small>329 Nguyễn Văn Cừ, Phường Cái Khế, Thành Phố Cần Thơ</span></span>
-            <span><i className="bi bi-clock" aria-hidden="true" /><span><small>Giờ làm việc</small>08:30–18:30 hằng ngày</span></span>
-            <span><i className="bi bi-telephone" aria-hidden="true" /><span><small>Điện thoại</small>(+84) 914 269 346</span></span>
-            <span><i className="bi bi-envelope" aria-hidden="true" /><span><small>Email</small>cskh@seoulcenter.vn</span></span>
+            <dl className="sc-stats">
+              {average && (
+                <div>
+                  <dt>{average}</dt>
+                  <dd>Average rating</dd>
+                </div>
+              )}
+              <div>
+                <dt>{services.length || "—"}</dt>
+                <dd>Signature services</dd>
+              </div>
+              <div>
+                <dt>08:30–18:30</dt>
+                <dd>Open every day</dd>
+              </div>
+            </dl>
           </div>
-          <a className="home-text-link" href="https://maps.google.com/?q=329+Nguyen+Van+Cu+Can+Tho" target="_blank" rel="noreferrer">
-            Xem chỉ đường <i className="bi bi-arrow-up-right" aria-hidden="true" />
-          </a>
+          <div className="sc-hero-visual">
+            <img src={heroPhoto} alt="A therapist giving a relaxing facial at Seoul Center" />
+            <div className="sc-float-card">
+              <span className="sc-float-icon"><i className="bi bi-calendar2-check" aria-hidden="true" /></span>
+              <span>
+                <strong>Book online, anytime</strong>
+                <small>Up to 30 days ahead</small>
+              </span>
+            </div>
+          </div>
         </div>
-        <article className="home-contact-card-large">
-          <img src={relaxPhoto} alt="Trải nghiệm thư giãn tại Seoul Center" loading="lazy" decoding="async" onLoad={(event) => event.currentTarget.classList.add("is-loaded")} onError={(event) => event.currentTarget.classList.add("is-loaded")} />
-          <div>
-            <h3>Hôm nay, ưu tiên bản thân nhé.</h3>
-            <p>Chọn một dịch vụ bạn yêu thích. Seoul Center sẽ liên hệ để tư vấn và xác nhận thời gian phù hợp.</p>
-            <Link className="home-button home-button-primary" to="/slots">
-              Đặt lịch chăm sóc <i className="bi bi-calendar2-check" aria-hidden="true" />
+      </section>
+
+      {/* Featured services */}
+      <section className="sc-section sc-section-white">
+        <div className="sc-container">
+          <div className="sc-section-head">
+            <div>
+              <span className="sc-eyebrow">OUR SERVICES</span>
+              <h2>Treatments loved by our guests</h2>
+            </div>
+            <Link className="sc-link" to={servicesPath}>
+              View all {services.length ? `${services.length} ` : ""}services <i className="bi bi-arrow-right" aria-hidden="true" />
             </Link>
           </div>
-        </article>
-      </div>
-    </section>
-  </div>
+          <div className="sc-card-grid">
+            {(featured.length ? featured : [null, null, null]).map((s, i) => (
+              s ? (
+                <Link className="sc-service-card" to={detailPath(s.serviceId)} key={s.serviceId}>
+                  <span className="sc-service-image">
+                    <img
+                      src={s.imageUrl || photoFor(s)}
+                      alt=""
+                      loading="lazy"
+                      onError={(e) => { if (!e.currentTarget.dataset.fallback) { e.currentTarget.dataset.fallback = "1"; e.currentTarget.src = photoFor(s); } }}
+                    />
+                  </span>
+                  <span className="sc-service-body">
+                    <span className="sc-meta">{(s.category || "Service").toUpperCase()} · {s.duration} MIN</span>
+                    <span className="sc-service-name">{s.serviceName}</span>
+                    <span className="sc-from">From <span className="sc-price">{money(s.price)} <small>VND</small></span></span>
+                  </span>
+                </Link>
+              ) : (
+                <div className="sc-service-card is-loading" key={i} aria-hidden="true">
+                  <span className="sc-service-image" />
+                  <span className="sc-service-body"><span className="sc-skeleton" /><span className="sc-skeleton short" /></span>
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Steps */}
+      <section className="sc-section">
+        <div className="sc-container">
+          <div className="sc-section-head sc-center">
+            <div>
+              <span className="sc-eyebrow">HOW IT WORKS</span>
+              <h2>Three easy steps</h2>
+            </div>
+          </div>
+          <ol className="sc-steps">
+            {steps.map((step) => (
+              <li key={step.number}>
+                <span className="sc-step-number">{step.number}</span>
+                <strong>{step.title}</strong>
+                <span>{step.text}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* Review */}
+      {latestReview && (
+        <section className="sc-section sc-section-pink" id="reviews">
+          <div className="sc-container sc-review-grid">
+            <div>
+              <span className="sc-eyebrow">REVIEWS</span>
+              <h2>What our guests say</h2>
+              <Link className="sc-link" to={reviewsPath}>
+                Read all reviews <i className="bi bi-arrow-right" aria-hidden="true" />
+              </Link>
+            </div>
+            <figure className="sc-quote">
+              <span className="sc-stars" role="img" aria-label={`${latestReview.rating} out of 5 stars`}>
+                {"★".repeat(Number(latestReview.rating))}{"☆".repeat(5 - Number(latestReview.rating))}
+              </span>
+              <blockquote>“{String(latestReview.comment).trim()}”</blockquote>
+              <figcaption>
+                {latestReview.customerName || "Seoul Center guest"} · {latestReview.serviceName}
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+      )}
+
+      {/* CTA */}
+      <section className="sc-section sc-cta-wrap">
+        <div className="sc-container">
+          <div className="sc-cta-box">
+            <div>
+              <h2>Your first visit, made simple.</h2>
+              <p>Free reschedule or cancel up to 2 hours before your appointment.</p>
+            </div>
+            <Link className="sc-btn sc-btn-light" to="/slots">Book an appointment</Link>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 };
 

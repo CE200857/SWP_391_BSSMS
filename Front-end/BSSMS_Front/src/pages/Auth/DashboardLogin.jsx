@@ -29,7 +29,7 @@ export default function DashboardLogin({ user, setUser }) {
     } catch (err) {
       localStorage.removeItem('user');
       setUser(null);
-      setError(err.message || 'Không thể kết nối máy chủ. Vui lòng thử lại.');
+      setError(err.message || 'Could not connect to the server. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -45,57 +45,57 @@ export default function DashboardLogin({ user, setUser }) {
               <span className="staff-login-portal">STAFF PORTAL</span>
             </Link>
             <Link to="/bssms-guest" className="staff-login-back">
-              <i className="bi bi-arrow-left" aria-hidden="true" /> Về trang chủ
+              <i className="bi bi-arrow-left" aria-hidden="true" /> Back to home page
             </Link>
           </div>
         </header>
         <div className="staff-login-content auth-page-grid">
           <section className="staff-login-intro auth-page-intro">
-            <span className="home-eyebrow">KHÔNG GIAN LÀM VIỆC</span>
-            <h1>Mỗi ngày chỉn chu.<br />Mỗi khách hàng hài lòng.</h1>
-            <p>Quản lý lịch hẹn, phối hợp đội ngũ và vận hành chăm sóc khách hàng.</p>
+            <span className="home-eyebrow">WORKSPACE</span>
+            <h1>Feel your best,<br />every single day.</h1>
+            <p>Manage appointments, coordinate the team and run customer care.</p>
             <div className="auth-intro-note">
               <i className="bi bi-calendar2-check" aria-hidden="true" />
               <span>
-                <strong>Dành cho đội ngũ Seoul Center</strong>
-                <small>Quản lý lịch hẹn và khách hàng.</small>
+                <strong>For the Seoul Center team</strong>
+                <small>Manage appointments and customers.</small>
               </span>
             </div>
-            <img className="staff-login-photo" src={spaPhoto} alt="Chăm sóc khách hàng tại Seoul Center" />
-            <small className="staff-login-caption">BSSMS · Hệ thống quản lý salon &amp; spa</small>
+            <img className="staff-login-photo" src={spaPhoto} alt="Customer care at Seoul Center" />
+            <small className="staff-login-caption">BSSMS · Salon &amp; spa management system</small>
           </section>
           <section className="staff-login-panel">
             <div className="staff-login-form app-login-card">
               <div className="card-body">
                 <div className="position-relative mb-4">
-                  <Link to="/bssms-guest" className="staff-login-card-back" aria-label="Quay lại trang chủ">
+                  <Link to="/bssms-guest" className="staff-login-card-back" aria-label="Back to home page">
                     <i className="bi bi-arrow-left" aria-hidden="true" />
                   </Link>
-                  <h3 className="text-center fw-bold text-uppercase m-0">Đăng nhập</h3>
+                  <h3 className="text-center fw-bold text-uppercase m-0">Log in</h3>
                 </div>
                 {error && <div className="alert alert-danger" role="alert">{error}</div>}
                 {user?.role === 'Customer' ? (
-                  <div className="alert alert-info">Bạn đang đăng nhập bằng tài khoản khách hàng. Hãy đăng xuất trong hồ sơ trước khi dùng tài khoản nhân viên. <Link to="/profile">Mở hồ sơ</Link></div>
+                  <div className="alert alert-info">You are logged in with a customer account. Log out from your profile before using a staff account. <Link to="/profile">Open profile</Link></div>
                 ) : (
                   <form onSubmit={submit}>
                     <div className="mb-3">
-                      <label className="form-label fw-bold" htmlFor="staff-email">Email hoặc Số điện thoại*</label>
-                      <input className="form-control" id="staff-email" name="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} placeholder="Vui lòng nhập email hoặc sđt" disabled={loading} />
+                      <label className="form-label fw-bold" htmlFor="staff-email">Email or phone number*</label>
+                      <input className="form-control" id="staff-email" name="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} placeholder="Please enter your email or phone number" disabled={loading} />
                     </div>
                     <div className="mb-4">
-                      <label className="form-label fw-bold" htmlFor="staff-password">Mật khẩu*</label>
+                      <label className="form-label fw-bold" htmlFor="staff-password">Password*</label>
                       <div className="staff-password-field">
-                        <input className="form-control" id="staff-password" name="password" autoComplete="current-password" type={showPassword ? 'text' : 'password'} required value={password} onChange={e => setPassword(e.target.value)} placeholder="Vui lòng nhập mật khẩu" disabled={loading} />
-                        <button type="button" aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}><i className={showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'} aria-hidden="true" /></button>
+                        <input className="form-control" id="staff-password" name="password" autoComplete="current-password" type={showPassword ? 'text' : 'password'} required value={password} onChange={e => setPassword(e.target.value)} placeholder="Please enter your password" disabled={loading} />
+                        <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}><i className={showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'} aria-hidden="true" /></button>
                       </div>
                     </div>
-                    <button className="btn btn-primary w-100 mb-4 fw-bold" type="submit" disabled={loading}>{loading ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>
+                    <button className="btn btn-primary w-100 mb-4 fw-bold" type="submit" disabled={loading}>{loading ? 'Logging in…' : 'Log in'}</button>
                   </form>
                 )}
                 <div className="staff-login-links d-flex flex-column text-start">
-                  <Link className="auth-inline-link mb-2" to="/forgot-password?portal=staff">Quên mật khẩu?</Link>
-                  <span>Cần tài khoản? Liên hệ quản lý để được cấp quyền.</span>
-                  <Link className="auth-inline-link mt-3" to="/login">Bạn là khách hàng? Đăng nhập tại đây</Link>
+                  <Link className="auth-inline-link mb-2" to="/forgot-password?portal=staff">Forgot password?</Link>
+                  <span>Need an account? Contact the manager to get access.</span>
+                  <Link className="auth-inline-link mt-3" to="/login">Are you a customer? Log in here</Link>
                 </div>
               </div>
             </div>

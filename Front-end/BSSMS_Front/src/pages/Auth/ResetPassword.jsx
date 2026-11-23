@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Container, Form, Button, Card, Alert } from "react-bootstrap";
+import { Container, Form, Button, Card } from "react-bootstrap";
+import FloatingAlert from "../../components/FloatingAlert";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -29,12 +30,12 @@ const ResetPassword = () => {
     setSuccessMsg("");
 
     if (newPassword.length < 6) {
-      setError("Mật khẩu mới phải có ít nhất 6 ký tự.");
+      setError("The new password must have at least 6 characters.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp.");
+      setError("Passwords do not match.");
       return;
     }
 
@@ -51,16 +52,16 @@ const ResetPassword = () => {
       });
 
       if (response.ok) {
-        setSuccessMsg("Đặt lại mật khẩu thành công! Đang chuyển về Đăng nhập...");
+        setSuccessMsg("Password reset! Redirecting to login...");
         setTimeout(() => {
           navigate(staffPortal ? "/dashboard/login" : "/login");
         }, 1500);
       } else {
         const data = await response.json();
-        setError(data.message || "Có lỗi xảy ra khi đặt lại mật khẩu.");
+        setError(data.message || "An error occurred while resetting the password.");
       }
     } catch (err) {
-      setError("Lỗi kết nối đến máy chủ. Vui lòng kiểm tra mạng!");
+      setError("Cannot connect to the server. Please check your connection.");
     } finally {
       setIsLoading(false);
     }
@@ -80,24 +81,24 @@ const ResetPassword = () => {
         <Card.Body>
           <div className="position-relative mb-4">
             <h4 className="text-center fw-bold text-uppercase m-0" style={{ color: "#3a2a2f" }}>
-              Tạo mật khẩu mới
+              Create a new password
             </h4>
           </div>
 
           <p className="text-muted text-center mb-4" style={{ fontSize: "1rem" }}>
-            Vui lòng nhập mật khẩu mới cho tài khoản: <br/> 
+            Please enter a new password for account: <br/> 
             <strong className="text-danger">{email}</strong>
           </p>
 
-          {error && <Alert variant="danger">{error}</Alert>}
-          {successMsg && <Alert variant="success">{successMsg}</Alert>}
+          <FloatingAlert message={error} onClose={() => setError("")} />
+          <FloatingAlert message={successMsg} variant="success" onClose={() => setSuccessMsg("")} />
 
           <Form onSubmit={handleResetPassword}>
             <Form.Group className="mb-3 text-start">
-              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Mật khẩu mới*</Form.Label>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>New password*</Form.Label>
               <Form.Control
                 type="password"
-                placeholder="Nhập ít nhất 6 ký tự"
+                placeholder="Enter at least 6 characters"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
@@ -106,10 +107,10 @@ const ResetPassword = () => {
             </Form.Group>
 
             <Form.Group className="mb-4 text-start">
-              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Xác nhận mật khẩu mới*</Form.Label>
+              <Form.Label className="fw-bold" style={{ fontSize: "1rem" }}>Confirm new password*</Form.Label>
               <Form.Control
                 type="password"
-                placeholder="Nhập lại mật khẩu mới"
+                placeholder="Re-enter the new password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -124,7 +125,7 @@ const ResetPassword = () => {
                 onClick={() => navigate(staffPortal ? "/forgot-password?portal=staff" : "/forgot-password")}
                 disabled={isLoading || successMsg !== ""}
               >
-                Quay lại
+                Back
               </Button>
               <Button
                 variant="danger"
@@ -133,7 +134,7 @@ const ResetPassword = () => {
                 style={{ backgroundColor: "#a61e4d", border: "none" }}
                 disabled={isLoading || successMsg !== ""}
               >
-                {isLoading ? "Đang xử lý..." : "Xác nhận"}
+                {isLoading ? "Processing..." : "Confirm"}
               </Button>
             </div>
           </Form>

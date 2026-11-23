@@ -8,7 +8,7 @@ export default function InfoPage({ title, lead, children }) {
       {lead && <p className="info-lead">{lead}</p>}
       {children}
       <p className="info-contact">
-        Cần hỗ trợ thêm? Liên hệ <a href={`mailto:${SITE.email}`}>{SITE.email}</a> hoặc gọi{" "}
+        Need more help? Contact <a href={`mailto:${SITE.email}`}>{SITE.email}</a> or call{" "}
         <a href={`tel:${SITE.phoneLink}`}>{SITE.phoneDisplay}</a> ({SITE.hours}).
       </p>
     </main>

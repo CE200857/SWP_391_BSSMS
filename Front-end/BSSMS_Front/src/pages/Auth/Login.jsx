@@ -4,6 +4,7 @@ import { Container, Form, Button, Card, Alert } from "react-bootstrap";
 import spaPhoto from "../../assets/figma/login-spa-original.jpeg";
 
 import { loginAccount, loginDestination, roleHome } from "../../auth/login";
+import FloatingAlert from "../../components/FloatingAlert";
 
 const Login = ({ user, setUser }) => {
   const [email, setEmail] = useState("");
@@ -27,7 +28,7 @@ const Login = ({ user, setUser }) => {
 
     if (!emailRegex.test(inputValue) && !phoneRegex.test(inputValue)) {
       setError(
-        "Vui lòng nhập đúng định dạng Email hoặc Số điện thoại (10 chữ số, bắt đầu bằng số 0)."
+        "Please enter a valid email or phone number (10 digits, starting with 0)."
       );
       return;
     }
@@ -43,7 +44,7 @@ const Login = ({ user, setUser }) => {
     } catch (err) {
       localStorage.removeItem('user');
       setUser(null);
-      setError(err.message || 'Lỗi kết nối đến máy chủ!');
+      setError(err.message || 'Cannot connect to the server.');
     } finally {
       setIsLoading(false);
     }
@@ -56,49 +57,55 @@ const Login = ({ user, setUser }) => {
     >
       <div className="auth-page-grid">
         <section className="auth-page-intro">
-          <span className="home-eyebrow">CHÀO MỪNG TRỞ LẠI</span>
-          <h1>Một khoảng nghỉ<br />chỉ dành cho bạn.</h1>
-          <p>Đăng nhập để đặt lịch chăm sóc, theo dõi lịch hẹn và khám phá dịch vụ tại Seoul Center.</p>
+          <span className="home-eyebrow">WELCOME BACK</span>
+          <h1>A pause<br />just for you.</h1>
+          <p>Log in to book treatments, manage your appointments and explore services at Seoul Center.</p>
           <div className="auth-intro-note">
             <i className="bi bi-heart" aria-hidden="true" />
-            <span><strong>Chăm sóc từ sự lắng nghe</strong><small>Một trải nghiệm dành riêng cho bạn.</small></span>
+            <span><strong>Care that starts with listening</strong><small>An experience just for you.</small></span>
           </div>
-          <img src={spaPhoto} alt="Trải nghiệm chăm sóc da tại Seoul Center" />
+          <img src={spaPhoto} alt="Skin care experience at Seoul Center" />
         </section>
         <Card className="app-login-card">
         <Card.Body>
           <div className="position-relative mb-4">
-            <i
-              className="bi bi-arrow-left position-absolute"
+            <button
+              type="button"
+              className="position-absolute btn btn-link p-0 d-inline-flex align-items-center justify-content-center"
               style={{
                 left: 0,
                 top: "50%",
                 transform: "translateY(-50%)",
-                cursor: "pointer",
+                width: 44,
+                height: 44,
                 fontSize: "1.5rem",
                 color: "#6c757d",
               }}
               onClick={() => navigate("/bssms-guest")}
-              title="Quay lại trang chủ"
-            ></i>
+              aria-label="Back to home page"
+              title="Back to home page"
+            >
+              <i className="bi bi-arrow-left" aria-hidden="true" />
+            </button>
 
-            <h3 className="text-center fw-bold text-uppercase m-0">
-              Đăng nhập
-            </h3>
+            <h2 className="text-center fw-bold text-uppercase m-0">
+              Log in
+            </h2>
           </div>
 
-          {location.state?.from?.startsWith("/slots") && <Alert variant="info">Vui lòng đăng nhập để xem lịch trống và đặt lịch hẹn.</Alert>}
-          {error && <Alert variant="danger">{error}</Alert>}
-          {successMsg && <Alert variant="success">{successMsg}</Alert>}
+          {location.state?.from?.startsWith("/slots") && <Alert variant="info">Please log in to see available times and book an appointment.</Alert>}
+          <FloatingAlert message={error} onClose={() => setError("")} />
+          <FloatingAlert message={successMsg} variant="success" onClose={() => setSuccessMsg("")} />
 
           <Form onSubmit={handleLogin}>
             <Form.Group className="mb-3 text-start" controlId="formBasicEmail">
               <Form.Label className="fw-bold">
-                Email hoặc Số điện thoại*
+                Email or phone number*
               </Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Vui lòng nhập email hoặc sđt"
+                autoComplete="username"
+                placeholder="Please enter your email or phone number"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -110,10 +117,11 @@ const Login = ({ user, setUser }) => {
               className="mb-4 text-start"
               controlId="formBasicPassword"
             >
-              <Form.Label className="fw-bold">Mật khẩu*</Form.Label>
+              <Form.Label className="fw-bold">Password*</Form.Label>
               <Form.Control
                 type="password"
-                placeholder="Vui lòng nhập mật khẩu"
+                autoComplete="current-password"
+                placeholder="Please enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -129,10 +137,10 @@ const Login = ({ user, setUser }) => {
               disabled={isLoading || successMsg !== ""}
             >
               {isLoading
-                ? "Đang xử lý..."
+                ? "Processing..."
                 : successMsg
-                ? "Đang chuyển hướng..."
-                : "Đăng nhập"}
+                ? "Redirecting..."
+                : "Log in"}
             </Button>
           </Form>
 
@@ -141,15 +149,15 @@ const Login = ({ user, setUser }) => {
             style={{ fontSize: "1rem" }}
           >
             <Link className="auth-inline-link mb-2" to="/forgot-password">
-              Quên mật khẩu?
+              Forgot password?
             </Link>
             <span>
-              Chưa có tài khoản?{" "}
+              Don’t have an account?{" "}
               <Link className="auth-inline-link" to="/register">
-                Đăng ký
+                Sign up
               </Link>
             </span>
-            <Link className="auth-inline-link mt-3" to="/dashboard/login">Đăng nhập dành cho nhân viên</Link>
+            <Link className="auth-inline-link mt-3" to="/dashboard/login">Staff login</Link>
           </div>
         </Card.Body>
       </Card>

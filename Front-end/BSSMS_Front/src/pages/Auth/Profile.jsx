@@ -29,7 +29,7 @@ const Profile = ({ user, setUser }) => {
           setProfileData(data);
         }
       } catch (error) {
-        console.error("Lỗi khi tải hồ sơ:", error);
+        console.error("Error loading the profile:", error);
       } finally {
         setIsLoading(false);
       }
@@ -45,7 +45,7 @@ const Profile = ({ user, setUser }) => {
         credentials: "include",
       });
     } catch (error) {
-      console.error("Lỗi khi gọi API logout:", error);
+      console.error("Error calling the logout API:", error);
     } finally {
       localStorage.removeItem("user");
       setUser(null);
@@ -64,18 +64,18 @@ const Profile = ({ user, setUser }) => {
         <section className="customer-page-banner customer-profile-banner">
           <div className="customer-page-container">
             <div className="customer-breadcrumb">
-              <button type="button" onClick={() => navigate("/customer/home")}>Trang chủ</button>
+              <button type="button" onClick={() => navigate("/customer/home")}>Home</button>
               <i className="bi bi-chevron-right" aria-hidden="true" />
-              <strong>Hồ sơ cá nhân</strong>
+              <strong>My profile</strong>
             </div>
             <div className="customer-profile-banner-row">
               <div>
-                <span className="home-eyebrow">TÀI KHOẢN CỦA BẠN</span>
-                <h1>Hồ sơ cá nhân</h1>
-                <p>Thông tin của bạn, cho những trải nghiệm chăm sóc thật riêng tại Seoul Center.</p>
+                <span className="home-eyebrow">YOUR ACCOUNT</span>
+                <h1>My profile</h1>
+                <p>Your information, for truly personal care experiences at Seoul Center.</p>
               </div>
               <Button variant="light" onClick={() => navigate(-1)}>
-                <i className="bi bi-arrow-left" aria-hidden="true" /> Quay lại
+                <i className="bi bi-arrow-left" aria-hidden="true" /> Back
               </Button>
             </div>
           </div>
@@ -86,50 +86,50 @@ const Profile = ({ user, setUser }) => {
             <div className="customer-profile-identity">
               <span>{initial}</span>
               <h2>{displayName}</h2>
-              <small>Khách hàng</small>
+              <small>Customer</small>
             </div>
             <div className="customer-profile-menu-divider" />
             <button className="is-active" type="button" aria-current="page">
-              <i className="bi bi-person" aria-hidden="true" /> Hồ sơ cá nhân
+              <i className="bi bi-person" aria-hidden="true" /> My profile
             </button>
             <button type="button" onClick={() => navigate("/change-password")}>
-              <i className="bi bi-key" aria-hidden="true" /> Đổi mật khẩu
+              <i className="bi bi-key" aria-hidden="true" /> Change password
             </button>
             <div className="customer-profile-menu-divider" />
             <button className="customer-profile-logout" type="button" onClick={handleLogout}>
-              <i className="bi bi-box-arrow-right" aria-hidden="true" /> Đăng xuất
+              <i className="bi bi-box-arrow-right" aria-hidden="true" /> Log out
             </button>
           </aside>
 
           <section className="customer-profile-details">
             <div className="customer-profile-details-heading">
               <div>
-                <h2>Thông tin cá nhân</h2>
-                <p>Thông tin liên hệ và tài khoản của bạn tại Seoul Center.</p>
+                <h2>Personal information</h2>
+                <p>Your contact details and account settings.</p>
               </div>
               <span><i className="bi bi-person" aria-hidden="true" /></span>
             </div>
 
-            {isLoading ? <div className="ui-empty" role="status"><Spinner animation="border" variant="primary" /><p>Đang tải thông tin hồ sơ…</p></div> : !profileData ? <div className="alert alert-danger" role="alert">Không thể tải thông tin hồ sơ. Vui lòng tải lại trang để thử lại.</div> : <>
+            {isLoading ? <div className="ui-empty" role="status"><Spinner animation="border" variant="primary" /><p>Loading profile…</p></div> : !profileData ? <div className="alert alert-danger" role="alert">Could not load the profile. Please reload the page to try again.</div> : <>
             <div className="customer-profile-data-grid">
-              <div><small>Tên đăng nhập</small><strong>{profileData.username || "—"}</strong></div>
-              <div><small>Họ và tên</small><strong>{profileData.fullName || "—"}</strong></div>
+              <div><small>Username</small><strong>{profileData.username || "—"}</strong></div>
+              <div><small>Full name</small><strong>{profileData.fullName || "—"}</strong></div>
               <div><small>Email</small><strong>{profileData.email || "—"}</strong></div>
-              <div><small>Số điện thoại</small><strong>{profileData.phone || "Chưa cập nhật"}</strong></div>
-              <div><small>Ngày sinh</small><strong>{profileData.dob || "Chưa cập nhật"}</strong></div>
+              <div><small>Phone number</small><strong>{profileData.phone || "Not provided"}</strong></div>
+              <div><small>Date of birth</small><strong>{profileData.dob || "Not provided"}</strong></div>
               <div>
-                <small>Giới tính</small>
+                <small>Gender</small>
                 <strong>
-                  {profileData.gender === "Male" ? "Nam" : profileData.gender === "Female" ? "Nữ" : "Khác"}
+                  {profileData.gender === "Male" ? "Male" : profileData.gender === "Female" ? "Female" : "Other"}
                 </strong>
               </div>
-              <div><small>Địa chỉ</small><strong>{profileData.address || "Chưa cập nhật"}</strong></div>
+              <div><small>Address</small><strong>{profileData.address || "Not provided"}</strong></div>
               <div>
-                <small>Trạng thái tài khoản</small>
+                <small>Account status</small>
                 <strong>
                   <span className={`customer-profile-status${profileData.status === "Active" ? " is-active" : ""}`}>
                     <i className="bi bi-check-circle" aria-hidden="true" />
-                    {profileData.status === "Active" ? "Đang hoạt động" : "Không hoạt động"}
+                    {profileData.status === "Active" ? "Active" : "Inactive"}
                   </span>
                 </strong>
               </div>
@@ -140,7 +140,7 @@ const Profile = ({ user, setUser }) => {
                 variant="primary"
                 onClick={() => navigate("/edit-profile", { state: { profileData } })}
               >
-                <i className="bi bi-pencil-square" aria-hidden="true" /> Chỉnh sửa
+                <i className="bi bi-pencil-square" aria-hidden="true" /> Edit
               </Button>
             </div>
             </>}
@@ -155,21 +155,21 @@ const Profile = ({ user, setUser }) => {
       <Card className="shadow-sm border-0" style={{ borderRadius: "15px" }}>
         <Card.Body className="p-5">
           <h2 className="mb-5 fw-bold text-uppercase text-center">
-            Hồ sơ cá nhân
+            My profile
           </h2>
 
           {isLoading ? (
             <div className="text-center py-5">
               <Spinner animation="border" variant="danger" />
-              <p className="mt-3 text-muted">Đang tải thông tin...</p>
+              <p className="mt-3 text-muted">Loading information...</p>
             </div>
           ) : !profileData ? (
             <div className="text-center py-5">
               <p className="mt-3 text-danger">
-                Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.
+                Could not load the profile. Please try again later.
               </p>
               <Button variant="danger" onClick={handleLogout}>
-                Đăng xuất
+                Log out
               </Button>
             </div>
           ) : (
@@ -198,14 +198,14 @@ const Profile = ({ user, setUser }) => {
               <Col md={8} className="ps-md-5 d-flex flex-column">
                 <div className="mb-3">
                   <label className="text-muted fw-bold mb-1">
-                    Tên đăng nhập
+                    Username
                   </label>
                   <div className="p-2 bg-light rounded border">
                     {profileData.username}
                   </div>
                 </div>
                 <div className="mb-3">
-                  <label className="text-muted fw-bold mb-1">Họ và Tên</label>
+                  <label className="text-muted fw-bold mb-1">Full name</label>
                   <div className="p-2 bg-light rounded border">
                     {profileData.fullName}
                   </div>
@@ -218,10 +218,10 @@ const Profile = ({ user, setUser }) => {
                 </div>
                 <div className="mb-3">
                   <label className="text-muted fw-bold mb-1">
-                    Số điện thoại
+                    Phone number
                   </label>
                   <div className="p-2 bg-light rounded border">
-                    {profileData.phone || "Chưa cập nhật"}
+                    {profileData.phone || "Not provided"}
                   </div>
                 </div>
 
@@ -230,29 +230,29 @@ const Profile = ({ user, setUser }) => {
                     <Row>
                       <Col md={6} className="mb-3">
                         <label className="text-muted fw-bold mb-1">
-                          Ngày sinh
+                          Date of birth
                         </label>
                         <div className="p-2 bg-light rounded border">
-                          {profileData.dob || "Chưa cập nhật"}
+                          {profileData.dob || "Not provided"}
                         </div>
                       </Col>
                       <Col md={6} className="mb-3">
                         <label className="text-muted fw-bold mb-1">
-                          Giới tính
+                          Gender
                         </label>
                         <div className="p-2 bg-light rounded border">
                           {profileData.gender === "Male"
-                            ? "Nam"
+                            ? "Male"
                             : profileData.gender === "Female"
-                              ? "Nữ"
-                              : "Khác"}
+                              ? "Female"
+                              : "Other"}
                         </div>
                       </Col>
                     </Row>
                     <div className="mb-3">
-                      <label className="text-muted fw-bold mb-1">Địa chỉ</label>
+                      <label className="text-muted fw-bold mb-1">Address</label>
                       <div className="p-2 bg-light rounded border">
-                        {profileData.address || "Chưa cập nhật"}
+                        {profileData.address || "Not provided"}
                       </div>
                     </div>
                   </>
@@ -260,12 +260,12 @@ const Profile = ({ user, setUser }) => {
 
                 <div className="mb-4">
                   <label className="text-muted fw-bold mb-1">
-                    Trạng thái tài khoản
+                    Account status
                   </label>
                   <div className="p-2 bg-light rounded border">
                     {profileData.status === "Active"
-                      ? "Đang hoạt động"
-                      : "Không hoạt động"}
+                      ? "Active"
+                      : "Inactive"}
                   </div>
                 </div>
 
@@ -285,8 +285,8 @@ const Profile = ({ user, setUser }) => {
                         >
                           {profileData.membership?.tierName ||
                             (profileData.membershipTierId != null
-                              ? "Chưa xác định hạng"
-                              : "Chưa có hạng")}
+                              ? "Tier not determined"
+                              : "No tier")}
                         </span>
                       </div>
 
@@ -323,13 +323,13 @@ const Profile = ({ user, setUser }) => {
                           </div>
                           <p className="mb-0">
                             {profileData.membership.description ||
-                              "Chưa có mô tả quyền lợi."}
+                              "No benefit description yet."}
                           </p>
                         </>
                       ) : (
                         <p className="text-muted mb-0">
-                          Chưa có thông tin hạng thành viên.
-                          Vui lòng liên hệ lễ tân để được hỗ trợ.
+                          No membership tier information yet.
+                          Please contact the receptionist for help.
                         </p>
                       )}
                     </Card.Body>
@@ -341,7 +341,7 @@ const Profile = ({ user, setUser }) => {
                     variant="outline-secondary"
                     onClick={() => navigate(-1)}
                   >
-                    <i className="bi bi-arrow-left me-1"></i> Quay lại
+                    <i className="bi bi-arrow-left me-1"></i> Back
                   </Button>
 
                   <div className="d-flex gap-2 flex-wrap">
@@ -350,7 +350,7 @@ const Profile = ({ user, setUser }) => {
                       className="text-white"
                       onClick={() => navigate("/change-password")}
                     >
-                      <i className="bi bi-key me-1"></i> Đổi mật khẩu
+                      <i className="bi bi-key me-1"></i> Change password
                     </Button>
 
                     <Button
@@ -360,11 +360,11 @@ const Profile = ({ user, setUser }) => {
                         navigate("/edit-profile", { state: { profileData } })
                       }
                     >
-                      <i className="bi bi-pencil-square me-1"></i> Chỉnh sửa
+                      <i className="bi bi-pencil-square me-1"></i> Edit
                     </Button>
 
                     <Button variant="danger" onClick={handleLogout}>
-                      <i className="bi bi-box-arrow-right me-1"></i> Đăng xuất
+                      <i className="bi bi-box-arrow-right me-1"></i> Log out
                     </Button>
                   </div>
                 </div>

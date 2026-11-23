@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
 import servicePhoto from "../../../assets/figma/service-card-exact-02.png";
 import { imageFileToUpload } from "../../../utils/imageUpload";
+import ServiceDetailExtras from "./ServiceDetailExtras";
 
 const initialFormData = {
   serviceName: "",
@@ -18,16 +19,16 @@ const initialFormData = {
 };
 
 const ROOM_TYPES = [
-  ["Facial", "Phòng chăm sóc da mặt"],
-  ["Massage", "Phòng massage"],
-  ["HairWash", "Phòng gội đầu dưỡng sinh"],
-  ["Body", "Phòng chăm sóc body"],
+  ["Facial", "Facial care room"],
+  ["Massage", "Massage room"],
+  ["HairWash", "Herbal hair wash room"],
+  ["Body", "Body care room"],
 ];
-const proposedTours = (duration) => Math.max(1, Math.ceil(Number(duration || 0) / 60));
+const proposedTours = (duration) => Math.min(3, Math.max(1, Math.ceil(Number(duration || 0) / 60)));
 
 const statusLabels = {
-  Active: "Đang hoạt động",
-  Inactive: "Ngừng hoạt động",
+  Active: "Active",
+  Inactive: "Deactivate",
 };
 
 const getRequestErrorMessage = (error, fallback) => {
@@ -79,12 +80,12 @@ const ServiceForm = ({ isReadOnly = false }) => {
         });
       })
       .catch((error) => {
-        console.error("Lỗi lấy dữ liệu dịch vụ:", error);
+        console.error("Error fetching service data:", error);
         if (!cancelled) {
           setLoadError(
             getRequestErrorMessage(
               error,
-              "Không thể tải thông tin dịch vụ. Vui lòng thử lại.",
+              "Could not load the service information. Please try again.",
             ),
           );
         }
@@ -134,7 +135,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
       setRemoveImage(false);
     } catch (error) {
       setImageUpload(null);
-      setImageError(error.message || "Không xử lý được ảnh.");
+      setImageError(error.message || "Could not process the image.");
       event.target.value = "";
     }
   };
@@ -172,22 +173,22 @@ const ServiceForm = ({ isReadOnly = false }) => {
           await axios.delete(`/api/service-image/${serviceId}`);
         }
       } catch (imageErr) {
-        imageNotice = ` Nhưng chưa lưu được ảnh: ${getRequestErrorMessage(imageErr, "lỗi tải ảnh")}.`;
+        imageNotice = ` But the image could not be saved: ${getRequestErrorMessage(imageErr, "image upload error")}.`;
       }
 
       navigate("/services", {
         replace: true,
         state: {
           serviceNotice:
-            (isEditing ? "Đã cập nhật thông tin dịch vụ." : "Đã thêm dịch vụ mới.") + imageNotice,
+            (isEditing ? "Service information updated." : "New service added.") + imageNotice,
         },
       });
     } catch (error) {
-      console.error("Lỗi lưu dịch vụ:", error);
+      console.error("Error saving service:", error);
       setSaveError(
         getRequestErrorMessage(
           error,
-          "Không thể lưu dịch vụ. Vui lòng kiểm tra thông tin và thử lại.",
+          "Could not save the service. Please check the information and try again.",
         ),
       );
     } finally {
@@ -196,147 +197,125 @@ const ServiceForm = ({ isReadOnly = false }) => {
   };
 
   if (isReadOnly && !isManager) {
+    const isCustomerUser = user?.role === "Customer";
+    const listPath = isCustomerUser ? "/services" : "/guest/services";
+    const homePath = isCustomerUser ? "/customer/home" : "/bssms-guest";
+    const staffView = ["Technician", "Manager"].includes(user?.role);
+    // Same illustration as on the Services page when the service has no uploaded image
+    const photoNo = String((Math.max(1, Number(id) || 1) - 1) % 11 + 1).padStart(2, "0");
+    const fallbackPhoto = new URL(`../../../assets/figma/service-card-exact-${photoNo}.png`, import.meta.url).href;
     return (
-      <main className="public-service-detail-page">
+      <div className="sc-page sc-page--detail">
         <section className="customer-page-banner">
           <div className="customer-page-container">
             <div className="customer-breadcrumb">
-              <Link to="/bssms-guest">Trang chủ</Link>
+              <Link to={homePath}>Home</Link>
               <i className="bi bi-chevron-right" aria-hidden="true" />
-              <Link to="/guest/services">Danh sách dịch vụ</Link>
+              <Link to={listPath}>Services</Link>
               <i className="bi bi-chevron-right" aria-hidden="true" />
-              <strong>Chi tiết dịch vụ</strong>
+              <strong>{formData.serviceName || "Service details"}</strong>
             </div>
             <div className="public-detail-banner-title">
-              <h1>Chi tiết dịch vụ</h1>
+              <p className="public-detail-banner-heading">Service details</p>
               <button type="button" onClick={() => navigate(-1)}>
-                <i className="bi bi-arrow-left" aria-hidden="true" /> Quay lại
+                <i className="bi bi-arrow-left" aria-hidden="true" /> Back
               </button>
             </div>
           </div>
         </section>
-        <section className="public-detail-content">
-          {loading ? (
-            <div className="customer-empty-state" role="status">
-              <i className="bi bi-arrow-repeat" aria-hidden="true" />
-              <strong>Đang tải thông tin dịch vụ</strong>
-            </div>
-          ) : loadError ? (
-            <div className="customer-empty-state" role="alert">
+
+        {loading ? (
+          <div className="sc-container"><div className="sc-empty" role="status"><Spinner animation="border" size="sm" /> Loading service…</div></div>
+        ) : loadError ? (
+          <div className="sc-container">
+            <div className="sc-empty" role="alert">
               <i className="bi bi-wifi-off" aria-hidden="true" />
               <strong>{loadError}</strong>
-              <button
-                type="button"
-                className="home-button home-button-white"
-                onClick={() => setLoadAttempt((attempt) => attempt + 1)}
-              >
-                Thử tải lại
-              </button>
-              <Link className="home-button home-button-white" to="/guest/services">
-                Quay lại danh sách
-              </Link>
+              <div className="sc-actions">
+                <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Try again</button>
+                <Link className="sc-btn sc-btn-ghost" to={listPath}>Back to services</Link>
+              </div>
             </div>
-          ) : (
-            <div className="public-detail-grid">
-              <div className="public-detail-image">
+          </div>
+        ) : (
+          <>
+            <section className="sc-container sc-detail">
+              <div className="sc-detail-image">
                 <img
-                  src={imageUrl || servicePhoto}
-                  alt={`Trải nghiệm dịch vụ ${formData.serviceName}`}
-                  loading="lazy"
+                  src={imageUrl || fallbackPhoto}
+                  alt={formData.serviceName}
                   decoding="async"
-                  onLoad={(event) =>
-                    event.currentTarget.classList.add("is-loaded")
-                  }
                   onError={(event) => {
                     const img = event.currentTarget;
-                    if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = servicePhoto; return; }
-                    img.classList.add("is-loaded");
+                    if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = fallbackPhoto; }
                   }}
                 />
-                <div>
-                  <span>SEOUL CENTER · SALON &amp; SPA</span>
-                  <small>Hình ảnh dịch vụ mang tính minh họa.</small>
-                </div>
               </div>
-              <div className="public-detail-copy">
-                <span className="home-eyebrow">DỊCH VỤ</span>
-                <h2>{formData.serviceName}</h2>
-                <span className="public-detail-description-label">Mô tả</span>
-                <p>
-                  {formData.description ||
-                    "Thông tin chi tiết sẽ được tư vấn theo nhu cầu của bạn."}
-                </p>
-                <div className="public-detail-facts">
-                  <span>
-                    <small>Giá tiền</small>
-                    <strong>
-                      {Number(formData.price || 0).toLocaleString("vi-VN")} VNĐ
-                    </strong>
-                  </span>
-                  <span>
-                    <small>Thời lượng</small>
-                    <strong>
-                      <i className="bi bi-clock" aria-hidden="true" />{" "}
-                      {formData.duration || 0} phút
-                    </strong>
-                  </span>
-                </div>
+              <div className="sc-detail-copy">
+                <span className="sc-eyebrow">{(formData.category || "Service").toUpperCase()}</span>
+                <h1>{formData.serviceName}</h1>
+                <p className="sc-lead">{formData.description || "Our staff will advise you based on your needs."}</p>
+                <dl className="sc-facts">
+                  <div>
+                    <dt>Price</dt>
+                    <dd className="sc-price">{Number(formData.price || 0).toLocaleString("vi-VN")} <small>VND</small></dd>
+                  </div>
+                  <div>
+                    <dt>Duration</dt>
+                    <dd>{formData.duration || 0} minutes</dd>
+                  </div>
+                </dl>
                 <Link
-                  className="home-button home-button-primary public-detail-booking"
-                  to={
-                    ["Technician", "Manager"].includes(user?.role)
-                      ? "/appointments"
-                      : `/slots?serviceId=${encodeURIComponent(id)}`
-                  }
+                  className="sc-btn sc-btn-primary sc-btn-block"
+                  to={staffView ? "/appointments" : `/slots?serviceId=${encodeURIComponent(id)}`}
                 >
-                  <i className="bi bi-calendar2-check" aria-hidden="true" />{" "}
-                  {["Technician", "Manager"].includes(user?.role)
-                    ? "Xem lịch hẹn"
-                    : user
-                      ? "Xem lịch trống và đặt lịch"
-                      : "Đăng nhập để đặt lịch"}
-                  <i className="bi bi-arrow-right" aria-hidden="true" />
+                  {staffView ? "View appointments" : user ? "Book this service" : "Log in to book"}
                 </Link>
+                <p className="sc-note">
+                  Book at least 2 hours ahead · Reschedule or cancel up to 2 hours before ·{" "}
+                  <Link to="/faq">Booking policy</Link>
+                </p>
               </div>
-            </div>
-          )}
-        </section>
-      </main>
+            </section>
+            <ServiceDetailExtras serviceId={id} service={formData} isCustomer={isCustomerUser} />
+          </>
+        )}
+      </div>
     );
   }
 
   const pageTitle = isReadOnly
-    ? "Chi tiết dịch vụ"
+    ? "Service details"
     : isEditing
-      ? "Chỉnh sửa dịch vụ"
-      : "Thêm dịch vụ mới";
+      ? "Edit service"
+      : "Add new service";
 
   return (
     <main className="service-admin-page">
-      <nav className="service-admin-breadcrumb" aria-label="Điều hướng">
-        <Link to="/services">Quản lý dịch vụ</Link>
+      <nav className="service-admin-breadcrumb" aria-label="Navigation">
+        <Link to="/services">Service management</Link>
         <i className="bi bi-chevron-right" aria-hidden="true" />
         <span>{pageTitle}</span>
       </nav>
 
       <header className="service-admin-header">
         <span className="service-admin-eyebrow">
-          <i className="bi bi-stars" aria-hidden="true" /> DANH MỤC DỊCH VỤ
+          <i className="bi bi-stars" aria-hidden="true" /> SERVICE CATALOG
         </span>
         <h1>{pageTitle}</h1>
         <p>
           {isReadOnly
-            ? "Xem thông tin và trạng thái hiện tại của dịch vụ."
+            ? "View the information and current status of the service."
             : isEditing
-              ? "Cập nhật thông tin để khách hàng và nhân viên luôn có dữ liệu chính xác."
-              : "Bổ sung dịch vụ mới vào danh mục để khách hàng có thể tìm hiểu và đặt lịch."}
+              ? "Keep information up to date so customers and staff always have accurate data."
+              : "Add a new service to the catalog so customers can learn about it and book it."}
         </p>
       </header>
 
       {loading ? (
         <section className="service-admin-state" role="status">
           <Spinner animation="border" size="sm" />
-          <span>Đang tải thông tin dịch vụ...</span>
+          <span>Loading service information...</span>
         </section>
       ) : loadError ? (
         <section className="service-admin-state service-admin-state--error" role="alert">
@@ -347,13 +326,13 @@ const ServiceForm = ({ isReadOnly = false }) => {
             className="btn btn-outline-primary"
             onClick={() => setLoadAttempt((attempt) => attempt + 1)}
           >
-            Thử tải lại
+            Try reloading
           </button>
         </section>
       ) : isReadOnly ? (
         <section className="service-admin-detail-card">
           <div className="service-admin-detail-top">
-            <span className="service-admin-eyebrow">THÔNG TIN DỊCH VỤ</span>
+            <span className="service-admin-eyebrow">SERVICE INFORMATION</span>
             <span
               className={`service-admin-status service-admin-status--${String(
                 formData.status,
@@ -365,36 +344,36 @@ const ServiceForm = ({ isReadOnly = false }) => {
           </div>
           <h2>{formData.serviceName}</h2>
           <p className="service-admin-detail-description">
-            {formData.description || "Dịch vụ chưa có mô tả."}
+            {formData.description || "This service has no description yet."}
           </p>
           <div className="service-admin-facts">
             <div>
               <span>
-                <i className="bi bi-cash-coin" aria-hidden="true" /> Giá dịch vụ
+                <i className="bi bi-cash-coin" aria-hidden="true" /> Service price
               </span>
               <strong>
-                {Number(formData.price || 0).toLocaleString("vi-VN")} VNĐ
+                {Number(formData.price || 0).toLocaleString("vi-VN")} VND
               </strong>
             </div>
             <div>
               <span>
-                <i className="bi bi-clock" aria-hidden="true" /> Thời lượng
+                <i className="bi bi-clock" aria-hidden="true" /> Duration
               </span>
-              <strong>{formData.duration || 0} phút</strong>
+              <strong>{formData.duration || 0} minutes</strong>
             </div>
             <div>
-              <span><i className="bi bi-door-open" aria-hidden="true" /> Loại phòng</span>
+              <span><i className="bi bi-door-open" aria-hidden="true" /> Room type</span>
               <strong>{(ROOM_TYPES.find(([value]) => value === formData.requiredRoomType) || [, formData.requiredRoomType])[1]}</strong>
             </div>
             <div>
-              <span><i className="bi bi-arrow-repeat" aria-hidden="true" /> Số tour</span>
+              <span><i className="bi bi-arrow-repeat" aria-hidden="true" /> Tours</span>
               <strong>{formData.tourCount || proposedTours(formData.duration)} tour</strong>
             </div>
           </div>
           <div className="service-admin-actions">
             <Link to="/services" className="btn btn-outline-secondary">
               <i className="bi bi-arrow-left me-2" aria-hidden="true" />
-              Danh sách dịch vụ
+              Service list
             </Link>
             {isManager && (
               <Link
@@ -402,7 +381,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
                 className="btn btn-primary"
               >
                 <i className="bi bi-pencil-square me-2" aria-hidden="true" />
-                Chỉnh sửa
+                Edit
               </Link>
             )}
           </div>
@@ -418,8 +397,8 @@ const ServiceForm = ({ isReadOnly = false }) => {
                 />
               </span>
               <div>
-                <h2>{isEditing ? "Cập nhật thông tin" : "Thông tin dịch vụ"}</h2>
-                <p>Các trường có dấu * là bắt buộc.</p>
+                <h2>{isEditing ? "Update information" : "Service information"}</h2>
+                <p>Fields marked * are required.</p>
               </div>
             </div>
 
@@ -432,7 +411,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
             <form onSubmit={handleSubmit}>
               <div className="service-admin-form-grid">
                 <div className="service-admin-field service-admin-field--wide">
-                  <label htmlFor="serviceName">Tên dịch vụ *</label>
+                  <label htmlFor="serviceName">Service name *</label>
                   <input
                     id="serviceName"
                     className="form-control"
@@ -440,7 +419,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
                     name="serviceName"
                     value={formData.serviceName}
                     onChange={handleChange}
-                    placeholder="Ví dụ: Chăm sóc da chuyên sâu"
+                    placeholder="Example: Intensive skin care"
                     autoComplete="off"
                     required
                     disabled={saving}
@@ -448,7 +427,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
                 </div>
 
                 <div className="service-admin-field service-admin-field--wide">
-                  <label htmlFor="description">Mô tả</label>
+                  <label htmlFor="description">Description</label>
                   <textarea
                     id="description"
                     className="form-control"
@@ -456,14 +435,14 @@ const ServiceForm = ({ isReadOnly = false }) => {
                     rows={4}
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder="Mô tả ngắn về dịch vụ và trải nghiệm khách hàng..."
+                    placeholder="A short description of the service and the customer experience..."
                     disabled={saving}
                   />
-                  <small>Thông tin này giúp khách hàng hiểu rõ hơn về dịch vụ.</small>
+                  <small>This information helps customers understand the service better.</small>
                 </div>
 
                 <div className="service-admin-field">
-                  <label htmlFor="price">Giá dịch vụ (VNĐ) *</label>
+                  <label htmlFor="price">Service price (VND) *</label>
                   <div className="service-admin-input-with-suffix">
                     <input
                       id="price"
@@ -474,16 +453,16 @@ const ServiceForm = ({ isReadOnly = false }) => {
                       onChange={handleChange}
                       min="0.01"
                       step="any"
-                      placeholder="Nhập giá dịch vụ"
+                      placeholder="Enter the service price"
                       required
                       disabled={saving}
                     />
-                    <span>VNĐ</span>
+                    <span>VND</span>
                   </div>
                 </div>
 
                 <div className="service-admin-field">
-                  <label htmlFor="duration">Thời lượng (phút) *</label>
+                  <label htmlFor="duration">Duration (minutes) *</label>
                   <div className="service-admin-input-with-suffix">
                     <input
                       id="duration"
@@ -495,38 +474,38 @@ const ServiceForm = ({ isReadOnly = false }) => {
                       min="15"
                       max="600"
                       step="15"
-                      placeholder="Bội số của 15, ví dụ: 60"
+                      placeholder="Multiple of 15, e.g. 60"
                       required
                       disabled={saving}
                     />
-                    <span>phút</span>
+                    <span>minutes</span>
                   </div>
                 </div>
 
                 <div className="service-admin-field">
-                  <label htmlFor="requiredRoomType">Loại phòng yêu cầu *</label>
+                  <label htmlFor="requiredRoomType">Required room type *</label>
                   <select id="requiredRoomType" className="form-select" name="requiredRoomType" value={formData.requiredRoomType} onChange={handleChange} disabled={saving}>
                     {ROOM_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
                   </select>
                 </div>
 
                 <div className="service-admin-field">
-                  <label htmlFor="tourCount">Số tour</label>
+                  <label htmlFor="tourCount">Tours</label>
                   <div className="service-admin-input-with-suffix">
                     <input id="tourCount" className="form-control" type="number" name="tourCount" value={formData.tourCount}
-                      onChange={handleChange} min="1" max="10" step="1" placeholder={`Đề xuất: ${proposedTours(formData.duration)}`} disabled={saving} />
+                      onChange={handleChange} min="1" max="10" step="1" placeholder={`Suggested: ${proposedTours(formData.duration)}`} disabled={saving} />
                     <span>tour</span>
                   </div>
-                  <small>Mặc định 30–60 phút = 1 tour, 90–120 phút = 2 tour (BR-01). Bỏ trống để dùng giá trị đề xuất.</small>
+                  <small>Default 30–60 minutes = 1 tour, 90–120 minutes = 2 tours. Leave blank to use the suggested value.</small>
                 </div>
 
                 <div className="service-admin-field">
-                  <label htmlFor="category">Nhóm dịch vụ</label>
-                  <input id="category" className="form-control" name="category" value={formData.category} onChange={handleChange} maxLength={50} placeholder="Ví dụ: Chăm sóc da" disabled={saving} />
+                  <label htmlFor="category">Service group</label>
+                  <input id="category" className="form-control" name="category" value={formData.category} onChange={handleChange} maxLength={50} placeholder="Example: Skin care" disabled={saving} />
                 </div>
 
                 <div className="service-admin-field service-admin-field--wide">
-                  <label>Kỹ thuật viên thực hiện được</label>
+                  <label>Qualified technicians</label>
                   <div className="d-flex flex-wrap gap-3 border rounded p-2">
                     {technicians.length ? technicians.map((t) => (
                       <div className="form-check" key={t.staffId}>
@@ -534,17 +513,17 @@ const ServiceForm = ({ isReadOnly = false }) => {
                           onChange={() => toggleTechnician(t.staffId)} disabled={saving} />
                         <label className="form-check-label" htmlFor={`tech-${t.staffId}`}>{t.fullName}</label>
                       </div>
-                    )) : <small className="text-muted">Chưa có kỹ thuật viên đang làm việc.</small>}
+                    )) : <small className="text-muted">No active technicians yet.</small>}
                   </div>
-                  <small>Chỉ kỹ thuật viên được chọn mới được xếp làm dịch vụ này.</small>
+                  <small>Only the selected technicians can be assigned this service.</small>
                 </div>
 
                 <div className="service-admin-field service-admin-field--wide">
-                  <label htmlFor="serviceImage">Ảnh dịch vụ</label>
+                  <label htmlFor="serviceImage">Service image</label>
                   {(imageUpload || (imageUrl && !removeImage)) && (
                     <img
                       src={imageUpload ? `data:${imageUpload.contentType};base64,${imageUpload.data}` : imageUrl}
-                      alt="Ảnh dịch vụ"
+                      alt="Service image"
                       onError={(event) => { if (!imageUpload) event.currentTarget.style.display = "none"; }}
                       style={{ display: "block", width: 280, maxWidth: "100%", height: 170, objectFit: "cover", borderRadius: 12, marginBottom: 10 }}
                     />
@@ -558,24 +537,24 @@ const ServiceForm = ({ isReadOnly = false }) => {
                     onChange={handleImageChange}
                   />
                   <small className="text-muted d-block mt-1">
-                    JPEG, PNG hoặc WebP; ảnh được tự thu nhỏ khi tải lên. Bỏ trống để giữ ảnh hiện tại.
+                    JPEG, PNG or WebP; images are resized automatically when uploaded. Leave blank to keep the current image.
                   </small>
                   {imageError && <div className="text-danger small mt-1">{imageError}</div>}
                   {imageUrl && !removeImage && !imageUpload && (
                     <button type="button" className="btn btn-sm btn-outline-danger mt-2" disabled={saving} onClick={() => setRemoveImage(true)}>
-                      Xóa ảnh hiện tại
+                      Remove current image
                     </button>
                   )}
                   {removeImage && (
                     <div className="small text-muted mt-2">
-                      Ảnh hiện tại sẽ bị xóa khi lưu.{" "}
-                      <button type="button" className="btn btn-link btn-sm p-0" onClick={() => setRemoveImage(false)}>Hoàn tác</button>
+                      The current image will be deleted when you save.{" "}
+                      <button type="button" className="btn btn-link btn-sm p-0" onClick={() => setRemoveImage(false)}>Undo</button>
                     </div>
                   )}
                 </div>
 
                 <div className="service-admin-field service-admin-field--wide">
-                  <label htmlFor="status">Trạng thái</label>
+                  <label htmlFor="status">Status</label>
                   <select
                     id="status"
                     className="form-select"
@@ -584,8 +563,8 @@ const ServiceForm = ({ isReadOnly = false }) => {
                     onChange={handleChange}
                     disabled={saving}
                   >
-                    <option value="Active">Đang hoạt động</option>
-                    <option value="Inactive">Ngừng hoạt động</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Deactivate</option>
                   </select>
                 </div>
               </div>
@@ -599,7 +578,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
                     if (saving) event.preventDefault();
                   }}
                 >
-                  Hủy
+                  Cancel
                 </Link>
                 <button
                   type="submit"
@@ -613,7 +592,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
                         size="sm"
                         className="me-2"
                       />
-                      Đang lưu
+                      Saving
                     </>
                   ) : (
                     <>
@@ -621,7 +600,7 @@ const ServiceForm = ({ isReadOnly = false }) => {
                         className={`bi ${isEditing ? "bi-check2" : "bi-plus-lg"} me-2`}
                         aria-hidden="true"
                       />
-                      {isEditing ? "Lưu thay đổi" : "Thêm dịch vụ"}
+                      {isEditing ? "Save changes" : "Add service"}
                     </>
                   )}
                 </button>
@@ -633,23 +612,23 @@ const ServiceForm = ({ isReadOnly = false }) => {
             <div className="service-admin-guidance-icon">
               <i className="bi bi-lightbulb" aria-hidden="true" />
             </div>
-            <h2>Lưu ý khi cập nhật</h2>
+            <h2>Notes when updating</h2>
             <p>
-              Tên, giá và thời lượng sẽ được dùng khi khách hàng xem dịch vụ và
-              đặt lịch.
+              The name, price and duration are used when customers view the service and
+              booking.
             </p>
             <ul>
               <li>
                 <i className="bi bi-check2" aria-hidden="true" />
-                Giá dịch vụ phải lớn hơn 0.
+                The service price must be greater than 0.
               </li>
               <li>
                 <i className="bi bi-check2" aria-hidden="true" />
-                Thời lượng được tính theo phút.
+                Duration is in minutes.
               </li>
               <li>
                 <i className="bi bi-check2" aria-hidden="true" />
-                Dịch vụ ngừng hoạt động sẽ không hiển thị với khách hàng.
+                Inactive services are not shown to customers.
               </li>
             </ul>
           </aside>
