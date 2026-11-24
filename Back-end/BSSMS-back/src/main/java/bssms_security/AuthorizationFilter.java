@@ -83,7 +83,7 @@ public class AuthorizationFilter implements Filter {
         else if(relative.equals("/api/payments/vnpay/create")) allowed=customer||reception||manager;
         else if(relative.equals("/api/package-purchases")) allowed=customer&&!read;
         else if(relative.startsWith("/api/customer-packages")) allowed=read ? true : reception||manager;
-        else if(relative.startsWith("/api/vouchers")) allowed=manager||(read&&reception);
+        else if(relative.startsWith("/api/vouchers")) allowed=manager||(read&&(reception||(customer&&"1".equals(req.getParameter("available"))))); // customers may only list usable vouchers
         else if(relative.startsWith("/api/operations/")) {
             String kind=relative.substring("/api/operations/".length());
             if(kind.startsWith("my-schedule")) allowed=tech||reception||manager;

@@ -21,6 +21,15 @@ public class VoucherDAO extends DBContext implements AutoCloseable {
                 like, like, like, status, status);
     }
 
+    // Vouchers that can be applied right now: Active, within start/end date, uses left. Shown as suggestions at checkout.
+    public List<Map<String, Object>> getAvailableVouchers() throws SQLException {
+        Workflow w = workflow();
+        w.roles("Manager", "Receptionist", "Customer");
+        return w.query("SELECT voucher_id,voucher_code,voucher_name,discount_type,discount_value,min_order_amount,max_discount,max_uses-used_count AS remaining_uses,end_date "
+                + "FROM Voucher WHERE deleted_at IS NULL AND status='Active' AND SYSDATETIME() BETWEEN start_date AND end_date AND used_count<max_uses "
+                + "ORDER BY end_date ASC, voucher_code ASC");
+    }
+
     public Map<String, Object> getVoucherById(int voucherId) throws SQLException {
         Workflow w = workflow();
         w.roles("Manager", "Receptionist");
