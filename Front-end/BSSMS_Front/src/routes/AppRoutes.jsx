@@ -31,10 +31,13 @@ import CustomerList from "../pages/Dashboard/Manager/CustomerAdmin/CustomerList"
 import EditCustomerProfile from "../pages/Dashboard/Manager/CustomerAdmin/EditCustomerProfile";
 import StaffList from "../pages/Dashboard/Manager/StaffAdmin/StaffList";
 import ServiceList from "../pages/Shared/ServiceList/ServiceList";
-import ServiceForm from "../pages/Shared/ServiceList/ServiceForm";
+import ViewServiceDetail from "../pages/Shared/ServiceList/ViewServiceDetail";
+import CreateServiceForm from "../pages/Shared/ServiceList/CreateServiceForm";
+import UpdateServiceForm from "../pages/Shared/ServiceList/UpdateServiceForm";
 import PublicTreatmentPackages from "../pages/Shared/ServiceList/PublicTreatmentPackages";
 import PublicFeedbackList from "../pages/Shared/Feedback/PublicFeedbackList";
-import FeedbackForm from "../pages/Shared/Feedback/FeedbackForm";
+import CreateFeedbackForm from "../pages/Shared/Feedback/CreateFeedbackForm";
+import UpdateFeedbackForm from "../pages/Shared/Feedback/UpdateFeedbackForm";
 
 import CreateWalkInAppointment from "../pages/Dashboard/Appointment/CreateWalkInAppointment";
 import AppointmentList from "../pages/Dashboard/Appointment/AppointmentList";
@@ -238,7 +241,7 @@ export default function AppRoutes({ user, setUser }) {
         <Route path="/register" element={<Register />} />
         <Route path="/update-profile" element={<Navigate to="/login" replace />} />
         <Route path="/guest/services" element={<ServiceList user={user} />} />
-        <Route path="/guest/services/:id" element={<ServiceForm isReadOnly={true} />} />
+        <Route path="/guest/services/:id" element={<ViewServiceDetail />} />
         <Route path="/guest/treatment-packages" element={<PublicTreatmentPackages />} />
         <Route path="/guest/feedback" element={<PublicFeedbackList />} />
         <Route path="/guest/slots" element={<LegacySlotsRedirect />} />
@@ -277,9 +280,9 @@ export default function AppRoutes({ user, setUser }) {
         <Route path="/my-schedule" element={guard(["Technician", "Receptionist", "Manager"], <OperationsWorkspace kind="my-schedule" />)} />
 
         <Route path="/services" element={guard(EVERYONE, <ServiceList user={user} />)} />
-        <Route path="/services/detail/:id" element={guard(EVERYONE, <ServiceForm isReadOnly={true} />)} />
-        <Route path="/services/new" element={guard(["Manager"], <ServiceForm />)} />
-        <Route path="/services/edit/:id" element={guard(["Manager"], <ServiceForm />)} />
+        <Route path="/services/detail/:id" element={guard(EVERYONE, <ViewServiceDetail />)} />
+        <Route path="/services/new" element={guard(["Manager"], <CreateServiceForm />)} />
+        <Route path="/services/edit/:id" element={guard(["Manager"], <UpdateServiceForm />)} />
         <Route path="/manager/treatment-packages" element={guard(["Manager"], <TreatmentPackageList />)} />
         <Route path="/treatment-packages" element={guard(EVERYONE,
           user?.role === "Customer" ? <PublicTreatmentPackages user={user} /> : <TreatmentPackageList />)} />
@@ -315,8 +318,8 @@ export default function AppRoutes({ user, setUser }) {
         <Route path="/manager/feedback-moderation" element={guard(["Manager"], <ManagerFeedbackWorkspace user={user} />)} />
         {/* "My reviews" was merged into the Reviews page (own reviews have a ⋯ menu there) */}
         <Route path="/my-feedback" element={<Navigate to="/feedback" replace />} />
-        <Route path="/feedback/new" element={guard(["Customer"], <FeedbackForm />)} />
-        <Route path="/feedback/edit/:id" element={guard(["Customer"], <FeedbackForm />)} />
+        <Route path="/feedback/new" element={guard(["Customer"], <CreateFeedbackForm />)} />
+        <Route path="/feedback/edit/:id" element={guard(["Customer"], <UpdateFeedbackForm />)} />
 
         <Route path="*" element={<Navigate to={user ? roleHome(user.role) : "/bssms-guest"} replace />} />
       </Route>

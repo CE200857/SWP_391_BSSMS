@@ -1,23 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Container, Card, Table, Button, Form, Modal, Col, Row, Badge } from 'react-bootstrap';
-import { api, post, put, del, money, label } from '../../../../services/api';
+import { Container, Card, Table, Button, Badge } from 'react-bootstrap';
+import { api, put, label } from '../../../../services/api';
 import { useManagerSearchFilter } from '../../../../components/ManagerSearchFilter';
 import { StatusToggleButton, StatusChangeModal } from '../../../../components/StatusToggle';
 import FloatingAlert from "../../../../components/FloatingAlert";
-
-const emptyForm = { treatmentPackageId: 0, packageName: '', description: '', price: '', numberOfSessions: '', validityDays: 180, status: 'Active', serviceIds: [] };
+import CreateTreatmentPackageModal from "./CreateTreatmentPackageModal";
+import UpdateTreatmentPackageModal from "./UpdateTreatmentPackageModal";
+import DeleteTreatmentPackageModal from "./DeleteTreatmentPackageModal";
 
 const TreatmentPackageList = () => {
     const [packages, setPackages] = useState([]);
     const [services, setServices] = useState([]);
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     const isManager = user?.role === 'Manager';
-    const [showModal, setShowModal] = useState(false);
-    const [formData, setFormData] = useState(emptyForm);
+    // Each CRUD action lives in its own modal file (Create/Update/Delete…Modal.jsx)
+    const [showCreate, setShowCreate] = useState(false);
+    const [editTarget, setEditTarget] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
     const [error, setError] = useState('');
-    const [formError, setFormError] = useState('');
     const [notice, setNotice] = useState('');
-    const [saving, setSaving] = useState(false);
     const [statusTarget, setStatusTarget] = useState(null);
     const [statusBusy, setStatusBusy] = useState(false);
 
@@ -64,46 +65,12 @@ const TreatmentPackageList = () => {
         'Search by package name or service...'
     );
 
-    const open = (pkg) => {
-        setFormError('');
-        setFormData(pkg ? { ...emptyForm, ...pkg, serviceIds: [...(pkg.serviceIds || [])] } : emptyForm);
-        setShowModal(true);
-    };
-    const toggleService = (id) => setFormData((f) => ({
-        ...f, serviceIds: f.serviceIds.includes(id) ? f.serviceIds.filter((x) => x !== id) : [...f.serviceIds, id],
-    }));
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!formData.serviceIds.length) return setFormError('Choose at least one applicable service.');
-        setSaving(true);
-        setFormError('');
-        const body = {
-            treatmentPackageId: formData.treatmentPackageId, packageName: formData.packageName.trim(), description: formData.description?.trim() || null,
-            price: Number(formData.price), numberOfSessions: Number(formData.numberOfSessions), validityDays: Number(formData.validityDays),
-            status: formData.status, serviceIds: formData.serviceIds,
-        };
-        try {
-            const r = formData.treatmentPackageId ? await put('/api/treatment-packages', body) : await post('/api/treatment-packages', body);
-            setNotice(r?.message || 'Treatment package saved.');
-            setShowModal(false);
-            load();
-        } catch (err) {
-            setFormError(err.message);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDelete = async (p) => {
-        if (!window.confirm(`Delete "${p.packageName}"? It is removed from the list and no longer sold. Customers who already bought it can still use it until it expires.`)) return;
-        try {
-            const r = await del(`/api/treatment-packages?id=${p.treatmentPackageId}`);
-            setNotice(r?.message);
-            load();
-        } catch (err) {
-            setError(err.message);
-        }
+    const afterChange = (message) => {
+        setNotice(message);
+        setShowCreate(false);
+        setEditTarget(null);
+        setDeleteTarget(null);
+        load();
     };
 
     return (
@@ -111,7 +78,7 @@ const TreatmentPackageList = () => {
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h2 className="manager-page-title fw-bold">Treatment package management</h2>
                 {isManager && (
-                    <Button variant="primary" className="fw-bold" onClick={() => open(null)}>
+                    <Button variant="primary" className="fw-bold" onClick={() => setShowCreate(true)}>
                         <i className="bi bi-plus-lg me-1"></i> Add new package
                     </Button>
                 )}
@@ -155,10 +122,10 @@ const TreatmentPackageList = () => {
                                     {isManager && (
                                         <td className="text-center">
                                             <div className="manager-list-actions treatment-package-actions">
-                                                <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => open(p)}>
+                                                <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => setEditTarget(p)}>
                                                     <i className="bi bi-pencil-square"></i> Edit
                                                 </Button>
-                                                <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => handleDelete(p)}>
+                                                <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => setDeleteTarget(p)}>
                                                     <i className="bi bi-trash"></i> Delete
                                                 </Button>
                                             </div>
@@ -173,50 +140,9 @@ const TreatmentPackageList = () => {
                 </Card.Body>
             </Card>
 
-            <Modal show={showModal} onHide={() => !saving && setShowModal(false)} centered backdrop="static" size="lg">
-                <Modal.Header closeButton className="bg-light">
-                    <Modal.Title className="fw-bold">{formData.treatmentPackageId ? 'Update treatment package' : 'Add treatment package'}</Modal.Title>
-                </Modal.Header>
-                <Form onSubmit={handleSubmit}>
-                    <Modal.Body>
-                        <FloatingAlert message={formError} onClose={() => setFormError("")} />
-                        <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold">Treatment package name*</Form.Label>
-                            <Form.Control maxLength={150} value={formData.packageName} onChange={(e) => setFormData({ ...formData, packageName: e.target.value })} required />
-                        </Form.Group>
-                        <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold">Applicable services* <small className="text-muted fw-normal">(each session can be used for one of these services)</small></Form.Label>
-                            <div className="d-flex flex-wrap gap-3 border rounded p-2" style={{ maxHeight: 180, overflowY: 'auto' }}>
-                                {services.map((s) => (
-                                    <Form.Check key={s.serviceId} id={`pkg-svc-${s.serviceId}`} label={`${s.serviceName} (${money(s.price)})`}
-                                        checked={formData.serviceIds.includes(s.serviceId)} onChange={() => toggleService(s.serviceId)} />
-                                ))}
-                            </div>
-                        </Form.Group>
-                        <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold">Detailed description</Form.Label>
-                            <Form.Control as="textarea" rows={3} value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
-                        </Form.Group>
-                        <Row>
-                            <Col md={3}><Form.Group className="mb-3"><Form.Label className="fw-bold">Sessions*</Form.Label>
-                                <Form.Control type="number" min="1" max="100" value={formData.numberOfSessions} onChange={(e) => setFormData({ ...formData, numberOfSessions: e.target.value })} required /></Form.Group></Col>
-                            <Col md={3}><Form.Group className="mb-3"><Form.Label className="fw-bold">Validity (days)*</Form.Label>
-                                <Form.Control type="number" min="1" max="1095" value={formData.validityDays} onChange={(e) => setFormData({ ...formData, validityDays: e.target.value })} required /></Form.Group></Col>
-                            <Col md={3}><Form.Group className="mb-3"><Form.Label className="fw-bold">Package price (VND)*</Form.Label>
-                                <Form.Control type="number" min="1000" step="1000" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required /></Form.Group></Col>
-                            <Col md={3}><Form.Group className="mb-3"><Form.Label className="fw-bold">Status</Form.Label>
-                                <Form.Select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-                                    <option value="Active">On sale</option><option value="Inactive">Stop selling</option>
-                                </Form.Select></Form.Group></Col>
-                        </Row>
-                        {formData.treatmentPackageId > 0 && <small className="text-muted">Changes only apply to future sales; packages customers bought keep their sessions and expiry date.</small>}
-                    </Modal.Body>
-                    <Modal.Footer className="bg-light border-0">
-                        <Button variant="secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancel</Button>
-                        <Button variant="primary" type="submit" disabled={saving}>{formData.treatmentPackageId ? 'Save changes' : 'Create'}</Button>
-                    </Modal.Footer>
-                </Form>
-            </Modal>
+            <CreateTreatmentPackageModal show={showCreate} services={services} onClose={() => setShowCreate(false)} onSaved={afterChange} />
+            <UpdateTreatmentPackageModal pkg={editTarget} services={services} onClose={() => setEditTarget(null)} onSaved={afterChange} />
+            <DeleteTreatmentPackageModal pkg={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={afterChange} />
 
             <StatusChangeModal
                 show={!!statusTarget}
