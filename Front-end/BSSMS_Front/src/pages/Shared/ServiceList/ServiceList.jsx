@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { Link, useLocation } from "react-router-dom";
-import { Button, Modal, Spinner } from "react-bootstrap";
+import { Spinner } from "react-bootstrap";
 import servicePhoto01 from "../../../assets/figma/service-card-exact-01.png";
 import servicePhoto02 from "../../../assets/figma/service-card-exact-02.png";
 import servicePhoto03 from "../../../assets/figma/service-card-exact-03.png";
@@ -15,6 +15,7 @@ import servicePhoto10 from "../../../assets/figma/service-card-exact-10.png";
 import servicePhoto11 from "../../../assets/figma/service-card-exact-11.png";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 import { StatusToggleButton, StatusChangeModal } from "../../../components/StatusToggle";
+import DeleteServiceModal from "./DeleteServiceModal";
 
 const servicePhotos = [
   servicePhoto01,
@@ -40,8 +41,6 @@ const ServiceList = ({ user }) => {
   const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [serviceToDelete, setServiceToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
   const [statusTarget, setStatusTarget] = useState(null);
   const [statusBusy, setStatusBusy] = useState(false);
   const [actionNotice, setActionNotice] = useState(
@@ -255,10 +254,7 @@ const ServiceList = ({ user }) => {
     );
   }
 
-  const handleDelete = (service) => {
-    setDeleteError("");
-    setServiceToDelete(service);
-  };
+  const handleDelete = (service) => setServiceToDelete(service);
 
   const confirmStatusChange = async () => {
     if (!statusTarget || statusBusy) return;
@@ -276,30 +272,6 @@ const ServiceList = ({ user }) => {
       alert(typeof message === "string" ? message : "Could not change the service status.");
     } finally {
       setStatusBusy(false);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!serviceToDelete || deleting) return;
-    setDeleting(true);
-    setDeleteError("");
-    try {
-      const response = await axios.delete(`/api/service?id=${serviceToDelete.serviceId}`);
-      setServiceToDelete(null);
-      setActionNotice(
-        `Service "${serviceToDelete.serviceName}": ${response.data?.message || "has been deleted."}`,
-      );
-      setRefresh((prev) => prev + 1);
-    } catch (error) {
-      console.error("Error deleting service:", error);
-      const message = error.response?.data?.message;
-      setDeleteError(
-        typeof message === "string"
-          ? message
-          : "Could not delete the service. Please try again.",
-      );
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -409,61 +381,15 @@ const ServiceList = ({ user }) => {
           </tbody>
         </table>
       </div>
-      <Modal
-        show={Boolean(serviceToDelete)}
-        onHide={() => {
-          if (!deleting) setServiceToDelete(null);
+      <DeleteServiceModal
+        service={serviceToDelete}
+        onClose={() => setServiceToDelete(null)}
+        onDeleted={(message) => {
+          setServiceToDelete(null);
+          setActionNotice(message);
+          setRefresh((prev) => prev + 1);
         }}
-        centered
-        aria-labelledby="delete-service-title"
-      >
-        <Modal.Header closeButton={!deleting}>
-          <Modal.Title id="delete-service-title">
-            Delete service
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {deleteError && (
-            <div className="alert alert-danger mb-3" role="alert">
-              {deleteError}
-            </div>
-          )}
-          <p className="mb-2">
-            Delete service{" "}
-            <strong>{serviceToDelete?.serviceName}</strong>?
-          </p>
-          <p className="text-muted small mb-0">
-            The service is removed from all lists and can no longer be booked. Its data is kept in the
-            database so past appointments, invoices and reviews still show it. Upcoming appointments already booked are kept.
-          </p>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="outline-secondary"
-            onClick={() => setServiceToDelete(null)}
-            disabled={deleting}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            onClick={confirmDelete}
-            disabled={deleting}
-          >
-            {deleting ? (
-              <>
-                <Spinner size="sm" animation="border" className="me-2" />
-                Processing
-              </>
-            ) : (
-              <>
-                <i className="bi bi-trash me-2" aria-hidden="true" />
-                Delete
-              </>
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      />
       <StatusChangeModal
         show={Boolean(statusTarget)}
         entity="services"
