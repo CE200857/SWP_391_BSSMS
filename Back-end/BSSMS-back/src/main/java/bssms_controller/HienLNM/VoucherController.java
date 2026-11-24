@@ -13,7 +13,8 @@ public class VoucherController extends ControllerSupport {
         VoucherDAO dao = use(new VoucherDAO());
         String id = request.parameter("id"), preview = request.parameter("preview");
         Object data;
-        if (preview != null) data = dao.preview(preview, request.parameter("customerId") == null || request.parameter("customerId").isBlank() ? 0 : Integer.parseInt(request.parameter("customerId")), new BigDecimal(request.parameter("subtotal")));
+        if ("1".equals(request.parameter("available"))) data = dao.getAvailableVouchers();
+        else if (preview != null) data = dao.preview(preview, request.parameter("customerId") == null || request.parameter("customerId").isBlank() ? 0 : Integer.parseInt(request.parameter("customerId")), new BigDecimal(request.parameter("subtotal")));
         else if (id != null && !id.isBlank()) data = dao.getVoucherById(Integer.parseInt(id));
         else data = dao.getAllVouchers(request.parameter("search"), request.parameter("status"));
         response.writer().print(gson.toJson(data));

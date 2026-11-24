@@ -11,6 +11,8 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
 import "./StaffAdmin.css";
+import DeleteStaffModal from "./DeleteStaffModal";
+import AssignRoleModal from "./AssignRoleModal";
 
 const roleLabels = {
   Manager: "Manager",
@@ -21,15 +23,9 @@ const roleLabels = {
 const StaffList = ({ user }) => {
   const [staffs, setStaffs] = useState([]);
 
-  const [showModal, setShowModal] = useState(false);
-  const [selectedStaff, setSelectedStaff] = useState(null);
-
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const [roleChangeData, setRoleChangeData] = useState({
-    accountId: null,
-    staffName: "",
-    newRole: "",
-  });
+  // Delete and Assign Role live in their own files (DeleteStaffModal.jsx, AssignRoleModal.jsx)
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [roleChange, setRoleChange] = useState(null);
 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusChangeData, setStatusChangeData] = useState({
@@ -67,74 +63,14 @@ const StaffList = ({ user }) => {
     fetchData();
   }, [refresh]);
 
-  const handleShowModal = (staff) => {
-    setSelectedStaff(staff);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedStaff(null);
-  };
-
-  const confirmDelete = async () => {
-    if (!selectedStaff) return;
-
-    try {
-      const response = await fetch(`/api/staff?id=${selectedStaff.staffId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        setStaffs((prevStaffs) =>
-          prevStaffs.filter((staff) => staff.staffId !== selectedStaff.staffId)
-        );
-        setMessage(`Permanently deleted staff member ${selectedStaff.fullName}!`);
-        setTimeout(() => setMessage(""), 3000);
-      } else {
-        alert("Error: Could not delete the staff account.");
-      }
-    } catch (error) {
-      console.error("Error deleting staff:", error);
-      alert("Could not connect to the back-end.");
-    } finally {
-      handleCloseModal();
-    }
+  const showMessage = (text) => {
+    setMessage(text);
+    setTimeout(() => setMessage(""), 3000);
   };
 
   const handleShowRoleModal = (staff, newRole) => {
     if (staff.position === newRole) return;
-    setRoleChangeData({
-      accountId: staff.accountId,
-      staffName: staff.fullName,
-      newRole: newRole,
-    });
-    setShowRoleModal(true);
-  };
-
-  const handleCloseRoleModal = () => {
-    setShowRoleModal(false);
-    setRoleChangeData({ accountId: null, staffName: "", newRole: "" });
-  };
-
-  const confirmRoleChange = async () => {
-    try {
-      const { accountId, newRole } = roleChangeData;
-      const url = `/api/staff/assign-role?accountId=${accountId}&role=${newRole}`;
-      const response = await axios.post(url, null, { withCredentials: true });
-
-      if (response.status === 200) {
-        setRefresh((prev) => prev + 1);
-        setMessage(`Role changed to ${newRole} successful!`);
-        setTimeout(() => setMessage(""), 3000);
-      }
-    } catch (error) {
-      console.error("Error changing role:", error);
-      alert("Failed to change the role. Please try again!");
-    } finally {
-      handleCloseRoleModal();
-    }
+    setRoleChange({ accountId: staff.accountId, staffName: staff.fullName, newRole });
   };
 
   const handleShowStatusModal = (staff) => {
@@ -353,7 +289,7 @@ const StaffList = ({ user }) => {
                       variant="link"
                       size="sm"
                       className="manager-list-action manager-list-action--delete"
-                      onClick={() => handleShowModal(s)}
+                      onClick={() => setDeleteTarget(s)}
                       disabled={
                         s.position === "Manager" ||
                         s.accountId === currentUserAccountId
@@ -376,33 +312,15 @@ const StaffList = ({ user }) => {
         </Table>
       </div>
 
-      <Modal show={showModal} onHide={handleCloseModal} centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="text-danger fw-bold">
-            <i className="bi bi-exclamation-triangle-fill me-2"></i>
-            Confirm staff deletion
-          </Modal.Title>
-        </Modal.Header>
-
-        <Modal.Body>
-          Delete staff member{" "}
-          <span className="fw-bold text-primary">
-            {selectedStaff?.fullName}
-          </span>
-          ? The account can no longer log in and is removed from the staff list. Their work history
-          (appointments, invoices) is kept in the database.
-        </Modal.Body>
-
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseModal}>
-            Cancel
-          </Button>
-
-          <Button variant="danger" onClick={confirmDelete}>
-            Delete
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <DeleteStaffModal
+        staff={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onDeleted={(staff, text) => {
+          setStaffs((prev) => prev.filter((x) => x.staffId !== staff.staffId));
+          setDeleteTarget(null);
+          showMessage(text);
+        }}
+      />
 
       <Modal show={showStatusModal} onHide={handleCloseStatusModal} centered>
         <Modal.Header closeButton>
@@ -439,30 +357,15 @@ const StaffList = ({ user }) => {
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showRoleModal} onHide={handleCloseRoleModal} centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="text-primary fw-bold">
-            <i className="bi bi-person-gear me-2"></i> Confirm role change
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          Do you want to change the role of staff member{" "}
-          <span className="fw-bold text-danger">
-            {roleChangeData.staffName}
-          </span>{" "}
-          to the position{" "}
-          <span className="fw-bold text-success">{roleChangeData.newRole}</span>{" "}
-          ?
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseRoleModal}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={confirmRoleChange}>
-            Confirm
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <AssignRoleModal
+        change={roleChange}
+        onClose={() => setRoleChange(null)}
+        onAssigned={(text) => {
+          setRoleChange(null);
+          setRefresh((prev) => prev + 1);
+          showMessage(text);
+        }}
+      />
     </Container>
   );
 };

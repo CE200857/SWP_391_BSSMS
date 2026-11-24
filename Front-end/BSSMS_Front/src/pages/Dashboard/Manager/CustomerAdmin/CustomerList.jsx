@@ -4,19 +4,19 @@ import {
   Table,
   Button,
   Badge,
-  Modal,
 } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { useManagerSearchFilter } from "../../../../components/ManagerSearchFilter";
 import { StatusToggleButton, StatusChangeModal } from "../../../../components/StatusToggle";
+import DeleteCustomerModal from "./DeleteCustomerModal";
 
 const CustomerList = ({ user }) => {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [refresh, setRefresh] = useState(0);
 
-  const [showModal, setShowModal] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  // Delete lives in its own file (DeleteCustomerModal.jsx)
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [statusTarget, setStatusTarget] = useState(null);
   const [statusBusy, setStatusBusy] = useState(false);
 
@@ -63,39 +63,6 @@ const CustomerList = ({ user }) => {
     };
     fetchData();
   }, [refresh]);
-
-  const handleShowModal = (customer) => {
-    setSelectedCustomer(customer);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedCustomer(null);
-  };
-
-  const confirmDelete = async () => {
-    if (!selectedCustomer) return;
-
-    try {
-      const response = await fetch(
-        `/api/customers?id=${selectedCustomer.customerId}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
-      );
-
-      if (response.ok) {
-        setRefresh((prev) => prev + 1);
-      } else {
-        const data = await response.json().catch(() => null);
-        alert(data?.message || "Error: Could not delete this customer.");
-      }
-    } finally {
-      handleCloseModal();
-    }
-  };
 
   const { filteredRows: filteredCustomers, toolbar } = useManagerSearchFilter(
     customers,
@@ -210,7 +177,7 @@ const CustomerList = ({ user }) => {
                       variant="link"
                       size="sm"
                       className="manager-list-action manager-list-action--delete"
-                      onClick={() => handleShowModal(c)}
+                      onClick={() => setDeleteTarget(c)}
                       aria-label={`Delete customer ${c.fullName}`}
                     >
                       <i className="bi bi-trash" aria-hidden="true" /> Delete
@@ -230,31 +197,11 @@ const CustomerList = ({ user }) => {
         </tbody>
       </Table>
 
-      <Modal show={showModal} onHide={handleCloseModal} centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="text-danger fw-bold">
-            <i className="bi bi-exclamation-triangle-fill me-2"></i>
-            Confirm account deletion
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          Delete customer{" "}
-          <span className="fw-bold text-primary">
-            {selectedCustomer?.fullName}
-          </span>
-          ? The account can no longer log in and is removed from the customer list. Their appointments,
-          invoices and packages are kept in the database. Customers with upcoming appointments or unpaid
-          invoices cannot be deleted.
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseModal}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={confirmDelete}>
-            Delete
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <DeleteCustomerModal
+        customer={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onDeleted={() => { setDeleteTarget(null); setRefresh((prev) => prev + 1); }}
+      />
 
       <StatusChangeModal
         show={!!statusTarget}

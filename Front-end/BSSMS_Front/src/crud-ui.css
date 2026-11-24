@@ -762,3 +762,20 @@
     padding: 10px 8px;
   }
 }
+
+/* Pop-up shown after returning from VNPay (components/PaymentResultModal.jsx) */
+.payment-result-modal .modal-content { border-radius: 18px; }
+.payment-result-icon { font-size: 4rem; line-height: 1; display: inline-block; animation: payment-pop .35s ease-out; }
+@keyframes payment-pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .payment-result-icon { animation: none; } }
+
+/* Voucher picker (checkout suggestions) */
+.voucher-picker-menu { min-width: 300px; max-width: 360px; max-height: 320px; overflow-y: auto; padding: 4px 0; }
+.voucher-picker-item { white-space: normal; padding: 8px 14px; border-bottom: 1px solid #f1f3f5; }
+.voucher-picker-item:last-child { border-bottom: 0; }
+.voucher-picker-code { letter-spacing: .03em; color: #198754; }
+.voucher-picker-item.active .voucher-picker-code, .voucher-picker-item.active .voucher-picker-meta, .voucher-picker-item.active .voucher-picker-name { color: #fff; }
+.voucher-picker-off { font-size: .82rem; font-weight: 600; }
+.voucher-picker-name { font-size: .85rem; }
+.voucher-picker-meta { font-size: .75rem; color: #6c757d; }
+.voucher-picker-item:disabled { opacity: .55; }

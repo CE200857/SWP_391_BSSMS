@@ -9,6 +9,7 @@ import servicePhoto03 from "../../../assets/figma/service-card-exact-03.png";
 import servicePhoto04 from "../../../assets/figma/service-card-exact-04.png";
 import "./PublicTreatmentPackages.css";
 import FloatingAlert from "../../../components/FloatingAlert";
+import VoucherPicker from "../../../components/VoucherPicker";
 
 const photos = [servicePhoto01, servicePhoto02, servicePhoto03, servicePhoto04];
 const vnd = (value) => `${Math.round(Number(value || 0)).toLocaleString("vi-VN")} VND`;
@@ -100,6 +101,12 @@ export default function PublicTreatmentPackages({ user = null }) {
   const applyVoucher = () => {
     if (!buying) return;
     loadQuote(buying, voucherCode.trim());
+  };
+
+  // Picking a suggested voucher fills in its code and applies it at once
+  const pickVoucher = (code) => {
+    setVoucherCode(code);
+    if (buying) loadQuote(buying, code);
   };
 
   const removeVoucher = () => {
@@ -328,6 +335,12 @@ export default function PublicTreatmentPackages({ user = null }) {
                 ) : (
                   <Button size="sm" variant="outline-primary" disabled={buyBusy || quoteBusy || !voucherCode.trim()} onClick={applyVoucher}>Apply</Button>
                 )}
+                <VoucherPicker
+                  onPick={pickVoucher}
+                  orderAmount={quote ? Number(quote.subtotal) - Number(quote.tierDiscount || 0) : undefined}
+                  selectedCode={quote?.voucherCode}
+                  disabled={buyBusy || quoteBusy}
+                />
               </div>
               {voucherError && <div className="small text-danger mt-1">{voucherError}</div>}
             </Form.Group>

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Badge, Button, Card, Col, Container, Form, Modal, Nav, Row, Table } from "react-bootstrap";
-import { api, post, put, del, viDate, time5, label } from "../../../../services/api";
+import { Alert, Button, Card, Container, Modal, Nav, Table } from "react-bootstrap";
+import { api, put, viDate, time5, label } from "../../../../services/api";
 import { StatusToggleButton, StatusChangeModal } from "../../../../components/StatusToggle";
 import FloatingAlert from "../../../../components/FloatingAlert";
-
-const ROOM_TYPES = ["Facial", "Massage", "HairWash", "Body"];
+import CreateRoomModal from "./CreateRoomModal";
+import UpdateRoomModal from "./UpdateRoomModal";
+import DeleteRoomModal from "./DeleteRoomModal";
+import CreateBedModal from "./CreateBedModal";
+import UpdateBedModal from "./UpdateBedModal";
+import DeleteBedModal from "./DeleteBedModal";
 
 export default function ResourceManagement() {
   const [tab, setTab] = useState("rooms");
@@ -12,11 +16,13 @@ export default function ResourceManagement() {
   const [beds, setBeds] = useState([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [roomForm, setRoomForm] = useState(null);
-  const [bedForm, setBedForm] = useState(null);
-  const [formError, setFormError] = useState("");
+  // Each CRUD action lives in its own modal file (Create/Update/Delete Room/Bed Modal.jsx)
+  const [creating, setCreating] = useState(null); // "room" | "bed" | null
+  const [editRoom, setEditRoom] = useState(null);
+  const [editBed, setEditBed] = useState(null);
+  const [deleteRoom, setDeleteRoom] = useState(null);
+  const [deleteBed, setDeleteBed] = useState(null);
   const [affected, setAffected] = useState(null);
-  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -29,22 +35,15 @@ export default function ResourceManagement() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const save = async (kind, form, setForm) => {
-    setSaving(true);
-    setFormError("");
-    try {
-      const url = kind === "room" ? "/api/rooms" : "/api/beds";
-      const id = kind === "room" ? form.roomId : form.bedId;
-      const r = id ? await put(url, form) : await post(url, form);
-      setNotice(r.message);
-      setForm(null);
-      if (r.affectedAppointments?.length) setAffected(r.affectedAppointments);
-      load();
-    } catch (e) {
-      setFormError(e.message);
-    } finally {
-      setSaving(false);
-    }
+  const afterChange = (message, affectedAppointments) => {
+    setNotice(message);
+    setCreating(null);
+    setEditRoom(null);
+    setEditBed(null);
+    setDeleteRoom(null);
+    setDeleteBed(null);
+    if (affectedAppointments?.length) setAffected(affectedAppointments);
+    load();
   };
   // Bấm nhãn trạng thái: phòng/giường Active <-> Maintenance
   const [statusTarget, setStatusTarget] = useState(null); // { kind, item }
@@ -69,17 +68,6 @@ export default function ResourceManagement() {
     }
   };
 
-  const remove = async (kind, item) => {
-    const name = kind === "room" ? `room ${item.roomName}` : `beds ${item.bedNumber} (${item.roomName})`;
-    if (!window.confirm(`Delete ${name}?`)) return;
-    try {
-      const r = await del(`${kind === "room" ? "/api/rooms" : "/api/beds"}?id=${kind === "room" ? item.roomId : item.bedId}`);
-      setNotice(r.message);
-      load();
-    } catch (e) {
-      setError(e.message);
-    }
-  };
   const showAffected = async (room) => {
     try {
       setAffected(await api(`/api/rooms?affectedOf=${room.roomId}`));
@@ -95,7 +83,7 @@ export default function ResourceManagement() {
           <h2 className="manager-page-title fw-bold mb-1">Rooms & beds</h2>
           <p className="text-muted mb-0">Manage rooms by service type and the beds in each room.</p>
         </div>
-        <Button className="fw-bold" onClick={() => { setFormError(""); tab === "rooms" ? setRoomForm({ roomId: 0, roomName: "", roomType: "Facial", status: "Active" }) : setBedForm({ bedId: 0, roomId: rooms[0]?.roomId || "", bedNumber: "", status: "Active" }); }}>
+        <Button className="fw-bold" onClick={() => setCreating(tab === "rooms" ? "room" : "bed")}>
           <i className="bi bi-plus-lg" /> {tab === "rooms" ? "Add room" : "Add bed"}
         </Button>
       </div>
@@ -121,9 +109,9 @@ export default function ResourceManagement() {
                     <td><StatusToggleButton active={r.status === "Active"} inactiveLabel={label(r.status)} onClick={() => setStatusTarget({ kind: "room", item: r })} /></td>
                     <td className="text-center">
                       <div className="manager-list-actions">
-                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => { setFormError(""); setRoomForm({ ...r }); }}><i className="bi bi-pencil-square" /> Edit</Button>
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => setEditRoom(r)}><i className="bi bi-pencil-square" /> Edit</Button>
                         <Button variant="link" size="sm" className="manager-list-action manager-list-action--view" onClick={() => showAffected(r)}><i className="bi bi-calendar-event" /> Appointments</Button>
-                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => remove("room", r)}><i className="bi bi-trash" /> Delete</Button>
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => setDeleteRoom(r)}><i className="bi bi-trash" /> Delete</Button>
                       </div>
                     </td>
                   </tr>
@@ -144,8 +132,8 @@ export default function ResourceManagement() {
                     <td>{label(b.useState)}</td>
                     <td className="text-center">
                       <div className="manager-list-actions">
-                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => { setFormError(""); setBedForm({ bedId: b.bedId, roomId: b.roomId, bedNumber: b.bedNumber, status: b.status }); }}><i className="bi bi-pencil-square" /> Edit</Button>
-                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => remove("bed", b)}><i className="bi bi-trash" /> Delete</Button>
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => setEditBed(b)}><i className="bi bi-pencil-square" /> Edit</Button>
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--delete" onClick={() => setDeleteBed(b)}><i className="bi bi-trash" /> Delete</Button>
                       </div>
                     </td>
                   </tr>
@@ -157,54 +145,12 @@ export default function ResourceManagement() {
         </Card.Body>
       </Card>
 
-      <Modal show={!!roomForm} onHide={() => !saving && setRoomForm(null)} centered>
-        <Modal.Header closeButton><Modal.Title>{roomForm?.roomId ? "Update room" : "Add room"}</Modal.Title></Modal.Header>
-        {roomForm && (
-          <Form onSubmit={(e) => { e.preventDefault(); save("room", roomForm, setRoomForm); }}>
-            <Modal.Body>
-              <FloatingAlert message={formError} onClose={() => setFormError("")} />
-              <Form.Group className="mb-3"><Form.Label className="fw-bold">Room name *</Form.Label>
-                <Form.Control value={roomForm.roomName} maxLength={100} onChange={(e) => setRoomForm({ ...roomForm, roomName: e.target.value })} required /></Form.Group>
-              <Row>
-                <Col><Form.Label className="fw-bold">Room type*</Form.Label>
-                  <Form.Select value={roomForm.roomType} onChange={(e) => setRoomForm({ ...roomForm, roomType: e.target.value })}>
-                    {ROOM_TYPES.map((t) => <option key={t} value={t}>{label(t)}</option>)}
-                  </Form.Select></Col>
-                <Col><Form.Label className="fw-bold">Status</Form.Label>
-                  <Form.Select value={roomForm.status} onChange={(e) => setRoomForm({ ...roomForm, status: e.target.value })}>
-                    <option value="Active">Active</option><option value="Maintenance">Maintenance</option>
-                  </Form.Select></Col>
-              </Row>
-              <small className="text-muted d-block mt-2">Setting the room to maintenance will also set its free beds to maintenance.</small>
-            </Modal.Body>
-            <Modal.Footer><Button variant="secondary" onClick={() => setRoomForm(null)}>Cancel</Button><Button type="submit" disabled={saving}>Save</Button></Modal.Footer>
-          </Form>
-        )}
-      </Modal>
-
-      <Modal show={!!bedForm} onHide={() => !saving && setBedForm(null)} centered>
-        <Modal.Header closeButton><Modal.Title>{bedForm?.bedId ? "Update bed" : "Add bed"}</Modal.Title></Modal.Header>
-        {bedForm && (
-          <Form onSubmit={(e) => { e.preventDefault(); save("bed", { ...bedForm, roomId: Number(bedForm.roomId) }, setBedForm); }}>
-            <Modal.Body>
-              <FloatingAlert message={formError} onClose={() => setFormError("")} />
-              <Form.Group className="mb-3"><Form.Label className="fw-bold">Room*</Form.Label>
-                <Form.Select value={bedForm.roomId} onChange={(e) => setBedForm({ ...bedForm, roomId: e.target.value })} required>
-                  {rooms.map((r) => <option key={r.roomId} value={r.roomId}>{r.roomName} · {label(r.roomType)}</option>)}
-                </Form.Select></Form.Group>
-              <Row>
-                <Col><Form.Label className="fw-bold">Bed name *</Form.Label>
-                  <Form.Control value={bedForm.bedNumber} maxLength={20} onChange={(e) => setBedForm({ ...bedForm, bedNumber: e.target.value })} required /></Col>
-                <Col><Form.Label className="fw-bold">Status</Form.Label>
-                  <Form.Select value={bedForm.status} onChange={(e) => setBedForm({ ...bedForm, status: e.target.value })}>
-                    <option value="Active">Active</option><option value="Maintenance">Maintenance</option>
-                  </Form.Select></Col>
-              </Row>
-            </Modal.Body>
-            <Modal.Footer><Button variant="secondary" onClick={() => setBedForm(null)}>Cancel</Button><Button type="submit" disabled={saving}>Save</Button></Modal.Footer>
-          </Form>
-        )}
-      </Modal>
+      <CreateRoomModal show={creating === "room"} onClose={() => setCreating(null)} onSaved={afterChange} />
+      <UpdateRoomModal room={editRoom} onClose={() => setEditRoom(null)} onSaved={afterChange} />
+      <DeleteRoomModal room={deleteRoom} onClose={() => setDeleteRoom(null)} onDeleted={afterChange} />
+      <CreateBedModal show={creating === "bed"} rooms={rooms} onClose={() => setCreating(null)} onSaved={afterChange} />
+      <UpdateBedModal bed={editBed} rooms={rooms} onClose={() => setEditBed(null)} onSaved={afterChange} />
+      <DeleteBedModal bed={deleteBed} onClose={() => setDeleteBed(null)} onDeleted={afterChange} />
 
       <Modal show={!!affected} onHide={() => setAffected(null)} centered size="lg">
         <Modal.Header closeButton><Modal.Title>Upcoming appointments using the room/bed</Modal.Title></Modal.Header>

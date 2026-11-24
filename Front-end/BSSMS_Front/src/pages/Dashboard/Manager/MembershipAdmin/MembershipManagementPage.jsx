@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Badge, Button, Card, Container, Form, Modal, Spinner, Table } from "react-bootstrap";
-import { api, put, money } from "../../../../services/api";
+import { Badge, Button, Card, Container, Spinner, Table } from "react-bootstrap";
+import { api, money } from "../../../../services/api";
 import "./MembershipManagementPage.css";
 import FloatingAlert from "../../../../components/FloatingAlert";
+import UpdateMembershipTierModal from "./UpdateMembershipTierModal";
 
 export default function MembershipManagementPage() {
   const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -12,7 +13,6 @@ export default function MembershipManagementPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [edit, setEdit] = useState(null);
-  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -26,20 +26,6 @@ export default function MembershipManagementPage() {
     }
   }, []);
   useEffect(() => { load(); }, [load]);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const r = await put(`/api/membership-tiers?id=${edit.membershipTierId}`, { description: edit.description });
-      setNotice(r.message);
-      setEdit(null);
-      load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const total = tiers.reduce((n, t) => n + Number(t.customerCount || 0), 0);
 
@@ -68,7 +54,7 @@ export default function MembershipManagementPage() {
                   {isManager && (
                     <td className="text-center">
                       <div className="manager-list-actions">
-                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => setEdit({ ...t, description: t.description || "" })}>
+                        <Button variant="link" size="sm" className="manager-list-action manager-list-action--edit" onClick={() => setEdit(t)}>
                           <i className="bi bi-pencil-square" /> Edit description
                         </Button>
                       </div>
@@ -81,20 +67,7 @@ export default function MembershipManagementPage() {
         </Card.Body>
       </Card>
 
-      <Modal show={!!edit} onHide={() => !saving && setEdit(null)} centered>
-        <Modal.Header closeButton><Modal.Title>Tier benefits {edit?.tierName}</Modal.Title></Modal.Header>
-        {edit && (
-          <Modal.Body>
-            <p className="text-muted small">Spending from {money(edit.minSpending)} · discount {Number(edit.discountPercent)}% for services and treatment packages.</p>
-            <Form.Control as="textarea" rows={4} maxLength={500} value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} />
-            <Form.Text>{edit.description.length}/500 characters</Form.Text>
-          </Modal.Body>
-        )}
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setEdit(null)} disabled={saving}>Cancel</Button>
-          <Button onClick={save} disabled={saving}>Save</Button>
-        </Modal.Footer>
-      </Modal>
+      <UpdateMembershipTierModal tier={edit} onClose={() => setEdit(null)} onSaved={(message) => { setNotice(message); setEdit(null); load(); }} />
     </Container>
   );
 }
