@@ -285,6 +285,11 @@
   text-align: center;
 }
 
+.invoice-list-table .manager-list-action--view,
+.invoice-list-table .manager-list-action--view i {
+  color: #fff !important;
+}
+
 @media print {
   .invoice-detail-modal .modal-dialog {
     max-width: none;

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, Form } from "react-bootstrap";
 import { post, money } from "../../../services/api";
+import VoucherPicker from "../../../components/VoucherPicker";
 
 export const startVnpayPayment = async (invoiceId) => {
   const r = await post("/api/payments/vnpay/create", { invoiceId });
@@ -10,7 +11,7 @@ export const startVnpayPayment = async (invoiceId) => {
 };
 
 /** Shown inside the invoice detail when the invoice is unpaid and collectible. */
-export default function InvoicePaymentPanel({ invoiceId, amountDue, voucherCode, onDone, onError }) {
+export default function InvoicePaymentPanel({ invoiceId, amountDue, orderAmount, voucherCode, onDone, onError }) {
   const [voucher, setVoucher] = useState(voucherCode || "");
   const [method, setMethod] = useState("Cash");
   const [txn, setTxn] = useState("");
@@ -30,10 +31,12 @@ export default function InvoicePaymentPanel({ invoiceId, amountDue, voucherCode,
     }
   };
 
-  const applyVoucher = () => run(
-    () => post(`/api/invoices/${invoiceId}/voucher`, { voucherCode: voucher.trim() || null }),
-    voucher.trim() ? "Voucher applied." : "Voucher removed.",
+  const applyVoucher = (code = voucher) => run(
+    () => post(`/api/invoices/${invoiceId}/voucher`, { voucherCode: code.trim() || null }),
+    code.trim() ? `Voucher ${code.trim()} applied.` : "Voucher removed.",
   );
+  // Picking a suggested voucher fills in its code and applies it at once
+  const pickVoucher = (code) => { setVoucher(code); applyVoucher(code); };
 
   const pay = async () => {
     if (method === "VNPay") {
@@ -55,9 +58,10 @@ export default function InvoicePaymentPanel({ invoiceId, amountDue, voucherCode,
           <Form.Label className="small">Voucher code</Form.Label>
           <Form.Control value={voucher} onChange={(e) => setVoucher(e.target.value.toUpperCase())} placeholder="Enter code" style={{ width: 180 }} />
         </Form.Group>
-        <Button variant="outline-primary" disabled={busy} onClick={applyVoucher}>
+        <Button variant="outline-primary" disabled={busy} onClick={() => applyVoucher()}>
           {voucher.trim() ? "Apply" : "Remove voucher"}
         </Button>
+        <VoucherPicker size={undefined} onPick={pickVoucher} orderAmount={orderAmount} selectedCode={voucherCode} disabled={busy} />
       </div>
       <div className="d-flex flex-wrap gap-2 align-items-end">
         <Form.Group>

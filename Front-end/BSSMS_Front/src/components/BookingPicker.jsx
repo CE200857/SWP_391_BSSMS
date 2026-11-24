@@ -45,7 +45,7 @@ export function ServiceLinesEditor({ services, packages = [], lines, onChange, d
         return (
           <div className="customer-booking-fields booking-service-line" key={index}>
             <Form.Group className="customer-booking-service-field" controlId={`booking-service-${index}`}>
-              <Form.Label>Service {index + 1}{index === 0 ? " *" : ""}</Form.Label>
+              <Form.Label>Service {index + 1}{index === 0 && <> <span className="text-danger">*</span></>}</Form.Label>
               <Form.Select
                 value={line.serviceId}
                 disabled={disabled}

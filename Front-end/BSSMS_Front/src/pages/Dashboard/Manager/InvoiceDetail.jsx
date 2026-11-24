@@ -131,7 +131,7 @@ export default function InvoiceDetail({ invoiceId, role, onClose, onChanged }) {
               </Alert>
             )}
             {(role === "Receptionist" || role === "Manager") && unpaid && collectible && (
-              <InvoicePaymentPanel invoiceId={invoiceId} amountDue={amountDue} voucherCode={d.voucherCode} onDone={afterAction} onError={setError} />
+              <InvoicePaymentPanel invoiceId={invoiceId} amountDue={amountDue} orderAmount={Number(d.subtotal || 0) - Number(d.tierDiscount || 0)} voucherCode={d.voucherCode} onDone={afterAction} onError={setError} />
             )}
 
             {mode === "cancel" && <CancelInvoiceForm invoiceId={invoiceId} onDone={afterAction} onBack={() => setMode(null)} onError={setError} />}

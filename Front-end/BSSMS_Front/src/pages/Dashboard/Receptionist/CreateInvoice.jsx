@@ -4,6 +4,7 @@ import { Alert, Badge, Button, Card, Col, Container, Form, ListGroup, Row, Spinn
 import AppointmentStatusBadge from "../../../components/AppointmentStatusBadge";
 import { api, post, money, viDate, time5 } from "../../../services/api";
 import FloatingAlert from "../../../components/FloatingAlert";
+import VoucherPicker from "../../../components/VoucherPicker";
 
 function SellPackage() {
   const navigate = useNavigate();
@@ -107,7 +108,17 @@ function SellPackage() {
               {tierPercent > 0 && <p className="mb-1 text-muted small">Tier discount {customer.membership.tierName}: {tierPercent}% (unless invoiced)</p>}
               <Form.Group className="my-3">
                 <Form.Label>Voucher code</Form.Label>
-                <Form.Control value={voucherCode} onChange={(e) => setVoucherCode(e.target.value.toUpperCase())} />
+                <div className="d-flex gap-2">
+                  <Form.Control value={voucherCode} onChange={(e) => setVoucherCode(e.target.value.toUpperCase())} placeholder="Enter or choose a voucher" />
+                  <VoucherPicker
+                    size={undefined}
+                    onPick={setVoucherCode}
+                    selectedCode={voucherCode}
+                    orderAmount={pkg ? Number(pkg.price) - Math.min(Math.round(Number(pkg.price) * tierPercent / 100), Math.round(Number(pkg.price) * 0.5)) : undefined}
+                    disabled={!!result}
+                  />
+                </div>
+                <Form.Text className="text-muted">The voucher is checked and applied when you confirm payment.</Form.Text>
               </Form.Group>
               <Form.Group className="mb-3">
                 <Form.Label>Payment method</Form.Label>
