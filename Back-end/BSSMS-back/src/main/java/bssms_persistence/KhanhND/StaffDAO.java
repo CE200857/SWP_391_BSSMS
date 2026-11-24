@@ -39,10 +39,9 @@ public class StaffDAO extends DBContext implements AutoCloseable {
     public List<Staff> getAllStaffDetails() {
         checkRole("Manager");
 
-        String sql = "SELECT s.staff_id, s.account_id, a.username, s.full_name, a.phone, "
-                + "a.email, s.position, s.hire_date, a.status "
+        String sql = "SELECT s.staff_id, s.account_id, s.username, s.full_name, s.phone, "
+                + "s.email, s.position, s.hire_date, s.status "
                 + "FROM " + SchemaSql.STAFF + " s "
-                + "JOIN " + SchemaSql.ACCOUNTS + " a ON s.account_id = a.account_id "
                 + "WHERE NOT EXISTS(SELECT 1 FROM Staff d WHERE d.staff_id = s.staff_id AND d.deleted_at IS NOT NULL)";
 
         List<Staff> list = new ArrayList<>();
@@ -71,10 +70,9 @@ public class StaffDAO extends DBContext implements AutoCloseable {
     public Staff getStaffById(int staffId) {
         checkRole("Manager");
 
-        String sql = "SELECT s.staff_id, s.account_id, a.username, s.full_name, "
-                + "a.email, a.phone, a.status, a.role, s.hire_date "
+        String sql = "SELECT s.staff_id, s.account_id, s.username, s.full_name, "
+                + "s.email, s.phone, s.status, s.role, s.hire_date "
                 + "FROM " + SchemaSql.STAFF + " s "
-                + "JOIN " + SchemaSql.ACCOUNTS + " a ON s.account_id = a.account_id "
                 + "WHERE s.staff_id = ?";
 
         Staff staff = new Staff();
@@ -124,7 +122,7 @@ public class StaffDAO extends DBContext implements AutoCloseable {
             return; // not a Manager so no need to check
         }
 
-        Map<String, Object> row = workflow.one(
+        Map<String, Object> row = workflow.one( // Return the number of other manager (not count the current id)
                 "SELECT COUNT(*) AS n FROM Staff WHERE role = 'Manager' AND status = 'Active' AND staff_id <> ?", staffId);
         int otherManagers = Workflow.id(row.get("n"));
         if (otherManagers == 0) {
@@ -162,7 +160,7 @@ public class StaffDAO extends DBContext implements AutoCloseable {
         }
 
         try {
-            int rows = workflow.update("UPDATE Staff SET deleted_at = SYSDATETIME() WHERE staff_id = ? AND deleted_at IS NULL", staffId);
+            int rows = workflow.update("UPDATE Staff SET deleted_at = SYSDATETIME() WHERE staff_id = ? AND deleted_at IS NULL", staffId); // Add date for deleted_at to make sure the account is deleted and not only change status
             return rows == 1;
         } catch (SQLException e) {
             throw new DataAccessException(e);
@@ -186,7 +184,7 @@ public class StaffDAO extends DBContext implements AutoCloseable {
                 if (!"Technician".equals(newRole)) {
                     requireNoFutureAppointments(staffId,
                             "The technician still has upcoming appointments; reassign them before changing the role.");
-                    workflow.update("DELETE FROM StaffService WHERE staff_id = ?", staffId);
+                    workflow.update("DELETE FROM StaffService WHERE staff_id = ?", staffId); // Delete staff skill if new role is not technician
                 }
                 int rows = workflow.update("UPDATE Staff SET role = ? WHERE staff_id = ?", newRole, staffId);
                 return rows == 1;
@@ -219,9 +217,9 @@ public class StaffDAO extends DBContext implements AutoCloseable {
                     throw new IllegalArgumentException("Skills can only be assigned to technicians.");
                 }
 
-                workflow.update("DELETE FROM StaffService WHERE staff_id = ?", staffId);
+                workflow.update("DELETE FROM StaffService WHERE staff_id = ?", staffId); // Delete all old skill first
                 for (Integer serviceId : serviceIds) {
-                    workflow.update("INSERT INTO StaffService(staff_id, service_id) VALUES(?, ?)", staffId, serviceId);
+                    workflow.update("INSERT INTO StaffService(staff_id, service_id) VALUES(?, ?)", staffId, serviceId); // Insert new skill
                 }
                 return null;
             });
@@ -262,14 +260,14 @@ public class StaffDAO extends DBContext implements AutoCloseable {
         }
     }
 
-    // Update staff (hashedPassword = null means keep old password)
+    // Update staff (hashedPassword = null means keep old password, deleted staff cannot be updated)
     public boolean updateStaff(int accountId, String fullName, String phone, String email,
             String hireDate, String username, String hashedPassword) {
         checkRole("Manager");
 
         int staffId = LoginIdentity.staffId(accountId);
         String sql = "UPDATE Staff SET full_name = ?, phone = ?, email = ?, hire_date = ?, username = ?, "
-                + "password = COALESCE(?, password) WHERE staff_id = ?";
+                + "password = COALESCE(?, password) WHERE staff_id = ? AND deleted_at IS NULL"; // COALESCE kepe old password if password is empty
         try {
             int rows = workflow.update(sql, fullName, phone, email, toDate(hireDate), username, hashedPassword, staffId);
             return rows == 1;
@@ -333,17 +331,17 @@ public class StaffDAO extends DBContext implements AutoCloseable {
         String sql = "SELECT account_id FROM " + SchemaSql.ACCOUNTS + " Account WHERE username = ?";
         String username = baseUsername;
         int counter = 1;
+        boolean exists = true; // assume taken so the loop runs at least once
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            while (true) {
+            while (exists) { // keep trying while the username is already used
                 ps.setString(1, username);
                 ResultSet rs = ps.executeQuery();
-                boolean exists = rs.next();
+                exists = rs.next(); // true = someone already uses this username
                 rs.close();
-                if (!exists) {
-                    break;
+                if (exists) {
+                    username = baseUsername + counter;
+                    counter++;
                 }
-                username = baseUsername + counter;
-                counter++;
             }
         } catch (SQLException e) {
             throw new DataAccessException(e);

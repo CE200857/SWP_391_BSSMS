@@ -19,6 +19,9 @@ import java.util.List;
 // Manage Staff Accounts (view, create, update, delete, assign role)
 public class StaffController extends ControllerSupport {
 
+    private static final String PHONE_REGEX = "^0[1-9]\\d{8}$";
+    private static final String EMAIL_REGEX = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
+
     private final Gson gson = new Gson();
 
     // View Staff Account
@@ -26,7 +29,7 @@ public class StaffController extends ControllerSupport {
         bind(request);
         StaffDAO dao = use(new StaffDAO());
 
-        // ?skillsOf=<id>: get services the technician can do
+        // get the skill of the technician
         String skillsOf = request.parameter("skillsOf");
         if (skillsOf != null && !skillsOf.isBlank()) {
             int staffId = Integer.parseInt(skillsOf.trim());
@@ -34,7 +37,7 @@ public class StaffController extends ControllerSupport {
             return;
         }
 
-        // No ?id= then return all staff
+        // No id then return all staff
         String idParam = request.parameter("id");
         if (idParam == null || idParam.trim().isEmpty()) {
             List<Staff> staffList = dao.getAllStaffDetails();
@@ -177,8 +180,14 @@ public class StaffController extends ControllerSupport {
             password = json.get("password").getAsString();
         }
         String hashedPassword = null;
-        if (!password.isEmpty()) {
+        if (!password.isEmpty()) { // If new password is enter
             hashedPassword = PasswordUtil.hashMD5(password);
+        }
+
+        String infoError = validateStaffInfo(fullName, phone, email);
+        if (infoError != null) {
+            sendMessage(response, 400, infoError);
+            return;
         }
 
         String duplicateField = dao.checkDuplicate(username, email, phone, accountId);
@@ -188,7 +197,7 @@ public class StaffController extends ControllerSupport {
         }
 
         if (!dao.updateStaff(accountId, fullName, phone, email, hireDate, username, hashedPassword)) {
-            sendMessage(response, 500, "Error: Could not save the update to the database.");
+            sendMessage(response, 404, "Staff member not found.");
             return;
         }
 
@@ -213,12 +222,23 @@ public class StaffController extends ControllerSupport {
             }
         }
 
+        String infoError = validateStaffInfo(fullName, phone, email);
+        if (infoError != null) {
+            sendMessage(response, 400, infoError);
+            return;
+        }
+        if (!isValidRole(role)) {
+            sendMessage(response, 400, "Invalid role.");
+            return;
+        }
+
         String duplicateField = dao.checkDuplicate(null, email, phone, null);
         if (duplicateField != null) {
             sendMessage(response, 409, duplicateField + " already exists in the system. Please choose different information!");
             return;
         }
 
+        // Create new staff account and also return final username
         String finalUsername = dao.createStaff(username, password, email, phone, fullName, role, hireDate, serviceIds);
 
         JsonObject result = new JsonObject();
@@ -230,6 +250,24 @@ public class StaffController extends ControllerSupport {
 
     private boolean isValidStatus(String status) {
         return status.equals("Active") || status.equals("Inactive");
+    }
+
+    // Check full name, phone and email, return error message or null if all correct
+    private String validateStaffInfo(String fullName, String phone, String email) {
+        if (fullName.isEmpty() || fullName.length() > 100) {
+            return "Full name is required and must not exceed 100 characters.";
+        }
+        if (!phone.matches(PHONE_REGEX)) {
+            return "Phone number must have 10 digits and start with 0.";
+        }
+        if (!email.matches(EMAIL_REGEX)) {
+            return "Invalid email format.";
+        }
+        return null;
+    }
+
+    private boolean isValidRole(String role) {
+        return role.equals("Manager") || role.equals("Receptionist") || role.equals("Technician");
     }
 
     // Retrieve string from JSON
