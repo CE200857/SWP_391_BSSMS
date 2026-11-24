@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Alert, Button, Card, Form, Spinner, Table } from "react-bootstrap";
+import { Button, Card, Form, Spinner, Table } from "react-bootstrap";
 import { api, money, viDate, label } from "../../../services/api";
 import servicePhoto03 from "../../../assets/figma/service-card-exact-03.png";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
@@ -9,22 +9,9 @@ import FloatingAlert from "../../../components/FloatingAlert";
 import { needsRefund, displayStatus, StatusBadge } from "./invoiceShared";
 import InvoiceDetail from "./InvoiceDetail";
 
-function paymentNotice(search) {
-  const q = new URLSearchParams(search);
-  const result = q.get("payment");
-  const id = q.get("invoice");
-  const name = id ? `invoice #${id}` : "invoices";
-  if (result === "success") return { variant: "success", text: `Pay ${name} via VNPay succeeded.` };
-  if (result === "failed") return { variant: "warning", text: `Pay ${name} via VNPay failed. You can pay again or pay at the counter.` };
-  if (result === "pending") return { variant: "warning", text: `Waiting for VNPay confirmation ${name}.` };
-  if (result === "invalid" || result === "error") return { variant: "danger", text: "Could not confirm the payment result. Please contact the counter." };
-  return null;
-}
-
 export default function InvoiceManagement({ user }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [paymentNote] = useState(() => paymentNotice(location.search));
   const role = user?.role || "Manager";
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(() => Number(new URLSearchParams(location.search).get("invoice")) || location.state?.invoiceId || null);
@@ -89,7 +76,6 @@ export default function InvoiceManagement({ user }) {
             <Button variant="outline-primary" onClick={load} disabled={loading}>Refresh</Button>
           </div>
         </div>
-        {paymentNote && <Alert variant={paymentNote.variant}>{paymentNote.text}</Alert>}
         <FloatingAlert message={error} onClose={() => setError("")} />
         <FloatingAlert message={success} variant="success" onClose={() => setSuccess("")} />
         {role !== "Customer" && (
