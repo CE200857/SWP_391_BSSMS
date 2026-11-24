@@ -167,7 +167,7 @@ const Register = () => {
     clearMessages();
     const errors = {};
     if (fullName.trim().split(/\s+/).length < 2) errors.fullName = "Enter your full name (first and last name).";
-    if (!/^0\d{9,10}$/.test(phone.trim())) errors.phone = "The phone number starts with 0 and has 10–11 digits.";
+    if (!/^0[1-9]\d{8}$/.test(phone.trim())) errors.phone = "The phone number has 10 digits, starts with 0 and the second digit is not 0.";
     const dobProblem = birthDateError(dateOfBirth);
     if (dobProblem) errors.dob = dobProblem;
     if (!province) errors.province = "Select your province/city.";
@@ -313,7 +313,7 @@ const Register = () => {
 
             <Form.Group className="mb-3" controlId="reg-phone">
               <Form.Label className="fw-bold">Phone number*</Form.Label>
-              <Form.Control type="tel" placeholder="0xxxxxxxxx" value={phone} maxLength={11}
+              <Form.Control type="tel" placeholder="0xxxxxxxxx" value={phone} maxLength={10}
                 onChange={(e) => { setPhone(e.target.value); clearField("phone"); }} style={FIELD} autoComplete="tel"
                 {...fieldProps(fieldErrors, "phone")} />
               <FieldError id="phone-error" message={fieldErrors.phone} />
