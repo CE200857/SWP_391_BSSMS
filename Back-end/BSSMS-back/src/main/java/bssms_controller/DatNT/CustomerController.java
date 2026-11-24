@@ -24,14 +24,14 @@ public class CustomerController extends ControllerSupport {
         bind(request);
         CustomerDAO dao = use(new CustomerDAO());
 
-        String idParam = request.parameter("id");
-        if (idParam == null || idParam.trim().isEmpty()) {
+        String idParam = request.parameter("id"); // Get the id at the end of url
+        if (idParam == null || idParam.trim().isEmpty()) { // If there's no id, return entire list
             List<Customer> customers = dao.getAllCustomerDetails();
             response.writer().print(gson.toJson(customers));
             return;
         }
 
-        try {
+        try { // Return the only account with that id
             int customerId = Integer.parseInt(idParam);
             Customer customer = dao.getCustomerById(customerId);
             response.writer().print(gson.toJson(customer));
@@ -71,9 +71,7 @@ public class CustomerController extends ControllerSupport {
                 action = json.get("action").getAsString();
             }
 
-            if (action.equals("walkInProfile")) {
-                createWalkInProfile(json, dao, response);
-            } else if (action.equals("update-status")) {
+            if (action.equals("update-status")) {
                 updateStatus(json, dao, response);
             } else if (action.equals("update")) {
                 updateCustomer(json, dao, response);
@@ -87,47 +85,6 @@ public class CustomerController extends ControllerSupport {
         }
     }
 
-    // Receptionist creates a quick profile for walk-in customer (no account)
-    private void createWalkInProfile(JsonObject json, CustomerDAO dao, ActionResult response) {
-        String fullName = getText(json, "fullName");
-        String phone = getText(json, "phone");
-        String gender = getText(json, "gender");
-
-        if (fullName == null || fullName.isEmpty()) {
-            sendMessage(response, 400, "Full name is required");
-            return;
-        }
-        if (phone == null || phone.isEmpty()) {
-            sendMessage(response, 400, "Phone number is required");
-            return;
-        }
-        if (gender == null || gender.isEmpty()) {
-            sendMessage(response, 400, "Gender is required");
-            return;
-        }
-        if (fullName.length() > 100) {
-            sendMessage(response, 400, "Full name must not exceed 100 characters.");
-            return;
-        }
-        if (!phone.matches(PHONE_REGEX)) {
-            sendMessage(response, 400, "Phone number must have 10 digits and start with 0.");
-            return;
-        }
-        if (!isValidGender(gender)) {
-            sendMessage(response, 400, "Invalid gender.");
-            return;
-        }
-
-        int customerId = dao.createWalkInProfile(fullName, phone, gender);
-
-        JsonObject result = new JsonObject();
-        result.addProperty("customerId", customerId);
-        result.addProperty("fullName", fullName);
-        result.addProperty("phone", phone);
-        response.status(201);
-        response.writer().print(result.toString());
-    }
-
     // Status toggle in customer list: Active <-> Inactive only
     private void updateStatus(JsonObject json, CustomerDAO dao, ActionResult response) {
         int customerId = json.get("customerId").getAsInt();
@@ -137,6 +94,7 @@ public class CustomerController extends ControllerSupport {
             sendMessage(response, 400, "Invalid status.");
             return;
         }
+        
         if (!dao.updateCustomerStatus(customerId, status)) {
             sendMessage(response, 404, "Customer not found.");
             return;
@@ -155,16 +113,13 @@ public class CustomerController extends ControllerSupport {
         String dob = getText(json, "dob");
         String address = getText(json, "address");
         String status = getText(json, "status");
-        if (status == null) {
-            status = "Active";
-        }
 
         String dobError = InputValidation.birthDateError(dob);
         if (dobError != null) {
             sendMessage(response, 400, dobError);
             return;
         }
-        if (!isValidStatus(status)) {
+        if (status != null && !isValidStatus(status)) {
             sendMessage(response, 400, "Invalid status.");
             return;
         }
@@ -196,6 +151,21 @@ public class CustomerController extends ControllerSupport {
         String dobError = InputValidation.birthDateError(dob);
         if (dobError != null) {
             sendMessage(response, 400, dobError);
+            return;
+        }
+
+        if (fullName.isEmpty() || fullName.length() > 100) {
+            sendMessage(response, 400, "Full name is required and must not exceed 100 characters.");
+            return;
+        }
+
+        if (!phone.matches(PHONE_REGEX)) {
+            sendMessage(response, 400, "Phone number must have 10 digits and start with 0.");
+            return;
+        }
+
+        if (!isValidGender(gender)) {
+            sendMessage(response, 400, "Invalid gender.");
             return;
         }
 

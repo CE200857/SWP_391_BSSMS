@@ -59,7 +59,7 @@ public class ProfileController extends ControllerSupport {
         }
     }
 
-    // URLs: /change-password, /update-profile, /profile (create profile)
+    // URLs: /change-password, /update-profile
     public void post(ActionRequest request, ActionResult response) throws IOException {
         bind(request);
 
@@ -88,17 +88,23 @@ public class ProfileController extends ControllerSupport {
                 return;
             }
 
+            // Only /update-profile is left, other URLs are not supported
+            if (!uri.endsWith("/update-profile")) {
+                sendMessage(response, 404, "Not found.");
+                return;
+            }
+
             String action = "";
             if (json.has("action")) {
                 action = json.get("action").getAsString();
             }
 
-            if (uri.endsWith("/update-profile") && action.equals("send-email-code")) {
+            if (action.equals("send-email-code")) {
                 sendEmailChangeCode(json, accountId, user.getRole(), authDao, response);
                 return;
             }
 
-            // Check full name and phone (used for both create and update)
+            // Check full name and phone
             String fullName = json.get("fullName").getAsString().trim();
             String phone = json.get("phone").getAsString().trim();
 
@@ -112,12 +118,7 @@ public class ProfileController extends ControllerSupport {
             }
 
             String standardizedName = formatFullName(fullName);
-
-            if (uri.endsWith("/update-profile")) {
-                updateProfile(json, user, accountId, standardizedName, phone, dao, authDao, session, response);
-            } else {
-                createProfile(json, user, accountId, standardizedName, phone, dao, authDao, session, response);
-            }
+            updateProfile(json, user, accountId, standardizedName, phone, dao, authDao, session, response);
         } catch (Exception e) {
             DataAccessException.rethrowIfDatabase(e);
             InputValidation.rethrowIfInvalid(e);
@@ -251,6 +252,7 @@ public class ProfileController extends ControllerSupport {
             }
         }
 
+        // Save new information to database
         boolean isUpdated;
         if (isCustomer) {
             isUpdated = dao.updateCustomerProfile(accountId, standardizedName, dob, gender, phone, address, username, newEmail);
@@ -262,44 +264,14 @@ public class ProfileController extends ControllerSupport {
             return;
         }
 
+        // Save new information to session
         if (isEmailChanged) {
             authDao.clearEmailChangeCode(LoginIdentity.customerId(accountId));
             user.setEmail(newEmail);
         }
         user.setFullName(standardizedName);
         user.setUsername(username);
-        session.set("user", user);
-
-        response.status(200);
-        response.writer().print(gson.toJson(user));
-    }
-
-    // Create Profile (customer fills information for the first time)
-    private void createProfile(JsonObject json, Account user, int accountId, String standardizedName,
-            String phone, ProfileDAO dao, RegisterDAO authDao, SessionState session, ActionResult response) {
-        String dob = json.get("dob").getAsString();
-        String gender = json.get("gender").getAsString();
-        String address = json.get("address").getAsString();
-
-        String dobError = InputValidation.birthDateError(dob);
-        if (dobError != null) {
-            sendMessage(response, 400, dobError);
-            return;
-        }
-
-        String duplicateField = authDao.checkDuplicate(null, null, phone, accountId);
-        if (duplicateField != null) {
-            sendMessage(response, 409, duplicateField + " is already used by another account!");
-            return;
-        }
-
-        if (!dao.createCustomerProfile(accountId, standardizedName, dob, gender, phone, address)) {
-            sendMessage(response, 500, "Could not save the information. Please try again!");
-            return;
-        }
-
-        user.setRole("Customer");
-        user.setFullName(standardizedName);
+        user.setPhone(phone);
         session.set("user", user);
 
         response.status(200);

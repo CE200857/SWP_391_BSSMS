@@ -42,22 +42,18 @@ public class ProfileDAO extends DBContext implements AutoCloseable {
 
         String sql;
         if (isCustomer) {
-            sql = "SELECT c.customer_id, a.username, a.email, a.phone, a.status, "
+            sql = "SELECT c.customer_id, c.username, c.email, c.phone, c.status, "
                     + "c.full_name, c.date_of_birth, c.gender, c.address, "
                     + "c.membership_tier_id AS customer_membership_tier_id, "
-                    + "mt.membership_tier_id AS tier_id, "
-                    + "mt.tier_name, mt.description, "
+                    + "mt.membership_tier_id AS tier_id, mt.tier_name, mt.description, "
                     + "mt.discount_percent, mt.min_spending "
-                    + "FROM " + SchemaSql.ACCOUNTS + " a "
-                    + "JOIN " + SchemaSql.CUSTOMERS + " c ON a.account_id = c.account_id "
+                    + "FROM " + SchemaSql.CUSTOMERS + " c "
                     + "LEFT JOIN MembershipTier mt ON c.membership_tier_id = mt.membership_tier_id "
-                    + "WHERE a.account_id = ?";
+                    + "WHERE c.account_id = ?";
         } else {
-            sql = "SELECT a.username, a.email, a.status, "
-                    + "s.full_name, s.phone, s.position AS role "
-                    + "FROM " + SchemaSql.ACCOUNTS + " a "
-                    + "JOIN " + SchemaSql.STAFF + " s ON a.account_id = s.account_id "
-                    + "WHERE a.account_id = ?";
+            sql = "SELECT s.username, s.email, s.status, s.full_name, s.phone, s.position AS role "
+                    + "FROM " + SchemaSql.STAFF + " s "
+                    + "WHERE s.account_id = ?";
         }
 
         Profile profile = new Profile();
@@ -97,20 +93,6 @@ public class ProfileDAO extends DBContext implements AutoCloseable {
             throw new DataAccessException(e);
         }
         return profile;
-    }
-
-    // Create profile: customer fills profile for the first time
-    public boolean createCustomerProfile(int accountId, String fullName, String dob, String gender,
-            String phone, String address) {
-        try {
-            int customerId = LoginIdentity.customerId(accountId);
-            String sql = "UPDATE Customer SET full_name = ?, date_of_birth = ?, gender = ?, phone = ?, address = ? "
-                    + "WHERE customer_id = ?";
-            int rows = workflow.update(sql, fullName, toDate(dob), emptyToNull(gender), phone, address, customerId);
-            return rows == 1;
-        } catch (SQLException e) {
-            throw new DataAccessException(e);
-        }
     }
 
     // Update profile: customer

@@ -52,18 +52,17 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
 
         String sql = "SELECT c.customer_id, c.full_name, "
                 + "c.membership_tier_id AS customer_membership_tier_id, "
-                + "a.phone, a.email, a.status, "
+                + "c.phone, c.email, c.status, "
                 + "mt.membership_tier_id AS tier_id, "
                 + "mt.tier_name, mt.description AS tier_description, "
                 + "mt.discount_percent, mt.min_spending "
                 + "FROM " + SchemaSql.CUSTOMERS + " c "
-                + "JOIN " + SchemaSql.ACCOUNTS + " a ON c.account_id = a.account_id "
-                + "LEFT JOIN MembershipTier mt ON c.membership_tier_id = mt.membership_tier_id "
-                + "WHERE NOT EXISTS(SELECT 1 FROM Customer d WHERE d.customer_id = c.customer_id AND d.deleted_at IS NOT NULL) "
+                + "LEFT JOIN MembershipTier mt ON c.membership_tier_id = mt.membership_tier_id " // From top to here: get all customer information from customer table
+                + "WHERE NOT EXISTS(SELECT 1 FROM Customer d WHERE d.customer_id = c.customer_id AND d.deleted_at IS NOT NULL) " // Only get customer that are not deleted
                 + "AND EXISTS(SELECT 1 FROM " + SchemaSql.ACCOUNTS + " actor "
                 + "  WHERE actor.account_id = ? AND actor.status = 'Active' "
                 + "  AND (actor.role IN ('Manager','Receptionist') "
-                + "       OR (actor.role = 'Technician' AND EXISTS(SELECT 1 FROM Appointment ap "
+                + "       OR (actor.role = 'Technician' AND EXISTS(SELECT 1 FROM Appointment ap " // Technican can only view their customer
                 + "           JOIN AppointmentService l ON l.appointment_id = ap.appointment_id "
                 + "           WHERE ap.customer_id = c.customer_id AND l.technician_id = actor.staff_id)))) "
                 + "ORDER BY c.full_name";
@@ -79,7 +78,7 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
                 customer.setPhone(rs.getString("phone"));
                 customer.setEmail(rs.getString("email"));
                 customer.setStatus(rs.getString("status"));
-                addMembership(customer, rs);
+                addMembership(customer, rs); // Read customer membership tier, seperate method
                 list.add(customer);
             }
         } catch (SQLException e) {
@@ -96,15 +95,15 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
             workflow.transaction(() -> {
                 String countSql = "SELECT "
                         + "(SELECT COUNT(*) FROM Appointment WHERE customer_id = ? "
-                        + "   AND status IN ('Pending','Confirmed','Checked-in','In-progress')) AS appointments, "
-                        + "(SELECT COUNT(*) FROM Invoice WHERE customer_id = ? AND status = 'Unpaid') AS invoices";
+                        + "   AND status IN ('Pending','Confirmed','Checked-in','In-progress')) AS appointments, " // Count unfinished appoinments
+                        + "(SELECT COUNT(*) FROM Invoice WHERE customer_id = ? AND status = 'Unpaid') AS invoices"; // Count unpaid invoices
                 Map<String, Object> row = workflow.one(countSql, customerId, customerId);
-                int openAppointments = Workflow.id(row.get("appointments"));
-                int unpaidInvoices = Workflow.id(row.get("invoices"));
+                int openAppointments = Workflow.id(row.get("appointments")); // Get the number of appointments
+                int unpaidInvoices = Workflow.id(row.get("invoices")); // Get the number of invoices
                 if (openAppointments > 0 || unpaidInvoices > 0) {
                     throw new WorkflowException(409,
                             "The customer still has upcoming appointments or unpaid invoices. Cancel or finish them before deleting.");
-                }
+                } // Cannot delete if customer still have appointments or unpaidInvoices
 
                 int rows = workflow.update("UPDATE Customer SET status = 'Inactive', deleted_at = SYSDATETIME() "
                         + "WHERE customer_id = ? AND deleted_at IS NULL", customerId);
@@ -114,11 +113,6 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
                 return true;
             });
         } catch (SQLException e) {
-            // 547 = SQL Server foreign key error
-            if (e.getErrorCode() == 547) {
-                throw new WorkflowException(409,
-                        "The customer has related data and cannot be deleted. Change the status to \"Inactive\" instead.");
-            }
             throw new DataAccessException(e);
         }
     }
@@ -141,27 +135,6 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
         }
     }
 
-    // Create walk-in profile (no username / password), return new customer_id
-    public int createWalkInProfile(String fullName, String phone, String gender) {
-        checkRole("Manager", "Receptionist");
-        try {
-            return workflow.transaction(() -> {
-                String duplicateField = checkDuplicate(null, null, phone, null);
-                if (duplicateField != null) {
-                    throw new WorkflowException(409, duplicateField + " already exists in the system.");
-                }
-
-                String sql = "INSERT Customer(username, password, email, phone, full_name, gender, membership_tier_id, status) "
-                        + "OUTPUT inserted.customer_id "
-                        + "VALUES(NULL, NULL, NULL, ?, ?, ?, 1, 'Active')";
-                Map<String, Object> row = workflow.one(sql, phone, fullName, gender);
-                return Workflow.id(row.get("customerId"));
-            });
-        } catch (SQLException e) {
-            throw new DataAccessException(e);
-        }
-    }
-
     // View one customer
     public Customer getCustomerById(int customerId) {
         checkCustomerAccess(customerId);
@@ -169,12 +142,11 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
         String sql = "SELECT c.customer_id, c.account_id, "
                 + "c.full_name, c.gender, c.date_of_birth, c.address, "
                 + "c.membership_tier_id AS customer_membership_tier_id, "
-                + "a.phone, a.email, a.status, a.username, "
+                + "c.phone, c.email, c.status, c.username, "
                 + "mt.membership_tier_id AS tier_id, "
                 + "mt.tier_name, mt.description AS tier_description, "
                 + "mt.discount_percent, mt.min_spending "
                 + "FROM " + SchemaSql.CUSTOMERS + " c "
-                + "JOIN " + SchemaSql.ACCOUNTS + " a ON c.account_id = a.account_id "
                 + "LEFT JOIN MembershipTier mt ON c.membership_tier_id = mt.membership_tier_id "
                 + "WHERE c.customer_id = ?";
 
@@ -209,8 +181,9 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
     }
 
     // Read membership tier from result and attach to customer
+    // Method write seperated because there're more than 1 method use it like getAll and getById
     private void addMembership(Customer customer, ResultSet rs) throws SQLException {
-        customer.setMembershipTierId(rs.getObject("customer_membership_tier_id", Integer.class));
+        customer.setMembershipTierId(rs.getObject("customer_membership_tier_id", Integer.class)); // Read customer membership tier id
 
         MembershipTier membership = null;
         if (rs.getObject("tier_id") != null) {
@@ -243,7 +216,7 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
 
         int customerId = LoginIdentity.customerId(accountId);
         String sql = "UPDATE Customer SET full_name = ?, phone = ?, email = ?, gender = ?, "
-                + "date_of_birth = ?, address = ?, status = ? WHERE customer_id = ? AND deleted_at IS NULL";
+                + "date_of_birth = ?, address = ?, status = COALESCE(?, status) WHERE customer_id = ? AND deleted_at IS NULL";
         try {
             int rows = workflow.update(sql, fullName, phone, emptyToNull(email), emptyToNull(gender),
                     toDate(dob), address, status, customerId);
@@ -306,17 +279,17 @@ public class CustomerDAO extends DBContext implements AutoCloseable {
         String sql = "SELECT account_id FROM " + SchemaSql.ACCOUNTS + " Account WHERE username = ?";
         String username = baseUsername;
         int counter = 1;
+        boolean exists = true; // assume taken so the loop runs at least once
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            while (true) {
+            while (exists) { // keep trying while the username is already used
                 ps.setString(1, username);
                 ResultSet rs = ps.executeQuery();
-                boolean exists = rs.next();
+                exists = rs.next(); // true = someone already uses this username
                 rs.close();
-                if (!exists) {
-                    break;
+                if (exists) {
+                    username = baseUsername + counter;
+                    counter++;
                 }
-                username = baseUsername + counter;
-                counter++;
             }
         } catch (SQLException e) {
             throw new DataAccessException(e);
