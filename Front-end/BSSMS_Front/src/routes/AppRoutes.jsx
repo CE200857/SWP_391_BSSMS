@@ -28,6 +28,7 @@ import CreateWalkInCustomer from "../pages/Dashboard/Receptionist/CreateWalkInCu
 import TechnicianDashboard from "../pages/Dashboard/Technician/TechnicianDashboard";
 
 import CustomerList from "../pages/Dashboard/Manager/CustomerAdmin/CustomerList";
+import CustomerDetail from "../pages/Dashboard/Manager/CustomerAdmin/CustomerDetail";
 import EditCustomerProfile from "../pages/Dashboard/Manager/CustomerAdmin/EditCustomerProfile";
 import StaffList from "../pages/Dashboard/Manager/StaffAdmin/StaffList";
 import ServiceList from "../pages/Shared/ServiceList/ServiceList";
@@ -259,6 +260,7 @@ export default function AppRoutes({ user, setUser }) {
 
         <Route path="/receptionist/create-walkin" element={guard(["Receptionist", "Manager"], <CreateWalkInCustomer />)} />
         <Route path="/customers" element={guard(["Receptionist", "Manager"], <CustomerList user={user} />)} />
+        <Route path="/customers/detail/:id" element={guard(["Receptionist", "Manager"], <CustomerDetail />)} />
         <Route path="/customers/edit/:id" element={guard(["Receptionist", "Manager"], <EditCustomerProfile user={user} />)} />
         <Route path="/my-treatment-profile" element={guard(EVERYONE, <CustomerTreatmentProfile />)} />
         <Route path="/treatment-profile/:customerId" element={guard(ALL_STAFF, <CustomerTreatmentProfile />)} />

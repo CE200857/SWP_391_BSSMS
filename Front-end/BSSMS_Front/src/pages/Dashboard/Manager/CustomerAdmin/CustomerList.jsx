@@ -17,7 +17,6 @@ const CustomerList = ({ user }) => {
 
   const [showModal, setShowModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [detailCustomer, setDetailCustomer] = useState(null);
   const [statusTarget, setStatusTarget] = useState(null);
   const [statusBusy, setStatusBusy] = useState(false);
 
@@ -110,6 +109,11 @@ const CustomerList = ({ user }) => {
         label: "Status",
         formatValue: (value) => value === "Active" ? "Active" : "Inactive",
       },
+      {
+        key: "membershipTier",
+        label: "Membership tier",
+        getValue: (row) => row.membership?.tierName || "No tier",
+      },
     ],
     "Search by name, email, phone number...",
   );
@@ -136,6 +140,7 @@ const CustomerList = ({ user }) => {
             <th>Full name</th>
             <th>Phone number</th>
             <th>Status</th>
+            <th>Membership tier</th>
             <th className="text-center">Actions</th>
           </tr>
         </thead>
@@ -154,13 +159,23 @@ const CustomerList = ({ user }) => {
                     <Badge bg="secondary">Inactive</Badge>
                   )}
                 </td>
+                <td>
+                  {c.membership?.tierName ? (
+                    <Badge bg="warning" text="dark" className="px-2 py-1">
+                      <i className="bi bi-award me-1" aria-hidden="true" />
+                      {c.membership.tierName}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted">No tier</span>
+                  )}
+                </td>
                 <td className="text-center">
                   <div className="manager-list-actions customer-admin-actions">
                   <Button
                     variant="link"
                     size="sm"
                     className="manager-list-action manager-list-action--view"
-                    onClick={() => setDetailCustomer(c)}
+                    onClick={() => navigate(`/customers/detail/${c.customerId}`)}
                     aria-label={`View customer ${c.fullName}`}
                   >
                     <i className="bi bi-eye-fill me-1" aria-hidden="true" />
@@ -207,52 +222,13 @@ const CustomerList = ({ user }) => {
             ))
           ) : (
             <tr>
-              <td colSpan="4" className="text-center text-muted">
+              <td colSpan="5" className="text-center text-muted">
                 No customers found.
               </td>
             </tr>
           )}
         </tbody>
       </Table>
-
-      <Modal
-        className="customer-detail-modal"
-        show={!!detailCustomer}
-        onHide={() => setDetailCustomer(null)}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <i className="bi bi-person-vcard" aria-hidden="true" />
-            Customer information
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <dl className="customer-detail-grid">
-            <dt>Customer ID</dt>
-            <dd>#{detailCustomer?.customerId || "—"}</dd>
-            <dt>Full name</dt>
-            <dd>{detailCustomer?.fullName || "—"}</dd>
-            <dt>Phone number</dt>
-            <dd>{detailCustomer?.phone || "—"}</dd>
-            <dt>Email</dt>
-            <dd>{detailCustomer?.email || "—"}</dd>
-            <dt>Status</dt>
-            <dd>
-              {detailCustomer?.status ? (
-                <Badge bg={detailCustomer.status === "Active" ? "success" : "secondary"}>
-                  {detailCustomer.status === "Active" ? "Active" : "Inactive"}
-                </Badge>
-              ) : "—"}
-            </dd>
-          </dl>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline-secondary" onClick={() => setDetailCustomer(null)}>
-            Close
-          </Button>
-        </Modal.Footer>
-      </Modal>
 
       <Modal show={showModal} onHide={handleCloseModal} centered>
         <Modal.Header closeButton>
