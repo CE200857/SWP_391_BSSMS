@@ -20,10 +20,6 @@ const AppointmentDetails = ({ user }) => {
   const [busy, setBusy] = useState("");
   const [showCancel, setShowCancel] = useState(false);
   const [reason, setReason] = useState("");
-  const payment = new URLSearchParams(location.search).get("payment");
-  const [paymentMessage, setPaymentMessage] = useState(
-    payment === "success" ? "VNPay payment successful." : payment === "failed" ? "VNPay payment failed. The appointment has switched to pay at the counter." : "",
-  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,7 +92,6 @@ const AppointmentDetails = ({ user }) => {
         </Button>
       </div>
 
-      <FloatingAlert message={paymentMessage} variant={payment === "success" ? "success" : "warning"} onClose={() => setPaymentMessage("")} timeout={8000} />
       <FloatingAlert message={notice} variant="success" onClose={() => setNotice("")} />
       {!isCustomer && appointment.timingNote && (
         <Alert variant={/Confirmation deadline passed|More than 15 minutes late/.test(appointment.timingNote) ? "warning" : "light"} className="py-2">

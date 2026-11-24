@@ -762,3 +762,9 @@
     padding: 10px 8px;
   }
 }
+
+/* Pop-up shown after returning from VNPay (components/PaymentResultModal.jsx) */
+.payment-result-modal .modal-content { border-radius: 18px; }
+.payment-result-icon { font-size: 4rem; line-height: 1; display: inline-block; animation: payment-pop .35s ease-out; }
+@keyframes payment-pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .payment-result-icon { animation: none; } }

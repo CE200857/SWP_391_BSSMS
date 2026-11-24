@@ -12,11 +12,11 @@ import {
   Modal,
   Table,
   Dropdown,
-  Button,
 } from "react-bootstrap";
 import servicePhoto02 from "../../../assets/figma/service-card-exact-02.png";
 import { useManagerSearchFilter } from "../../../components/ManagerSearchFilter";
 import FloatingAlert from "../../../components/FloatingAlert";
+import DeleteFeedbackModal from "./DeleteFeedbackModal";
 
 const PublicFeedbackList = ({ user, managerCompact = false }) => {
   const location = useLocation();
@@ -34,7 +34,6 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
   // Reviews written by the signed-in customer (the public list does not expose customer ids)
   const [myIds, setMyIds] = useState(() => new Set());
   const [deleting, setDeleting] = useState(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -45,21 +44,12 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
       .catch(() => setMyIds(new Set()));
   }, [isCustomer, user?.customerId, user?.accountId]);
 
-  const confirmDelete = async () => {
-    if (!deleting) return;
-    setDeleteBusy(true);
-    try {
-      const response = await fetch(`/api/feedback?id=${deleting.feedbackId}`, { method: "DELETE", credentials: "include" });
-      if (!response.ok) throw new Error("This review cannot be deleted.");
-      setFeedbacks((list) => list.filter((f) => f.feedbackId !== deleting.feedbackId));
-      setMyIds((ids) => { const next = new Set(ids); next.delete(deleting.feedbackId); return next; });
-      setNotice("Your review was deleted.");
-      setDeleting(null);
-    } catch (err) {
-      setLoadError(err instanceof TypeError ? "Cannot connect to the server." : err.message);
-    } finally {
-      setDeleteBusy(false);
-    }
+  // Delete lives in its own file (DeleteFeedbackModal.jsx)
+  const afterDelete = (fb) => {
+    setFeedbacks((list) => list.filter((f) => f.feedbackId !== fb.feedbackId));
+    setMyIds((ids) => { const next = new Set(ids); next.delete(fb.feedbackId); return next; });
+    setNotice("Your review was deleted.");
+    setDeleting(null);
   };
 
   useEffect(() => {
@@ -484,20 +474,7 @@ const PublicFeedbackList = ({ user, managerCompact = false }) => {
           })}
         </Row>
       )}
-      <Modal show={!!deleting} onHide={() => !deleteBusy && setDeleting(null)} centered>
-        <Modal.Header closeButton={!deleteBusy}>
-          <Modal.Title>Delete your review?</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          Your review for <strong>{deleting?.serviceName}</strong> will be removed. This cannot be undone.
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline-secondary" disabled={deleteBusy} onClick={() => setDeleting(null)}>Keep review</Button>
-          <Button variant="danger" disabled={deleteBusy} onClick={confirmDelete}>
-            {deleteBusy ? "Deleting…" : "Delete"}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <DeleteFeedbackModal feedback={deleting} onClose={() => setDeleting(null)} onDeleted={afterDelete} />
 
       <Modal
         show={!!detailFeedback}
