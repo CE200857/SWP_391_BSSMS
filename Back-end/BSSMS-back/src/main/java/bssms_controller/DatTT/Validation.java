@@ -16,9 +16,7 @@ final class Validation {
         if (value == null || value.trim().isEmpty()) throw new IllegalArgumentException(field + " is required.");
         return value.trim();
     }
-    static void price(double value) {
-        if (!Double.isFinite(value) || value <= 0) throw new IllegalArgumentException("Price must be finite and greater than zero.");
-    }
+    
     static String status(String value, String... allowed) {
         if (!Arrays.asList(allowed).contains(value)) throw new IllegalArgumentException("Invalid status.");
         return value;

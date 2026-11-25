@@ -3,7 +3,9 @@ package bssms_controller.DatTT;
 import bssms_catalog.Service;
 import bssms_persistence.DatTT.ServiceDAO;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class ServiceController {
     private final ServiceDAO serviceDAO;
@@ -39,16 +41,16 @@ public class ServiceController {
         serviceDAO.saveTechnicians(id, service.getTechnicianIds());
     }
 
-    public java.util.List<java.util.Map<String,Object>> technicians(int id) throws SQLException {
+    public List<Map<String,Object>> technicians(int id) throws SQLException {
         validateId(id);
         return serviceDAO.technicians(id);
     }
 
-    public java.util.Map<String,Object> deleteService(int id) throws SQLException {
+    public Map<String,Object> deleteService(int id) throws SQLException {
         validateId(id);
         int future = serviceDAO.futureAppointments(id);
         if (serviceDAO.deleteService(id) == 0) throw new NotFoundException();
-        return java.util.Map.of("futureAppointments", future, "message", future == 0 ? "Service deleted." : "Service deleted. " + future + " upcoming appointment(s) are kept.");
+        return Map.of("futureAppointments", future, "message", future == 0 ? "Service deleted." : "Service deleted. " + future + " upcoming appointment(s) are kept.");
     }
 
     private void validateId(int id) {
@@ -66,7 +68,7 @@ public class ServiceController {
         if (service.getDuration() <= 0 || service.getDuration() % 15 != 0 || service.getDuration() > 600) {
             throw new IllegalArgumentException("Duration must be a multiple of 15 minutes (at most 600 minutes).");
         }
-        if (!java.util.Arrays.asList("Facial", "Massage", "HairWash", "Body").contains(service.getRequiredRoomType())) {
+        if (!Arrays.asList("Facial", "Massage", "HairWash", "Body").contains(service.getRequiredRoomType())) {
             throw new IllegalArgumentException("Room type must be Facial, Massage, HairWash or Body.");
         }
         if (service.getTourCount() != null && (service.getTourCount() < 1 || service.getTourCount() > 10 || service.getTourCount() != Math.floor(service.getTourCount()))) {

@@ -1,30 +1,26 @@
 package bssms_catalog;
 
+import java.util.List;
+
 public class Service {
-    private String category;
-    private String requiredRoomType;
-    public String getCategory(){return category;}
-    public void setCategory(String value){category=value;}
-    public String getRequiredRoomType(){return requiredRoomType;}
-    public void setRequiredRoomType(String value){requiredRoomType=value;}
-    private Double tourCount;
-    public Double getTourCount(){return tourCount;}
-    public void setTourCount(Double value){tourCount=value;}
-    private java.util.List<Integer> technicianIds;
-    public java.util.List<Integer> getTechnicianIds(){return technicianIds;}
-    public void setTechnicianIds(java.util.List<Integer> value){technicianIds=value;}
     private int serviceId;
     private String serviceName;
     private String description;
+    private String category;
+    private String requiredRoomType;
     private double price;
-    private int duration; 
+    private int duration;
+    private Double tourCount;
     private String status;
+
+    private List<Integer> technicianIds;
     private String imageUrl;
 
     public Service() {
     }
 
-    public Service(int serviceId, String serviceName, String description, double price, int duration, String status) {
+    public Service(int serviceId, String serviceName, String description,
+                   double price, int duration, String status) {
         this.serviceId = serviceId;
         this.serviceName = serviceName;
         this.description = description;
@@ -57,6 +53,22 @@ public class Service {
         this.description = description;
     }
 
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getRequiredRoomType() {
+        return requiredRoomType;
+    }
+
+    public void setRequiredRoomType(String requiredRoomType) {
+        this.requiredRoomType = requiredRoomType;
+    }
+
     public double getPrice() {
         return price;
     }
@@ -73,6 +85,14 @@ public class Service {
         this.duration = duration;
     }
 
+    public Double getTourCount() {
+        return tourCount;
+    }
+
+    public void setTourCount(Double tourCount) {
+        this.tourCount = tourCount;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -81,8 +101,19 @@ public class Service {
         this.status = status;
     }
 
-    public String getImageUrl() { return imageUrl; }
+    public List<Integer> getTechnicianIds() {
+        return technicianIds;
+    }
 
-    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
-    
+    public void setTechnicianIds(List<Integer> technicianIds) {
+        this.technicianIds = technicianIds;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
 }

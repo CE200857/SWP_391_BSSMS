@@ -1,6 +1,8 @@
 package bssms_controller.DatTT;
 import bssms_persistence.DatTT.ReportDAO;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 
 public class DashboardController {
@@ -11,7 +13,7 @@ public class DashboardController {
     }
     private static String date(String value) {
         if (value == null || value.isBlank()) return null;
-        try { return java.time.LocalDate.parse(value.trim()).toString(); }
-        catch (java.time.format.DateTimeParseException e) { throw new IllegalArgumentException("Invalid date."); }
+        try { return LocalDate.parse(value.trim()).toString(); }
+        catch (DateTimeParseException e) { throw new IllegalArgumentException("Invalid date."); }
     }
 }
