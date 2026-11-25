@@ -14,11 +14,11 @@ public class BookingManagementController {
     private String date(String value) {
         return LocalDate.parse(Validation.text(value, "date")).toString();
     }
-    private void bind(Account user) {
-        if (user == null || user.getAccountId() == null || user.getAccountId() <= 0)
-            throw new ControllerException(401, "Please log in again.");
-        dao.setActorAccountId(user.getAccountId());
-    }
+        private void bind(Account user) {
+            if (user == null || user.getAccountId() == null || user.getAccountId() <= 0)
+                throw new ControllerException(401, "Please log in again.");
+            dao.setActorAccountId(user.getAccountId());
+        }
     static List<Integer> serviceIds(String list, String single) {
         List<Integer> ids = new ArrayList<>();
         String source = list != null && !list.isBlank() ? list : single;

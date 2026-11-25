@@ -2,11 +2,16 @@ package bssms_persistence.DatTT;
 
 import bssms_catalog.Service;
 import bssms_persistence.DBContext;
+import bssms_persistence.common.Workflow;
+import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 
 public class ServiceDAO extends DBContext implements AutoCloseable {
     private void requireConnection() throws SQLException {
@@ -54,41 +59,34 @@ public class ServiceDAO extends DBContext implements AutoCloseable {
         ps.setDouble(3, service.getPrice());
         ps.setInt(4, service.getDuration());
         ps.setString(5, service.getStatus());
-        ps.setString(6,service.getCategory());ps.setString(7,service.getRequiredRoomType());
-        ps.setBigDecimal(8, java.math.BigDecimal.valueOf(service.getTourCount() == null ? proposedTours(service.getDuration()) : service.getTourCount()));
+        ps.setString(6,service.getCategory());
+        ps.setString(7,service.getRequiredRoomType());
+        ps.setBigDecimal(8, BigDecimal.valueOf(service.getTourCount() == null ? proposedTours(service.getDuration()) : service.getTourCount()));
     }
 
     public static double proposedTours(int duration) {
         return Math.min(3, Math.max(1, (int) Math.ceil(duration / 60.0)));
     }
 
-    public void saveTechnicians(int serviceId, java.util.List<Integer> technicianIds) throws SQLException {
+    public void saveTechnicians(int serviceId, List<Integer> technicianIds) throws SQLException {
         if (technicianIds == null) return;
         try (PreparedStatement ps = conn.prepareStatement("DELETE FROM StaffService WHERE service_id=?")) { ps.setInt(1, serviceId); ps.executeUpdate(); }
-        for (Integer staff : new java.util.LinkedHashSet<>(technicianIds)) {
+        for (Integer staff : new LinkedHashSet<>(technicianIds)) {
             try (PreparedStatement ps = conn.prepareStatement("INSERT INTO StaffService(staff_id,service_id) SELECT staff_id,? FROM Staff WHERE staff_id=? AND role='Technician'")) {
                 ps.setInt(1, serviceId); ps.setInt(2, staff); ps.executeUpdate();
             }
         }
     }
 
-    public java.util.List<java.util.Map<String,Object>> technicians(int serviceId) throws SQLException {
-        return new bssms_persistence.common.Workflow(conn, 0).query("SELECT s.staff_id,s.full_name,CASE WHEN ss.service_id IS NULL THEN 0 ELSE 1 END AS qualified FROM Staff s LEFT JOIN StaffService ss ON ss.staff_id=s.staff_id AND ss.service_id=? WHERE s.role='Technician' AND s.status='Active' ORDER BY s.full_name", serviceId);
+    public List<Map<String,Object>> technicians(int serviceId) throws SQLException {
+        return new Workflow(conn, 0).query("SELECT s.staff_id,s.full_name,CASE WHEN ss.service_id IS NULL THEN 0 ELSE 1 END AS qualified FROM Staff s LEFT JOIN StaffService ss ON ss.staff_id=s.staff_id AND ss.service_id=? WHERE s.role='Technician' AND s.status='Active' ORDER BY s.full_name", serviceId);
     }
 
-    public int addService(Service service) throws SQLException {
-        requireConnection();
-        String sql = "INSERT INTO Service (service_name, description, price, duration, status, category, required_room_type, tour_count) VALUES (?, ?, ?, ?, ?, COALESCE(?,'General'), ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            bindService(ps, service);
-            return ps.executeUpdate();
-        }
-    }
 
     public int addServiceReturningId(Service service) throws SQLException {
         requireConnection();
         String sql = "INSERT INTO Service (service_name, description, price, duration, status, category, required_room_type, tour_count) VALUES (?, ?, ?, ?, ?, COALESCE(?,'General'), ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             bindService(ps, service);
             if (ps.executeUpdate() != 1) return 0;
             try (ResultSet keys = ps.getGeneratedKeys()) { return keys.next() ? keys.getInt(1) : 0; }

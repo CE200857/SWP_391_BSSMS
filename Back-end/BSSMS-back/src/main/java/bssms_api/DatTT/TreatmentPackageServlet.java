@@ -9,6 +9,8 @@ import java.io.IOException;
 
 @WebServlet(name = "bssms_api.DatTT.TreatmentPackageServlet", urlPatterns = {"/api/treatment-packages"})
 public class TreatmentPackageServlet extends BaseApiServlet {
+    
+   // View Package
     @Override protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         handle(request, response, 200, () -> {
             try (TreatmentPackageDAO dao = new TreatmentPackageDAO()) {
@@ -17,6 +19,8 @@ public class TreatmentPackageServlet extends BaseApiServlet {
             }
         });
     }
+    
+    // Create Package
     @Override protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         handle(request, response, 201, () -> {
             try (TreatmentPackageDAO dao = new TreatmentPackageDAO()) {
@@ -26,6 +30,8 @@ public class TreatmentPackageServlet extends BaseApiServlet {
             }
         });
     }
+    
+    // Update Package
     @Override protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
         handle(request, response, 200, () -> {
             try (TreatmentPackageDAO dao = new TreatmentPackageDAO()) {
@@ -35,6 +41,8 @@ public class TreatmentPackageServlet extends BaseApiServlet {
             }
         });
     }
+    
+    //Delete Package
     @Override protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
         handle(request, response, 200, () -> {
             try (TreatmentPackageDAO dao = new TreatmentPackageDAO()) {
