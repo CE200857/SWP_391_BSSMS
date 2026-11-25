@@ -4,7 +4,6 @@ import bssms_controller.common.ActionRequest;
 import bssms_controller.common.ActionResult;
 import bssms_controller.common.ControllerSupport;
 import bssms_controller.common.InputValidation;
-import bssms_controller.common.SessionState;
 import bssms_persistence.DatNT.RegisterDAO;
 import bssms_persistence.common.DataAccessException;
 import bssms_security.EmailUtil;
@@ -15,10 +14,10 @@ import java.io.IOException;
 
 // Forgot Password
 // Step: send OTP -> verify OTP -> reset password
+// Verified OTP is saved in database (otp_consumed_at), valid for 30 minutes
 public class ForgotPasswordController extends ControllerSupport {
 
     private static final String EMAIL_REGEX = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
-    private static final long FIVE_MINUTES = 5 * 60 * 1000L;
 
     private final Gson gson = new Gson();
 
@@ -32,7 +31,7 @@ public class ForgotPasswordController extends ControllerSupport {
 
             // url /reset: enter new password
             if (request.uri().endsWith("/reset")) {
-                resetPassword(json, email, dao, request, response);
+                resetPassword(json, email, dao, response);
                 return;
             }
 
@@ -47,7 +46,7 @@ public class ForgotPasswordController extends ControllerSupport {
             }
 
             if (action.equals("verify-code")) {
-                verifyCode(json, email, dao, request, response);
+                verifyCode(json, email, dao, response);
             } else {
                 sendCode(email, dao, response);
             }
@@ -80,9 +79,8 @@ public class ForgotPasswordController extends ControllerSupport {
         sendMessage(response, 200, "A verification code has been sent to your email.");
     }
 
-    // Verify OTP, memorize in session 5m if true
-    private void verifyCode(JsonObject json, String email, RegisterDAO dao,
-            ActionRequest request, ActionResult response) {
+    // Verify OTP, database marks otp_consumed_at if correct
+    private void verifyCode(JsonObject json, String email, RegisterDAO dao, ActionResult response) {
         String code = "";
         if (json.has("code")) {
             code = json.get("code").getAsString().trim();
@@ -93,22 +91,11 @@ public class ForgotPasswordController extends ControllerSupport {
             return;
         }
 
-        dao.clearPasswordResetCode(email);
-        SessionState session = request.session(true);
-        session.set("passwordResetEmail", email);
-        session.set("passwordResetExpires", System.currentTimeMillis() + FIVE_MINUTES);
         sendMessage(response, 200, "Verification successful!");
     }
 
-    // Reset Password
-    private void resetPassword(JsonObject json, String email, RegisterDAO dao,
-            ActionRequest request, ActionResult response) {
-        SessionState session = request.session(false);
-        if (!isVerified(session, email)) {
-            sendMessage(response, 403, "Please verify the OTP for this email before resetting the password.");
-            return;
-        }
-
+    // Reset Password (database checks the OTP was verified in the last 30 minutes)
+    private void resetPassword(JsonObject json, String email, RegisterDAO dao, ActionResult response) {
         String newPassword = json.get("newPassword").getAsString();
         if (newPassword.length() < 6) {
             sendMessage(response, 400, "The password must have at least 6 characters!");
@@ -122,30 +109,11 @@ public class ForgotPasswordController extends ControllerSupport {
         }
 
         if (!dao.resetPasswordByEmail(email, newPasswordHashed)) {
-            sendMessage(response, 500, "Could not reset the password due to a system error!");
+            sendMessage(response, 403, "Please verify the OTP for this email before resetting the password.");
             return;
         }
 
-        session.remove("passwordResetEmail");
-        session.remove("passwordResetExpires");
         sendMessage(response, 200, "Password reset successfully.");
-    }
-
-    // Check session that verified OTP for this email and not expired
-    private boolean isVerified(SessionState session, String email) {
-        if (session == null) {
-            return false;
-        }
-        String verifiedEmail = String.valueOf(session.get("passwordResetEmail"));
-        if (!email.equalsIgnoreCase(verifiedEmail)) {
-            return false;
-        }
-        Object expiry = session.get("passwordResetExpires");
-        if (!(expiry instanceof Long)) {
-            return false;
-        }
-        long expiryTime = (Long) expiry;
-        return expiryTime >= System.currentTimeMillis();
     }
 
     // Send message back to frontend JSON
