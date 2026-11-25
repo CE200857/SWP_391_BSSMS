@@ -133,7 +133,7 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
             String extraCondition, String extraValue, String otp) throws SQLException {
         String where = keyColumn + " = ? AND otp_purpose = ? AND otp_consumed_at IS NULL "
                 + "AND otp_expiry_time > GETDATE()" + extraCondition;
-        
+
         String countAttemptSql = "UPDATE " + table + " SET otp_attempts = otp_attempts + 1 " // Increase attempt by 1
                 + "WHERE " + where + " AND otp_attempts < " + OTP_MAX_ATTEMPTS;
         int counted;
@@ -163,7 +163,8 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
             return workflow.transaction(() -> {
                 // Delete other pending email with otp is null or expired
                 workflow.update("DELETE FROM Customer WHERE status = 'Pending' AND email <> ? "
-                        + "AND (otp_expiry_time IS NULL OR otp_expiry_time < DATEADD(minute,-" + OTP_MINUTES + ",GETDATE()))",
+                        + "AND (otp_expiry_time IS NULL OR otp_expiry_time < DATEADD(minute,-" + OTP_MINUTES + ",GETDATE())) "
+                        + "AND (otp_consumed_at IS NULL OR otp_consumed_at < DATEADD(minute,-30,GETDATE()))",
                         email);
 
                 List<Map<String, Object>> found = workflow.query( // Search for existed email in database
@@ -175,7 +176,7 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
                             + Long.toString(System.nanoTime() % 1_000_000_000_000L, 36).toUpperCase();
                     /*
                     There are temp name and phone because name and phone must not null when create a record due to database
-                    */
+                     */
                     String insertSql = "INSERT Customer(email, full_name, phone, date_of_birth, gender, address, "
                             + "membership_tier_id, lifetime_spending, status, created_at, "
                             + "otp_code, otp_purpose, otp_attempts, otp_expiry_time, otp_created_at) "
@@ -284,21 +285,6 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
         }
     }
 
-    // Forgot Password: Delete Forgot Password OTP after verify
-    public void clearPasswordResetCode(String email) {
-        try {
-            workflow.transaction(() -> {
-                workflow.update("UPDATE Customer SET otp_email = NULL, " + CLEAR_OTP
-                        + " WHERE email = ? AND otp_purpose = 'PasswordReset'", email);
-                workflow.update("UPDATE Staff SET " + CLEAR_OTP
-                        + " WHERE email = ? AND otp_purpose = 'PasswordReset'", email);
-                return true;
-            });
-        } catch (SQLException e) {
-            throw new DataAccessException(e);
-        }
-    }
-
     // Change email: save OTP when customer changes email
     public boolean saveEmailChangeCode(int customerId, String newEmail, String otp) {
         try {
@@ -376,15 +362,21 @@ public class RegisterDAO extends DBContext implements AutoCloseable {
     }
 
     // Forgot Password: Update new password by email
+    // Only allowed if the OTP was verified in the last 30 minutes, then clear the OTP
     public boolean resetPasswordByEmail(String email, String newPasswordHashed) {
+        String condition = " WHERE email = ? AND username IS NOT NULL AND otp_purpose = 'PasswordReset' "
+                + "AND otp_consumed_at IS NOT NULL AND otp_consumed_at > DATEADD(minute,-30,GETDATE())";
+        String customerSql = "UPDATE Customer SET password = ?, otp_email = NULL, " + CLEAR_OTP + condition;
+        String staffSql = "UPDATE Staff SET password = ?, " + CLEAR_OTP + condition;
         try {
-            return workflow.transaction(() -> {
-                int count = workflow.update("UPDATE Staff SET password = ? WHERE email = ? AND username IS NOT NULL",
-                        newPasswordHashed, email);
-                count = count + workflow.update("UPDATE Customer SET password = ? WHERE email = ? AND username IS NOT NULL",
-                        newPasswordHashed, email);
-                return count == 1;
-            });
+            // Check Customer table first
+            int rows = workflow.update(customerSql, newPasswordHashed, email);
+            if (rows == 1) {
+                return true;
+            }
+            // Not found in Customer, check Staff table
+            rows = workflow.update(staffSql, newPasswordHashed, email);
+            return rows == 1;
         } catch (SQLException e) {
             throw new DataAccessException(e);
         }
